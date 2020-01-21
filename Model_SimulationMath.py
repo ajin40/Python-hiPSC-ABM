@@ -4,7 +4,7 @@ import numpy as np
 
 def RandomPointOnSphere(dim):
     """ Computes a random point on a sphere
-        Returns - a point on a unit sphere [x,y,z] at the origin
+        Returns - a point on a unit sphere [x,y] at the origin
     """
 
 

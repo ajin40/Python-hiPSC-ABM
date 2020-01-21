@@ -7,67 +7,64 @@ import matplotlib.path as mpltPath
 import Model_Simulation as sim
 
 
-class SimulationObject(object):
-    """ Base class from which all simulation objects must inherit
+class StemCell(object):
+    """ A stem cell class
     """
-
-    def __init__(self, location, radius, ID ,owner_ID, sim_type):
-        """ Base class which defines properties all sim objects MUST have
-            location - the location of the sphere
-            radius - the radius of the sphere
-            ID - the ID of the object #WARNING# This ID is used ot hash objects
-                  it MUST BE UNIQUE
-            owner_ID - usually the same as the ID, also must be unique between
-                       agents, unless all agents are part of a larger group
-                       i.e. this is the mechanism for multi-agent agents
-            sim_type - the type of object the simulation object is
+    def __init__(self, location, radius, ID, booleans, state, diff_timer, division_timer, owner_ID = None):
+        """ Constructor for a stem cell
+            location - the location fo the stem cell
+            radius - the size of the stem cell
+            ID - the unique ID for the agent
+            state - the state of the stem cell
+            division_set - the initial division set for the cell
+            division_time - the time it takes the cell to divide
+            owner_ID - the ID associated with the owner of this agent
         """
-        self.division_timer = 0
+
+        #define some variables
+
+        if owner_ID == None:
+            owner_ID = ID
+
+
+        self.diff_timer = diff_timer
+        self.division_timer = division_timer
+        self.compress=0
+        self.cmpr_direct=[0,0,0]
+        self.funct_1 = booleans[0]
+        self.funct_2 = booleans[1]
+        self.funct_3 = booleans[2]
+        self.funct_4 = booleans[3]
+        self.funct_5 = booleans[4]
+        self.state = state
+        self.bounds = [[0,0], [0,1000], [1000,1000], [1000,0]]
+
         self.location = location
         self.radius = radius
-        self.sim_type = sim_type
         self.ID = ID
         self.owner_ID = owner_ID
-        self.bounds= [[0,0], [0,1000], [1000,1000], [1000,0]]
-        if len(self.bounds)>0:
+
+        if len(self.bounds) > 0:
             self.boundary = mpltPath.Path(self.bounds)
         else:
             self.boundary = []
 
 
-        #keep track of the opt and col vecs
-        if len(self.location)==3:
-            self._disp_vec = [0,0,0]
-            self._fixed_constraint_vec = [0,0,0]
-            self._v = [0,0,0]
-        else:
-            self._disp_vec = [0,0]
-            self._fixed_constraint_vec = [0,0]
-            self._v = [0,0]
-
-        #keep track of production consumptions values
-        self.gradient_source_sink_coeff = dict()
-        #keep track of the relative indices in the gradient array
-        self.gradient_position = dict()
-        #keep track of the value of the gradient associated with these agents
-        self.gradient_value = dict()
+        self._disp_vec = [0, 0]
+        self._fixed_constraint_vec = [0, 0]
+        self._v = [0, 0]
 
 
-    def update(self, sim, dt):
-        """ Updates the simulation object
-        """
-        pass
 
-    def setC(self,C,ind):
-        self.C[ind]=C
+
+
 
     def get_max_interaction_length(self):
         """ Get the max interaction length of the object
         """
         return self.radius*2.0 #in um
 
-    def get_interaction_length(self):
-        return self.radius #in um
+
 
     def get_spring_constant(self, other):
         """ Gets the spring constant of the object
@@ -75,7 +72,7 @@ class SimulationObject(object):
             NOTE: Meant to be overwritten by a base class if more
                   functionality is required
         """
-        return 0.77
+        return 0.50
 
 
 
@@ -133,69 +130,9 @@ class SimulationObject(object):
             self.location=location
 
         self._fixed_constraint_vec = [0,0]
-
-
-    def __repr__(self):
-        """ Returns a string representation of the object
-        """
-        return self.sim_type+": "+repr(self.ID)+" "+repr(self.location)
-
-    def __eq__(self, other):
-        """ Handles the equal operator for the object
-        """
-        if isinstance(other, SimulationObject):
-            return self.ID == other.ID
-        #otherwise
-        return False
-
-    def __hash__(self):
-        """ Handles the hashing operator for the object
-        """
-        return hash(self.ID)
-
-
-
-
-class StemCell(SimulationObject):
-    """ A stem cell class
-    """
-    def __init__(self, location, radius, ID,src_snk, x1,x2,x3,x4,x5, state, diff_timer, division_timer, division_time, owner_ID = None):
-        """ Constructor for a stem cell
-            location - the location fo the stem cell
-            radius - the size of the stem cell
-            ID - the unique ID for the agent
-            state - the state of the stem cell
-            division_set - the initial division set for the cell
-            division_time - the time it takes the cell to divide
-            owner_ID - the ID associated with the owner of this agent
-        """
-
-        #define some variables
-        if owner_ID == None:
-            owner_ID = ID
-
-        self.src_snk=src_snk
-        self.diff_timer = diff_timer
-        self.division_timer = division_timer
-        self.division_time = division_time
-        self.compress=0
-        self.cmpr_direct=[0,0,0]
-        self.funct_1 = x1
-        self.funct_2 = x2
-        self.funct_3 = x3
-        self.funct_4 = x4
-        self.funct_5 = x5
-        self.state = state
-        self.bounds = [[0,0], [0,1000], [1000,1000], [1000,0]]
-
-        #call the parent constructor
-        super(StemCell, self).__init__(location,radius,ID,owner_ID,"stemcell")
         
 
 
-        
-    def __hash__(self):
-        return hash(self.ID)
 
     def get_interaction_length(self):
         """ Gets the interaction length for the cell. Overrides parent
@@ -261,13 +198,13 @@ class StemCell(SimulationObject):
         else:
             location = RandomPointOnSphere(n) * radius / 2.0 + self.location
 
-
+        self.division_timer *= 0.5
         # get the ID
         ID = sim.get_ID()
-        sc = StemCell(location, radius, ID, self.src_snk, self.funct_1, self.funct_2, self.funct_3, self.funct_4, self.funct_5, self.state, self.diff_timer, self.division_timer,self.division_time)
+        sc = StemCell(location, radius, ID, [self.funct_1, self.funct_2, self.funct_3, self.funct_4, self.funct_5], self.state, self.diff_timer, self.division_timer)
         sim.add_object_to_addition_queue(sc)
-        # reset the division time
-        self.division_timer *= 0.5
+
+
 
     def differentiate(self):
         self.state = "Differentiated"
@@ -282,7 +219,13 @@ class StemCell(SimulationObject):
             or divide
         """
 
-        if self.division_timer >= self.division_time and self.state == "Differentiated":
+        if self.division_timer >= sim.diff_div_thresh and self.state == "Differentiated":
+            if self.compress < 2.0:
+                self.divide(sim)
+        else:
+            self.division_timer += 1
+
+        if self.division_timer >= sim.pluri_div_thresh and self.state == "Pluripotent":
             if self.compress < 2.0:
                 self.divide(sim)
         else:
@@ -293,6 +236,7 @@ class StemCell(SimulationObject):
 
         if sim.grid[np.array([0]), np.array([array_location_x]), np.array([array_location_y])] < 5 and self.funct_5 == 1:
             sim.grid[np.array([0]), np.array([array_location_x]), np.array([array_location_y])] += 1
+
 
 
         tempFGFR = self.funct_2
@@ -310,7 +254,7 @@ class StemCell(SimulationObject):
 
         if self.funct_4 == 1 and self.state == "Pluripotent":
             self.diff_timer += 1
-            if self.diff_timer >= sim.diff_threshold:
+            if self.diff_timer >= sim.pluri_to_diff:
                 self.differentiate()
 
 
