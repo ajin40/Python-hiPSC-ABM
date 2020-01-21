@@ -3,7 +3,7 @@ import platform
 import networkx as nx
 import numpy as np
 from Model_SimulationMath import *
-from Model_SimulationObjects import *
+from Model_SimulationObject import *
 from scipy.spatial import *
 from PIL import Image,ImageDraw
 import matplotlib.pyplot as plt
@@ -13,175 +13,9 @@ import cv2
 import glob
 import random as r
 
-
-#create the time series class
-class TimeSeries(object):
-    """ A TimeSeries class meant to hold all of the information about
-        a given simulation data set
-    """
-
-    def __init__(self, path):
-        """ Initialization function for the time series setup
-            path - the directory holding the simulation information
-            ERRORS - TypeError if path is not a string
-        """
-        #set some base params
-        self._networks = dict()
-        self._gradients = dict()
-        self._interC = dict()
-        
-        #check types
-        if type(path) is not str:
-            raise TypeError("The path argument must be of type string")
-        self.path = path
-        #make sure path exsists
-        if not(os.path.exists(path)):
-            raise IOError("""The path specified either does not exist, or you
-                            don not have the privledges to access it.""")
-
-        #keep track of the file sepeartor to use
-        if platform.system() == "Windows":
-            #windows
-            self.__sep = "\\"
-        else:
-            #linux/unix
-            self.__sep = "/"
-        #load the actual file
-        self._load()
-
-    def _load(self):
-        """ Takes care of loading the simulation header file
-        """
-        #try to load
-        try:
-            f = open(self.path + self.__sep + "info.sim", "r")
-        except IOError:
-            raise IOError("""Simulation header file not found""")
-        #ok now the file has been loaded
-        #get the sim name
-        line = f.readline()
-        data = line.split(":")
-        self.name = data[1]
-        #get the base path
-        line = f.readline()
-        data = line.split(":")
-        base_path = data[1]
-
-        #get the simulation separator
-        line = f.readline()
-        data = line.split(":")
-        data = data[1].strip("\n")
-        if data == "Windows":
-            self._sep = "\\"
-        else:
-            self._sep = "/"
-        #get the time range
-        line = f.readline()
-        data = line.split(":")
-        data = data[1].split(",")
-        start_time = float(data[0])
-        end_time = float(data[1])
-        time_step = float(data[2])
-        #get the gradient names
-        line = f.readline()
-        data = line.split(":")
-        data = data[1].strip("\n")
-        data = data.split(",")
-        if data[0] == "" or data[0] == " ":
-            self._grad_names = []
-        else:
-            self._grad_names = data
-        line = f.readline()
-        data = line.split(":")
-        data = data[1].strip("\n")
-        data = data.split(",")
-        if data[0] == "" or data[0] == " ":
-            self._intC_names = []
-        else:
-            self._intC_names = data
-        #now for all the ranges in time loop over the list
-        num_times = int((end_time - start_time) / time_step) + 1 #inclusive
-        for i in range(0, num_times):
-            #read the line
-            line = f.readline()
-            if line != "":
-                #get the time
-                data = line.split(",")
-                time_date = float(data[0])
-                #get the network path
-                n_path = data[1]
-                #make sure no new line characters on this'
-                n_path = n_path.strip("\n")
-                #rebuild the path
-                paths = n_path.split(self._sep)
-                #just take the last part
-                path = paths[-1]
-                #then add it to the path
-                n_path = self.path + self.__sep + path
-                #associate it with the time
-                self._networks[time_date] = n_path
-                #get all the gradient paths
-                grad_paths = dict()
-                intC_paths=dict()
-                n1=len(self._grad_names)
-                n2=len(self._intC_names)
-                for j in range(0, n1):
-                    #add this path to the grad path list
-                    g_path = data[j+2].strip("\n")
-                    #rebuild the path
-                    paths = g_path.split(self._sep)
-                    #just take the last part
-                    path = paths[-1]
-                    #then add it to the path
-                    g_path = self.path + self.__sep + path
-                    grad_paths[self._grad_names[j]] = g_path
-                for j in range(0, n2):
-                    #add this path to the grad path list
-                    g_path = data[j+n1+2].strip("\n")
-                    #rebuild the path
-                    paths = g_path.split(self._sep)
-                    #just take the last part
-                    path = paths[-1]
-                    #then add it to the path
-                    g_path = self.path + self.__sep + path
-                    intC_paths[self._grad_names[j]] = g_path
-                self._gradients[time_date] = grad_paths
-                self._interC[time_date]=intC_paths
-        #once this is done close this file
-        f.close()
-
-    def __eq__(self, other):
-        """ Handles the equal operator for the object
-        """
-        if isinstance(other, TimeSeries):
-            return self.name == other.name
-        #otherwise
-        return False
-
-    def __hash__(self):
-        """ Handles the hashing operator for the object
-        """
-        return hash(self.name)
-        
-
-
-
-
-
-
-#######################################################################################################################
-
-
-
-
-
-
-
-
-
 class Simulation(object):
 
-    def __init__(self, name, path, start_time, end_time, time_step, pluri_threshold, diff_threshold, source_sink_params, size, functions):
+    def __init__(self, name, path, start_time, end_time, time_step, pluri_div_thresh, diff_div_thresh,pluri_to_diff, size, functions):
         """ Initialization function for the simulation setup.
             name - the simulation name (string)
             path - the path to save the simulation information to (string)
@@ -205,13 +39,11 @@ class Simulation(object):
             self.path = str(path)                              # turning path into string
         #now convert all fo these to float
 
-        self.state_dict={"A":0,"B":1,"C":2,0:"A",1:"B",2:"C"}   # cell type dictionary
         self.start_time = float(start_time)                     # turn into a float
         self.end_time = float(end_time)                         # turn into a float
         self.time_step = float(time_step)                       # turn into a float
         self.time = float(start_time)                           # turn into a float
 
-        self.source_sink_params=source_sink_params              # sets attribute equal to value
         self.functions = functions
 
 
@@ -219,8 +51,10 @@ class Simulation(object):
 
         self.size = size
         self.grid = np.zeros(self.size)
-        self.pluri_threshold = pluri_threshold
-        self.diff_threshold = diff_threshold
+
+        self.pluri_div_thresh = pluri_div_thresh
+        self.diff_div_thresh = diff_div_thresh
+        self.pluri_to_diff = pluri_to_diff
 
         
 
@@ -262,10 +96,10 @@ class Simulation(object):
     def add_object(self, sim_object):
         """ Adds the specified object to the list
         """
-        if isinstance(sim_object, SimulationObject):
-            self.objects.append(sim_object)
-            #also add it to the network
-            self.network.add_node(sim_object)
+
+        self.objects.append(sim_object)
+        #also add it to the network
+        self.network.add_node(sim_object)
 
 
     def inc_current_ID(self):
@@ -375,12 +209,12 @@ class Simulation(object):
 
         # path = "C:\\Python27\\Bool Model\\2.0\\*png"
         img_array = []
-        for i in range(len(os.listdir(base_path)) // 3):
+        for i in range(int(self.end_time)+2):
             img = cv2.imread(base_path + 'network_image' + str(int(i)) + ".png")
 
             img_array.append(img)
 
-        out = cv2.VideoWriter(base_path + 'network_video.mp4', cv2.VideoWriter_fourcc(*"DIVX"), 1, (1500, 1500))
+        out = cv2.VideoWriter(base_path + 'network_video.mp4', cv2.VideoWriter_fourcc(*"DIVX"), 0.5, (1500, 1500))
 
         for i in range(len(img_array)):
             out.write(img_array[i])
@@ -412,6 +246,10 @@ class Simulation(object):
         """ Updates all of the objects in the simulation
         """
 
+
+        for i in range(self.size[1]):
+            for j in range(self.size[2]):
+                self.grid[np.array([0]),np.array([i]),np.array([j])] += -1
         
 
         split = 1
@@ -456,8 +294,6 @@ class Simulation(object):
             for a in range(0, len(ns)):
                 for b in range(a+1, len(ns)):
                     #these are the IDs
-                    ns[a]
-                    ns[b]
                     self.network.add_edge(self.objects[ns[a]],self.objects[ns[b]])
         #now loop over all of these cells and cull the interaction lists
         edges = list(self.network.edges())
@@ -549,9 +385,7 @@ class Simulation(object):
                 self.objects[i].update_constraints(self.time_step)
             #increment the itrations
             itrs += 1
-            #print the results
-##            print(itrs)
-##            print(opt, col, fixed)
+
 
 
 
@@ -577,26 +411,26 @@ class Simulation(object):
                 norm=NormVec(v12)
                 r_sum=obj1.radius+obj2.radius
 #               comp_diff=abs(obj1.compress-obj2.compress)
-                if r_sum >= dist:
-                    d1=Distance(v1,cent)
-                    d2=Distance(v2,cent)
-                    c1 = obj1.cmpr_direct
-                    c2 = obj2.cmpr_direct
-                    d3=(d1+d2)/2.0 - rad_avg
-                    mod=0.5*d3/(abs(d3)+(rad_avg/2.0))
-                    d = -norm*((r_sum-dist)*0.35*(1-mod))
-                    d_= -norm*((r_sum-dist)*0.45*(1+mod))
-                    obj2.add_fixed_constraint_vec(-d)
-                    obj1.add_fixed_constraint_vec(d)
-                    if d1>d2:
-                        obj2.add_fixed_constraint_vec(d_)
-                        obj2.add_fixed_constraint_vec(-0.4*c2)
-                        obj1.add_fixed_constraint_vec(-0.4*c1)
-                    else:
-                        obj1.add_fixed_constraint_vec(-d_)
-                        obj2.add_fixed_constraint_vec(-0.4*c2)
-                        obj1.add_fixed_constraint_vec(-0.4*c1)
-                    col+=Mag(d)*2
+#                 if r_sum >= dist:
+                # #                     d1=Distance(v1,cent)
+                # #                     d2=Distance(v2,cent)
+                # #                     c1 = obj1.cmpr_direct
+                # #                     c2 = obj2.cmpr_direct
+                # #                     d3=(d1+d2)/2.0 - rad_avg
+                # #                     mod=0.5*d3/(abs(d3)+(rad_avg/2.0))
+                # #                     d = -norm*((r_sum-dist)*0.35*(1-mod))
+                # #                     d_= -norm*((r_sum-dist)*0.45*(1+mod))
+                # #                     obj2.add_fixed_constraint_vec(-d)
+                # #                     obj1.add_fixed_constraint_vec(d)
+                # #                     if d1>d2:
+                # #                         obj2.add_fixed_constraint_vec(d_)
+                # #                         obj2.add_fixed_constraint_vec(-0.4*c2)
+                # #                         obj1.add_fixed_constraint_vec(-0.4*c1)
+                # #                     else:
+                # #                         obj1.add_fixed_constraint_vec(-d_)
+                # #                         obj2.add_fixed_constraint_vec(-0.4*c2)
+                # #                         obj1.add_fixed_constraint_vec(-0.4*c1)
+                # #                     col+=Mag(d)*2
  
         #return the average opt and col values
                 l1 = obj1.get_interaction_length()
