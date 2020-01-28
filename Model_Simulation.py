@@ -15,7 +15,7 @@ import random as r
 
 class Simulation(object):
 
-    def __init__(self, name, path, start_time, end_time, time_step, pluri_div_thresh, diff_div_thresh,pluri_to_diff, size, functions):
+    def __init__(self, name, path, start_time, end_time, time_step, pluri_div_thresh, diff_div_thresh,pluri_to_diff, size, interaction_max, diff_surround_value, functions):
         """ Initialization function for the simulation setup.
             name - the simulation name (string)
             path - the path to save the simulation information to (string)
@@ -29,32 +29,28 @@ class Simulation(object):
 
         #set the base parameters
         #do some basic type checking
-        if type(name) is str:                                  # checking if name of run is a string
+        if type(name) is str:
             self.name = name
         else:
-            self.name = str(name)                              # turning it into a string
-        if type(path) is str:                                  # checking if path is a string
+            self.name = str(name)
+        if type(path) is str:
             self.path = path
         else:
-            self.path = str(path)                              # turning path into string
-        #now convert all fo these to float
+            self.path = str(path)
 
-        self.start_time = float(start_time)                     # turn into a float
-        self.end_time = float(end_time)                         # turn into a float
-        self.time_step = float(time_step)                       # turn into a float
-        self.time = float(start_time)                           # turn into a float
 
+        self.start_time = float(start_time)
+        self.end_time = float(end_time)
+        self.time_step = float(time_step)
+        self.time = float(start_time)
         self.functions = functions
-
-
-
-
         self.size = size
         self.grid = np.zeros(self.size)
-
         self.pluri_div_thresh = pluri_div_thresh
         self.diff_div_thresh = diff_div_thresh
         self.pluri_to_diff = pluri_to_diff
+        self.interaction_max = interaction_max
+        self.diff_surround_value = diff_surround_value
 
         
 
@@ -170,11 +166,12 @@ class Simulation(object):
         for i in range(self.size[1]):
             for j in range(self.size[2]):
 
-                self.grid[np.array([0]),np.array([i]),np.array([j])] = r.randint(0,1)
+                self.grid[np.array([0]),np.array([i]),np.array([j])] = r.randint(0,10)
 
 
         #save the initial state configuration
         self.save_file()
+        self.collide_lowDens()
         #now run the loop
         while self.time <= self.end_time:
             print("Time: " + str(self.time))
@@ -182,24 +179,43 @@ class Simulation(object):
 
             #Update the objects and gradients
             self.update()
+            self.diff_surround()
             #remove/add any objects
             self.update_object_queue()
-            #perform physcis
-            try:
-                self.collide()
-            except:
-                print "manual collide"
-                self.collide_lowDens()
+            #perform physics
+            # try:
+            #     self.collide()
+            # except:
+            #     print "manual collide"
+            #     self.collide_lowDens()
+
+            self.collide_lowDens_run()
                 #now optimize the resultant constraints
+
+            self.random_movement()
+
+
             self.calculate_compression()
             self.optimize()
-##            self.cell_radii()
+
 
             #increment the time
             self.time += self.time_step
             #save 
             self.save_file()
         self.image_to_video()
+
+    def random_movement(self):
+        print("running")
+        for i in range(len(self.objects)):
+            if self.objects[i].state == "Pluripotent":
+                temp_x = self.objects[i].location[0] + r.uniform(-1,1) * 30
+                temp_y = self.objects[i].location[1] + r.uniform(-1,1) * 30
+                if temp_x <= 1000 and temp_x >= 0 and temp_y <= 1000 and temp_y >= 0:
+                    self.objects[i].location[0] = temp_x
+                    self.objects[i].location[1] = temp_y
+
+
 
 
     def image_to_video(self):
@@ -241,6 +257,11 @@ class Simulation(object):
         for i in range(len(objects)):
             objects[i].compress_force(self)
 
+    def diff_surround(self):
+        objects=self.objects
+        for i in range(len(objects)):
+            objects[i].diff_surround_funct(self)
+
             
     def update(self):
         """ Updates all of the objects in the simulation
@@ -259,112 +280,122 @@ class Simulation(object):
                 self.objects[i].update(self, dt)
                 
                 
-    def collide(self):
-        """ Handles the collision map generation 
-        """
-        #first make a list of points for the delaunay to use
-        k=0
-        for i in range(0,len(self.objects)):
-            k+=self.objects[i].location[2]
-        if k==0:
-            n=2
-        else:
-            n=3
-        points = np.zeros((len(self.objects), n))
-        
-        for i in range(0, len(self.objects)):
-            #Now we can add these points to the list
-            if n==2:
-                points[i] = [self.objects[i].location[0], self.objects[i].location[1]]
-            else:
-                points[i]=self.objects[i].location
-        #now perform the nearest neghbor assessment by building a delauny triangulation
-        
-        tri = Delaunay(points)
-        #keep track of this as a network
-        self.network = nx.Graph()
-        #add all the simobjects
-        self.network.add_nodes_from(self.objects)
-        #get the data
-        nbs = tri.nx.vertices
-        #iterate over all the nbs to cull the data for entry into the list
-        for i in range(0, len(nbs)):
-            #loop over all of the combination in this list
-            ns = nbs[i]
-            for a in range(0, len(ns)):
-                for b in range(a+1, len(ns)):
-                    #these are the IDs
-                    self.network.add_edge(self.objects[ns[a]],self.objects[ns[b]])
-        #now loop over all of these cells and cull the interaction lists
-        edges = list(self.network.edges())
-        #keep track of interactions checked
-        
-        for i in range(0, len(edges)):
-            #get the edge in question
-            edge = edges[i]
-            #first find the distance of the edge
-            obj1 = edge[0]
-            obj2 = edge[1]
-            #figure out if the interaction is ok 
-            #gte the minimum interaction length
-            l1 = obj1.get_max_interaction_length()
-            l2 = obj2.get_max_interaction_length()
-            #add these together to get the connection length
-            interaction_length = l1 + l2
-            #get the distance
-            dist_vec = SubtractVec(obj2.location, obj1.location)
-            #get the magnitude
-            dist = Mag(dist_vec)
-            #if it does not meet the criterion, remove it from the list
-            if dist > interaction_length:
-                self.network.remove_edge(obj1, obj2)
+    # def collide(self):
+    #     """ Handles the collision map generation
+    #     """
+    #     #first make a list of points for the delaunay to use
+    #     k=0
+    #     for i in range(0,len(self.objects)):
+    #         k+=self.objects[i].location[2]
+    #     if k==0:
+    #         n=2
+    #     else:
+    #         n=3
+    #     points = np.zeros((len(self.objects), n))
+    #
+    #     for i in range(0, len(self.objects)):
+    #         #Now we can add these points to the list
+    #         if n==2:
+    #             points[i] = [self.objects[i].location[0], self.objects[i].location[1]]
+    #         else:
+    #             points[i]=self.objects[i].location
+    #     #now perform the nearest neighbor assessment by building a delauny triangulation
+    #
+    #     tri = Delaunay(points)
+    #     #keep track of this as a network
+    #     self.network = nx.Graph()
+    #     #add all the simobjects
+    #     self.network.add_nodes_from(self.objects)
+    #     #get the data
+    #     nbs = tri.nx.vertices
+    #     #iterate over all the nbs to cull the data for entry into the list
+    #     for i in range(0, len(nbs)):
+    #         #loop over all of the combination in this list
+    #         ns = nbs[i]
+    #         for a in range(0, len(ns)):
+    #             for b in range(a+1, len(ns)):
+    #
+    #                 self.network.add_edge(self.objects[ns[a]], self.objects[ns[b]])
+    #
+    #
+    #
+    #     #now loop over all of these cells and cull the interaction lists
+    #     edges = list(self.network.edges())
+    #     #keep track of interactions checked
+    #
+    #     for i in range(0, len(edges)):
+    #         #get the edge in question
+    #         edge = edges[i]
+    #         #first find the distance of the edge
+    #         obj1 = edge[0]
+    #         obj2 = edge[1]
+    #         #figure out if the interaction is ok
+    #         #gte the minimum interaction length
+    #         l1 = obj1.get_max_interaction_length()
+    #         l2 = obj2.get_max_interaction_length()
+    #         #add these together to get the connection length
+    #         interaction_length = l1 + l2
+    #         #get the distance
+    #         dist_vec = SubtractVec(obj2.location, obj1.location)
+    #         #get the magnitude
+    #         dist = Mag(dist_vec)
+    #         #if it does not meet the criterion, remove it from the list
+    #         if dist > interaction_length:
+    #             self.network.remove_edge(obj1, obj2)
 
 
     def collide_lowDens(self):
         """ If there are too few cells, or the first iteration of the model. 
         """
-        
-        points = np.zeros((len(self.objects), 2))
-        # index_to_object = dict()
-        for i in range(0, len(self.objects)):
-                points[i]=self.objects[i].location
-        
+
         #keep track of this as a network
-        self.network = nx.Graph()
+        # self.network = nx.Graph()
         #add all the simobjects
         self.network.add_nodes_from(self.objects)
+
         #Create connection between all cells 
         for i in range(0,len(self.objects)):
             for j in range(i+1,len(self.objects)):
-                self.network.add_edge(self.objects[i],
-                                      self.objects[j])
+                l1 = self.interaction_max
+                l2 = self.interaction_max
+                # add these together to get the connection length
+                interaction_length = l1 + l2
+                # get the distance
+                dist_vec = SubtractVec(self.objects[i].location, self.objects[j].location)
+                # get the magnitude
+                dist = Mag(dist_vec)
+                if dist <= interaction_length:
+                    self.network.add_edge(self.objects[i], self.objects[j])
 
-        edges = list(self.network.edges())
-        #keep track of interactions checked
-        
-        for i in range(0, len(edges)):
-            #get the edge in question
-            edge = edges[i]
-            #first find the distance of the edge
-            obj1 = edge[0]
-            obj2 = edge[1]
-            #figure out if the interaction is ok 
-            #gte the minimum interaction length
-            l1 = obj1.get_max_interaction_length()
-            l2 = obj2.get_max_interaction_length()
-            #add these together to get the connection length
-            interaction_length = l1 + l2
-            #get the distance
-            dist_vec = SubtractVec(obj2.location, obj1.location)
-            #get the magnitude
-            dist = Mag(dist_vec)
-            
-            #if it does not meet the criterion, remove it from the list
-            if dist > interaction_length:
-                self.network.remove_edge(obj1, obj2)
-                
+    def collide_lowDens_run(self):
+        """ If there are too few cells, or the first iteration of the model.
+        """
 
-    def optimize(self):                
+        # keep track of this as a network
+        # self.network = nx.Graph()
+        # add all the simobjects
+        self.network.add_nodes_from(self.objects)
+
+        # Create connection between all cells
+        for i in range(0, len(self.objects)):
+            for j in range(i + 1, len(self.objects)):
+                l1 = self.interaction_max
+                l2 = self.interaction_max
+                # add these together to get the connection length
+                interaction_length = l1 + l2
+                # get the distance
+                dist_vec = SubtractVec(self.objects[i].location, self.objects[j].location)
+                # get the magnitude
+                dist = Mag(dist_vec)
+                if dist > interaction_length:
+                    try:
+                        self.network.remove_edge(self.objects[i], self.objects[j])
+                    except:
+                        pass
+                if dist <= interaction_length:
+                    self.network.add_edge(self.objects[i], self.objects[j])
+
+    def optimize(self):
         #apply constraints from each object and update the positions
         #keep track of the global col and opt vectors
         opt = 2
@@ -403,7 +434,7 @@ class Simulation(object):
             edge=edges[i]
             obj1=edge[0]
             obj2=edge[1]
-            if obj1.owner_ID != obj2.owner_ID:
+            if obj1.ID != obj2.ID:
                 v1=obj1.location
                 v2=obj2.location
                 v12=SubtractVec(v2,v1)
@@ -470,7 +501,7 @@ class Simulation(object):
             obj1 = edge[0]
             obj2 = edge[1]
             dist_vec = SubtractVec(obj2.location, obj1.location)
-            if obj1.z==0 and obj2.z==0: 
+            if obj1.z==0 and obj2.z==0:
                 dist_vec[2]=0
             ########  remove vertical displacement
             dist_vec[2]=0
@@ -491,7 +522,7 @@ class Simulation(object):
         try:
             error = error / len(edges)
         except ZeroDivisionError:
-            error = 0 
+            error = 0
         return error
 
 
@@ -548,6 +579,13 @@ class Simulation(object):
             out = outline_dict[node.state]
             draw.ellipse((x - r + 200, y - r + 200, x + r + 200, y + r + 200), outline=out, fill=col)
 
+
+        # for i in range(1000):
+        #     for j in range(1000):
+        #         if self.grid[np.array([0]), np.array([i]), np.array([j])] > 0:
+        #             rad = 0.1
+        #             draw.ellipse((i - rad + 200, j - rad + 200, i + rad + 200, j + rad + 200), outline='green', fill = "green")
+
         for i in range(len(bounds)):
             x, y = bounds[i]
             if i < len(bounds) - 1:
@@ -557,7 +595,13 @@ class Simulation(object):
             r = 4
             draw.ellipse((x - r + 200, y - r + 200, x + r + 200, y + r + 200), outline='black', fill='black')
             draw.line((x + 200, y + 200, x1 + 200, y1 + 200), fill='black', width=10)
+
+
+
+
         image1.save(path + "network_image" + str(int(self.time)) + ".png", 'PNG')
+
+
 
 
     def location_to_text(self, path):
@@ -580,9 +624,11 @@ class Simulation(object):
             x2 = str(self.objects[i].funct_2) + ","
             x3 = str(self.objects[i].funct_3) + ","
             x4 = str(self.objects[i].funct_4) + ","
-            x5 = str(self.objects[i].funct_5)
+            x5 = str(self.objects[i].funct_5) + ","
+            diff = str(self.objects[i].diff_timer) + ","
+            div = str(self.objects[i].division_timer) + ","
             state = self.objects[i].state + ","
-            line = ID + x_coord + y_coord + state + x1 + x2 + x3 + x4 + x5
+            line = ID + x_coord + y_coord + state + x1 + x2 + x3 + x4 + x5 + diff + div
 
             new_file.write(line + "\n")
 

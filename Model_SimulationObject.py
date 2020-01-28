@@ -10,7 +10,7 @@ import Model_Simulation as sim
 class StemCell(object):
     """ A stem cell class
     """
-    def __init__(self, location, radius, ID, booleans, state, diff_timer, division_timer, owner_ID = None):
+    def __init__(self, location, radius, ID, booleans, state, diff_timer, division_timer):
         """ Constructor for a stem cell
             location - the location fo the stem cell
             radius - the size of the stem cell
@@ -21,16 +21,10 @@ class StemCell(object):
             owner_ID - the ID associated with the owner of this agent
         """
 
-        #define some variables
-
-        if owner_ID == None:
-            owner_ID = ID
-
-
         self.diff_timer = diff_timer
         self.division_timer = division_timer
-        self.compress=0
-        self.cmpr_direct=[0,0,0]
+        self.compress = 0
+        self.cmpr_direct = [0,0,0]
         self.funct_1 = booleans[0]
         self.funct_2 = booleans[1]
         self.funct_3 = booleans[2]
@@ -38,31 +32,22 @@ class StemCell(object):
         self.funct_5 = booleans[4]
         self.state = state
         self.bounds = [[0,0], [0,1000], [1000,1000], [1000,0]]
-
         self.location = location
         self.radius = radius
         self.ID = ID
-        self.owner_ID = owner_ID
 
         if len(self.bounds) > 0:
             self.boundary = mpltPath.Path(self.bounds)
         else:
             self.boundary = []
 
-
         self._disp_vec = [0, 0]
         self._fixed_constraint_vec = [0, 0]
-        self._v = [0, 0]
 
 
 
 
 
-
-    def get_max_interaction_length(self):
-        """ Get the max interaction length of the object
-        """
-        return self.radius*2.0 #in um
 
 
 
@@ -72,7 +57,7 @@ class StemCell(object):
             NOTE: Meant to be overwritten by a base class if more
                   functionality is required
         """
-        return 0.50
+        return 0.77
 
 
 
@@ -138,7 +123,8 @@ class StemCell(object):
         """ Gets the interaction length for the cell. Overrides parent
             Returns - the length of any interactions with this cell (float)
         """
-        return self.radius+1.0
+        # return self.radius + 1
+        return 12.0
 
 
 
@@ -161,6 +147,21 @@ class StemCell(object):
 
 
         return [new_1, new_2, new_3, new_4, new_5]
+
+    def diff_surround_funct(self, sim):
+        nbs = list(sim.network.neighbors(self))
+        rd1 = self.radius
+        counter = 0
+        for i in range(len(nbs)):
+            counter = 0
+            dist_vec = SubtractVec(nbs[i].location, self.location)
+
+            dist = Mag(dist_vec)
+            if dist <= sim.interaction_max:
+                counter += 1
+
+        if counter >= sim.diff_surround_value:
+            self.diff_timer += 1
 
 
     def compress_force(self, sim):
@@ -240,7 +241,6 @@ class StemCell(object):
 
 
         tempFGFR = self.funct_2
-
 
         bVals = self.boolean_function(sim)
         self.x1 = bVals[0]
