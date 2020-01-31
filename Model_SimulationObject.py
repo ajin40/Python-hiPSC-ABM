@@ -10,7 +10,7 @@ import Model_Simulation as sim
 class StemCell(object):
     """ A stem cell class
     """
-    def __init__(self, location, radius, ID, booleans, state, diff_timer, division_timer):
+    def __init__(self, location, radius, ID, booleans, state, diff_timer, division_timer, motion):
         """ Constructor for a stem cell
             location - the location fo the stem cell
             radius - the size of the stem cell
@@ -35,6 +35,7 @@ class StemCell(object):
         self.location = location
         self.radius = radius
         self.ID = ID
+        self.motion = motion
 
         if len(self.bounds) > 0:
             self.boundary = mpltPath.Path(self.bounds)
@@ -42,13 +43,6 @@ class StemCell(object):
             self.boundary = []
 
         self._disp_vec = [0, 0]
-        self._fixed_constraint_vec = [0, 0]
-
-
-
-
-
-
 
 
     def get_spring_constant(self, other):
@@ -60,25 +54,16 @@ class StemCell(object):
         return 0.77
 
 
-
     def add_displacement_vec(self, vec):
         """ Adds a vector to the optimization vector
         """
         self._disp_vec = AddVec(self._disp_vec, vec)
 
-    def add_fixed_constraint_vec(self, vec):
-        """ Adds a vector to the optimization vector
-        """
-        self._fixed_constraint_vec = AddVec(self._fixed_constraint_vec, vec)
-
-
-
 
     def update_constraints(self, dt):
         """ Updates all of the constraints on the object
         """
-        #first update the position by the col and opt vectors
-        #make sure neither of these vectors is greater than error
+
         mag = Mag(self._disp_vec)
         if mag > 5:
             n = NormVec(self._disp_vec)
@@ -96,37 +81,6 @@ class StemCell(object):
 
 
         self._disp_vec = [0,0]
-        #then update the the pos using the fixed vectors
-        mag = Mag(self._fixed_constraint_vec)
-        if mag > 5:
-            n = NormVec(self._fixed_constraint_vec)
-            self._fixed_contraint_vec = ScaleVec(n, 5.0)
-
-        location = AddVec(self.location, self._fixed_constraint_vec)
-        if len(self.bounds)>0:
-            if self.boundary.contains_point(location[0:2]):
-                self.location=location
-            else:
-                new_loc = SubtractVec(self.location, self._fixed_constraint_vec)
-                if self.boundary.contains_point(new_loc[0:2]):
-                    self.location=new_loc
-
-        else:
-            self.location=location
-
-        self._fixed_constraint_vec = [0,0]
-        
-
-
-
-    def get_interaction_length(self):
-        """ Gets the interaction length for the cell. Overrides parent
-            Returns - the length of any interactions with this cell (float)
-        """
-        # return self.radius + 1
-        return 12.0
-
-
 
 
     def boolean_function(self,sim):
@@ -145,7 +99,6 @@ class StemCell(object):
         new_5 = eval(funct_list[4]) % 2
 
 
-
         return [new_1, new_2, new_3, new_4, new_5]
 
     def diff_surround_funct(self, sim):
@@ -157,7 +110,7 @@ class StemCell(object):
             dist_vec = SubtractVec(nbs[i].location, self.location)
 
             dist = Mag(dist_vec)
-            if dist <= sim.interaction_max:
+            if dist <= sim.spring_max:
                 counter += 1
 
         if counter >= sim.diff_surround_value:
@@ -193,35 +146,52 @@ class StemCell(object):
         if len(self.bounds) > 0:
             count = 0
             while count == 0:
-                location = RandomPointOnSphere(n) * radius / 2.0 + self.location
+                location = RandomPointOnSphere(n) * radius*2.0 + self.location
                 if self.boundary.contains_point(location[0:2]):
                     count = 1
         else:
-            location = RandomPointOnSphere(n) * radius / 2.0 + self.location
+            location = RandomPointOnSphere(n) * radius*2.0 + self.location
 
         self.division_timer *= 0.5
         # get the ID
         ID = sim.get_ID()
-        sc = StemCell(location, radius, ID, [self.funct_1, self.funct_2, self.funct_3, self.funct_4, self.funct_5], self.state, self.diff_timer, self.division_timer)
+        sc = StemCell(location, radius, ID, [self.funct_1, self.funct_2, self.funct_3, self.funct_4, self.funct_5], self.state, self.diff_timer, self.division_timer, self.motion)
         sim.add_object_to_addition_queue(sc)
-
 
 
     def differentiate(self):
         self.state = "Differentiated"
         self.x4 = 1
         self.x5 = 0
-
-
-
+        self.motion = True
 
     def update(self, sim, dt):
         """ Updates the stem cell to decide whether they differentiate
             or divide
         """
 
+        if self.state == "Differentiated":
+            nbs = list(sim.network.neighbors(self))
+            differentiated_nbs = 0
+            for i in range(len(nbs)):
+                if nbs[i].state == "Differentiated":
+                    differentiated_nbs += 1
+
+            if differentiated_nbs >= 1:
+                self.motion = False
+
+        if self.funct_5 == 1 and self.funct_4 == 0 and self.state == "Pluripotent":
+            nbs = list(sim.network.neighbors(self))
+            pluripotent_nbs = 0
+            for i in range(len(nbs)):
+                if nbs[i].state == 1 and nbs[i].state == 0 and nbs[i].state == "Pluripotent":
+                    pluripotent_nbs += 1
+
+            if pluripotent_nbs >= 1:
+                self.motion = False
+
         if self.division_timer >= sim.diff_div_thresh and self.state == "Differentiated":
-            if self.compress < 2.0:
+            if self.compress < 2.0 and not self.motion:
                 self.divide(sim)
         else:
             self.division_timer += 1
@@ -237,8 +207,6 @@ class StemCell(object):
 
         if sim.grid[np.array([0]), np.array([array_location_x]), np.array([array_location_y])] < 5 and self.funct_5 == 1:
             sim.grid[np.array([0]), np.array([array_location_x]), np.array([array_location_y])] += 1
-
-
 
         tempFGFR = self.funct_2
 
@@ -256,9 +224,3 @@ class StemCell(object):
             self.diff_timer += 1
             if self.diff_timer >= sim.pluri_to_diff:
                 self.differentiate()
-
-
-
-        
-
-

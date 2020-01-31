@@ -10,13 +10,22 @@ def main():
     path = "C:\\Python27\\MEGA-ARRAY"
 
     # total time step counter limit to less than 30
-    Run_Time = 10.0
+    Run_Time = 20.0
     
     # when does the model begin (usually 1)
     Start_Time = 1
     
     # change in time between time steps
     Time_Step = 1
+
+    # number of initial GATA6 high cells
+    GATA6_high = 500
+
+    # number of initial NANOG high cells
+    NANOG_high = 500
+
+    # stochastic FGFR + ERK values?
+    stochastic_bool = True
 
     # size of grid can be 3D with extra layers (layers, rows, columns)
     size = (1, 1000, 1000)
@@ -32,75 +41,71 @@ def main():
     functions = [funct_1, funct_2, funct_3, funct_4, funct_5]
 
     # radius of each cell depending on state ex. ([state_1, state_2])
-    radius = np.asarray([8.0])
+    radius = 6.0
 
     # length of time steps required for a pluripotent cell to divide
-    pluri_div_thresh = 18.0
+    pluri_div_thresh = 36.0
 
     # length of time steps required for a differentiated cell to divide
-    diff_div_thresh = 18.0
+    diff_div_thresh = 12.0
 
     # length of time steps required for a pluripotent cell to differentiate
     pluri_to_diff = 4.0
 
-    # max interaction length between two cells (larger length...longer run time)
-    interaction_max = 12
+    # length at which a edge is formed to create springs between cells
+    spring_max = 13.0
 
     # amount of differentiated cells needed to surround a pluripotent cell and differentiate it
-    diff_surround = 10
-
-
+    diff_surround = 6
 
 
 #######################################################################################################################
+
 
     # names the file
     Model_ID = newDirect(path)
 
     # initializes simulation class which holds all information about the simulation
-    sim = Simulation(Model_ID, path, Start_Time, Run_Time, Time_Step, pluri_div_thresh, diff_div_thresh, pluri_to_diff, size, interaction_max,diff_surround, functions)
+    sim = Simulation(Model_ID, path, Start_Time, Run_Time, Time_Step, pluri_div_thresh, diff_div_thresh, pluri_to_diff,
+                     size, spring_max, diff_surround, functions)
 
-    # counts the number of cells in "cell_coords"
-    f = open(os.getcwd() + "/cell_coords.txt")
-    cells_txt = f.read()
-    cells = cells_txt.split('\n')
-    count_cells = len(cells) - 1
-
-    # loops over all cells and creates a stem cell object for each one
-    for i in range(0, count_cells):
+    # loops over all NANOG_high cells and creates a stem cell object for each one with given parameters
+    for i in range(NANOG_high):
         ID = i
-        line = cells[i].split(',')
-        point = [float(line[1]), float(line[2])]
-        state = str(line[3])
-        x1 = float(line[4])
-        x2 = float(line[5])
-        x3 = float(line[6])
-        x4 = float(line[7])
-        x5 = float(line[8])
-        booleans = [x1, x2, x3, x4, x5]
-
+        point = [r.random() * 1000, r.random() * 1000]
+        state = "Pluripotent"
+        motion = True
+        if stochastic_bool:
+            booleans = [0, r.randint(0,1) , r.randint(0,1), 0, 1]
+        else:
+            booleans = [0,0,0,0,1]
 
         diff_timer = pluri_to_diff * r.random()
+        division_timer = pluri_div_thresh* r.random()
 
-        division_timer = (pluri_div_thresh + diff_div_thresh) * 0.5 * r.random()
-
-        sim_obj = StemCell(point,radius,ID,booleans,state,diff_timer,division_timer)
-
-
-        # add object to simulation
+        sim_obj = StemCell(point,radius,ID,booleans,state,diff_timer,division_timer,motion)
         sim.add_object(sim_obj)
-
-        # IDs the cell
         sim.inc_current_ID()
 
-    try:
-        sim.collide()
-    except:
-        sim.collide_lowDens()
+    # loops over all GATA6_high cells and creates a stem cell object for each one with given parameters
+    for i in range(GATA6_high):
+        ID = i + NANOG_high
+        point = [r.random() * 1000, r.random() * 1000]
+        state = "Pluripotent"
+        motion = True
+        if stochastic_bool:
+            booleans = [0, r.randint(0,1) , r.randint(0,1), 1, 0]
+        else:
+            booleans = [0,0,0,1,0]
 
+        diff_timer = pluri_to_diff * r.random()
+        division_timer = pluri_div_thresh * r.random()
 
+        sim_obj = StemCell(point,radius,ID,booleans,state,diff_timer,division_timer,motion)
+        sim.add_object(sim_obj)
+        sim.inc_current_ID()
 
-    # run the simulation
+    # runs the model
     sim.run()
     
 def newDirect(path):
@@ -110,10 +115,10 @@ def newDirect(path):
     """
 
     files = os.listdir(path)
-    n = len(files)
+    file_count = len(files)
     number_files = []
-    if n > 0:
-        for i in range(n):
+    if file_count > 0:
+        for i in range(file_count):
             try:
                 number_files.append(float(files[i]))
             except ValueError:
