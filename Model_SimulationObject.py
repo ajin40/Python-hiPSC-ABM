@@ -1,5 +1,4 @@
 from Model_Setup import *
-from Model_SimulationMath import *
 import random as rand
 import math as math
 import numpy as np
@@ -24,7 +23,6 @@ class StemCell(object):
         self.diff_timer = diff_timer
         self.division_timer = division_timer
         self.compress = 0
-        self.cmpr_direct = [0,0,0]
         self.funct_1 = booleans[0]
         self.funct_2 = booleans[1]
         self.funct_3 = booleans[2]
@@ -99,10 +97,10 @@ class StemCell(object):
         new_5 = eval(funct_list[4]) % 2
 
 
-        return [new_1, new_2, new_3, new_4, new_5]
+        return np.array([new_1, new_2, new_3, new_4, new_5])
 
     def diff_surround_funct(self, sim):
-        nbs = list(sim.network.neighbors(self))
+        nbs = np.array(list(sim.network.neighbors(self)))
         rd1 = self.radius
         counter = 0
         for i in range(len(nbs)):
@@ -118,7 +116,7 @@ class StemCell(object):
 
 
     def compress_force(self, sim):
-        nbs=list(sim.network.neighbors(self))
+        nbs= np.array(list(sim.network.neighbors(self)))
         compress=0
         rd1=self.radius
         cmpr_dir=0
@@ -132,30 +130,28 @@ class StemCell(object):
             cmpr_dir+=norm
             compress+=max(cmpr,0)
         compress=float(compress/(1.0+len(nbs)))
-        self.cmpr_direct=cmpr_dir
         self.compress=compress
 
 
     def divide(self, sim):
 
-        # 2D monolayer culture growth
-        n = 2
         # get the radius
         radius = self.radius
 
         if len(self.bounds) > 0:
             count = 0
             while count == 0:
-                location = RandomPointOnSphere(n) * radius*2.0 + self.location
+                location = RandomPointOnSphere() * radius*2.0 + self.location
                 if self.boundary.contains_point(location[0:2]):
                     count = 1
         else:
-            location = RandomPointOnSphere(n) * radius*2.0 + self.location
+            location = RandomPointOnSphere() * radius*2.0 + self.location
 
         self.division_timer *= 0.5
         # get the ID
         ID = sim.get_ID()
-        sc = StemCell(location, radius, ID, [self.funct_1, self.funct_2, self.funct_3, self.funct_4, self.funct_5], self.state, self.diff_timer, self.division_timer, self.motion)
+        sc = StemCell(location, radius, ID, np.array([self.funct_1, self.funct_2, self.funct_3, self.funct_4, self.funct_5]),
+                      self.state, self.diff_timer, self.division_timer, self.motion)
         sim.add_object_to_addition_queue(sc)
 
 
@@ -171,7 +167,7 @@ class StemCell(object):
         """
 
         if self.state == "Differentiated":
-            nbs = list(sim.network.neighbors(self))
+            nbs = np.array(list(sim.network.neighbors(self)))
             differentiated_nbs = 0
             for i in range(len(nbs)):
                 if nbs[i].state == "Differentiated":
@@ -181,7 +177,7 @@ class StemCell(object):
                 self.motion = False
 
         if self.funct_5 == 1 and self.funct_4 == 0 and self.state == "Pluripotent":
-            nbs = list(sim.network.neighbors(self))
+            nbs = np.array(list(sim.network.neighbors(self)))
             pluripotent_nbs = 0
             for i in range(len(nbs)):
                 if nbs[i].state == 1 and nbs[i].state == 0 and nbs[i].state == "Pluripotent":
@@ -224,3 +220,73 @@ class StemCell(object):
             self.diff_timer += 1
             if self.diff_timer >= sim.pluri_to_diff:
                 self.differentiate()
+
+
+#######################################################################################################################
+
+def RandomPointOnSphere():
+    """ Computes a random point on a sphere
+        Returns - a point on a unit sphere [x,y] at the origin
+    """
+
+    theta = rand.random() * 2 * math.pi
+    x = math.cos(theta)
+    y = math.sin(theta)
+
+    return np.array((x, y))
+
+
+def AddVec(v1, v2):
+    """ Adds two vectors that are in the form [x,y,z]
+        Returns - a new vector [x,y,z] as a numpy array
+    """
+    n = len(v1)
+    temp = np.array(v1)
+    for i in range(0, n):
+        temp[i] += float(v2[i])
+    return temp
+
+
+def SubtractVec(v1, v2):
+    """ Subtracts vector [x,y,z] v2 from vector v1
+        Returns - a new vector [x,y,z] as a numpy array
+    """
+    n = len(v1)
+    temp = np.array(v1)
+    for i in range(0, n):
+        temp[i] -= float(v2[i])
+    return temp
+
+
+def ScaleVec(v1, s):
+    """ Scales a vector f*[x,y,z] = [fx, fy, fz]
+        Returns - a new scaled vector [x,y,z] as a numpy array
+    """
+    n = len(v1)
+    temp = np.array(v1)
+    for i in range(0, n):
+        temp[i] = temp[i] * s
+    return temp
+
+
+def Mag(v1):
+    """ Computes the magnitude of a vector
+        Returns - a float representing the vector magnitude
+    """
+    n = len(v1)
+    temp = 0.
+    for i in range(0, n):
+        temp += (v1[i] * v1[i])
+    return math.sqrt(temp)
+
+
+def NormVec(v1):
+    """ Computes a normalized version of the vector v1
+        Returns - a normalizerd vector [x,y,z] as a numpy array
+    """
+
+    mag = Mag(v1)
+    temp = np.array(v1)
+    if mag == 0:
+        return temp * 0
+    return temp / mag

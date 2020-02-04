@@ -2,7 +2,6 @@ import os, shutil
 import platform
 import networkx as nx
 import numpy as np
-from Model_SimulationMath import *
 from Model_SimulationObject import *
 from scipy.spatial import *
 from PIL import Image,ImageDraw
@@ -40,10 +39,11 @@ class Simulation(object):
             self.path = str(path)
 
 
+
         self.start_time = float(start_time)
         self.end_time = float(end_time)
         self.time_step = float(time_step)
-        self.time = float(start_time)
+        self._time = float(start_time)
         self.functions = functions
         self.size = size
         self.grid = np.zeros(self.size)
@@ -52,14 +52,15 @@ class Simulation(object):
         self.pluri_to_diff = pluri_to_diff
         self.spring_max = spring_max
         self.diff_surround_value = diff_surround_value
+        self.image_counter = 0
 
         #make a list to keep track of the sim objects
-        self.objects = []
+        self.objects = np.array([])
 
         self.network = nx.Graph()
         #add the add/remove buffers
-        self._objects_to_remove = []
-        self._objects_to_add = []
+        self._objects_to_remove = np.array([])
+        self._objects_to_add = np.array([])
 
         #also keep track of the current sim object ID
         self._current_ID = 0
@@ -85,7 +86,7 @@ class Simulation(object):
         """ Adds the specified object to the list
         """
 
-        self.objects.append(sim_object)
+        self.objects = np.append(self.objects, sim_object)
         #also add it to the network
         self.network.add_node(sim_object)
 
@@ -97,7 +98,7 @@ class Simulation(object):
     def remove_object(self, sim_object):
         """ Removes the specified object from the list
         """
-        self.objects.remove(sim_object)
+        self.objects = np.delete(self.objects, sim_object)
         #remove it from the network
         self.network.remove_node(sim_object)
 
@@ -106,7 +107,7 @@ class Simulation(object):
             which will be added to the simulation at the end of
             the update phase.
         """
-        self._objects_to_add.append(sim_object)
+        self._objects_to_add = np.append(self._objects_to_add, sim_object)
         #increment the sim ID
         self._current_ID += 1
 
@@ -116,18 +117,20 @@ class Simulation(object):
             the update phase.
         """
         #place the object in the removal queue
-        self._objects_to_remove.append(sim_object)
+        self._objects_to_remove = np.append(self._objects_to_remove, sim_object)
 
     def get_ID(self):
         """ Returns the current unique ID the simulation is on
         """
         return self._current_ID
 
+
     def run(self):
         """ Runs the simulation until either the stopping criteria is reached
             or the simulation time runs out.
         """
-        self.time = self.start_time
+        self._time = self.start_time
+
 
         #try to make a new directory for the simulation
         try:
@@ -135,7 +138,6 @@ class Simulation(object):
         except OSError:
             #direcotry already exsists... overwrite it
             print("Directory already exists... overwriting directory")
-        struct_path = os.getcwd()
 
         for i in range(self.size[1]):
             for j in range(self.size[2]):
@@ -146,39 +148,72 @@ class Simulation(object):
         self.save_file()
         self.collide()
         #now run the loop
-        while self.time <= self.end_time:
-            print("Time: " + str(self.time))
+        while self._time <= self.end_time:
+            print("Time: " + str(self._time))
             print("Number of objects: " + str(len(self.objects)))
 
             #Update the objects and gradients
+            time1 = time.time()
+
             self.update()
+
+            time2 = time.time()
+            print("update", time2 - time1)
+
+            time1 = time.time()
+
             self.diff_surround()
+
+            time2 = time.time()
+            print("diff_surround", time2 - time1)
+
             #remove/add any objects
+            time1 = time.time()
             self.update_object_queue()
 
+            time2 = time.time()
+            print("update_object_queue", time2 - time1)
+
+            time1 = time.time()
             self.collide_run()
+            time2 = time.time()
+            print("collide", time2 - time1)
 
+            time1 = time.time()
             self.random_movement()
+            time2 = time.time()
+            print("random", time2 - time1)
 
+            time1 = time.time()
             self.calculate_compression()
+            time2 = time.time()
+            print("compression", time2 - time1)
 
-            self.optimize()
+            time1 = time.time()
+            self.optimize(0.00001, 20)
+            time2 = time.time()
+            print("optimize", time2 - time1)
 
             #increment the time
-            self.time += self.time_step
-            #save 
+            self._time += self.time_step
+            #save
+            time1 = time.time()
             self.save_file()
+            time2 = time.time()
+            print("image",time2-time1)
         self.image_to_video()
 
 
     def random_movement(self):
         for i in range(len(self.objects)):
             if self.objects[i].motion:
-                temp_x = self.objects[i].location[0] + r.uniform(-1,1) * 30
-                temp_y = self.objects[i].location[1] + r.uniform(-1,1) * 30
+                temp_x = self.objects[i].location[0] + r.uniform(-1, 1) * 10
+                temp_y = self.objects[i].location[1] + r.uniform(-1, 1) * 10
                 if temp_x <= 1000 and temp_x >= 0 and temp_y <= 1000 and temp_y >= 0:
                     self.objects[i].location[0] = temp_x
                     self.objects[i].location[1] = temp_y
+
+
 
 
     def image_to_video(self):
@@ -188,12 +223,12 @@ class Simulation(object):
 
         # path = "C:\\Python27\\Bool Model\\2.0\\*png"
         img_array = []
-        for i in range(int(self.end_time)+2):
-            img = cv2.imread(base_path + 'network_image' + str(int(i)) + ".png")
+        for i in range(self.image_counter):
+            img = cv2.imread(base_path + 'network_image' + str(1.0 + int(i)/10) + ".png")
 
             img_array.append(img)
 
-        out = cv2.VideoWriter(base_path + 'network_video.mp4', cv2.VideoWriter_fourcc(*"DIVX"), 0.5, (1500, 1500))
+        out = cv2.VideoWriter(base_path + 'network_video.mp4', cv2.VideoWriter_fourcc(*"DIVX"), 2.0, (1500, 1500))
 
         for i in range(len(img_array)):
             out.write(img_array[i])
@@ -211,8 +246,8 @@ class Simulation(object):
         for i in range(0, len(self._objects_to_add)):
             self.add_object(self._objects_to_add[i])
         #then clear these lists
-        self._objects_to_remove = []
-        self._objects_to_add= []
+        self._objects_to_remove = np.array([])
+        self._objects_to_add= np.array([])
 
         
     def calculate_compression(self):
@@ -300,34 +335,38 @@ class Simulation(object):
                     self.network.add_edge(self.objects[i], self.objects[j])
 
 
-    def optimize(self):
-        #apply constraints from each object and update the positions
-        #keep track of the global col and opt vectors
+
+
+    def optimize(self, error_max, max_itrs):
+
         itrs = 0
-        max_itrs = 2
-        while itrs < max_itrs:
+        error = error_max * 2
+        while itrs < max_itrs and error > error_max :
             self.check_interaction_length()
-
-            self.handle_cell_space()
-
-            self.handle_springs()
+            vector = self.handle_springs()
 
             #now loop over and update all of the constraints
             for i in range(0, len(self.objects)):
                 #update these collision and optimization vectors
                 #as well as any other constraints
                 self.objects[i].update_constraints(self.time_step)
+
+            vector = ScaleVec(vector, 1.0)
+            error = Mag(vector)
             #increment the iterations
             itrs += 1
+        print(itrs)
 
 
     def handle_springs(self):
-        edges = list(self.network.edges())
+        edges = np.array(self.network.edges())
+        vector = [0,0]
         for i in range(len(edges)):
             edge=edges[i]
             obj1=edge[0]
             obj2=edge[1]
             if obj1.ID != obj2.ID:
+
                 if not obj1.motion and not obj2.motion:
                     self.network.remove_edge(obj1, obj2)
 
@@ -397,84 +436,28 @@ class Simulation(object):
                     # add these vectors to the object vectors
                     obj1.add_displacement_vec(temp)
                     obj2.add_displacement_vec(-temp)
+            vector = AddVec(vector, temp)
+
+        return vector
 
 
 
-
-    def handle_cell_space(self):
-        edges = list(self.network.edges())
-        for i in range(0, len(edges)):
-            edge = edges[i]
-            obj1 = edge[0]
-            obj2 = edge[1]
-            if obj1.ID != obj2.ID:
-                if not obj1.motion and not obj2.motion:
-                    self.network.remove_edge(obj1, obj2)
-
-                if not obj1.motion and obj2.motion:
-                    v1 = obj1.location
-                    v2 = obj2.location
-                    v12 = SubtractVec(v2, v1)
-                    dist = Mag(v12)
-                    norm = NormVec(v12)
-                    l1 = obj1.radius
-                    l2 = obj2.radius
-                    if dist < l1 + l2:
-                        difference = l1 + l2 - dist
-                        cell_difference = difference
-                        # make sure it has the correct direction
-                        temp = ScaleVec(norm, cell_difference)
-                        # add these vectors to the object vectors
-                        obj2.add_displacement_vec(-temp)
-
-                if obj1.motion and not obj2.motion:
-                    v1 = obj1.location
-                    v2 = obj2.location
-                    v12 = SubtractVec(v2, v1)
-                    dist = Mag(v12)
-                    norm = NormVec(v12)
-                    l1 = obj1.radius
-                    l2 = obj2.radius
-                    if dist < l1 + l2:
-                        difference = l1 + l2 - dist
-                        cell_difference = difference
-                        # make sure it has the correct direction
-                        temp = ScaleVec(norm, cell_difference)
-                        # add these vectors to the object vectors
-                        obj1.add_displacement_vec(temp)
-
-                else:
-                    v1 = obj1.location
-                    v2 = obj2.location
-                    v12 = SubtractVec(v2, v1)
-                    dist = Mag(v12)
-                    norm = NormVec(v12)
-                    l1 = obj1.radius
-                    l2 = obj2.radius
-                    if dist < l1 + l2:
-                        difference = l1 + l2 - dist
-                        cell_difference = difference / 2
-                        # make sure it has the correct direction
-                        temp = ScaleVec(norm, cell_difference)
-                        # add these vectors to the object vectors
-                        obj1.add_displacement_vec(temp)
-                        obj2.add_displacement_vec(-temp)
 
 
     def draw_cell_image(self, network, path):
         """Turns the graph into an image at each timestep
         """
-        nodes = network.nodes()
+        self.image_counter += 1
+        cells = list(network.nodes)
         image1 = Image.new("RGB", (1500, 1500), color='white')
         draw = ImageDraw.Draw(image1)
-        # bounds = nodes[0].bounds
         bounds = [[0,0], [0,1000], [1000,1000], [1000,0]]
 
         col_dict = {'Pluripotent': 'red', 'Differentiated': 'blue'}
         outline_dict = {'Pluripotent': 'red', 'Differentiated': 'blue'}
 
-        for i in range(len(nodes)):
-            node = nodes[i]
+        for i in range(len(cells)):
+            node = cells[i]
             x, y = node.location
             r = node.radius
             col = col_dict[node.state]
@@ -491,7 +474,7 @@ class Simulation(object):
             draw.ellipse((x - r + 200, y - r + 200, x + r + 200, y + r + 200), outline='black', fill='black')
             draw.line((x + 200, y + 200, x1 + 200, y1 + 200), fill='black', width=10)
 
-        image1.save(path + "network_image" + str(int(self.time)) + ".png", 'PNG')
+        image1.save(path + ".png", 'PNG')
 
 
     def location_to_text(self, path):
@@ -500,11 +483,6 @@ class Simulation(object):
         new_file = open(path, "w")
 
         for i in range(0, len(self.objects)):
-            self.objects[i].funct_1 = int(self.objects[i].funct_1)
-            self.objects[i].funct_2 = int(self.objects[i].funct_2)
-            self.objects[i].funct_3 = int(self.objects[i].funct_3)
-            self.objects[i].funct_4 = int(self.objects[i].funct_4)
-            self.objects[i].funct_5 = int(self.objects[i].funct_5)
 
             ID = str(self.objects[i].ID) + ","
             x_coord = str(round(self.objects[i].location[0],1))+ ","
@@ -528,14 +506,13 @@ class Simulation(object):
         #get the base path
         base_path = self.path +self._sep +self.name + self._sep
         #First save the network files
-        n2_path = base_path + "network_values" + str(int(self.time)) + ".txt"
+        n2_path = base_path + "network_values" + str(int(self._time)) + ".txt"
         self.location_to_text(n2_path)
-        self.draw_cell_image(self.network, base_path)
+
+        self.draw_cell_image(self.network, base_path  + "network_image" + str(int(self._time)))
 
 
 #######################################################################################################################
-
-# commonly used functions in both Model_Simulation and Model_SimulationObject
 
 def RandomPointOnSphere():
     """ Computes a random point on a sphere
