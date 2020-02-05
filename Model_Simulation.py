@@ -406,7 +406,7 @@ class Simulation(object):
 
             # increment the iterations
             itrs += 1
-        print(itrs)
+        print("optimize iterations: " + str(itrs))
 
     def get_cell_disp(self, obj1, obj2):
         """ calculates how far two objects are from
@@ -638,7 +638,7 @@ def Mag(v1):
 
 def NormVec(v1):
     """ Computes a normalized version of the vector v1
-        Returns - a normalizerd vector [x,y,z] as a numpy array
+        Returns - a normalized vector [x,y,z] as a numpy array
     """
 
     mag = Mag(v1)
