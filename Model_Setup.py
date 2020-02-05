@@ -10,7 +10,7 @@ def main():
     path = "C:\\Python27\\MEGA-ARRAY"
 
     # total time step counter limit to less than 30
-    Run_Time = 2.0
+    Run_Time = 1.0
     
     # when does the model begin (usually 1)
     Start_Time = 1
@@ -76,14 +76,14 @@ def main():
         state = "Pluripotent"
         motion = True
         if stochastic_bool:
-            booleans = [0, r.randint(0,1) , r.randint(0,1), 0, 1]
+            booleans = np.array([0, r.randint(0,1) , r.randint(0,1), 0, 1])
         else:
-            booleans = [0,0,0,0,1]
+            booleans = np.array([0,0,0,0,1])
 
         diff_timer = pluri_to_diff * r.random()
         division_timer = pluri_div_thresh* r.random()
 
-        sim_obj = StemCell(point,radius,ID,booleans,state,diff_timer,division_timer,motion)
+        sim_obj = StemCell(point, radius, ID, booleans, state, diff_timer, division_timer, motion)
         sim.add_object(sim_obj)
         sim.inc_current_ID()
 

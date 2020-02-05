@@ -14,21 +14,27 @@ import random as r
 
 
 class Simulation(object):
-
-    def __init__(self, name, path, start_time, end_time, time_step, pluri_div_thresh, diff_div_thresh,pluri_to_diff, size, spring_max, diff_surround_value, functions):
+    """ called once holds important information about the
+        simulation
+    """
+    def __init__(self, name, path, start_time, end_time, time_step, pluri_div_thresh, diff_div_thresh, pluri_to_diff,
+                 size, spring_max, diff_surround_value, functions):
         """ Initialization function for the simulation setup.
-            name - the simulation name (string)
-            path - the path to save the simulation information to (string)
-            start_time - the start time for the simulation (float)
-            end_time - the end time for the simulation (float)
-            time_step - the time step to increment the simulation by (float)
-            division_times - Division time for each cell type
-            source_sink_params - The production and degradation constants for each extracellular molecule and each cell type
-            size - The size of the array (dimension, rows, columns)
+            name: the simulation name
+            path: the path to save the simulation information to
+            start_time: the start time for the simulation
+            end_time: the end time for the simulation
+            time_step: the time step to increment the simulation by
+            pluri_div_thresh: threshold for pluripotent cells to divide
+            diff_div_thresh:  threshold for differentiated cells to divide
+            pluri_to_diff: threshold for pluripotent cells to differentiate
+            size: the size of the grid (dimension, rows, columns)
+            spring_max: represents the max distance for spring and other interactions
+            diff_surround_value: the amount of differentiated cells needed to surround
+                a pluripotent cell inducing its differentiation
+            functions: the boolean functions as a string from Model_Setup
         """
-
-        #set the base parameters
-        #do some basic type checking
+        # make sure name and path are strings
         if type(name) is str:
             self.name = name
         else:
@@ -38,201 +44,221 @@ class Simulation(object):
         else:
             self.path = str(path)
 
-
-
         self.start_time = float(start_time)
         self.end_time = float(end_time)
         self.time_step = float(time_step)
-        self._time = float(start_time)
-        self.functions = functions
-        self.size = size
-        self.grid = np.zeros(self.size)
         self.pluri_div_thresh = pluri_div_thresh
         self.diff_div_thresh = diff_div_thresh
         self.pluri_to_diff = pluri_to_diff
+        self.size = size
         self.spring_max = spring_max
         self.diff_surround_value = diff_surround_value
+        self.functions = functions
+
+        # the array that represents the grid and all its patches
+        self.grid = np.zeros(self.size)
+
+        # counts how many times an image is created for making videos
         self.image_counter = 0
 
-        #make a list to keep track of the sim objects
+        # keeps a running count of the time
+        self.time_counter = float(start_time)
+
+        # array to hold all of the objects
         self.objects = np.array([])
 
+        # graph representing all the objects and their connections to other objects
         self.network = nx.Graph()
-        #add the add/remove buffers
+
+        # holds the objects until they are added or removed from the simulation
         self._objects_to_remove = np.array([])
         self._objects_to_add = np.array([])
 
-        #also keep track of the current sim object ID
+        # keeps track of the current cell ID
         self._current_ID = 0
 
-        #keep track of the file separator to use
+        # which file separator to use
         if platform.system() == "Windows":
-            #windows
+            # windows
             self._sep = "\\"
         else:
-            #linux/unix
+            # linux/unix
             self._sep = "/"
 
 #######################################################################################################################
-
-
 
     def call_functions(self):
         """returns functions defined in Model_Setup
         """
         return self.functions
 
-    def add_object(self, sim_object):
-        """ Adds the specified object to the list
-        """
 
+    def add_object(self, sim_object):
+        """ Adds the specified object to the array
+            and the graph
+        """
+        # adds it to the array
         self.objects = np.append(self.objects, sim_object)
-        #also add it to the network
+
+        # adds it to the graph
         self.network.add_node(sim_object)
+
 
     def inc_current_ID(self):
         """Increments the ID of cell by 1 each time called
         """
         self._current_ID += 1
 
+
     def remove_object(self, sim_object):
-        """ Removes the specified object from the list
+        """ Removes the specified object from the array
+            and the graph
         """
+        # removes it from the array
         self.objects = np.delete(self.objects, sim_object)
-        #remove it from the network
+
+        # removes it from the graph
         self.network.remove_node(sim_object)
+
 
     def add_object_to_addition_queue(self, sim_object):
         """ Will add an object to the simulation object queue
             which will be added to the simulation at the end of
             the update phase.
         """
+        # adds object to array
         self._objects_to_add = np.append(self._objects_to_add, sim_object)
-        #increment the sim ID
+
+        # increments the current ID
         self._current_ID += 1
+
 
     def add_object_to_removal_queue(self, sim_object):
         """ Will add an object to the simulation object queue
             which will be removed from the simulation at the end of
             the update phase.
         """
-        #place the object in the removal queue
+        # adds object to array
         self._objects_to_remove = np.append(self._objects_to_remove, sim_object)
+
 
     def get_ID(self):
         """ Returns the current unique ID the simulation is on
         """
         return self._current_ID
 
+#######################################################################################################################
 
     def run(self):
-        """ Runs the simulation until either the stopping criteria is reached
-            or the simulation time runs out.
+        """ Runs all elements of the simulation until
+            the total time is met
         """
-        self._time = self.start_time
 
-
-        #try to make a new directory for the simulation
+        # tries to make a new directory for the simulation
         try:
             os.mkdir(self.path + self._sep + self.name)
         except OSError:
-            #direcotry already exsists... overwrite it
+            # directory already exists overwrite it
             print("Directory already exists... overwriting directory")
 
-        for i in range(self.size[1]):
-            for j in range(self.size[2]):
+        # setup grid and patches
+        self.initialize_grid()
 
-                self.grid[np.array([0]),np.array([i]),np.array([j])] = r.randint(0,10)
-
-        #save the initial state configuration
-        self.save_file()
+        # run collide() to create connections between cells
         self.collide()
-        #now run the loop
-        while self._time <= self.end_time:
-            print("Time: " + str(self._time))
+
+        # save the first image and data of simulation
+        self.save_file()
+
+        # run simulation until end time
+        while self.time_counter <= self.end_time:
+
+            print("Time: " + str(self.time_counter))
             print("Number of objects: " + str(len(self.objects)))
 
-            #Update the objects and gradients
-            time1 = time.time()
-
+            # updates all of the objects (motion, state, booleans)
             self.update()
 
-            time2 = time.time()
-            print("update", time2 - time1)
-
-            time1 = time.time()
-
+            # sees if cells can differentiate based on pluripotent cells surrounding by differentiated cells
             self.diff_surround()
 
-            time2 = time.time()
-            print("diff_surround", time2 - time1)
-
-            #remove/add any objects
-            time1 = time.time()
+            # adds/removes all objects from the simulation
             self.update_object_queue()
 
-            time2 = time.time()
-            print("update_object_queue", time2 - time1)
-
-            time1 = time.time()
+            # create/break connections between cells depending on distance apart
             self.collide_run()
-            time2 = time.time()
-            print("collide", time2 - time1)
 
-            time1 = time.time()
+            # moves cells in "motion" in a random fashion
             self.random_movement()
-            time2 = time.time()
-            print("random", time2 - time1)
 
-            time1 = time.time()
+            # calculates how much compression force is on each cell
             self.calculate_compression()
-            time2 = time.time()
-            print("compression", time2 - time1)
 
-            time1 = time.time()
+            # optimizes the simulation by handling springs until error is less than threshold
             self.optimize(0.00001, 20)
-            time2 = time.time()
-            print("optimize", time2 - time1)
 
-            #increment the time
-            self._time += self.time_step
-            #save
-            time1 = time.time()
+            # increments the time by time step
+            self.time_counter += self.time_step
+
+            # saves the image file and txt file with all important information
             self.save_file()
-            time2 = time.time()
-            print("image",time2-time1)
+
+        # turns all images into a video at the end
         self.image_to_video()
+
+#######################################################################################################################
+
+    def initialize_grid(self):
+        """ sets up the grid and the patches
+            with a random amount of FGF4
+        """
+        # loops over all rows
+        for i in range(self.size[1]):
+            # loops over all columns
+            for j in range(self.size[2]):
+                self.grid[np.array([0]),np.array([i]),np.array([j])] = r.randint(0,10)
 
 
     def random_movement(self):
+        """ has the objects that are in motion
+            move in a random way
+        """
+        # loops over all objects
         for i in range(len(self.objects)):
+            # finds the objects in motion
             if self.objects[i].motion:
+                # new location of 10 times a random float from -1 to 1
                 temp_x = self.objects[i].location[0] + r.uniform(-1, 1) * 10
                 temp_y = self.objects[i].location[1] + r.uniform(-1, 1) * 10
+                # if the new location would be outside the grid don't move it
                 if temp_x <= 1000 and temp_x >= 0 and temp_y <= 1000 and temp_y >= 0:
                     self.objects[i].location[0] = temp_x
                     self.objects[i].location[1] = temp_y
 
 
-
-
     def image_to_video(self):
-        """Creates a video out of the png images
+        """Creates a video out of all the png images at
+            the end of the simulation
         """
+        # gets base path
         base_path = self.path + self._sep + self.name + self._sep
 
-        # path = "C:\\Python27\\Bool Model\\2.0\\*png"
+        # image list to hold all image objects
         img_array = []
-        for i in range(self.image_counter):
-            img = cv2.imread(base_path + 'network_image' + str(1.0 + int(i)/10) + ".png")
 
+        # loops over all images created
+        for i in range(self.image_counter):
+            img = cv2.imread(base_path + 'network_image' + str(i) + ".png")
             img_array.append(img)
 
+        # output file for the video
         out = cv2.VideoWriter(base_path + 'network_video.mp4', cv2.VideoWriter_fourcc(*"DIVX"), 2.0, (1500, 1500))
 
+        # adds image to output file
         for i in range(len(img_array)):
             out.write(img_array[i])
 
+        # releases the file
         out.release()
 
 
@@ -240,222 +266,267 @@ class Simulation(object):
         """ Updates the object add and remove queue
         """
         print("Adding " + str(len(self._objects_to_add)) + " objects...")
-##        print("Removing " + str(len(self._objects_to_remove)) + " objects...")
+        print("Removing " + str(len(self._objects_to_remove)) + " objects...")
+
+        # loops over all objects to remove
         for i in range(0, len(self._objects_to_remove)):
             self.remove_object(self._objects_to_remove[i])
+
+        # loops over all objects to add
         for i in range(0, len(self._objects_to_add)):
             self.add_object(self._objects_to_add[i])
-        #then clear these lists
+
+        # clear the arrays
         self._objects_to_remove = np.array([])
         self._objects_to_add= np.array([])
 
         
     def calculate_compression(self):
-        objects=self.objects
+        """ calculates the compress force for all objects"""
+
+        objects = self.objects
+
+        # loops over all objects
         for i in range(len(objects)):
             objects[i].compress_force(self)
 
 
     def diff_surround(self):
-        objects=self.objects
+        """ calls the object function that determines if
+            a cell will differentiate based on the cells
+            that surround it
+        """
+        objects = self.objects
+
+        # loops over all objects
         for i in range(len(objects)):
-            objects[i].diff_surround_funct(self)
+            # checks to see if they are Pluripotent and GATA6 low
+            if objects[i].state == "Pluripotent" and objects[i].booleans[3] == 0:
+                objects[i].diff_surround_funct(self)
 
             
     def update(self):
         """ Updates all of the objects in the simulation
+            and degrades the FGF4 amount by 1 for all pathes
         """
-
+        # loops over all rows
         for i in range(self.size[1]):
+            # loops over all columns
             for j in range(self.size[2]):
                 self.grid[np.array([0]),np.array([i]),np.array([j])] += -1
 
-        split = 1
-        for p in range(0, split):
-            dt = self.time_step / float(split)
-            for i in range(0, len(self.objects)):
-                self.objects[i].update(self, dt)
+        # loops over all objects and updates each
+        for i in range(0, len(self.objects)):
+            self.objects[i].update(self)
                 
 
     def collide(self):
-
-        #Create connection between all cells 
+        """ checks all of the distances between cells
+            if it is less than a set value create a
+            connection between two cells. (Only run at
+            beginning)
+        """
+        # loops over all objects
         for i in range(0,len(self.objects)):
+            # loops over all objects not check already
             for j in range(i+1,len(self.objects)):
-                l1 = self.spring_max
-                l2 = self.spring_max
-                # add these together to get the connection length
-                interaction_length = l1 + l2
-                # get the distance
+
+                # max distance between cells to have a connection
+                interaction_length = self.spring_max * 2
+
+                # get the distance between cells
                 dist_vec = SubtractVec(self.objects[i].location, self.objects[j].location)
-                # get the magnitude
+
+                # get the magnitude of the distance vector
                 dist = Mag(dist_vec)
+
                 if dist <= interaction_length:
+                    # if correct length, add a edge in the graph representing a connection
                     self.network.add_edge(self.objects[i], self.objects[j])
 
 
     def collide_run(self):
-        # Create connection between all cells
+        """ checks all of the distances between cells
+            if it is less than a set value create a
+            connection between two cells.
+        """
+        # loops over all objects
         for i in range(0, len(self.objects)):
+            # loops over all objects not check already
             for j in range(i + 1, len(self.objects)):
-                l1 = self.spring_max
-                l2 = self.spring_max
-                # add these together to get the connection length
-                interaction_length = l1 + l2
-                # get the distance
+
+                # max distance between cells to have a connection
+                interaction_length = self.spring_max * 2
+
+                # get the distance between cells
                 dist_vec = SubtractVec(self.objects[i].location, self.objects[j].location)
-                # get the magnitude
+
+                # get the magnitude of the distance vector
                 dist = Mag(dist_vec)
+
+                # if the distance is greater than the interaction length try to remove it
                 if dist > interaction_length:
                     try:
                         self.network.remove_edge(self.objects[i], self.objects[j])
                     except:
                         pass
+
+                # if the distance is less than or equal to interaction length add connection unless both
+                # cells aren't in motion
                 if dist <= interaction_length and (self.objects[i].motion or self.objects[j].motion):
                     self.network.add_edge(self.objects[i], self.objects[j])
-
-    def check_interaction_length(self):
-
-        for i in range(0, len(self.objects)):
-            for j in range(i + 1, len(self.objects)):
-                l1 = self.spring_max
-                l2 = self.spring_max
-                # add these together to get the connection length
-                interaction_length = l1 + l2
-                # get the distance
-                dist_vec = SubtractVec(self.objects[i].location, self.objects[j].location)
-                # get the magnitude
-                dist = Mag(dist_vec)
-                if dist > interaction_length:
-                    try:
-                        self.network.remove_edge(self.objects[i], self.objects[j])
-                    except:
-                        pass
-                if dist <= interaction_length and (self.objects[i].motion or self.objects[j].motion):
-                    self.network.add_edge(self.objects[i], self.objects[j])
-
-
 
 
     def optimize(self, error_max, max_itrs):
-
+        """ tries to correct for the error by applying
+            spring forces and keeping cells in the grid
+        """
+        # amount of times optimize has run
         itrs = 0
+        # baseline for starting while loop
         error = error_max * 2
-        while itrs < max_itrs and error > error_max :
-            self.check_interaction_length()
+
+        while itrs < max_itrs and error > error_max:
+            # checks the interaction connections
+            self.collide_run()
+            # returns total vector after running spring force function
             vector = self.handle_springs()
 
-            #now loop over and update all of the constraints
+            # runs through all objects and scales vector so that the cells don't move around too much
             for i in range(0, len(self.objects)):
-                #update these collision and optimization vectors
-                #as well as any other constraints
-                self.objects[i].update_constraints(self.time_step)
+                self.objects[i].update_constraints()
 
-            vector = ScaleVec(vector, 1.0)
             error = Mag(vector)
-            #increment the iterations
+
+            # increment the iterations
             itrs += 1
         print(itrs)
 
 
     def handle_springs(self):
+        """ loops over all edges of the graph and performs
+            spring collisions between the cells
+        """
+        # gets edges
         edges = np.array(self.network.edges())
-        vector = [0,0]
+
+        # a vector to hold the total vector change of all movement vectors added to it
+        vector = [0, 0]
+
+        # loops over all of the edges
         for i in range(len(edges)):
-            edge=edges[i]
-            obj1=edge[0]
-            obj2=edge[1]
+            edge = edges[i]
+            # edge has two objects representing the nodes
+            obj1 = edge[0]
+            obj2 = edge[1]
+
+            # check to make sure not the same object
             if obj1.ID != obj2.ID:
 
+                # if they both aren't in motion remove edge between them
                 if not obj1.motion and not obj2.motion:
                     self.network.remove_edge(obj1, obj2)
 
+                # if one is in motion and the other is not
                 if not obj1.motion and obj2.motion:
+                    # get the locations
                     v1 = obj1.location
                     v2 = obj2.location
+                    # get distance vector, magnitude, and normalize it
                     v12 = SubtractVec(v2, v1)
                     dist = Mag(v12)
                     norm = NormVec(v12)
-                    l1 = self.spring_max
-                    l2 = self.spring_max
-                    # now figure out how far off the connection length  is
-                    # from that distance
-                    dist = dist - (l1 + l2)
+                    # find the interaction length
+                    interaction_length = self.spring_max * 2
+                    # recalculate distance
+                    dist = dist - interaction_length
                     # now get the spring constant strength
                     k1 = obj1.get_spring_constant(obj2)
                     k2 = obj2.get_spring_constant(obj1)
                     k = min(k1, k2)
-                    # now we can apply the spring constraint to this
+                    # scale the new distance by the spring constant
                     dist *=  k
-                    # make sure it has the correct direction
+                    # direction of original distance vector
                     temp = ScaleVec(norm, dist)
-                    # add these vectors to the object vectors
+                    # add vector to cell in motion where cell not in motion is anchor
                     obj2.add_displacement_vec(-temp)
 
+                # if one is in motion and the other is not
                 if obj1.motion and not obj2.motion:
+                    # get the locations
                     v1 = obj1.location
                     v2 = obj2.location
+                    # get distance vector, magnitude, and normalize it
                     v12 = SubtractVec(v2, v1)
                     dist = Mag(v12)
                     norm = NormVec(v12)
-                    l1 = self.spring_max
-                    l2 = self.spring_max
-                    # now figure out how far off the connection length  is
-                    # from that distance
-                    dist = dist - (l1 + l2)
+                    # find the interaction length
+                    interaction_length = self.spring_max * 2
+                    # recalculate distance
+                    dist = dist - interaction_length
                     # now get the spring constant strength
                     k1 = obj1.get_spring_constant(obj2)
                     k2 = obj2.get_spring_constant(obj1)
                     k = min(k1, k2)
-                    # now we can apply the spring constraint to this
+                    # scale the new distance by the spring constant
                     dist *= k
-                    # make sure it has the correct direction
+                    # direction of original distance vector
                     temp = ScaleVec(norm, dist)
-                    # add these vectors to the object vectors
+                    # add vector to cell in motion where cell not in motion is anchor
                     obj1.add_displacement_vec(temp)
 
                 else:
+                    # get the locations
                     v1 = obj1.location
                     v2 = obj2.location
+                    # get distance vector, magnitude, and normalize it
                     v12 = SubtractVec(v2, v1)
                     dist = Mag(v12)
                     norm = NormVec(v12)
-                    l1 = self.spring_max
-                    l2 = self.spring_max
-                    # now figure out how far off the connection length  is
-                    # from that distance
-                    dist = dist - (l1 + l2)
+                    # find the interaction length
+                    interaction_length = self.spring_max * 2
+                    # recalculate distance
+                    dist = dist - interaction_length
                     # now get the spring constant strength
                     k1 = obj1.get_spring_constant(obj2)
                     k2 = obj2.get_spring_constant(obj1)
                     k = min(k1, k2)
                     # now we can apply the spring constraint to this
                     dist = (dist / 2.0) * k
-                    # make sure it has the correct direction
+                    # direction of original distance vector
                     temp = ScaleVec(norm, dist)
                     # add these vectors to the object vectors
                     obj1.add_displacement_vec(temp)
                     obj2.add_displacement_vec(-temp)
+
+            # add movement vector to running count vector
             vector = AddVec(vector, temp)
 
+        # return total vector
         return vector
-
-
-
 
 
     def draw_cell_image(self, network, path):
         """Turns the graph into an image at each timestep
         """
+        # increases the image counter by 1 each time this is called
         self.image_counter += 1
+
+        # get list of all objects/nodes in the simulation
         cells = list(network.nodes)
+
+        # draws the background of the image
         image1 = Image.new("RGB", (1500, 1500), color='white')
         draw = ImageDraw.Draw(image1)
+
+        # bounds of the simulation used for drawing patch
         bounds = [[0,0], [0,1000], [1000,1000], [1000,0]]
 
+        # determines color and outline of the cells
         col_dict = {'Pluripotent': 'red', 'Differentiated': 'blue'}
         outline_dict = {'Pluripotent': 'red', 'Differentiated': 'blue'}
 
+        # loops over all of the cells/nodes and draws a circle with corresponding color
         for i in range(len(cells)):
             node = cells[i]
             x, y = node.location
@@ -464,6 +535,7 @@ class Simulation(object):
             out = outline_dict[node.state]
             draw.ellipse((x - r + 200, y - r + 200, x + r + 200, y + r + 200), outline=out, fill=col)
 
+        # loops over all of the bounds and draws lines to represent the grid
         for i in range(len(bounds)):
             x, y = bounds[i]
             if i < len(bounds) - 1:
@@ -474,45 +546,54 @@ class Simulation(object):
             draw.ellipse((x - r + 200, y - r + 200, x + r + 200, y + r + 200), outline='black', fill='black')
             draw.line((x + 200, y + 200, x1 + 200, y1 + 200), fill='black', width=10)
 
+        # saves the image as a .png
         image1.save(path + ".png", 'PNG')
 
 
     def location_to_text(self, path):
         """Outputs a txt file of the cell coordinates and the boolean values
         """
+        # opens file
         new_file = open(path, "w")
 
+        # loops over all objects
         for i in range(0, len(self.objects)):
 
             ID = str(self.objects[i].ID) + ","
             x_coord = str(round(self.objects[i].location[0],1))+ ","
             y_coord = str(round(self.objects[i].location[1],1))+ ","
-            x1 = str(self.objects[i].funct_1) + ","
-            x2 = str(self.objects[i].funct_2) + ","
-            x3 = str(self.objects[i].funct_3) + ","
-            x4 = str(self.objects[i].funct_4) + ","
-            x5 = str(self.objects[i].funct_5) + ","
+            x1 = str(self.objects[i].booleans[0]) + ","
+            x2 = str(self.objects[i].booleans[1]) + ","
+            x3 = str(self.objects[i].booleans[2]) + ","
+            x4 = str(self.objects[i].booleans[3]) + ","
+            x5 = str(self.objects[i].booleans[4]) + ","
             diff = str(round(self.objects[i].diff_timer,1)) + ","
             div = str(round(self.objects[i].division_timer,1)) + ","
             state = self.objects[i].state + ","
             motion = str(self.objects[i].motion)
+
+            # creates line for each object with key information
             line = ID + x_coord + y_coord + state + x1 + x2 + x3 + x4 + x5 + motion + diff + div
             new_file.write(line + "\n")
 
 
     def save_file(self):
-        """ Saves the simulation snapshot.
+        """ Saves the simulation txt files
+            and image files
         """
-        #get the base path
+        # get the base path
         base_path = self.path +self._sep +self.name + self._sep
-        #First save the network files
-        n2_path = base_path + "network_values" + str(int(self._time)) + ".txt"
+
+        # saves the txt file with all the key information
+        n2_path = base_path + "network_values" + str(int(self.time_counter)) + ".txt"
         self.location_to_text(n2_path)
 
-        self.draw_cell_image(self.network, base_path  + "network_image" + str(int(self._time)))
+        # draws the image of the simulation
+        self.draw_cell_image(self.network, base_path + "network_image" + str(int(self.time_counter)))
 
 
 #######################################################################################################################
+# commonly used math functions
 
 def RandomPointOnSphere():
     """ Computes a random point on a sphere
