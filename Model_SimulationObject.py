@@ -1,3 +1,8 @@
+#########################################################
+# Name:    Model_Setup                                  #
+# Author:  Jack Toppen                                  #
+# Date:    2/5/20                                       #
+#########################################################
 from Model_Setup import *
 import random as rand
 import math as math
@@ -9,7 +14,8 @@ class StemCell(object):
     """ Every cell object in the simulation
         will have this class
     """
-    def __init__(self, location, radius, ID, booleans, state, diff_timer, division_timer, motion):
+    def __init__(self, location, radius, ID, booleans, state, diff_timer, division_timer, motion, bounds,
+                 spring_constant):
         """ location: where the cell is located on the grid "[x,y]"
             radius: the radius of each cell
             ID: the number assigned to each cell "0-number of cells"
@@ -18,6 +24,8 @@ class StemCell(object):
             diff_timer: counts the total steps per cell needed to differentiate
             division_timer: counts the total steps per cell needed to divide
             motion: whether the cell is in moving or not "True or False"
+            bounds: the region where the cell cannot move outside
+            spring_constant: strength of force applied based on distance
         """
         self.location = location
         self.radius = radius
@@ -27,15 +35,14 @@ class StemCell(object):
         self.diff_timer = diff_timer
         self.division_timer = division_timer
         self.motion = motion
+        self.bounds = bounds
+        self.spring_constant = spring_constant
 
         # holds the compression force by a cell's neighbors
         self.compress = 0
 
         # holds the value of the movement vector of the cell
         self._disp_vec = [0, 0]
-
-        # the bounds of the simulation
-        self.bounds = [[0, 0], [0, 1000], [1000, 1000], [1000, 0]]
 
         # defines the bounds of the simulation using mathplotlib
         if len(self.bounds) > 0:
@@ -45,13 +52,6 @@ class StemCell(object):
             self.boundary = []
 
 #######################################################################################################################
-
-    def get_spring_constant(self, other):
-        """ Returns the spring constant for all spring interactions
-            left with parameter for future use with differing spring constants
-        """
-        return 0.77
-
 
     def add_displacement_vec(self, vec):
         """ Adds a vector to the vector representing the movement of the cell
@@ -183,7 +183,8 @@ class StemCell(object):
         ID = sim.get_ID()
 
         # create new cell and add it to the simulation
-        sc = StemCell(location, radius, ID, self.booleans, self.state, self.diff_timer, self.division_timer, self.motion)
+        sc = StemCell(location, radius, ID, self.booleans, self.state, self.diff_timer, self.division_timer,
+                      self.motion, self.bounds, self.spring_constant)
         sim.add_object_to_addition_queue(sc)
 
 

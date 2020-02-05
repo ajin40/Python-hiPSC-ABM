@@ -1,15 +1,16 @@
-import os, shutil
+#########################################################
+# Name:    Model_Setup                                  #
+# Author:  Jack Toppen                                  #
+# Date:    2/5/20                                       #
+#########################################################
+import os
 import platform
 import networkx as nx
 import numpy as np
 from Model_SimulationObject import *
-from scipy.spatial import *
-from PIL import Image,ImageDraw
-import matplotlib.pyplot as plt
-import pickle
+from PIL import Image, ImageDraw
 import time
 import cv2
-import glob
 import random as r
 
 
@@ -18,7 +19,7 @@ class Simulation(object):
         simulation
     """
     def __init__(self, name, path, start_time, end_time, time_step, pluri_div_thresh, diff_div_thresh, pluri_to_diff,
-                 size, spring_max, diff_surround_value, functions):
+                 size, spring_max, diff_surround_value, functions, max_itrs, max_error):
         """ Initialization function for the simulation setup.
             name: the simulation name
             path: the path to save the simulation information to
@@ -33,6 +34,8 @@ class Simulation(object):
             diff_surround_value: the amount of differentiated cells needed to surround
                 a pluripotent cell inducing its differentiation
             functions: the boolean functions as a string from Model_Setup
+            max_itrs: the maximum times optimize will run
+            max_error: the error threshold for passing optimize
         """
         # make sure name and path are strings
         if type(name) is str:
@@ -54,6 +57,8 @@ class Simulation(object):
         self.spring_max = spring_max
         self.diff_surround_value = diff_surround_value
         self.functions = functions
+        self.max_itrs = max_itrs
+        self.max_error = max_error
 
         # the array that represents the grid and all its patches
         self.grid = np.zeros(self.size)
@@ -195,7 +200,7 @@ class Simulation(object):
             self.calculate_compression()
 
             # optimizes the simulation by handling springs until error is less than threshold
-            self.optimize(0.00001, 20)
+            self.optimize()
 
             # increments the time by time step
             self.time_counter += self.time_step
@@ -231,7 +236,7 @@ class Simulation(object):
                 temp_x = self.objects[i].location[0] + r.uniform(-1, 1) * 10
                 temp_y = self.objects[i].location[1] + r.uniform(-1, 1) * 10
                 # if the new location would be outside the grid don't move it
-                if temp_x <= 1000 and temp_x >= 0 and temp_y <= 1000 and temp_y >= 0:
+                if 1000 >= temp_x >= 0 and 1000 >= temp_y >= 0:
                     self.objects[i].location[0] = temp_x
                     self.objects[i].location[1] = temp_y
 
@@ -282,7 +287,8 @@ class Simulation(object):
 
         
     def calculate_compression(self):
-        """ calculates the compress force for all objects"""
+        """ calculates the compress force for all objects
+        """
 
         objects = self.objects
 
@@ -307,7 +313,7 @@ class Simulation(object):
             
     def update(self):
         """ Updates all of the objects in the simulation
-            and degrades the FGF4 amount by 1 for all pathes
+            and degrades the FGF4 amount by 1 for all patches
         """
         # loops over all rows
         for i in range(self.size[1]):
@@ -377,16 +383,16 @@ class Simulation(object):
                     self.network.add_edge(self.objects[i], self.objects[j])
 
 
-    def optimize(self, error_max, max_itrs):
+    def optimize(self):
         """ tries to correct for the error by applying
             spring forces and keeping cells in the grid
         """
         # amount of times optimize has run
         itrs = 0
         # baseline for starting while loop
-        error = error_max * 2
+        error = self.max_error * 2
 
-        while itrs < max_itrs and error > error_max:
+        while itrs < self.max_itrs and error > self.max_error:
             # checks the interaction connections
             self.collide_run()
             # returns total vector after running spring force function
@@ -401,6 +407,31 @@ class Simulation(object):
             # increment the iterations
             itrs += 1
         print(itrs)
+
+    def get_cell_disp(self, obj1, obj2):
+        """ calculates how far two objects are from
+            each other and then finds spring force
+        """
+
+        # get the locations
+        v1 = obj1.location
+        v2 = obj2.location
+        # get distance vector, magnitude, and normalize it
+        v12 = SubtractVec(v2, v1)
+        dist = Mag(v12)
+        norm = NormVec(v12)
+        # find the interaction length
+        interaction_length = self.spring_max * 2
+        # recalculate distance
+        dist = dist - interaction_length
+        # now get the spring constant strength
+        k1 = obj1.spring_constant
+        k2 = obj2.spring_constant
+        k = min(k1, k2)
+        # scale the new distance by the spring constant
+        dist *= k
+        return dist, norm
+
 
 
     def handle_springs(self):
@@ -429,23 +460,7 @@ class Simulation(object):
 
                 # if one is in motion and the other is not
                 if not obj1.motion and obj2.motion:
-                    # get the locations
-                    v1 = obj1.location
-                    v2 = obj2.location
-                    # get distance vector, magnitude, and normalize it
-                    v12 = SubtractVec(v2, v1)
-                    dist = Mag(v12)
-                    norm = NormVec(v12)
-                    # find the interaction length
-                    interaction_length = self.spring_max * 2
-                    # recalculate distance
-                    dist = dist - interaction_length
-                    # now get the spring constant strength
-                    k1 = obj1.get_spring_constant(obj2)
-                    k2 = obj2.get_spring_constant(obj1)
-                    k = min(k1, k2)
-                    # scale the new distance by the spring constant
-                    dist *=  k
+                    dist, norm = self.get_cell_disp(obj1, obj2)
                     # direction of original distance vector
                     temp = ScaleVec(norm, dist)
                     # add vector to cell in motion where cell not in motion is anchor
@@ -453,46 +468,16 @@ class Simulation(object):
 
                 # if one is in motion and the other is not
                 if obj1.motion and not obj2.motion:
-                    # get the locations
-                    v1 = obj1.location
-                    v2 = obj2.location
-                    # get distance vector, magnitude, and normalize it
-                    v12 = SubtractVec(v2, v1)
-                    dist = Mag(v12)
-                    norm = NormVec(v12)
-                    # find the interaction length
-                    interaction_length = self.spring_max * 2
-                    # recalculate distance
-                    dist = dist - interaction_length
-                    # now get the spring constant strength
-                    k1 = obj1.get_spring_constant(obj2)
-                    k2 = obj2.get_spring_constant(obj1)
-                    k = min(k1, k2)
-                    # scale the new distance by the spring constant
-                    dist *= k
+                    dist, norm = self.get_cell_disp(obj1, obj2)
                     # direction of original distance vector
                     temp = ScaleVec(norm, dist)
                     # add vector to cell in motion where cell not in motion is anchor
                     obj1.add_displacement_vec(temp)
 
                 else:
-                    # get the locations
-                    v1 = obj1.location
-                    v2 = obj2.location
-                    # get distance vector, magnitude, and normalize it
-                    v12 = SubtractVec(v2, v1)
-                    dist = Mag(v12)
-                    norm = NormVec(v12)
-                    # find the interaction length
-                    interaction_length = self.spring_max * 2
-                    # recalculate distance
-                    dist = dist - interaction_length
-                    # now get the spring constant strength
-                    k1 = obj1.get_spring_constant(obj2)
-                    k2 = obj2.get_spring_constant(obj1)
-                    k = min(k1, k2)
+                    dist, norm = self.get_cell_disp(obj1, obj2)
                     # now we can apply the spring constraint to this
-                    dist = (dist / 2.0) * k
+                    dist = dist/2.0
                     # direction of original distance vector
                     temp = ScaleVec(norm, dist)
                     # add these vectors to the object vectors

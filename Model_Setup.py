@@ -1,3 +1,8 @@
+#########################################################
+# Name:    Model_Setup                                  #
+# Author:  Jack Toppen                                  #
+# Date:    2/5/20                                       #
+#########################################################
 import random as r
 from Model_Simulation import *
 from Model_SimulationObject import *
@@ -13,10 +18,10 @@ def main():
     Run_Time = 1.0
     
     # when does the model begin (usually 1)
-    Start_Time = 1
+    Start_Time = 1.0
     
     # change in time between time steps
-    Time_Step = 1
+    Time_Step = 1.0
 
     # number of initial GATA6 high cells
     GATA6_high = 500
@@ -58,7 +63,21 @@ def main():
     # amount of differentiated cells needed to surround a pluripotent cell and differentiate it
     diff_surround = 6
 
+    # bounds of the simulation
+    bounds = [[0, 0], [0, 1000], [1000, 1000], [1000, 0]]
 
+    # spring constant value
+    spring_constant = 0.77
+
+    # max iterations for optimize
+    max_itrs = 20
+
+    # error maximum for optimize
+    max_error = 0.00001
+
+
+#######################################################################################################################
+#######################################################################################################################
 #######################################################################################################################
 
 
@@ -67,7 +86,7 @@ def main():
 
     # initializes simulation class which holds all information about the simulation
     sim = Simulation(Model_ID, path, Start_Time, Run_Time, Time_Step, pluri_div_thresh, diff_div_thresh, pluri_to_diff,
-                     size, spring_max, diff_surround, functions)
+                     size, spring_max, diff_surround, functions, max_itrs, max_error)
 
     # loops over all NANOG_high cells and creates a stem cell object for each one with given parameters
     for i in range(NANOG_high):
@@ -76,14 +95,15 @@ def main():
         state = "Pluripotent"
         motion = True
         if stochastic_bool:
-            booleans = np.array([0, r.randint(0,1) , r.randint(0,1), 0, 1])
+            booleans = np.array([0, r.randint(0, 1), r.randint(0, 1), 0, 1])
         else:
-            booleans = np.array([0,0,0,0,1])
+            booleans = np.array([0, 0, 0, 0, 1])
 
         diff_timer = pluri_to_diff * r.random()
-        division_timer = pluri_div_thresh* r.random()
+        division_timer = pluri_div_thresh * r.random()
 
-        sim_obj = StemCell(point, radius, ID, booleans, state, diff_timer, division_timer, motion)
+        sim_obj = StemCell(point, radius, ID, booleans, state, diff_timer, division_timer, motion, bounds,
+                           spring_constant)
         sim.add_object(sim_obj)
         sim.inc_current_ID()
 
@@ -94,14 +114,15 @@ def main():
         state = "Pluripotent"
         motion = True
         if stochastic_bool:
-            booleans = np.array([0, r.randint(0,1) , r.randint(0,1), 1, 0])
+            booleans = np.array([0, r.randint(0, 1), r.randint(0, 1), 1, 0])
         else:
-            booleans = np.array([0,0,0,1,0])
+            booleans = np.array([0, 0, 0, 1, 0])
 
         diff_timer = pluri_to_diff * r.random()
         division_timer = pluri_div_thresh * r.random()
 
-        sim_obj = StemCell(point,radius,ID,booleans,state,diff_timer,division_timer,motion)
+        sim_obj = StemCell(point, radius, ID, booleans, state, diff_timer, division_timer, motion, bounds,
+                           spring_constant)
         sim.add_object(sim_obj)
         sim.inc_current_ID()
 
@@ -131,4 +152,3 @@ def newDirect(path):
         k = 0
 
     return k + 1.0
-
