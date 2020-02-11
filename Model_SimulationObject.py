@@ -79,7 +79,7 @@ class StemCell(object):
             if self.boundary.contains_point(location[0:2]):
                 self.location = location
 
-            # if the new location is not in the grid, return to the old point
+            # if the new location is not in the grid, try opposite
             else:
                 new_loc = SubtractVec(self.location, self._disp_vec)
                 if self.boundary.contains_point(new_loc[0:2]):
