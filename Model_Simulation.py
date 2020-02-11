@@ -65,7 +65,7 @@ class Simulation(object):
         # keeps a running count of the time
         self.time_counter = float(start_time)
 
-        # array to hold all of the objects
+        # array to hold all of the stem cell objects
         self.objects = np.array([])
 
         # graph representing all the objects and their connections to other objects
@@ -181,7 +181,7 @@ class Simulation(object):
             self.update()
 
             # boolean values update
-            self.boolean_update()
+            # self.boolean_update()
 
             # sees if cells can differentiate based on pluripotent cells surrounding by differentiated cells
             self.diff_surround()
@@ -221,7 +221,7 @@ class Simulation(object):
         for i in range(self.size[1]):
             # loops over all columns
             for j in range(self.size[2]):
-                self.grid[np.array([0]),np.array([i]),np.array([j])] = r.randint(0,10)
+                self.grid[np.array([0]), np.array([i]),np.array([j])] = r.randint(0,10)
 
 
     def random_movement(self):
@@ -525,6 +525,7 @@ class Simulation(object):
         draw = ImageDraw.Draw(image1)
 
         # bounds of the simulation used for drawing patch
+        # inherit
         bounds = [[0,0], [0,1000], [1000,1000], [1000,0]]
 
         # determines color and outline of the cells
@@ -560,6 +561,8 @@ class Simulation(object):
         """
         # opens file
         new_file = open(path, "w")
+
+        # CSV maybe?
 
         # loops over all objects
         for i in range(0, len(self.objects)):

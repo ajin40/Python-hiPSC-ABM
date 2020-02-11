@@ -152,3 +152,5 @@ def newDirect(path):
         k = 0
 
     return k + 1.0
+
+# main()
