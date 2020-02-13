@@ -1,6 +1,5 @@
 import Model_Setup
 
-# Initialize parameters in Model_Setup
-# Run this module to run the simulation
-
 Model_Setup.main()
+
+# run this file after modifying Model_Setup
