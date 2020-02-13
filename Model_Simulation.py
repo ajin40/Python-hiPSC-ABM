@@ -19,7 +19,7 @@ class Simulation(object):
         simulation
     """
     def __init__(self, name, path, start_time, end_time, time_step, pluri_div_thresh, diff_div_thresh, pluri_to_diff,
-                 size, spring_max, diff_surround_value, functions):
+                 size, spring_max, diff_surround_value, functions, itrs, error):
         """ Initialization function for the simulation setup.
             name: the simulation name
             path: the path to save the simulation information to
@@ -85,6 +85,9 @@ class Simulation(object):
         else:
             # linux/unix
             self._sep = "/"
+
+        self.itrs = itrs
+        self.error  = error
 
 #######################################################################################################################
 
@@ -199,7 +202,7 @@ class Simulation(object):
             self.calculate_compression()
 
             # optimizes the simulation by handling springs until error is less than threshold
-            self.optimize(0.00001, 20)
+            self.optimize(self.error, self.itrs)
 
             # increments the time by time step
             self.time_counter += self.time_step
@@ -221,7 +224,7 @@ class Simulation(object):
         for i in range(self.size[1]):
             # loops over all columns
             for j in range(self.size[2]):
-                self.grid[np.array([0]), np.array([i]),np.array([j])] = r.randint(0,10)
+                self.grid[np.array([0]), np.array([i]), np.array([j])] = r.randint(0,10)
 
 
     def random_movement(self):
@@ -312,7 +315,7 @@ class Simulation(object):
             
     def update(self):
         """ Updates all of the objects in the simulation
-            and degrades the FGF4 amount by 1 for all pathes
+            and degrades the FGF4 amount by 1 for all patches
         """
         # loops over all rows
         for i in range(self.size[1]):
@@ -446,8 +449,8 @@ class Simulation(object):
                     # recalculate distance
                     dist = dist - interaction_length
                     # now get the spring constant strength
-                    k1 = obj1.get_spring_constant(obj2)
-                    k2 = obj2.get_spring_constant(obj1)
+                    k1 = obj1.spring_constant
+                    k2 = obj2.spring_constant
                     k = min(k1, k2)
                     # scale the new distance by the spring constant
                     dist *= k
@@ -470,8 +473,8 @@ class Simulation(object):
                     # recalculate distance
                     dist = dist - interaction_length
                     # now get the spring constant strength
-                    k1 = obj1.get_spring_constant(obj2)
-                    k2 = obj2.get_spring_constant(obj1)
+                    k1 = obj1.spring_constant
+                    k2 = obj2.spring_constant
                     k = min(k1, k2)
                     # scale the new distance by the spring constant
                     dist *= k
@@ -493,8 +496,8 @@ class Simulation(object):
                     # recalculate distance
                     dist = dist - interaction_length
                     # now get the spring constant strength
-                    k1 = obj1.get_spring_constant(obj2)
-                    k2 = obj2.get_spring_constant(obj1)
+                    k1 = obj1.spring_constant
+                    k2 = obj2.spring_constant
                     k = min(k1, k2)
                     # now we can apply the spring constraint to this
                     dist = (dist / 2.0) * k
@@ -602,70 +605,70 @@ class Simulation(object):
 
 #######################################################################################################################
 # commonly used math functions
-
-def RandomPointOnSphere():
-    """ Computes a random point on a sphere
-        Returns - a point on a unit sphere [x,y] at the origin
-    """
-
-    theta = rand.random() * 2 * math.pi
-    x = math.cos(theta)
-    y = math.sin(theta)
-
-    return np.array((x, y))
-
-
-def AddVec(v1, v2):
-    """ Adds two vectors that are in the form [x,y,z]
-        Returns - a new vector [x,y,z] as a numpy array
-    """
-    n = len(v1)
-    temp = np.array(v1)
-    for i in range(0, n):
-        temp[i] += float(v2[i])
-    return temp
-
-
-def SubtractVec(v1, v2):
-    """ Subtracts vector [x,y,z] v2 from vector v1
-        Returns - a new vector [x,y,z] as a numpy array
-    """
-    n = len(v1)
-    temp = np.array(v1)
-    for i in range(0, n):
-        temp[i] -= float(v2[i])
-    return temp
-
-
-def ScaleVec(v1, s):
-    """ Scales a vector f*[x,y,z] = [fx, fy, fz]
-        Returns - a new scaled vector [x,y,z] as a numpy array
-    """
-    n = len(v1)
-    temp = np.array(v1)
-    for i in range(0, n):
-        temp[i] = temp[i] * s
-    return temp
-
-
-def Mag(v1):
-    """ Computes the magnitude of a vector
-        Returns - a float representing the vector magnitude
-    """
-    n = len(v1)
-    temp = 0.
-    for i in range(0, n):
-        temp += (v1[i] * v1[i])
-    return math.sqrt(temp)
-
-
-def NormVec(v1):
-    """ Computes a normalized version of the vector v1
-        Returns - a normalizerd vector [x,y,z] as a numpy array
-    """
-
-    mag = Mag(v1)
-    temp = np.array(v1)
-    if mag == 0:
-        return temp * 0
-    return temp / mag
+#
+# def RandomPointOnSphere():
+#     """ Computes a random point on a sphere
+#         Returns - a point on a unit sphere [x,y] at the origin
+#     """
+#
+#     theta = rand.random() * 2 * math.pi
+#     x = math.cos(theta)
+#     y = math.sin(theta)
+#
+#     return np.array((x, y))
+#
+#
+# def AddVec(v1, v2):
+#     """ Adds two vectors that are in the form [x,y,z]
+#         Returns - a new vector [x,y,z] as a numpy array
+#     """
+#     n = len(v1)
+#     temp = np.array(v1)
+#     for i in range(0, n):
+#         temp[i] += float(v2[i])
+#     return temp
+#
+#
+# def SubtractVec(v1, v2):
+#     """ Subtracts vector [x,y,z] v2 from vector v1
+#         Returns - a new vector [x,y,z] as a numpy array
+#     """
+#     n = len(v1)
+#     temp = np.array(v1)
+#     for i in range(0, n):
+#         temp[i] -= float(v2[i])
+#     return temp
+#
+#
+# def ScaleVec(v1, s):
+#     """ Scales a vector f*[x,y,z] = [fx, fy, fz]
+#         Returns - a new scaled vector [x,y,z] as a numpy array
+#     """
+#     n = len(v1)
+#     temp = np.array(v1)
+#     for i in range(0, n):
+#         temp[i] = temp[i] * s
+#     return temp
+#
+#
+# def Mag(v1):
+#     """ Computes the magnitude of a vector
+#         Returns - a float representing the vector magnitude
+#     """
+#     n = len(v1)
+#     temp = 0.
+#     for i in range(0, n):
+#         temp += (v1[i] * v1[i])
+#     return math.sqrt(temp)
+#
+#
+# def NormVec(v1):
+#     """ Computes a normalized version of the vector v1
+#         Returns - a normalizerd vector [x,y,z] as a numpy array
+#     """
+#
+#     mag = Mag(v1)
+#     temp = np.array(v1)
+#     if mag == 0:
+#         return temp * 0
+#     return temp / mag
