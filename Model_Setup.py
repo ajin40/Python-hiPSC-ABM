@@ -1,110 +1,151 @@
+#########################################################
+# Name:    Model_Setup                                  #
+# Author:  Jack Toppen                                  #
+# Date:    2/5/20                                       #
+#########################################################
 import random as r
-from Model_Simulation import *
-from Model_SimulationObjects import *
 import numpy as np
+import os
+from Model_Simulation import Simulation
+from Model_StemCells import StemCell
 
 
-def main(Model_ID, Run_Time, path):
-    
-    # when does the model begin (usually 1)
-    Start_Time = 1
-    
-    # change in time for steps
-    Time_Step = 1
+# where the model will output images and cell locations ex. ("C:\\Python27\\Model")
+path = "C:\\Python27\\MEGA-ARRAY"
 
-    # size of array (dimensions, rows, columns)
-    size = (2, 1000, 1000)
+# total time step counter limit to less than 30
+Run_Time = 1.0
 
-    # functions
-    funct_1 = "x5"
-    funct_2 = "x1 * x4"
-    funct_3 = "x2"
-    funct_4 = "x5 + 1"
-    funct_5 = "(x3+1) * (x4+1)"
+# when does the model begin (usually 1)
+Start_Time = 1.0
 
-    # radius of each cell state
-    radius = np.asarray([6.0])
+# change in time between time steps
+Time_Step = 1.0
 
-    # production/degradation constants for each extracellular molecule
-    source_sink_params = np.asarray([[[5e-14, 4e-14], [5e-14, 4e-14]], ])
+# number of initial GATA6 high cells
+GATA6_high = 500
 
-    # mitosis threshold for pluripotent cells
-    pluri_threshold = 1.0
+# number of initial NANOG high cells
+NANOG_high = 500
 
-    # mitosis threshold for differentiated cells
-    diff_threshold = 1.0
+# stochastic FGFR + ERK values?
+stochastic_bool = True
 
+# size of grid can be 3D with extra layers (layers, rows, columns)
+size = (1, 1000, 1000)
 
+# define boolean functions here ex. ("(x3+1) * (x4+1)")
+funct_1 = "x5"
+funct_2 = "x1 * x4"
+funct_3 = "x2"
+funct_4 = "x5 + 1"
+funct_5 = "(x3+1) * (x4+1)"
 
+# add functions to the list
+functions = [funct_1, funct_2, funct_3, funct_4, funct_5]
 
+# radius of each cell depending on state ex. ([state_1, state_2])
+radius = 6.0
 
+# length of time steps required for a pluripotent cell to divide
+pluri_div_thresh = 36.0
 
+# length of time steps required for a differentiated cell to divide
+diff_div_thresh = 12.0
 
+# length of time steps required for a pluripotent cell to differentiate
+pluri_to_diff = 4.0
 
+# length at which a edge is formed to create springs between cells
+spring_max = 13.0
 
+# amount of differentiated cells needed to surround a pluripotent cell and differentiate it
+diff_surround = 6
 
+# bounds of the simulation
+bounds = [[0, 0], [0, 1000], [1000, 1000], [1000, 0]]
 
+# spring constant value
+spring_constant = 0.77
+
+# max iterations for optimize
+max_itrs = 20
+
+# error maximum for optimize
+max_error = 0.00001
 
 #######################################################################################################################
-    functions = [funct_1, funct_2, funct_3, funct_4, funct_5]
+#######################################################################################################################
+#######################################################################################################################
 
+def newDirect(path):
+    """
+    This function opens the specified save path and finds the highest folder number.
+    It then returns the next highest number as a name for the currently running simulation.
+    """
 
-    # initializes simulation class
-    sim = Simulation(Model_ID, path, Start_Time, Run_Time, Time_Step, pluri_threshold, diff_threshold, source_sink_params, size, functions)
-
-
-    # counts the number of cells
-    f = open(os.getcwd() + "/cell_coords.txt")
-    cells_txt = f.read()
-    cells = cells_txt.split('\n')
-    count_cells = len(cells) - 1
-
-
-    # loops over all cells
-    for i in range(0, count_cells):
-        src_snk = source_sink_params
-        ID = i
-        line = cells[i].split(',')
-        point = [float(line[1]), float(line[2])]
-        state = str(line[3])
-        x1 = float(line[4])
-        x2 = float(line[5])
-        x3 = float(line[6])
-        x4 = float(line[7])
-        x5 = float(line[8])
-
-        #
-        # if state == "Pluripotent":
-        #     division_time = pluri_threshold
-        #
-        # else:
-        #     division_time = diff_threshold
-
-        division_time = 3.0
-
-        diff_timer = 0
-        division_timer = 0
-        if division_time == 0:
-            div_set = 0
-            sim_obj = StemCell(point,radius,ID,src_snk,x1,x2,x3,x4,x5,state,diff_timer,division_timer,Run_Time+1)
+    files = os.listdir(path)
+    file_count = len(files)
+    number_files = []
+    if file_count > 0:
+        for i in range(file_count):
+            try:
+                number_files.append(float(files[i]))
+            except ValueError:
+                pass
+        if len(number_files) > 0:
+            k = max(number_files)
         else:
-            div_set = r.random() * division_time
-            sim_obj = StemCell(point,radius,ID,src_snk,x1,x2,x3,x4,x5,state,diff_timer,division_timer,division_time)
+            k = 0
+    else:
+        k = 0
+    return k + 1.0
 
 
-        # add object to simulation
-        sim.add_object(sim_obj)
+# names the file
+Model_ID = newDirect(path)
 
-        # IDs the cell
-        sim.inc_current_ID()
+# initializes simulation class which holds all information about the simulation
+simulation = Simulation(Model_ID, path, Start_Time, Run_Time, Time_Step, pluri_div_thresh, diff_div_thresh, pluri_to_diff,
+                 size, spring_max, diff_surround, functions, max_itrs, max_error)
 
-    try:
-        sim.collide()
-    except:
-        sim.collide_lowDens()
+# loops over all NANOG_high cells and creates a stem cell object for each one with given parameters
+for i in range(NANOG_high):
+    ID = i
+    point = [r.random() * 999.99, r.random() * 999.99]
+    state = "Pluripotent"
+    motion = True
+    if stochastic_bool:
+        booleans = np.array([r.randint(0, 1), r.randint(0, 1), 0, 1])
+    else:
+        booleans = np.array([0, 0, 0, 1])
 
+    diff_timer = pluri_to_diff * r.random()
+    division_timer = pluri_div_thresh * r.random()
 
+    sim_obj = StemCell(point, radius, ID, booleans, state, diff_timer, division_timer, motion, bounds,
+                       spring_constant)
+    simulation.add_object(sim_obj)
+    simulation.inc_current_ID()
 
-    # run the simulation
-    sim.run()
-    
+# loops over all GATA6_high cells and creates a stem cell object for each one with given parameters
+for i in range(GATA6_high):
+    ID = i + NANOG_high
+    point = [r.random() * 999.99, r.random() * 999.99]
+    state = "Pluripotent"
+    motion = True
+    if stochastic_bool:
+        booleans = np.array([r.randint(0, 1), r.randint(0, 1), 1, 0])
+    else:
+        booleans = np.array([0, 0, 1, 0])
+
+    diff_timer = pluri_to_diff * r.random()
+    division_timer = pluri_div_thresh * r.random()
+
+    sim_obj = StemCell(point, radius, ID, booleans, state, diff_timer, division_timer, motion, bounds,
+                       spring_constant)
+    simulation.add_object(sim_obj)
+    simulation.inc_current_ID()
+
+# runs the model
+simulation.run()
