@@ -567,14 +567,13 @@ class Simulation(object):
             x2 = str(self.objects[i].booleans[1]) + ","
             x3 = str(self.objects[i].booleans[2]) + ","
             x4 = str(self.objects[i].booleans[3]) + ","
-            x5 = str(self.objects[i].booleans[4]) + ","
             diff = str(round(self.objects[i].diff_timer, 1)) + ","
             div = str(round(self.objects[i].division_timer, 1)) + ","
             state = self.objects[i].state + ","
             motion = str(self.objects[i].motion)
 
             # creates line for each object with key information
-            line = ID + x_coord + y_coord + state + x1 + x2 + x3 + x4 + x5 + motion + diff + div
+            line = ID + x_coord + y_coord + state + x1 + x2 + x3 + x4 + motion + diff + div
             new_file.write(line + "\n")
 
 
