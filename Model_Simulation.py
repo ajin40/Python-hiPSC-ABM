@@ -1,17 +1,12 @@
-import os, shutil
+import os
 import platform
 import networkx as nx
 import numpy as np
-from Model_SimulationObject import *
-from scipy.spatial import *
-from PIL import Image,ImageDraw
-import matplotlib.pyplot as plt
-import pickle
+from PIL import Image, ImageDraw
 import time
 import cv2
-import glob
 import random as r
-from numba import cuda
+from Model_Math import *
 
 
 class Simulation(object):
@@ -55,6 +50,8 @@ class Simulation(object):
         self.spring_max = spring_max
         self.diff_surround_value = diff_surround_value
         self.functions = functions
+        self.itrs = itrs
+        self.error = error
 
         # the array that represents the grid and all its patches
         self.grid = np.zeros(self.size)
@@ -85,10 +82,6 @@ class Simulation(object):
         else:
             # linux/unix
             self._sep = "/"
-
-        self.itrs = itrs
-        self.error  = error
-
 #######################################################################################################################
 
     def call_functions(self):
@@ -157,7 +150,6 @@ class Simulation(object):
         """ Runs all elements of the simulation until
             the total time is met
         """
-
         # tries to make a new directory for the simulation
         try:
             os.mkdir(self.path + self._sep + self.name)
@@ -182,9 +174,6 @@ class Simulation(object):
 
             # updates all of the objects (motion, state, booleans)
             self.update()
-
-            # boolean values update
-            # self.boolean_update()
 
             # sees if cells can differentiate based on pluripotent cells surrounding by differentiated cells
             self.diff_surround()
@@ -224,7 +213,7 @@ class Simulation(object):
         for i in range(self.size[1]):
             # loops over all columns
             for j in range(self.size[2]):
-                self.grid[np.array([0]), np.array([i]), np.array([j])] = r.randint(0,10)
+                self.grid[np.array([0]), np.array([i]), np.array([j])] = r.randint(0, 10)
 
 
     def random_movement(self):
@@ -321,7 +310,8 @@ class Simulation(object):
         for i in range(self.size[1]):
             # loops over all columns
             for j in range(self.size[2]):
-                self.grid[np.array([0]),np.array([i]),np.array([j])] += -1
+                if self.grid[np.array([0]), np.array([i]), np.array([j])] >= 1:
+                    self.grid[np.array([0]), np.array([i]), np.array([j])] += -1
 
         # loops over all objects and updates each
         for i in range(0, len(self.objects)):
@@ -529,7 +519,7 @@ class Simulation(object):
 
         # bounds of the simulation used for drawing patch
         # inherit
-        bounds = [[0,0], [0,1000], [1000,1000], [1000,0]]
+        bounds = [[0, 0], [0, 1000], [1000, 1000], [1000, 0]]
 
         # determines color and outline of the cells
         col_dict = {'Pluripotent': 'red', 'Differentiated': 'blue'}
@@ -542,7 +532,7 @@ class Simulation(object):
             r = node.radius
             col = col_dict[node.state]
             out = outline_dict[node.state]
-            draw.ellipse((x - r + 200, y - r + 200, x + r + 200, y + r + 200), outline=out, fill=col)
+            draw.ellipse((x - r + 250, y - r + 250, x + r + 250, y + r + 250), outline=out, fill=col)
 
         # loops over all of the bounds and draws lines to represent the grid
         for i in range(len(bounds)):
@@ -552,8 +542,8 @@ class Simulation(object):
             else:
                 x1, y1 = bounds[0]
             r = 4
-            draw.ellipse((x - r + 200, y - r + 200, x + r + 200, y + r + 200), outline='black', fill='black')
-            draw.line((x + 200, y + 200, x1 + 200, y1 + 200), fill='black', width=10)
+            draw.ellipse((x - r + 250, y - r + 250, x + r + 250, y + r + 250), outline='black', fill='black')
+            draw.line((x + 250, y + 250, x1 + 250, y1 + 250), fill='black', width=10)
 
         # saves the image as a .png
         image1.save(path + ".png", 'PNG')
@@ -578,8 +568,8 @@ class Simulation(object):
             x3 = str(self.objects[i].booleans[2]) + ","
             x4 = str(self.objects[i].booleans[3]) + ","
             x5 = str(self.objects[i].booleans[4]) + ","
-            diff = str(round(self.objects[i].diff_timer,1)) + ","
-            div = str(round(self.objects[i].division_timer,1)) + ","
+            diff = str(round(self.objects[i].diff_timer, 1)) + ","
+            div = str(round(self.objects[i].division_timer, 1)) + ","
             state = self.objects[i].state + ","
             motion = str(self.objects[i].motion)
 
@@ -601,74 +591,3 @@ class Simulation(object):
 
         # draws the image of the simulation
         self.draw_cell_image(self.network, base_path + "network_image" + str(int(self.time_counter)))
-
-
-#######################################################################################################################
-# commonly used math functions
-#
-# def RandomPointOnSphere():
-#     """ Computes a random point on a sphere
-#         Returns - a point on a unit sphere [x,y] at the origin
-#     """
-#
-#     theta = rand.random() * 2 * math.pi
-#     x = math.cos(theta)
-#     y = math.sin(theta)
-#
-#     return np.array((x, y))
-#
-#
-# def AddVec(v1, v2):
-#     """ Adds two vectors that are in the form [x,y,z]
-#         Returns - a new vector [x,y,z] as a numpy array
-#     """
-#     n = len(v1)
-#     temp = np.array(v1)
-#     for i in range(0, n):
-#         temp[i] += float(v2[i])
-#     return temp
-#
-#
-# def SubtractVec(v1, v2):
-#     """ Subtracts vector [x,y,z] v2 from vector v1
-#         Returns - a new vector [x,y,z] as a numpy array
-#     """
-#     n = len(v1)
-#     temp = np.array(v1)
-#     for i in range(0, n):
-#         temp[i] -= float(v2[i])
-#     return temp
-#
-#
-# def ScaleVec(v1, s):
-#     """ Scales a vector f*[x,y,z] = [fx, fy, fz]
-#         Returns - a new scaled vector [x,y,z] as a numpy array
-#     """
-#     n = len(v1)
-#     temp = np.array(v1)
-#     for i in range(0, n):
-#         temp[i] = temp[i] * s
-#     return temp
-#
-#
-# def Mag(v1):
-#     """ Computes the magnitude of a vector
-#         Returns - a float representing the vector magnitude
-#     """
-#     n = len(v1)
-#     temp = 0.
-#     for i in range(0, n):
-#         temp += (v1[i] * v1[i])
-#     return math.sqrt(temp)
-#
-#
-# def NormVec(v1):
-#     """ Computes a normalized version of the vector v1
-#         Returns - a normalizerd vector [x,y,z] as a numpy array
-#     """
-#
-#     mag = Mag(v1)
-#     temp = np.array(v1)
-#     if mag == 0:
-#         return temp * 0
-#     return temp / mag
