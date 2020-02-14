@@ -14,7 +14,7 @@ class Simulation(object):
         simulation
     """
     def __init__(self, name, path, start_time, end_time, time_step, pluri_div_thresh, diff_div_thresh, pluri_to_diff,
-                 size, spring_max, diff_surround_value, functions, itrs, error, parallel):
+                 size, spring_max, diff_surround_value, functions, itrs, error):
         """ Initialization function for the simulation setup.
             name: the simulation name
             path: the path to save the simulation information to
@@ -52,7 +52,6 @@ class Simulation(object):
         self.functions = functions
         self.itrs = itrs
         self.error = error
-        self.parallel = parallel
 
         # the array that represents the grid and all its patches
         self.grid = np.zeros(self.size)
@@ -182,10 +181,8 @@ class Simulation(object):
             # adds/removes all objects from the simulation
             self.update_object_queue()
 
-            if self.parallel:
-                self.check_edges_gpu()
-            else:
-                self.check_edges()
+            # create/break connections between cells depending on distance apart
+            self.collide_run()
 
             # moves cells in "motion" in a random fashion
             self.random_movement()
