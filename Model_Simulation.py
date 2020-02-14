@@ -14,7 +14,7 @@ class Simulation(object):
         simulation
     """
     def __init__(self, name, path, start_time, end_time, time_step, pluri_div_thresh, diff_div_thresh, pluri_to_diff,
-                 size, spring_max, diff_surround_value, functions, itrs, error):
+                 size, spring_max, diff_surround_value, functions, itrs, error, parallel):
         """ Initialization function for the simulation setup.
             name: the simulation name
             path: the path to save the simulation information to
@@ -52,6 +52,7 @@ class Simulation(object):
         self.functions = functions
         self.itrs = itrs
         self.error = error
+        self.parallel = parallel
 
         # the array that represents the grid and all its patches
         self.grid = np.zeros(self.size)
@@ -181,8 +182,10 @@ class Simulation(object):
             # adds/removes all objects from the simulation
             self.update_object_queue()
 
-            # create/break connections between cells depending on distance apart
-            self.collide_run()
+            if self.parallel:
+                self.check_edges_gpu()
+            else:
+                self.check_edges()
 
             # moves cells in "motion" in a random fashion
             self.random_movement()
@@ -298,7 +301,7 @@ class Simulation(object):
         # loops over all objects
         for i in range(len(objects)):
             # checks to see if they are Pluripotent and GATA6 low
-            if objects[i].state == "Pluripotent" and objects[i].booleans[3] == 0:
+            if objects[i].state == "Pluripotent" and objects[i].booleans[2] == 0:
                 objects[i].diff_surround_funct(self)
 
             
