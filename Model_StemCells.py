@@ -1,5 +1,5 @@
 #########################################################
-# Name:    Model_SimulationObject                       #
+# Name:    Model_StemCells                              #
 # Author:  Jack Toppen                                  #
 # Date:    2/5/20                                       #
 #########################################################
@@ -7,6 +7,7 @@ import math as math
 import numpy as np
 import matplotlib.path as mpltPath
 from Model_Math import *
+
 
 class StemCell(object):
     """ Every cell object in the simulation
@@ -194,8 +195,8 @@ class StemCell(object):
             and sets the motion to be true
         """
         self.state = "Differentiated"
-        self.booleans[3] = 1
-        self.booleans[4] = 0
+        self.booleans[2] = 1
+        self.booleans[3] = 0
         self.motion = True
 
 

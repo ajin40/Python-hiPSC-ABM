@@ -1,3 +1,8 @@
+#########################################################
+# Name:    Model_Simulation                             #
+# Author:  Jack Toppen                                  #
+# Date:    2/5/20                                       #
+#########################################################
 import os
 import platform
 import networkx as nx
@@ -8,13 +13,15 @@ import cv2
 import random as r
 from Model_Math import *
 
+from numba import cuda
+
 
 class Simulation(object):
     """ called once holds important information about the
         simulation
     """
     def __init__(self, name, path, start_time, end_time, time_step, pluri_div_thresh, diff_div_thresh, pluri_to_diff,
-                 size, spring_max, diff_surround_value, functions, itrs, error):
+                 size, spring_max, diff_surround_value, functions, itrs, error, parallel):
         """ Initialization function for the simulation setup.
             name: the simulation name
             path: the path to save the simulation information to
@@ -30,6 +37,7 @@ class Simulation(object):
                 a pluripotent cell inducing its differentiation
             functions: the boolean functions as a string from Model_Setup
         """
+
         # make sure name and path are strings
         if type(name) is str:
             self.name = name
@@ -52,6 +60,7 @@ class Simulation(object):
         self.functions = functions
         self.itrs = itrs
         self.error = error
+        self.parallel = parallel
 
         # the array that represents the grid and all its patches
         self.grid = np.zeros(self.size)
@@ -82,12 +91,96 @@ class Simulation(object):
         else:
             # linux/unix
             self._sep = "/"
+
+
+#######################################################################################################################
+
+    def run(self):
+        """ Runs all elements of the simulation until
+            the total time is met
+        """
+        # tries to make a new directory for the simulation
+        try:
+            os.mkdir(self.path + self._sep + self.name)
+        except OSError:
+            # directory already exists overwrite it
+            print("Directory already exists... overwriting directory")
+
+        # setup grid and patches
+
+        if self.parallel:
+            self.initialize_grid_gpu()
+        else:
+            self.initialize_grid()
+
+        # run collide() to create connections between cells
+        if self.parallel:
+            self.collide_gpu()
+        else:
+            self.collide()
+
+        # save the first image and data of simulation
+        self.save_file()
+
+        # run simulation until end time
+        while self.time_counter <= self.end_time:
+
+            print("Time: " + str(self.time_counter))
+            print("Number of objects: " + str(len(self.objects)))
+
+            # updates all of the objects (motion, state, booleans)
+
+            if self.parallel:
+                self.update_grid_gpu()
+            else:
+                self.update_grid()
+
+            self.update()
+
+            # sees if cells can differentiate based on pluripotent cells surrounding by differentiated cells
+            self.diff_surround()
+
+            # adds/removes all objects from the simulation
+            self.update_object_queue()
+
+            # create/break connections between cells depending on distance apart
+            if self.parallel:
+                self.collide_gpu()
+            else:
+                self.collide_run()
+
+            # moves cells in "motion" in a random fashion
+            self.random_movement()
+
+            # calculates how much compression force is on each cell
+            self.calculate_compression()
+
+            # optimizes the simulation by handling springs until error is less than threshold
+            self.optimize(self.error, self.itrs)
+
+            # increments the time by time step
+            self.time_counter += self.time_step
+
+            # saves the image file and txt file with all important information
+            self.save_file()
+
+        # turns all images into a video at the end
+        self.image_to_video()
+
+
+
 #######################################################################################################################
 
     def call_functions(self):
         """returns functions defined in Model_Setup
         """
         return self.functions
+
+
+    def inc_current_ID(self):
+        """Increments the ID of cell by 1 each time called
+        """
+        self._current_ID += 1
 
 
     def add_object(self, sim_object):
@@ -99,12 +192,6 @@ class Simulation(object):
 
         # adds it to the graph
         self.network.add_node(sim_object)
-
-
-    def inc_current_ID(self):
-        """Increments the ID of cell by 1 each time called
-        """
-        self._current_ID += 1
 
 
     def remove_object(self, sim_object):
@@ -144,66 +231,6 @@ class Simulation(object):
         """
         return self._current_ID
 
-#######################################################################################################################
-
-    def run(self):
-        """ Runs all elements of the simulation until
-            the total time is met
-        """
-        # tries to make a new directory for the simulation
-        try:
-            os.mkdir(self.path + self._sep + self.name)
-        except OSError:
-            # directory already exists overwrite it
-            print("Directory already exists... overwriting directory")
-
-        # setup grid and patches
-        self.initialize_grid()
-
-        # run collide() to create connections between cells
-        self.collide()
-
-        # save the first image and data of simulation
-        self.save_file()
-
-        # run simulation until end time
-        while self.time_counter <= self.end_time:
-
-            print("Time: " + str(self.time_counter))
-            print("Number of objects: " + str(len(self.objects)))
-
-            # updates all of the objects (motion, state, booleans)
-            self.update()
-
-            # sees if cells can differentiate based on pluripotent cells surrounding by differentiated cells
-            self.diff_surround()
-
-            # adds/removes all objects from the simulation
-            self.update_object_queue()
-
-            # create/break connections between cells depending on distance apart
-            self.collide_run()
-
-            # moves cells in "motion" in a random fashion
-            self.random_movement()
-
-            # calculates how much compression force is on each cell
-            self.calculate_compression()
-
-            # optimizes the simulation by handling springs until error is less than threshold
-            self.optimize(self.error, self.itrs)
-
-            # increments the time by time step
-            self.time_counter += self.time_step
-
-            # saves the image file and txt file with all important information
-            self.save_file()
-
-        # turns all images into a video at the end
-        self.image_to_video()
-
-#######################################################################################################################
-
 
     def initialize_grid(self):
         """ sets up the grid and the patches
@@ -214,6 +241,39 @@ class Simulation(object):
             # loops over all columns
             for j in range(self.size[2]):
                 self.grid[np.array([0]), np.array([i]), np.array([j])] = r.randint(0, 10)
+
+
+    def initialize_grid_gpu(self):
+        from numba import cuda
+        an_array = self.grid
+        an_array_gpu = cuda.to_device(an_array)
+        threads_per_block = (32, 32)
+        blocks_per_grid_x = math.ceil(an_array.shape[0] / threads_per_block[0])
+        blocks_per_grid_y = math.ceil(an_array.shape[1] / threads_per_block[1])
+        blocks_per_grid = (blocks_per_grid_x, blocks_per_grid_y)
+        initialize_grid_cuda[blocks_per_grid, threads_per_block](an_array_gpu)
+
+        self.grid = an_array_gpu.copy_to_host()
+
+
+    def update_grid(self):
+        for i in range(self.size[1]):
+            for j in range(self.size[2]):
+                if self.grid[np.array([0]), np.array([i]), np.array([j])] >= 1:
+                    self.grid[np.array([0]), np.array([i]), np.array([j])] += -1
+
+
+    def update_grid_gpu(self):
+        from numba import cuda
+        an_array = self.grid
+        an_array_gpu = cuda.to_device(an_array)
+        threads_per_block = (32, 32)
+        blocks_per_grid_x = math.ceil(an_array.shape[0] / threads_per_block[0])
+        blocks_per_grid_y = math.ceil(an_array.shape[1] / threads_per_block[1])
+        blocks_per_grid = (blocks_per_grid_x, blocks_per_grid_y)
+        update_grid_cuda[blocks_per_grid, threads_per_block](an_array_gpu)
+
+        self.grid = an_array_gpu.copy_to_host()
 
 
     def random_movement(self):
@@ -228,7 +288,7 @@ class Simulation(object):
                 temp_x = self.objects[i].location[0] + r.uniform(-1, 1) * 10
                 temp_y = self.objects[i].location[1] + r.uniform(-1, 1) * 10
                 # if the new location would be outside the grid don't move it
-                if temp_x <= 1000 and temp_x >= 0 and temp_y <= 1000 and temp_y >= 0:
+                if 1000 >= temp_x >= 0 and 1000 >= temp_y >= 0:
                     self.objects[i].location[0] = temp_x
                     self.objects[i].location[1] = temp_y
 
@@ -244,12 +304,14 @@ class Simulation(object):
         img_array = []
 
         # loops over all images created
-        for i in range(self.image_counter):
+        for i in range(self.image_counter + 1):
+
             img = cv2.imread(base_path + 'network_image' + str(i) + ".png")
             img_array.append(img)
 
         # output file for the video
-        out = cv2.VideoWriter(base_path + 'network_video.mp4', cv2.VideoWriter_fourcc(*"DIVX"), 2.0, (1500, 1500))
+        out = cv2.VideoWriter(base_path + 'network_video.avi', cv2.VideoWriter_fourcc("M", "J", "P", "G"), 1.0, (1500, 1500))
+
 
         # adds image to output file
         for i in range(len(img_array)):
@@ -306,12 +368,6 @@ class Simulation(object):
         """ Updates all of the objects in the simulation
             and degrades the FGF4 amount by 1 for all patches
         """
-        # loops over all rows
-        for i in range(self.size[1]):
-            # loops over all columns
-            for j in range(self.size[2]):
-                if self.grid[np.array([0]), np.array([i]), np.array([j])] >= 1:
-                    self.grid[np.array([0]), np.array([i]), np.array([j])] += -1
 
         # loops over all objects and updates each
         for i in range(0, len(self.objects)):
@@ -325,9 +381,9 @@ class Simulation(object):
             beginning)
         """
         # loops over all objects
-        for i in range(0,len(self.objects)):
+        for i in range(0, len(self.objects)):
             # loops over all objects not check already
-            for j in range(i+1,len(self.objects)):
+            for j in range(i+1, len(self.objects)):
 
                 # max distance between cells to have a connection
                 interaction_length = self.spring_max * 2
@@ -375,6 +431,35 @@ class Simulation(object):
                     self.network.add_edge(self.objects[i], self.objects[j])
 
 
+    def collide_gpu(self):
+        from numba import cuda
+        rows = len(self.objects)
+        columns = len(self.objects)
+        edges_array = np.zeros((rows, columns))
+
+        location_array = np.empty((0, 2), int)
+
+        for i in range(len(self.objects)):
+            location_array = np.append(location_array, np.array([self.objects[i].location]), axis=0)
+
+        location_array_device_in = cuda.to_device(location_array)
+        edges_array_device_in = cuda.to_device(edges_array)
+
+        threads_per_block = (32, 32)
+        blocks_per_grid_x = math.ceil(edges_array.shape[0] / threads_per_block[0])
+        blocks_per_grid_y = math.ceil(edges_array.shape[1] / threads_per_block[1])
+        blocks_per_grid = (blocks_per_grid_x, blocks_per_grid_y)
+
+        collide_run_cuda[blocks_per_grid, threads_per_block](location_array_device_in, edges_array_device_in)
+
+        output = edges_array_device_in.copy_to_host()
+
+        edges = np.argwhere(output == 1)
+
+        for i in range(len(edges)):
+            self.network.add_edge(self.objects[edges[i][0]], self.objects[edges[i][1]])
+
+
     def optimize(self, error_max, max_itrs):
         """ tries to correct for the error by applying
             spring forces and keeping cells in the grid
@@ -386,7 +471,11 @@ class Simulation(object):
 
         while itrs < max_itrs and error > error_max:
             # checks the interaction connections
-            self.collide_run()
+            if self.parallel:
+                self.collide_gpu()
+            else:
+                self.collide_run()
+
             # returns total vector after running spring force function
             vector = self.handle_springs()
 
@@ -561,20 +650,19 @@ class Simulation(object):
         for i in range(0, len(self.objects)):
 
             ID = str(self.objects[i].ID) + ","
-            x_coord = str(round(self.objects[i].location[0],1))+ ","
-            y_coord = str(round(self.objects[i].location[1],1))+ ","
+            x_coord = str(round(self.objects[i].location[0], 1)) + ","
+            y_coord = str(round(self.objects[i].location[1], 1)) + ","
             x1 = str(self.objects[i].booleans[0]) + ","
             x2 = str(self.objects[i].booleans[1]) + ","
             x3 = str(self.objects[i].booleans[2]) + ","
             x4 = str(self.objects[i].booleans[3]) + ","
-            x5 = str(self.objects[i].booleans[4]) + ","
             diff = str(round(self.objects[i].diff_timer, 1)) + ","
             div = str(round(self.objects[i].division_timer, 1)) + ","
             state = self.objects[i].state + ","
             motion = str(self.objects[i].motion)
 
             # creates line for each object with key information
-            line = ID + x_coord + y_coord + state + x1 + x2 + x3 + x4 + x5 + motion + diff + div
+            line = ID + x_coord + y_coord + state + x1 + x2 + x3 + x4 + motion + diff + div
             new_file.write(line + "\n")
 
 
@@ -591,3 +679,44 @@ class Simulation(object):
 
         # draws the image of the simulation
         self.draw_cell_image(self.network, base_path + "network_image" + str(int(self.time_counter)))
+
+
+#######################################################################################################################
+# CUDA functions
+
+
+@cuda.jit
+def initialize_grid_cuda(grid_array):
+    x, y = cuda.grid(2)
+    if x < grid_array.shape[1] and y < grid_array.shape[2]:
+        grid_array[0][x, y] += 10
+
+@cuda.jit
+def update_grid_cuda(grid_array):
+    x, y = cuda.grid(2)
+    if x < grid_array.shape[1] and y < grid_array.shape[2]:
+        grid_array[0][x, y] -= 1
+
+@cuda.jit
+def collide_run_cuda(locations, edges_array):
+    x, y = cuda.grid(2)
+    if x < edges_array.shape[0] and y < edges_array.shape[1]:
+        location_x1 = locations[x][0]
+        location_y1 = locations[x][1]
+        location_x2 = locations[y][0]
+        location_y2 = locations[y][1]
+        mag = ((location_x1 - location_x2)**2 + (location_y1 - location_y2)**2)**0.5
+        if mag <= 12 and x != y:
+            edges_array[x, y] = 1
+
+@cuda.jit
+def boolean_update_cuda(data_in, data_out):
+    start = cuda.grid(1)
+    stride = cuda.gridsize(1)
+
+    for i in range(start, data_in.shape[0], stride):
+        data_out[i][0] = (data_in[i][4]) % 2
+        data_out[i][1] = (data_in[i][0] * data_in[i][3]) % 2
+        data_out[i][2] = (data_in[i][1]) % 2
+        data_out[i][3] = (data_in[i][4] + 1) % 2
+        data_out[i][4] = ((data_in[i][2] + 1) * (data_in[i][3] + 1)) % 2

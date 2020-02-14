@@ -1,6 +1,12 @@
+#########################################################
+# Name:    Model_Math                                   #
+# Author:  Jack Toppen                                  #
+# Date:    2/5/20                                       #
+#########################################################
 import math
 import numpy as np
 import random as r
+
 
 def RandomPointOnSphere():
     """ Computes a random point on a sphere

@@ -13,11 +13,11 @@ from Model_StemCells import StemCell
 # where the model will output images and cell locations ex. ("C:\\Python27\\Model")
 path = "C:\\Python27\\MEGA-ARRAY"
 
-# Parallel GPU processing?
+# Parallel GPU processing? # make sure to uncomment "from numba import cuda" and the cuda functions
 parallel = True
 
 # total time step counter limit to less than 30
-Run_Time = 1.0
+Run_Time = 5.0
 
 # when does the model begin (usually 1)
 Start_Time = 1.0
@@ -109,8 +109,8 @@ def newDirect(path):
 Model_ID = newDirect(path)
 
 # initializes simulation class which holds all information about the simulation
-simulation = Simulation(Model_ID, path, Start_Time, Run_Time, Time_Step, pluri_div_thresh, diff_div_thresh, pluri_to_diff,
-                 size, spring_max, diff_surround, functions, max_itrs, max_error, parallel)
+simulation = Simulation(Model_ID, path, Start_Time, Run_Time, Time_Step, pluri_div_thresh, diff_div_thresh,
+                        pluri_to_diff, size, spring_max, diff_surround, functions, max_itrs, max_error, parallel)
 
 # loops over all NANOG_high cells and creates a stem cell object for each one with given parameters
 for i in range(NANOG_high):
