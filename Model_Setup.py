@@ -13,11 +13,11 @@ from Model_StemCells import StemCell
 # where the model will output images and cell locations ex. ("C:\\Python27\\Model")
 path = "C:\\Python27\\MEGA-ARRAY"
 
-# Parallel GPU processing? # make sure to uncomment "from numba import cuda" and the cuda functions
-parallel = True
+# Parallel GPU processing? # make sure to uncomment "from numba import cuda" in Model_Simulation and the cuda functions
+parallel = False
 
 # total time step counter limit to less than 30
-Run_Time = 5.0
+Run_Time = 60.0
 
 # when does the model begin (usually 1)
 Start_Time = 1.0
@@ -51,19 +51,19 @@ functions = [funct_1, funct_2, funct_3, funct_4, funct_5]
 radius = 6.0
 
 # length of time steps required for a pluripotent cell to divide
-pluri_div_thresh = 36.0
+pluri_div_thresh = 12.0
 
 # length of time steps required for a differentiated cell to divide
-diff_div_thresh = 12.0
+diff_div_thresh = 24.0
 
 # length of time steps required for a pluripotent cell to differentiate
-pluri_to_diff = 4.0
+pluri_to_diff = 24.0
 
 # length at which a edge is formed to create springs between cells
 spring_max = 13.0
 
 # amount of differentiated cells needed to surround a pluripotent cell and differentiate it
-diff_surround = 6
+diff_surround = 12.0
 
 # bounds of the simulation
 bounds = [[0, 0], [0, 1000], [1000, 1000], [1000, 0]]
@@ -76,6 +76,9 @@ max_itrs = 20
 
 # error maximum for optimize
 max_error = 0.00001
+
+# max FGF4 on a patch
+max_fgf4 = 10
 
 #######################################################################################################################
 #######################################################################################################################
@@ -110,12 +113,13 @@ Model_ID = newDirect(path)
 
 # initializes simulation class which holds all information about the simulation
 simulation = Simulation(Model_ID, path, Start_Time, Run_Time, Time_Step, pluri_div_thresh, diff_div_thresh,
-                        pluri_to_diff, size, spring_max, diff_surround, functions, max_itrs, max_error, parallel)
+                        pluri_to_diff, size, spring_max, diff_surround, functions, max_itrs, max_error, parallel,
+                        max_fgf4, bounds, spring_constant)
 
 # loops over all NANOG_high cells and creates a stem cell object for each one with given parameters
 for i in range(NANOG_high):
     ID = i
-    point = [r.random() * 999.99, r.random() * 999.99]
+    point = [r.random() * size[1], r.random() * size[2]]
     state = "Pluripotent"
     motion = True
     if stochastic_bool:
@@ -126,15 +130,14 @@ for i in range(NANOG_high):
     diff_timer = pluri_to_diff * r.random()
     division_timer = pluri_div_thresh * r.random()
 
-    sim_obj = StemCell(point, radius, ID, booleans, state, diff_timer, division_timer, motion, bounds,
-                       spring_constant)
+    sim_obj = StemCell(point, radius, ID, booleans, state, diff_timer, division_timer, motion)
     simulation.add_object(sim_obj)
     simulation.inc_current_ID()
 
 # loops over all GATA6_high cells and creates a stem cell object for each one with given parameters
 for i in range(GATA6_high):
     ID = i + NANOG_high
-    point = [r.random() * 999.99, r.random() * 999.99]
+    point = [r.random() * size[1], r.random() * size[2]]
     state = "Pluripotent"
     motion = True
     if stochastic_bool:
@@ -145,8 +148,7 @@ for i in range(GATA6_high):
     diff_timer = pluri_to_diff * r.random()
     division_timer = pluri_div_thresh * r.random()
 
-    sim_obj = StemCell(point, radius, ID, booleans, state, diff_timer, division_timer, motion, bounds,
-                       spring_constant)
+    sim_obj = StemCell(point, radius, ID, booleans, state, diff_timer, division_timer, motion)
     simulation.add_object(sim_obj)
     simulation.inc_current_ID()
 

@@ -5,7 +5,6 @@
 #########################################################
 import math as math
 import numpy as np
-import matplotlib.path as mpltPath
 from Model_Math import *
 
 
@@ -13,8 +12,7 @@ class StemCell(object):
     """ Every cell object in the simulation
         will have this class
     """
-    def __init__(self, location, radius, ID, booleans, state, diff_timer, division_timer, motion, bounds,
-                 spring_constant):
+    def __init__(self, location, radius, ID, booleans, state, diff_timer, division_timer, motion):
         """ location: where the cell is located on the grid "[x,y]"
             radius: the radius of each cell
             ID: the number assigned to each cell "0-number of cells"
@@ -23,7 +21,6 @@ class StemCell(object):
             diff_timer: counts the total steps per cell needed to differentiate
             division_timer: counts the total steps per cell needed to divide
             motion: whether the cell is in moving or not "True or False"
-            bounds: the region where the cell cannot move outside
             spring_constant: strength of force applied based on distance
         """
         self.location = location
@@ -34,8 +31,6 @@ class StemCell(object):
         self.diff_timer = diff_timer
         self.division_timer = division_timer
         self.motion = motion
-        self.bounds = bounds
-        self.spring_constant = spring_constant
 
         # holds the compression force by a cell's neighbors
         self.compress = 0
@@ -43,12 +38,7 @@ class StemCell(object):
         # holds the value of the movement vector of the cell
         self._disp_vec = [0, 0]
 
-        # defines the bounds of the simulation using mathplotlib
-        if len(self.bounds) > 0:
-            self.boundary = mpltPath.Path(self.bounds)
-        else:
-            # if no bounds are defined, the boundaries are empty
-            self.boundary = []
+
 
 #######################################################################################################################
 
@@ -58,7 +48,7 @@ class StemCell(object):
         self._disp_vec = AddVec(self._disp_vec, vec)
 
 
-    def update_constraints(self):
+    def update_constraints(self, sim):
         """ Updates the boundary constraints of the grid on the objects
             and limits the movement to a magnitude of 5
         """
@@ -74,14 +64,14 @@ class StemCell(object):
         location = AddVec(self.location, self._disp_vec)
 
         # if there are bounds, this will check to see if new location is in the grid
-        if len(self.bounds) > 0:
-            if self.boundary.contains_point(location[0:2]):
+        if len(sim.bounds) > 0:
+            if sim.boundary.contains_point(location[0:2]):
                 self.location = location
 
             # if the new location is not in the grid, try opposite
             else:
                 new_loc = SubtractVec(self.location, self._disp_vec)
-                if self.boundary.contains_point(new_loc[0:2]):
+                if sim.boundary.contains_point(new_loc[0:2]):
                     self.location = new_loc
         else:
             self.location = location
@@ -94,8 +84,7 @@ class StemCell(object):
         """ preforms the functions defined in model setup as strings
         """
         # call functions from model setup
-        function_list = sim.call_functions()
-        # sim.functions
+        function_list = sim.functions
 
         # xn is equal to the value corresponding to its function
         x1 = fgf4_bool
@@ -168,12 +157,12 @@ class StemCell(object):
         radius = self.radius
 
         # if there are boundaries
-        if len(self.bounds) > 0:
+        if len(sim.bounds) > 0:
             count = 0
             # tries to put the cell on the grid
             while count == 0:
                 location = RandomPointOnSphere() * radius * 2.0 + self.location
-                if self.boundary.contains_point(location[0:2]):
+                if sim.boundary.contains_point(location[0:2]):
                     count = 1
         else:
             location = RandomPointOnSphere() * radius * 2.0 + self.location
@@ -185,8 +174,7 @@ class StemCell(object):
         ID = sim.get_ID()
 
         # create new cell and add it to the simulation
-        sc = StemCell(location, radius, ID, self.booleans, self.state, self.diff_timer, self.division_timer,
-                      self.motion, self.bounds, self.spring_constant)
+        sc = StemCell(location, radius, ID, self.booleans, self.state, self.diff_timer, self.division_timer, self.motion)
         sim.add_object_to_addition_queue(sc)
 
 
@@ -200,7 +188,7 @@ class StemCell(object):
         self.motion = True
 
 
-    def update(self, sim):
+    def update_StemCell(self, sim):
         """ Updates the stem cell to decide whether they differentiate
             or divide, changes state, and sets motion
         """
@@ -236,7 +224,7 @@ class StemCell(object):
 
         # if a certain spot of the grid is less than the max FGF4 it can hold and the cell is NANOG high increase the
         # FGF4 by 1
-        if sim.grid[np.array([0]), np.array([array_location_x]), np.array([array_location_y])] < 5 and \
+        if sim.grid[np.array([0]), np.array([array_location_x]), np.array([array_location_y])] < sim.max_fgf4 and \
                 self.booleans[3] == 1:
             sim.grid[np.array([0]), np.array([array_location_x]), np.array([array_location_y])] += 1
 
