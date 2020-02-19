@@ -1,11 +1,19 @@
 #########################################################
 # Name:    Model_StemCells                              #
 # Author:  Jack Toppen                                  #
-# Date:    2/5/20                                       #
+# Date:    2/15/20                                      #
 #########################################################
 import math as math
 import numpy as np
-from Model_Math import *
+import random as r
+
+
+def Mag(v1):
+    """ Computes the magnitude of a vector
+        Returns - a float representing the vector magnitude
+    """
+    temp = v1[0] ** 2 + v1[1] ** 2
+    return math.sqrt(temp)
 
 
 class StemCell(object):
@@ -36,16 +44,27 @@ class StemCell(object):
         self.compress = 0
 
         # holds the value of the movement vector of the cell
-        self._disp_vec = [0, 0]
+        self._disp_vec = np.array([0.0, 0.0])
 
 
 
 #######################################################################################################################
 
+
+    def RandomPointOnSphere(self):
+        """ Computes a random point on a sphere
+            Returns - a point on a unit sphere [x,y] at the origin
+        """
+        theta = r.random() * 2 * math.pi
+        x = math.cos(theta)
+        y = math.sin(theta)
+
+        return np.array((x, y))
+
     def add_displacement_vec(self, vec):
         """ Adds a vector to the vector representing the movement of the cell
         """
-        self._disp_vec = AddVec(self._disp_vec, vec)
+        self._disp_vec += vec
 
 
     def update_constraints(self, sim):
@@ -57,11 +76,11 @@ class StemCell(object):
         mag = Mag(self._disp_vec)
         if mag > 5:
             # if the magnitude is greater than 5, it will be scaled down to 5
-            n = NormVec(self._disp_vec)
-            self._disp_vec = ScaleVec(n, 5.0)
+            n = self._disp_vec / mag
+            self._disp_vec = n * 5.0
 
         # new location is the sum of previous location and movement vector
-        location = AddVec(self.location, self._disp_vec)
+        location = self.location + self._disp_vec
 
         # if there are bounds, this will check to see if new location is in the grid
         if len(sim.bounds) > 0:
@@ -70,14 +89,14 @@ class StemCell(object):
 
             # if the new location is not in the grid, try opposite
             else:
-                new_loc = SubtractVec(self.location, self._disp_vec)
+                new_loc = self.location - self._disp_vec
                 if sim.boundary.contains_point(new_loc[0:2]):
                     self.location = new_loc
         else:
             self.location = location
 
         # resets the movement vector to [0,0]
-        self._disp_vec = [0, 0]
+        self._disp_vec = np.array([0.0, 0.0])
 
 
     def boolean_function(self, sim, fgf4_bool):
@@ -116,7 +135,7 @@ class StemCell(object):
         counter = 0
         for i in range(len(neighbors)):
             if neighbors[i].state == "Differentiated":
-                dist_vec = SubtractVec(neighbors[i].location, self.location)
+                dist_vec = neighbors[i].location - self.location
                 dist = Mag(dist_vec)
                 if dist <= sim.spring_max:
                     counter += 1
@@ -139,7 +158,7 @@ class StemCell(object):
         # loops over all neighbors
         for i in range(len(neighbors)):
             rd2 = neighbors[i].radius
-            dist_vec = SubtractVec(neighbors[i].location, self.location)
+            dist_vec = neighbors[i].location - self.location
             dist = Mag(dist_vec)
             cmpr = rd1 + rd2 - dist
             # only counts cells that are touching or overlapping
@@ -161,11 +180,11 @@ class StemCell(object):
             count = 0
             # tries to put the cell on the grid
             while count == 0:
-                location = RandomPointOnSphere() * radius * 2.0 + self.location
+                location = self.RandomPointOnSphere() * radius * 2.0 + self.location
                 if sim.boundary.contains_point(location[0:2]):
                     count = 1
         else:
-            location = RandomPointOnSphere() * radius * 2.0 + self.location
+            location = self.RandomPointOnSphere() * radius * 2.0 + self.location
 
         # halve the division timer
         self.division_timer *= 0.5

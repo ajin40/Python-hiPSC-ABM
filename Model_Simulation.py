@@ -1,29 +1,43 @@
 #########################################################
 # Name:    Model_Simulation                             #
 # Author:  Jack Toppen                                  #
-# Date:    2/5/20                                       #
+# Date:    2/15/20                                      #
 #########################################################
 import os
+import shutil
 import platform
 import networkx as nx
 import numpy as np
 from PIL import Image, ImageDraw
 import time
+import math
 import cv2
 import random as r
 import matplotlib.path as mpltPath
-from Model_Math import *
 import csv
+from Model_StemCells import StemCell
 
-# from numba import cuda
+
+setup_file = open(os.getcwd() + "/Setup.txt")
+setup_list = setup_file.readlines()
+parameters = []
+for i in range(len(setup_list)):
+    if i % 3 == 1:
+        parameters.append(setup_list[i][2:-3])
+
+if bool(parameters[2]):
+    from Model_CUDA import *
+
 
 
 class Simulation(object):
     """ called once holds important information about the
         simulation
     """
-    def __init__(self, name, path, start_time, end_time, time_step, pluri_div_thresh, diff_div_thresh, pluri_to_diff,
-                 size, spring_max, diff_surround_value, functions, itrs, error, parallel, max_fgf4, bounds, spring_constant):
+
+    def __init__(self, name, path, end_time, time_step, pluri_div_thresh, diff_div_thresh, pluri_to_diff,
+                 size, spring_max, diff_surround_value, functions, itrs, error, parallel, max_fgf4, bounds,
+                 spring_constant):
         """ Initialization function for the simulation setup.
             name: the simulation name
             path: the path to save the simulation information to
@@ -43,6 +57,7 @@ class Simulation(object):
             parallel: whether some aspects are run on the gpu
             max_fgf4: the limit a patch will hold for fgf4
             bounds: the bounds of the simulation
+            spring_constant: strength of spring
         """
 
         # make sure name and path are strings
@@ -55,7 +70,6 @@ class Simulation(object):
         else:
             self.path = str(path)
 
-        self.start_time = float(start_time)
         self.end_time = float(end_time)
         self.time_step = float(time_step)
         self.pluri_div_thresh = pluri_div_thresh
@@ -79,7 +93,7 @@ class Simulation(object):
         self.image_counter = 0
 
         # keeps a running count of the time
-        self.time_counter = float(start_time)
+        self.time_counter = 1.0
 
         # array to hold all of the stem cell objects
         self.objects = np.array([])
@@ -109,7 +123,7 @@ class Simulation(object):
             # if no bounds are defined, the boundaries are empty
             self.boundary = []
 
-#######################################################################################################################
+    #######################################################################################################################
 
     def run(self):
         """ Runs all elements of the simulation until
@@ -125,13 +139,13 @@ class Simulation(object):
         # setup grid and patches
 
         if self.parallel:
-            self.initialize_grid_gpu()
+            initialize_grid_gpu(self)
         else:
             self.initialize_grid()
 
         # run collide() to create connections between cells
         if self.parallel:
-            self.check_edge_gpu()
+            check_edge_gpu(self)
         else:
             self.check_edge_run()
 
@@ -140,8 +154,12 @@ class Simulation(object):
         # save the first image and data of simulation
         self.save_file()
 
+        shutil.copy("Setup.txt", self.path + self._sep + self.name + self._sep)
+
         # run simulation until end time
         while self.time_counter <= self.end_time:
+
+            np.random.shuffle(self.objects)
 
             print("Time: " + str(self.time_counter))
             print("Number of objects: " + str(len(self.objects)))
@@ -149,7 +167,7 @@ class Simulation(object):
             # updates all of the objects (motion, state, booleans)
 
             if self.parallel:
-                self.update_grid_gpu()
+                update_grid_gpu(self)
             else:
                 self.update_grid()
 
@@ -163,7 +181,7 @@ class Simulation(object):
 
             # create/break connections between cells depending on distance apart
             if self.parallel:
-                self.check_edge_gpu()
+                check_edge_gpu(self)
             else:
                 self.check_edge_run()
 
@@ -185,19 +203,17 @@ class Simulation(object):
         # turns all images into a video at the end
         self.image_to_video()
 
-#######################################################################################################################
+    #######################################################################################################################
 
     def get_ID(self):
         """ Returns the current unique ID the simulation is on
         """
         return self._current_ID
 
-
     def inc_current_ID(self):
         """Increments the ID of cell by 1 each time called
         """
         self._current_ID += 1
-
 
     def add_object(self, sim_object):
         """ Adds the specified object to the array
@@ -209,7 +225,6 @@ class Simulation(object):
         # adds it to the graph
         self.network.add_node(sim_object)
 
-
     def remove_object(self, sim_object):
         """ Removes the specified object from the array
             and the graph
@@ -219,7 +234,6 @@ class Simulation(object):
 
         # removes it from the graph
         self.network.remove_node(sim_object)
-
 
     def add_object_to_addition_queue(self, sim_object):
         """ Will add an object to the simulation object queue
@@ -232,7 +246,6 @@ class Simulation(object):
         # increments the current ID
         self._current_ID += 1
 
-
     def add_object_to_removal_queue(self, sim_object):
         """ Will add an object to the simulation object queue
             which will be removed from the simulation at the end of
@@ -241,7 +254,7 @@ class Simulation(object):
         # adds object to array
         self._objects_to_remove = np.append(self._objects_to_remove, sim_object)
 
-#######################################################################################################################
+    #######################################################################################################################
 
     def initialize_grid(self):
         """ sets up the grid and the patches
@@ -251,40 +264,14 @@ class Simulation(object):
         for i in range(self.size[1]):
             # loops over all columns
             for j in range(self.size[2]):
-                self.grid[np.array([0]), np.array([i]), np.array([j])] = r.randint(0, 10)
-
-
-    def initialize_grid_gpu(self):
-        from numba import cuda
-        an_array = self.grid
-        an_array_gpu = cuda.to_device(an_array)
-        threads_per_block = (32, 32)
-        blocks_per_grid_x = math.ceil(an_array.shape[0] / threads_per_block[0])
-        blocks_per_grid_y = math.ceil(an_array.shape[1] / threads_per_block[1])
-        blocks_per_grid = (blocks_per_grid_x, blocks_per_grid_y)
-        initialize_grid_cuda[blocks_per_grid, threads_per_block](an_array_gpu)
-
-        self.grid = an_array_gpu.copy_to_host()
-
+                self.grid[np.array([0]), np.array([i]), np.array([j])] = r.randint(0, self.max_fgf4)
 
     def update_grid(self):
+
         for i in range(self.size[1]):
             for j in range(self.size[2]):
                 if self.grid[np.array([0]), np.array([i]), np.array([j])] >= 1:
                     self.grid[np.array([0]), np.array([i]), np.array([j])] += -1
-
-
-    def update_grid_gpu(self):
-        from numba import cuda
-        an_array = self.grid
-        an_array_gpu = cuda.to_device(an_array)
-        threads_per_block = (32, 32)
-        blocks_per_grid_x = math.ceil(an_array.shape[0] / threads_per_block[0])
-        blocks_per_grid_y = math.ceil(an_array.shape[1] / threads_per_block[1])
-        blocks_per_grid = (blocks_per_grid_x, blocks_per_grid_y)
-        update_grid_cuda[blocks_per_grid, threads_per_block](an_array_gpu)
-
-        self.grid = an_array_gpu.copy_to_host()
 
 
     def random_movement(self):
@@ -322,15 +309,13 @@ class Simulation(object):
         self._objects_to_remove = np.array([])
         self._objects_to_add = np.array([])
 
-        
+
     def calculate_compression(self):
         """ calculates the compress force for all objects"""
 
-        objects = self.objects
-
         # loops over all objects
-        for i in range(len(objects)):
-            objects[i].compress_force(self)
+        for i in range(len(self.objects)):
+            self.objects[i].compress_force(self)
 
 
     def diff_surround(self):
@@ -338,15 +323,13 @@ class Simulation(object):
             a cell will differentiate based on the cells
             that surround it
         """
-        objects = self.objects
-
         # loops over all objects
-        for i in range(len(objects)):
+        for i in range(len(self.objects)):
             # checks to see if they are Pluripotent and GATA6 low
-            if objects[i].state == "Pluripotent" and objects[i].booleans[2] == 0:
-                objects[i].diff_surround_funct(self)
+            if self.objects[i].state == "Pluripotent" and self.objects[i].booleans[2] == 0:
+                self.objects[i].diff_surround_funct(self)
 
-            
+
     def update(self):
         """ Updates all of the objects in the simulation
             and degrades the FGF4 amount by 1 for all patches
@@ -355,7 +338,7 @@ class Simulation(object):
         # loops over all objects and updates each
         for i in range(len(self.objects)):
             self.objects[i].update_StemCell(self)
-                
+
 
     def check_edge(self):
         """ checks all of the distances between cells
@@ -363,16 +346,17 @@ class Simulation(object):
             connection between two cells. (Only run at
             beginning)
         """
+
         # loops over all objects
         for i in range(len(self.objects)):
             # loops over all objects not check already
-            for j in range(i+1, len(self.objects)):
+            for j in range(i + 1, len(self.objects)):
 
                 # max distance between cells to have a connection
                 interaction_length = self.spring_max * 2
 
                 # get the distance between cells
-                dist_vec = SubtractVec(self.objects[i].location, self.objects[j].location)
+                dist_vec = self.objects[i].location - self.objects[j].location
 
                 # get the magnitude of the distance vector
                 dist = Mag(dist_vec)
@@ -396,7 +380,7 @@ class Simulation(object):
                 interaction_length = self.spring_max * 2
 
                 # get the distance between cells
-                dist_vec = SubtractVec(self.objects[i].location, self.objects[j].location)
+                dist_vec = self.objects[i].location - self.objects[j].location
 
                 # get the magnitude of the distance vector
                 dist = Mag(dist_vec)
@@ -414,35 +398,6 @@ class Simulation(object):
                     self.network.add_edge(self.objects[i], self.objects[j])
 
 
-    def check_edge_gpu(self):
-        from numba import cuda
-        rows = len(self.objects)
-        columns = len(self.objects)
-        edges_array = np.zeros((rows, columns))
-
-        location_array = np.empty((0, 2), int)
-
-        for i in range(len(self.objects)):
-            location_array = np.append(location_array, np.array([self.objects[i].location]), axis=0)
-
-        location_array_device_in = cuda.to_device(location_array)
-        edges_array_device_in = cuda.to_device(edges_array)
-
-        threads_per_block = (32, 32)
-        blocks_per_grid_x = math.ceil(edges_array.shape[0] / threads_per_block[0])
-        blocks_per_grid_y = math.ceil(edges_array.shape[1] / threads_per_block[1])
-        blocks_per_grid = (blocks_per_grid_x, blocks_per_grid_y)
-
-        check_edge_cuda[blocks_per_grid, threads_per_block](location_array_device_in, edges_array_device_in)
-
-        output = edges_array_device_in.copy_to_host()
-
-        edges = np.argwhere(output == 1)
-
-        for i in range(len(edges)):
-            self.network.add_edge(self.objects[edges[i][0]], self.objects[edges[i][1]])
-
-
     def optimize(self, error_max, max_itrs):
         """ tries to correct for the error by applying
             spring forces and keeping cells in the grid
@@ -455,7 +410,7 @@ class Simulation(object):
         while itrs < max_itrs and error > error_max:
             # checks the interaction connections
             if self.parallel:
-                self.check_edge_gpu()
+                check_edge_gpu(self)
             else:
                 self.check_edge_run()
 
@@ -471,8 +426,6 @@ class Simulation(object):
 
             # increment the iterations
             itrs += 1
-        print("optimize iterations: " + str(itrs))
-
 
     def handle_springs(self):
         """ loops over all edges of the graph and performs
@@ -504,9 +457,9 @@ class Simulation(object):
                     v1 = obj1.location
                     v2 = obj2.location
                     # get distance vector, magnitude, and normalize it
-                    v12 = SubtractVec(v2, v1)
+                    v12 = v2 - v1
                     dist = Mag(v12)
-                    norm = NormVec(v12)
+                    norm = v12 / dist
                     # find the interaction length
                     interaction_length = self.spring_max * 2
                     # recalculate distance
@@ -516,7 +469,7 @@ class Simulation(object):
                     # scale the new distance by the spring constant
                     dist *= k
                     # direction of original distance vector
-                    temp = ScaleVec(norm, dist)
+                    temp = norm * dist
                     # add vector to cell in motion where cell not in motion is anchor
                     obj2.add_displacement_vec(-temp)
 
@@ -526,9 +479,9 @@ class Simulation(object):
                     v1 = obj1.location
                     v2 = obj2.location
                     # get distance vector, magnitude, and normalize it
-                    v12 = SubtractVec(v2, v1)
+                    v12 = v2 - v1
                     dist = Mag(v12)
-                    norm = NormVec(v12)
+                    norm = v12 / dist
                     # find the interaction length
                     interaction_length = self.spring_max * 2
                     # recalculate distance
@@ -538,7 +491,7 @@ class Simulation(object):
                     # scale the new distance by the spring constant
                     dist *= k
                     # direction of original distance vector
-                    temp = ScaleVec(norm, dist)
+                    temp = norm * dist
                     # add vector to cell in motion where cell not in motion is anchor
                     obj1.add_displacement_vec(temp)
 
@@ -547,9 +500,9 @@ class Simulation(object):
                     v1 = obj1.location
                     v2 = obj2.location
                     # get distance vector, magnitude, and normalize it
-                    v12 = SubtractVec(v2, v1)
+                    v12 = v2 - v1
                     dist = Mag(v12)
-                    norm = NormVec(v12)
+                    norm = v12/ dist
                     # find the interaction length
                     interaction_length = self.spring_max * 2
                     # recalculate distance
@@ -559,19 +512,19 @@ class Simulation(object):
                     # now we can apply the spring constraint to this
                     dist = (dist / 2.0) * k
                     # direction of original distance vector
-                    temp = ScaleVec(norm, dist)
+                    temp = norm * dist
                     # add these vectors to the object vectors
                     obj1.add_displacement_vec(temp)
                     obj2.add_displacement_vec(-temp)
 
             # add movement vector to running count vector
-            vector = AddVec(vector, temp)
+            vector += temp
 
         # return total vector
         return vector
 
-#######################################################################################################################
-# image, video, and csv saving
+    #######################################################################################################################
+    # image, video, and csv saving
 
     def draw_cell_image(self, network, path):
         """Turns the graph into an image at each timestep
@@ -629,14 +582,12 @@ class Simulation(object):
 
         # loops over all images created
         for i in range(self.image_counter + 1):
-
             img = cv2.imread(base_path + 'network_image' + str(i) + ".png")
             img_array.append(img)
 
         # output file for the video
         out = cv2.VideoWriter(base_path + 'network_video.avi', cv2.VideoWriter_fourcc("M", "J", "P", "G"), 1.0,
                               (1500, 1500))
-
 
         # adds image to output file
         for i in range(len(img_array)):
@@ -645,13 +596,11 @@ class Simulation(object):
         # releases the file
         out.release()
 
-
     def location_to_text(self, path):
         """Outputs a txt file of the cell coordinates and the boolean values
         """
         # opens file
         new_file = open(path, "w")
-
 
         object_writer = csv.writer(new_file)
         object_writer.writerow(['ID', 'x_coord', 'y_coord', 'State', 'FGFR', 'ERK', 'GATA6', 'NANOG', 'Motion',
@@ -688,29 +637,83 @@ class Simulation(object):
 
 
 #######################################################################################################################
-# CUDA functions
+def Mag(v1):
+    """ Computes the magnitude of a vector
+        Returns - a float representing the vector magnitude
+    """
+    temp = v1[0] ** 2 + v1[1] ** 2
+    return math.sqrt(temp)
+
+def newDirect(path):
+    """
+    This function opens the specified save path and finds the highest folder number.
+    It then returns the next highest number as a name for the currently running simulation.
+    """
+
+    files = os.listdir(path)
+    file_count = len(files)
+    number_files = []
+    if file_count > 0:
+        for j in range(file_count):
+            try:
+                number_files.append(float(files[j]))
+            except ValueError:
+                pass
+        if len(number_files) > 0:
+            k = max(number_files)
+        else:
+            k = 0
+    else:
+        k = 0
+    return k + 1.0
 
 
-# @cuda.jit
-# def initialize_grid_cuda(grid_array):
-#     x, y = cuda.grid(2)
-#     if x < grid_array.shape[1] and y < grid_array.shape[2]:
-#         grid_array[0][x, y] += 10
-#
-# @cuda.jit
-# def update_grid_cuda(grid_array):
-#     x, y = cuda.grid(2)
-#     if x < grid_array.shape[1] and y < grid_array.shape[2] and grid_array[0][x, y] >= 1:
-#         grid_array[0][x, y] -= 1
-#
-# @cuda.jit
-# def check_edge_cuda(locations, edges_array):
-#     x, y = cuda.grid(2)
-#     if x < edges_array.shape[0] and y < edges_array.shape[1]:
-#         location_x1 = locations[x][0]
-#         location_y1 = locations[x][1]
-#         location_x2 = locations[y][0]
-#         location_y2 = locations[y][1]
-#         mag = ((location_x1 - location_x2)**2 + (location_y1 - location_y2)**2)**0.5
-#         if mag <= 12 and x != y:
-#             edges_array[x, y] = 1
+# names the file
+Model_ID = newDirect(str(parameters[0]))
+
+# initializes simulation class which holds all information about the simulation
+simulation = Simulation(Model_ID, str(parameters[0]), float(parameters[2]), float(parameters[3]), float(parameters[10]),
+                        float(parameters[11]), float(parameters[12]), eval(parameters[7]), float(parameters[13]),
+                        int(parameters[14]), eval(parameters[8]), int(parameters[17]), float(parameters[18]),
+                        bool(parameters[1]), int(parameters[19]), eval(parameters[15]), float(parameters[16]))
+
+# loops over all NANOG_high cells and creates a stem cell object for each one with given parameters
+for i in range(int(parameters[5])):
+    ID = i
+    point = np.array([r.random() * eval(parameters[7])[1], r.random() * eval(parameters[7])[2]])
+    state = "Pluripotent"
+    motion = True
+    if bool(parameters[6]):
+        booleans = np.array([r.randint(0, 1), r.randint(0, 1), 0, 1])
+    else:
+        booleans = np.array([0, 0, 0, 1])
+
+    radius = float(parameters[9])
+    diff_timer = float(parameters[12]) * r.random()
+    division_timer = float(parameters[10]) * r.random()
+
+    sim_obj = StemCell(point, radius, ID, booleans, state, diff_timer, division_timer, motion)
+    simulation.add_object(sim_obj)
+    simulation.inc_current_ID()
+
+# loops over all GATA6_high cells and creates a stem cell object for each one with given parameters
+for i in range(int(parameters[4])):
+    ID = i + int(parameters[5])
+    point = np.array([r.random() * eval(parameters[7])[1], r.random() * eval(parameters[7])[2]])
+    state = "Pluripotent"
+    motion = True
+    if bool(parameters[6]):
+        booleans = np.array([r.randint(0, 1), r.randint(0, 1), 1, 0])
+    else:
+        booleans = np.array([0, 0, 1, 0])
+
+    radius = float(parameters[9])
+    diff_timer = float(parameters[12]) * r.random()
+    division_timer = float(parameters[10]) * r.random()
+
+    sim_obj = StemCell(point, radius, ID, booleans, state, diff_timer, division_timer, motion)
+    simulation.add_object(sim_obj)
+    simulation.inc_current_ID()
+
+# runs the model
+simulation.run()

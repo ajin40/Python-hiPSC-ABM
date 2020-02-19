@@ -1,0 +1,59 @@
+Define where the model will output its images, data, and video. Ex: C:\Python27\Model
+[ C:\Python27\MEGA-ARRAY ]
+
+Do you want the simulation to use parallel GPU processing?
+[ True ]
+
+How many total steps will the model run for?
+[ 60.0 ]
+
+What will the difference in time steps be?
+[ 1.0 ]
+
+How many cells will be GATA6 high to begin the simulation?
+[ 250 ]
+
+How many cells will be NANOG high to begin the simulation?
+[ 250 ]
+
+Stochastic FGFR + ERK values?
+[ True ]
+
+What will be the size of the grid? Ex. (dimensions, rows, columns)
+[ (1, 1000, 1000) ]
+
+Define the boolean functions below
+[ "x5", "x1 * x4", "x2", "x5 + 1", "(x3+1) * (x4+1)" ]
+
+Average radius of the nucleus
+[ 6.0 ]
+
+Length of time steps required for a pluripotent cell to divide
+[ 12.0 ]
+
+Length of time steps required for a differentiated cell to divide
+[ 24.0 ]
+
+Length of time steps required for a pluripotent cell to differentiate
+[ 24.0 ]
+
+Length at which a edge is formed to create springs between cells
+[ 13.0 ]
+
+Amount of differentiated cells needed to surround a pluripotent cell and differentiate it
+[ 12 ]
+
+Bounds of the simulation
+[ [[0, 0], [0, 1000], [1000, 1000], [1000, 0]] ]
+
+Spring constant value
+[ 0.77 ]
+
+Max iterations for optimize
+[ 20 ]
+
+Error maximum for optimize
+[ 2.0 ]
+
+Max FGF4 on a patch
+[ 10 ]
