@@ -8,14 +8,6 @@ import numpy as np
 import random as r
 
 
-def Mag(v1):
-    """ Computes the magnitude of a vector
-        Returns - a float representing the vector magnitude
-    """
-    temp = v1[0] ** 2 + v1[1] ** 2
-    return math.sqrt(temp)
-
-
 class StemCell(object):
     """ Every cell object in the simulation
         will have this class
@@ -49,17 +41,6 @@ class StemCell(object):
 
 
 #######################################################################################################################
-
-
-    def RandomPointOnSphere(self):
-        """ Computes a random point on a sphere
-            Returns - a point on a unit sphere [x,y] at the origin
-        """
-        theta = r.random() * 2 * math.pi
-        x = math.cos(theta)
-        y = math.sin(theta)
-
-        return np.array((x, y))
 
     def add_displacement_vec(self, vec):
         """ Adds a vector to the vector representing the movement of the cell
@@ -174,17 +155,18 @@ class StemCell(object):
         """
         # radius of cell
         radius = self.radius
+        location = self.location
 
         # if there are boundaries
         if len(sim.bounds) > 0:
             count = 0
             # tries to put the cell on the grid
             while count == 0:
-                location = self.RandomPointOnSphere() * radius * 2.0 + self.location
+                location = RandomPointOnSphere() * radius * 2.0 + self.location
                 if sim.boundary.contains_point(location[0:2]):
                     count = 1
         else:
-            location = self.RandomPointOnSphere() * radius * 2.0 + self.location
+            location = RandomPointOnSphere() * radius * 2.0 + self.location
 
         # halve the division timer
         self.division_timer *= 0.5
@@ -223,7 +205,7 @@ class StemCell(object):
         if self.booleans[3] == 1 and self.booleans[2] == 0 and self.state == "Pluripotent":
             nbs = np.array(list(sim.network.neighbors(self)))
             for i in range(len(nbs)):
-                if nbs[i].state == 1 and nbs[i].state == 0 and nbs[i].state == "Pluripotent":
+                if nbs[i].booleans[3] == 1 and nbs[i].booleans[2] == 0 and nbs[i].state == "Pluripotent":
                     self.motion = False
                     break
 
@@ -254,6 +236,7 @@ class StemCell(object):
         else:
             fgf4_bool = 0
 
+
         # temporarily hold the FGFR value
         tempFGFR = self.booleans[0]
 
@@ -273,3 +256,21 @@ class StemCell(object):
             # if the differentiation counter is greater than the threshold, differentiate
             if self.diff_timer >= sim.pluri_to_diff:
                 self.differentiate()
+
+
+def RandomPointOnSphere():
+    """ Computes a random point on a sphere
+        Returns - a point on a unit sphere [x,y] at the origin
+    """
+    theta = r.random() * 2 * math.pi
+    x = math.cos(theta)
+    y = math.sin(theta)
+
+    return np.array((x, y))
+
+def Mag(v1):
+    """ Computes the magnitude of a vector
+        Returns - a float representing the vector magnitude
+    """
+    temp = v1[0] ** 2 + v1[1] ** 2
+    return math.sqrt(temp)

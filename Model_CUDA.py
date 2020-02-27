@@ -62,6 +62,7 @@ def check_edge_gpu(self):
         self.network.add_edge(self.objects[edges[i][0]], self.objects[edges[i][1]])
 
 
+
 @cuda.jit
 def initialize_grid_cuda(grid_array):
     x, y = cuda.grid(2)

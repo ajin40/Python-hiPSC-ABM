@@ -25,9 +25,16 @@ for i in range(len(setup_list)):
     if i % 3 == 1:
         parameters.append(setup_list[i][2:-3])
 
-if bool(parameters[2]):
+if bool(parameters[3]):
     from Model_CUDA import *
 
+
+def Mag(v1):
+    """ Computes the magnitude of a vector
+        Returns - a float representing the vector magnitude
+    """
+    temp = v1[0] ** 2 + v1[1] ** 2
+    return math.sqrt(temp)
 
 
 class Simulation(object):
@@ -116,12 +123,7 @@ class Simulation(object):
             # linux/unix
             self._sep = "/"
 
-        # defines the bounds of the simulation using mathplotlib
-        if len(self.bounds) > 0:
-            self.boundary = mpltPath.Path(self.bounds)
-        else:
-            # if no bounds are defined, the boundaries are empty
-            self.boundary = []
+        self.boundary = mpltPath.Path(self.bounds)
 
     #######################################################################################################################
 
@@ -138,10 +140,12 @@ class Simulation(object):
 
         # setup grid and patches
 
-        if self.parallel:
-            initialize_grid_gpu(self)
-        else:
-            self.initialize_grid()
+        # if self.parallel:
+        #     initialize_grid_gpu(self)
+        # else:
+        #     self.initialize_grid()
+
+        self.initialize_grid()
 
         # run collide() to create connections between cells
         if self.parallel:
@@ -432,7 +436,8 @@ class Simulation(object):
             spring collisions between the cells
         """
         # gets edges
-        edges = np.array(self.network.edges())
+        edges = list(self.network.edges())
+
 
         # a vector to hold the total vector change of all movement vectors added to it
         vector = [0, 0]
@@ -502,7 +507,7 @@ class Simulation(object):
                     # get distance vector, magnitude, and normalize it
                     v12 = v2 - v1
                     dist = Mag(v12)
-                    norm = v12/ dist
+                    norm = v12 / dist
                     # find the interaction length
                     interaction_length = self.spring_max * 2
                     # recalculate distance
@@ -536,24 +541,39 @@ class Simulation(object):
         cells = list(network.nodes)
 
         # draws the background of the image
-        image1 = Image.new("RGB", (1500, 1500), color='white')
+        image1 = Image.new("RGB", (1500, 1500), color=(53, 54, 65))
         draw = ImageDraw.Draw(image1)
 
         # bounds of the simulation used for drawing patch
         # inherit
         bounds = self.bounds
 
-        # determines color and outline of the cells
-        col_dict = {'Pluripotent': 'red', 'Differentiated': 'blue'}
-        outline_dict = {'Pluripotent': 'red', 'Differentiated': 'blue'}
-
         # loops over all of the cells/nodes and draws a circle with corresponding color
         for i in range(len(cells)):
             node = cells[i]
             x, y = node.location
             r = node.radius
-            col = col_dict[node.state]
-            out = outline_dict[node.state]
+
+            # if node.state == "Pluripotent" or node.state == "Differentiated":
+            #     if node.booleans[3] == 0 and node.booleans[2] == 1:
+            #         col = (255, 0, 0)
+            #     elif node.booleans[3] == 1 and node.booleans[2] == 0:
+            #         col = (17, 235, 24)
+            #     elif node.booleans[3] == 1 and node.booleans[2] == 1:
+            #         col = (245, 213, 7)
+            #     else:
+            #         col = (60, 0, 255)
+
+            # if node.state == "Differentiated":
+            #     col = (255, 255, 255)
+
+            if node.state == "Pluripotent":
+                col = 'white'
+
+            else:
+                col = 'black'
+
+            out = "black"
             draw.ellipse((x - r + 250, y - r + 250, x + r + 250, y + r + 250), outline=out, fill=col)
 
         # loops over all of the bounds and draws lines to represent the grid
@@ -564,8 +584,8 @@ class Simulation(object):
             else:
                 x1, y1 = bounds[0]
             r = 4
-            draw.ellipse((x - r + 250, y - r + 250, x + r + 250, y + r + 250), outline='black', fill='black')
-            draw.line((x + 250, y + 250, x1 + 250, y1 + 250), fill='black', width=10)
+            draw.ellipse((x - r + 250, y - r + 250, x + r + 250, y + r + 250), outline='white', fill='white')
+            draw.line((x + 250, y + 250, x1 + 250, y1 + 250), fill='white', width=10)
 
         # saves the image as a .png
         image1.save(path + ".png", 'PNG')
@@ -637,79 +657,69 @@ class Simulation(object):
 
 
 #######################################################################################################################
-def Mag(v1):
-    """ Computes the magnitude of a vector
-        Returns - a float representing the vector magnitude
-    """
-    temp = v1[0] ** 2 + v1[1] ** 2
-    return math.sqrt(temp)
+_name = str(parameters[0])
+_path = str(parameters[1])
+_end_time = float(parameters[3])
+_time_step = float(parameters[4])
+_pluri_div_thresh = float(parameters[11])
+_diff_div_thresh = float(parameters[12])
+_pluri_to_diff = float(parameters[13])
+_size = eval(parameters[8])
+_spring_max = float(parameters[14])
+_diff_surround_value = int(parameters[15])
+_functions = eval(parameters[9])
+_itrs = int(parameters[18])
+_error = float(parameters[19])
+_parallel = bool(parameters[2])
+_max_fgf4 = int(parameters[20])
+_bounds = eval(parameters[16])
+_spring_constant = float(parameters[17])
+_radius = float(parameters[10])
+_stochastic = bool(parameters[7])
+_num_NANOG = int(parameters[6])
+_num_GATA6 = int(parameters[5])
 
-def newDirect(path):
-    """
-    This function opens the specified save path and finds the highest folder number.
-    It then returns the next highest number as a name for the currently running simulation.
-    """
-
-    files = os.listdir(path)
-    file_count = len(files)
-    number_files = []
-    if file_count > 0:
-        for j in range(file_count):
-            try:
-                number_files.append(float(files[j]))
-            except ValueError:
-                pass
-        if len(number_files) > 0:
-            k = max(number_files)
-        else:
-            k = 0
-    else:
-        k = 0
-    return k + 1.0
-
-
-# names the file
-Model_ID = newDirect(str(parameters[0]))
+print(_name, _path)
 
 # initializes simulation class which holds all information about the simulation
-simulation = Simulation(Model_ID, str(parameters[0]), float(parameters[2]), float(parameters[3]), float(parameters[10]),
-                        float(parameters[11]), float(parameters[12]), eval(parameters[7]), float(parameters[13]),
-                        int(parameters[14]), eval(parameters[8]), int(parameters[17]), float(parameters[18]),
-                        bool(parameters[1]), int(parameters[19]), eval(parameters[15]), float(parameters[16]))
+simulation = Simulation(_name, _path, _end_time, _time_step, _pluri_div_thresh, _diff_div_thresh, _pluri_to_diff,
+                        _size, _spring_max, _diff_surround_value, _functions, _itrs, _error, _parallel, _max_fgf4,
+                        _bounds, _spring_constant)
+
 
 # loops over all NANOG_high cells and creates a stem cell object for each one with given parameters
-for i in range(int(parameters[5])):
+for i in range(_num_NANOG):
     ID = i
-    point = np.array([r.random() * eval(parameters[7])[1], r.random() * eval(parameters[7])[2]])
+    point = np.array([r.random() * _size[1], r.random() * _size[2]])
     state = "Pluripotent"
     motion = True
-    if bool(parameters[6]):
+    if _stochastic:
         booleans = np.array([r.randint(0, 1), r.randint(0, 1), 0, 1])
     else:
         booleans = np.array([0, 0, 0, 1])
 
-    radius = float(parameters[9])
-    diff_timer = float(parameters[12]) * r.random()
-    division_timer = float(parameters[10]) * r.random()
+    radius = _radius
+    diff_timer = _pluri_to_diff * r.random() * 0.5
+    division_timer = _pluri_div_thresh * r.random()
 
     sim_obj = StemCell(point, radius, ID, booleans, state, diff_timer, division_timer, motion)
     simulation.add_object(sim_obj)
     simulation.inc_current_ID()
 
 # loops over all GATA6_high cells and creates a stem cell object for each one with given parameters
-for i in range(int(parameters[4])):
-    ID = i + int(parameters[5])
-    point = np.array([r.random() * eval(parameters[7])[1], r.random() * eval(parameters[7])[2]])
+for i in range(_num_GATA6):
+    ID = i + _num_NANOG
+    point = np.array([r.random() * _size[1], r.random() * _size[2]])
     state = "Pluripotent"
     motion = True
-    if bool(parameters[6]):
+    if _stochastic:
         booleans = np.array([r.randint(0, 1), r.randint(0, 1), 1, 0])
     else:
         booleans = np.array([0, 0, 1, 0])
 
-    radius = float(parameters[9])
-    diff_timer = float(parameters[12]) * r.random()
-    division_timer = float(parameters[10]) * r.random()
+    radius = _radius
+    diff_timer = _pluri_to_diff * r.random() * 0.5
+    division_timer = _pluri_div_thresh * r.random()
 
     sim_obj = StemCell(point, radius, ID, booleans, state, diff_timer, division_timer, motion)
     simulation.add_object(sim_obj)
