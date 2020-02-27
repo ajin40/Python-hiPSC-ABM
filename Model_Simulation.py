@@ -44,7 +44,7 @@ class Simulation(object):
 
     def __init__(self, name, path, end_time, time_step, pluri_div_thresh, diff_div_thresh, pluri_to_diff,
                  size, spring_max, diff_surround_value, functions, itrs, error, parallel, max_fgf4, bounds,
-                 spring_constant):
+                 spring_constant, death_threshold):
         """ Initialization function for the simulation setup.
             name: the simulation name
             path: the path to save the simulation information to
@@ -92,6 +92,7 @@ class Simulation(object):
         self.max_fgf4 = max_fgf4
         self.bounds = bounds
         self.spring_constant = spring_constant
+        self.death_threshold = death_threshold
 
         # the array that represents the grid and all its patches
         self.grid = np.zeros(self.size)
@@ -140,20 +141,14 @@ class Simulation(object):
 
         # setup grid and patches
 
-        # if self.parallel:
-        #     initialize_grid_gpu(self)
-        # else:
-        #     self.initialize_grid()
-
         self.initialize_grid()
 
-        # run collide() to create connections between cells
+        # run check_edge() to create connections between cells
+
         if self.parallel:
             check_edge_gpu(self)
         else:
             self.check_edge_run()
-
-        self.optimize(self.error, self.itrs)
 
         # save the first image and data of simulation
         self.save_file()
@@ -167,6 +162,8 @@ class Simulation(object):
 
             print("Time: " + str(self.time_counter))
             print("Number of objects: " + str(len(self.objects)))
+
+            self.kill_cells()
 
             # updates all of the objects (motion, state, booleans)
 
@@ -190,13 +187,19 @@ class Simulation(object):
                 self.check_edge_run()
 
             # moves cells in "motion" in a random fashion
-            self.random_movement()
+            # self.random_movement()
 
             # calculates how much compression force is on each cell
             self.calculate_compression()
 
             # optimizes the simulation by handling springs until error is less than threshold
-            self.optimize(self.error, self.itrs)
+            # self.optimize(self.error, self.itrs)
+            dt = 0.10
+            max_time = 1.00
+            spring_constant = 0.20
+            friction = 9.8 * 4.0
+            energy_loss = 0.50
+            self.handle_collisions(dt, max_time, spring_constant, friction, energy_loss)
 
             # increments the time by time step
             self.time_counter += self.time_step
@@ -234,7 +237,7 @@ class Simulation(object):
             and the graph
         """
         # removes it from the array
-        self.objects = np.delete(self.objects, sim_object)
+        self.objects = self.objects[self.objects != sim_object]
 
         # removes it from the graph
         self.network.remove_node(sim_object)
@@ -271,7 +274,6 @@ class Simulation(object):
                 self.grid[np.array([0]), np.array([i]), np.array([j])] = r.randint(0, self.max_fgf4)
 
     def update_grid(self):
-
         for i in range(self.size[1]):
             for j in range(self.size[2]):
                 if self.grid[np.array([0]), np.array([i]), np.array([j])] >= 1:
@@ -293,6 +295,12 @@ class Simulation(object):
                 if 1000 >= temp_x >= 0 and 1000 >= temp_y >= 0:
                     self.objects[i].location[0] = temp_x
                     self.objects[i].location[1] = temp_y
+
+    def kill_cells(self):
+        for i in range(len(self.objects)):
+            self.objects[i].cell_death(self)
+            if self.objects[i].death_timer >= self.death_threshold:
+                self.add_object_to_removal_queue(self.objects[i])
 
 
     def update_object_queue(self):
@@ -320,6 +328,7 @@ class Simulation(object):
         # loops over all objects
         for i in range(len(self.objects)):
             self.objects[i].compress_force(self)
+
 
 
     def diff_surround(self):
@@ -402,131 +411,64 @@ class Simulation(object):
                     self.network.add_edge(self.objects[i], self.objects[j])
 
 
-    def optimize(self, error_max, max_itrs):
-        """ tries to correct for the error by applying
-            spring forces and keeping cells in the grid
-        """
-        # amount of times optimize has run
-        itrs = 0
-        # baseline for starting while loop
-        error = error_max * 2
+    def handle_collisions(self, dt, max_time, spring_constant, friction, energy_loss):
+        time_counter = 0
+        while time_counter <= max_time:
+            time_counter += dt
 
-        while itrs < max_itrs and error > error_max:
-            # checks the interaction connections
-            if self.parallel:
-                check_edge_gpu(self)
-            else:
-                self.check_edge_run()
+            edges = list(self.network.edges())
 
-            # returns total vector after running spring force function
-            vector = self.handle_springs()
+            for i in range(len(edges)):
+                obj1 = edges[i][0]
+                obj2 = edges[i][1]
 
-            # runs through all objects and scales vector so that the cells don't move around too much
+                displacement = obj1.location - obj2.location
+
+
+                displacement_normal = displacement / np.linalg.norm(displacement)
+
+
+                obj1_displacement = (obj1.radius + obj1.cyto_length) * displacement_normal
+                obj2_displacement = (obj2.radius + obj1.cyto_length) * displacement_normal
+
+                real_displacement = displacement - (obj1_displacement + obj2_displacement)
+
+                obj1.velocity -= real_displacement * (energy_loss * spring_constant / obj1.mass)
+
+                obj2.velocity += real_displacement * (energy_loss * spring_constant / obj2.mass)
+
+
+            for i in range(len(self.objects)):
+                velocity = self.objects[i].velocity
+
+
+                movement = velocity * dt
+                self.objects[i]._disp_vec += movement
+
+                if np.linalg.norm(velocity) == 0.0:
+                    velocity_normal = 0.0
+                else:
+                    velocity_normal = velocity / np.linalg.norm(velocity)
+
+                velocity_mag = np.linalg.norm(velocity)
+                movement_mag = np.linalg.norm(movement)
+
+
+                new_velocity = velocity_normal * max(velocity_mag ** 2 - 2 * friction * movement_mag, 0.0) ** 0.5
+
+                self.objects[i].velocity = new_velocity
+
+
             for i in range(len(self.objects)):
                 self.objects[i].update_constraints(self)
 
-            error = Mag(vector)
-            print("optimize error: " + str(error))
+            base_path = self.path + self._sep + self.name + self._sep
 
-            # increment the iterations
-            itrs += 1
+            self.draw_cell_image(self.network, base_path + "network_image" + str(int(self.time_counter)) + "." + str(int(time_counter * 10)))
 
-    def handle_springs(self):
-        """ loops over all edges of the graph and performs
-            spring collisions between the cells
-        """
-        # gets edges
-        edges = list(self.network.edges())
+            check_edge_gpu(self)
 
 
-        # a vector to hold the total vector change of all movement vectors added to it
-        vector = [0, 0]
-
-        # loops over all of the edges
-        for i in range(len(edges)):
-            edge = edges[i]
-            # edge has two objects representing the nodes
-            obj1 = edge[0]
-            obj2 = edge[1]
-
-            # check to make sure not the same object
-            if obj1.ID != obj2.ID:
-
-                # if they both aren't in motion remove edge between them
-                if not obj1.motion and not obj2.motion:
-                    self.network.remove_edge(obj1, obj2)
-
-                # if one is in motion and the other is not
-                if not obj1.motion and obj2.motion:
-                    # get the locations
-                    v1 = obj1.location
-                    v2 = obj2.location
-                    # get distance vector, magnitude, and normalize it
-                    v12 = v2 - v1
-                    dist = Mag(v12)
-                    norm = v12 / dist
-                    # find the interaction length
-                    interaction_length = self.spring_max * 2
-                    # recalculate distance
-                    dist = dist - interaction_length
-                    # now get the spring constant strength
-                    k = self.spring_constant
-                    # scale the new distance by the spring constant
-                    dist *= k
-                    # direction of original distance vector
-                    temp = norm * dist
-                    # add vector to cell in motion where cell not in motion is anchor
-                    obj2.add_displacement_vec(-temp)
-
-                # if one is in motion and the other is not
-                if obj1.motion and not obj2.motion:
-                    # get the locations
-                    v1 = obj1.location
-                    v2 = obj2.location
-                    # get distance vector, magnitude, and normalize it
-                    v12 = v2 - v1
-                    dist = Mag(v12)
-                    norm = v12 / dist
-                    # find the interaction length
-                    interaction_length = self.spring_max * 2
-                    # recalculate distance
-                    dist = dist - interaction_length
-                    # now get the spring constant strength
-                    k = self.spring_constant
-                    # scale the new distance by the spring constant
-                    dist *= k
-                    # direction of original distance vector
-                    temp = norm * dist
-                    # add vector to cell in motion where cell not in motion is anchor
-                    obj1.add_displacement_vec(temp)
-
-                else:
-                    # get the locations
-                    v1 = obj1.location
-                    v2 = obj2.location
-                    # get distance vector, magnitude, and normalize it
-                    v12 = v2 - v1
-                    dist = Mag(v12)
-                    norm = v12 / dist
-                    # find the interaction length
-                    interaction_length = self.spring_max * 2
-                    # recalculate distance
-                    dist = dist - interaction_length
-                    # now get the spring constant strength
-                    k = self.spring_constant
-                    # now we can apply the spring constraint to this
-                    dist = (dist / 2.0) * k
-                    # direction of original distance vector
-                    temp = norm * dist
-                    # add these vectors to the object vectors
-                    obj1.add_displacement_vec(temp)
-                    obj2.add_displacement_vec(-temp)
-
-            # add movement vector to running count vector
-            vector += temp
-
-        # return total vector
-        return vector
 
     #######################################################################################################################
     # image, video, and csv saving
@@ -653,7 +595,7 @@ class Simulation(object):
         self.location_to_text(n2_path)
 
         # draws the image of the simulation
-        self.draw_cell_image(self.network, base_path + "network_image" + str(int(self.time_counter)))
+        self.draw_cell_image(self.network, base_path + "network_image" + str(int(self.time_counter)) + ".0")
 
 
 #######################################################################################################################
@@ -678,13 +620,14 @@ _radius = float(parameters[10])
 _stochastic = bool(parameters[7])
 _num_NANOG = int(parameters[6])
 _num_GATA6 = int(parameters[5])
+_death_threshold = 5
 
 print(_name, _path)
 
 # initializes simulation class which holds all information about the simulation
 simulation = Simulation(_name, _path, _end_time, _time_step, _pluri_div_thresh, _diff_div_thresh, _pluri_to_diff,
                         _size, _spring_max, _diff_surround_value, _functions, _itrs, _error, _parallel, _max_fgf4,
-                        _bounds, _spring_constant)
+                        _bounds, _spring_constant, _death_threshold)
 
 
 # loops over all NANOG_high cells and creates a stem cell object for each one with given parameters

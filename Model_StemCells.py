@@ -31,12 +31,17 @@ class StemCell(object):
         self.diff_timer = diff_timer
         self.division_timer = division_timer
         self.motion = motion
+        self.mass = 0.06
+        self.cyto_length = 3
+        self.death_timer = 0
 
         # holds the compression force by a cell's neighbors
         self.compress = 0
 
         # holds the value of the movement vector of the cell
         self._disp_vec = np.array([0.0, 0.0])
+
+        self.velocity = np.array([0.0, 0.0])
 
 
 
@@ -52,13 +57,6 @@ class StemCell(object):
         """ Updates the boundary constraints of the grid on the objects
             and limits the movement to a magnitude of 5
         """
-
-        # gets magnitude of movement vector
-        mag = Mag(self._disp_vec)
-        if mag > 5:
-            # if the magnitude is greater than 5, it will be scaled down to 5
-            n = self._disp_vec / mag
-            self._disp_vec = n * 5.0
 
         # new location is the sum of previous location and movement vector
         location = self.location + self._disp_vec
@@ -131,7 +129,7 @@ class StemCell(object):
             if too great the cell won't divide
         """
         # finds neighbors of a cell
-        neighbors = np.array(list(sim.network.neighbors(self)))
+        neighbors = list(sim.network.neighbors(self))
         # holds the compression force values
         compress = 0
         # radius of the cell
@@ -146,6 +144,11 @@ class StemCell(object):
             compress += max(cmpr, 0)
         compress = float(compress / (1.0 + len(neighbors)))
         self.compress = compress
+
+    def cell_death(self, sim):
+        neighbors = list(sim.network.neighbors(self))
+        if len(neighbors) < 1:
+            self.death_timer += 1
 
 
     def divide(self, sim):
@@ -193,6 +196,8 @@ class StemCell(object):
         """ Updates the stem cell to decide whether they differentiate
             or divide, changes state, and sets motion
         """
+
+
         # if other cells are differentiated around a cell it will stop moving
         if self.state == "Differentiated":
             nbs = np.array(list(sim.network.neighbors(self)))

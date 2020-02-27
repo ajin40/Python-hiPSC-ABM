@@ -1,5 +1,5 @@
 What is the name of the simulation?
-[ Run_16 ]
+[ Run_33 ]
 
 Define where the model will output its images, data, and video. Ex: C:\Python27\Model
 [ C:\Python27\MEGA-ARRAY ]
@@ -8,7 +8,7 @@ Do you want the simulation to use parallel GPU processing?
 [ True ]
 
 How many total steps will the model run for?
-[ 3.0 ]
+[ 60.0 ]
 
 What will the difference in time steps be?
 [ 1.0 ]
@@ -32,7 +32,7 @@ Average radius of the nucleus
 [ 6.0 ]
 
 Length of time steps required for a pluripotent cell to divide
-[ 24.0 ]
+[ 12.0 ]
 
 Length of time steps required for a differentiated cell to divide
 [ 36.0 ]

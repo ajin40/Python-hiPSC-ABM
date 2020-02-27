@@ -33,6 +33,7 @@ def update_grid_gpu(self):
 
 
 def check_edge_gpu(self):
+    self.network.clear()
 
 
     rows = len(self.objects)
@@ -43,6 +44,7 @@ def check_edge_gpu(self):
 
     for i in range(len(self.objects)):
         location_array = np.append(location_array, np.array([self.objects[i].location]), axis=0)
+
 
     location_array_device_in = cuda.to_device(location_array)
     edges_array_device_in = cuda.to_device(edges_array)
@@ -56,7 +58,13 @@ def check_edge_gpu(self):
 
     output = edges_array_device_in.copy_to_host()
 
+    output = np.triu(output)
+
+
     edges = np.argwhere(output == 1)
+
+    for i in range(len(self.objects)):
+        self.network.add_node(self.objects[i])
 
     for i in range(len(edges)):
         self.network.add_edge(self.objects[edges[i][0]], self.objects[edges[i][1]])
@@ -77,12 +85,12 @@ def update_grid_cuda(grid_array):
 
 @cuda.jit
 def check_edge_cuda(locations, edges_array):
-    x, y = cuda.grid(2)
-    if x < edges_array.shape[0] and y < edges_array.shape[1]:
-        location_x1 = locations[x][0]
-        location_y1 = locations[x][1]
-        location_x2 = locations[y][0]
-        location_y2 = locations[y][1]
-        mag = ((location_x1 - location_x2)**2 + (location_y1 - location_y2)**2)**0.5
-        if mag <= 12 and x != y:
-            edges_array[x, y] = 1
+    a, b = cuda.grid(2)
+    if a < edges_array.shape[0] and b < edges_array.shape[1]:
+        location_x1 = locations[a][0]
+        location_y1 = locations[a][1]
+        location_x2 = locations[b][0]
+        location_y2 = locations[b][1]
+        mag = ((location_x1 - location_x2)**2 + (location_y1 - location_y2)**2) ** 0.5
+        if a != b and mag <= 24:
+            edges_array[a, b] = 1
