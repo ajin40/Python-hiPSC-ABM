@@ -63,6 +63,7 @@ def check_edge_gpu(self):
 
     edges = np.argwhere(output == 1)
 
+
     for i in range(len(self.objects)):
         self.network.add_node(self.objects[i])
 

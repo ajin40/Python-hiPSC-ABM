@@ -17,7 +17,6 @@ import matplotlib.path as mpltPath
 import csv
 from Model_StemCells import StemCell
 
-
 setup_file = open(os.getcwd() + "/Setup.txt")
 setup_list = setup_file.readlines()
 parameters = []
@@ -42,9 +41,10 @@ class Simulation(object):
         simulation
     """
 
-    def __init__(self, name, path, end_time, time_step, pluri_div_thresh, diff_div_thresh, pluri_to_diff,
-                 size, spring_max, diff_surround_value, functions, itrs, error, parallel, max_fgf4, bounds,
-                 spring_constant, death_threshold):
+    def __init__(self, name, path, end_time, time_step, pluri_div_thresh, diff_div_thresh, pluri_to_diff, size,
+                 diff_surround_value, functions, parallel, max_fgf4, bounds, death_threshold, move_time_step,
+                 move_max_time, spring_constant, friction, energy_kept, neighbor_distance):
+
         """ Initialization function for the simulation setup.
             name: the simulation name
             path: the path to save the simulation information to
@@ -66,33 +66,26 @@ class Simulation(object):
             bounds: the bounds of the simulation
             spring_constant: strength of spring
         """
-
-        # make sure name and path are strings
-        if type(name) is str:
-            self.name = name
-        else:
-            self.name = str(name)
-        if type(path) is str:
-            self.path = path
-        else:
-            self.path = str(path)
-
-        self.end_time = float(end_time)
-        self.time_step = float(time_step)
+        self.name = name
+        self.path = path
+        self.end_time = end_time
+        self.time_step = time_step
         self.pluri_div_thresh = pluri_div_thresh
         self.diff_div_thresh = diff_div_thresh
         self.pluri_to_diff = pluri_to_diff
         self.size = size
-        self.spring_max = spring_max
         self.diff_surround_value = diff_surround_value
         self.functions = functions
-        self.itrs = itrs
-        self.error = error
         self.parallel = parallel
         self.max_fgf4 = max_fgf4
         self.bounds = bounds
-        self.spring_constant = spring_constant
         self.death_threshold = death_threshold
+        self.move_time_step = move_time_step
+        self.move_max_time = move_max_time
+        self.spring_constant = spring_constant
+        self.friction = friction
+        self.energy_kept = energy_kept
+        self.neighbor_distance = neighbor_distance
 
         # the array that represents the grid and all its patches
         self.grid = np.zeros(self.size)
@@ -148,7 +141,9 @@ class Simulation(object):
         if self.parallel:
             check_edge_gpu(self)
         else:
-            self.check_edge_run()
+            self.check_edges()
+
+        self.handle_collisions()
 
         # save the first image and data of simulation
         self.save_file()
@@ -184,22 +179,14 @@ class Simulation(object):
             if self.parallel:
                 check_edge_gpu(self)
             else:
-                self.check_edge_run()
+                self.check_edges()
 
             # moves cells in "motion" in a random fashion
             # self.random_movement()
 
-            # calculates how much compression force is on each cell
-            self.calculate_compression()
-
             # optimizes the simulation by handling springs until error is less than threshold
-            # self.optimize(self.error, self.itrs)
-            dt = 0.10
-            max_time = 1.00
-            spring_constant = 0.20
-            friction = 9.8 * 4.0
-            energy_loss = 0.50
-            self.handle_collisions(dt, max_time, spring_constant, friction, energy_loss)
+
+            self.handle_collisions()
 
             # increments the time by time step
             self.time_counter += self.time_step
@@ -279,7 +266,6 @@ class Simulation(object):
                 if self.grid[np.array([0]), np.array([i]), np.array([j])] >= 1:
                     self.grid[np.array([0]), np.array([i]), np.array([j])] += -1
 
-
     def random_movement(self):
         """ has the objects that are in motion
             move in a random way
@@ -302,7 +288,6 @@ class Simulation(object):
             if self.objects[i].death_timer >= self.death_threshold:
                 self.add_object_to_removal_queue(self.objects[i])
 
-
     def update_object_queue(self):
         """ Updates the object add and remove queue
         """
@@ -322,15 +307,6 @@ class Simulation(object):
         self._objects_to_add = np.array([])
 
 
-    def calculate_compression(self):
-        """ calculates the compress force for all objects"""
-
-        # loops over all objects
-        for i in range(len(self.objects)):
-            self.objects[i].compress_force(self)
-
-
-
     def diff_surround(self):
         """ calls the object function that determines if
             a cell will differentiate based on the cells
@@ -342,7 +318,6 @@ class Simulation(object):
             if self.objects[i].state == "Pluripotent" and self.objects[i].booleans[2] == 0:
                 self.objects[i].diff_surround_funct(self)
 
-
     def update(self):
         """ Updates all of the objects in the simulation
             and degrades the FGF4 amount by 1 for all patches
@@ -353,44 +328,20 @@ class Simulation(object):
             self.objects[i].update_StemCell(self)
 
 
-    def check_edge(self):
-        """ checks all of the distances between cells
-            if it is less than a set value create a
-            connection between two cells. (Only run at
-            beginning)
-        """
-
-        # loops over all objects
-        for i in range(len(self.objects)):
-            # loops over all objects not check already
-            for j in range(i + 1, len(self.objects)):
-
-                # max distance between cells to have a connection
-                interaction_length = self.spring_max * 2
-
-                # get the distance between cells
-                dist_vec = self.objects[i].location - self.objects[j].location
-
-                # get the magnitude of the distance vector
-                dist = Mag(dist_vec)
-
-                if dist <= interaction_length:
-                    # if correct length, add a edge in the graph representing a connection
-                    self.network.add_edge(self.objects[i], self.objects[j])
-
-
-    def check_edge_run(self):
+    def check_edges(self):
         """ checks all of the distances between cells
             if it is less than a set value create a
             connection between two cells.
         """
+        self.network.clear()
+
         # loops over all objects
         for i in range(len(self.objects)):
             # loops over all objects not check already
             for j in range(i + 1, len(self.objects)):
 
                 # max distance between cells to have a connection
-                interaction_length = self.spring_max * 2
+                interaction_length = self.neighbor_distance
 
                 # get the distance between cells
                 dist_vec = self.objects[i].location - self.objects[j].location
@@ -398,23 +349,17 @@ class Simulation(object):
                 # get the magnitude of the distance vector
                 dist = Mag(dist_vec)
 
-                # if the distance is greater than the interaction length try to remove it
-                if dist > interaction_length:
-                    try:
-                        self.network.remove_edge(self.objects[i], self.objects[j])
-                    except:
-                        pass
+                for i in range(len(self.objects)):
+                    self.network.add_node(self.objects[i])
 
-                # if the distance is less than or equal to interaction length add connection unless both
-                # cells aren't in motion
-                if dist <= interaction_length and (self.objects[i].motion or self.objects[j].motion):
+                if dist <= interaction_length:
                     self.network.add_edge(self.objects[i], self.objects[j])
 
 
-    def handle_collisions(self, dt, max_time, spring_constant, friction, energy_loss):
+    def handle_collisions(self):
         time_counter = 0
-        while time_counter <= max_time:
-            time_counter += dt
+        while time_counter <= self.move_max_time:
+            time_counter += self.move_time_step
 
             edges = list(self.network.edges())
 
@@ -424,25 +369,24 @@ class Simulation(object):
 
                 displacement = obj1.location - obj2.location
 
+                if np.linalg.norm(displacement) < obj1.nuclear_radius + obj1.cytoplasm_radius + obj2.nuclear_radius + obj2.cytoplasm_radius:
 
-                displacement_normal = displacement / np.linalg.norm(displacement)
+                    displacement_normal = displacement / np.linalg.norm(displacement)
+                    obj1_displacement = (obj1.nuclear_radius + obj1.cytoplasm_radius) * displacement_normal
+                    obj2_displacement = (obj2.nuclear_radius + obj1.cytoplasm_radius) * displacement_normal
 
+                    real_displacement = displacement - (obj1_displacement + obj2_displacement)
 
-                obj1_displacement = (obj1.radius + obj1.cyto_length) * displacement_normal
-                obj2_displacement = (obj2.radius + obj1.cyto_length) * displacement_normal
+                    obj1.velocity -= real_displacement * (self.energy_kept * self.spring_constant / obj1.mass)
 
-                real_displacement = displacement - (obj1_displacement + obj2_displacement)
+                    obj2.velocity += real_displacement * (self.energy_kept * self.spring_constant / obj2.mass)
 
-                obj1.velocity -= real_displacement * (energy_loss * spring_constant / obj1.mass)
-
-                obj2.velocity += real_displacement * (energy_loss * spring_constant / obj2.mass)
 
 
             for i in range(len(self.objects)):
                 velocity = self.objects[i].velocity
 
-
-                movement = velocity * dt
+                movement = velocity * self.move_max_time
                 self.objects[i]._disp_vec += movement
 
                 if np.linalg.norm(velocity) == 0.0:
@@ -453,22 +397,14 @@ class Simulation(object):
                 velocity_mag = np.linalg.norm(velocity)
                 movement_mag = np.linalg.norm(movement)
 
-
-                new_velocity = velocity_normal * max(velocity_mag ** 2 - 2 * friction * movement_mag, 0.0) ** 0.5
+                new_velocity = velocity_normal * max(velocity_mag ** 2 - 2 * self.friction * movement_mag, 0.0) ** 0.5
 
                 self.objects[i].velocity = new_velocity
-
 
             for i in range(len(self.objects)):
                 self.objects[i].update_constraints(self)
 
-            base_path = self.path + self._sep + self.name + self._sep
-
-            self.draw_cell_image(self.network, base_path + "network_image" + str(int(self.time_counter)) + "." + str(int(time_counter * 10)))
-
             check_edge_gpu(self)
-
-
 
     #######################################################################################################################
     # image, video, and csv saving
@@ -494,7 +430,7 @@ class Simulation(object):
         for i in range(len(cells)):
             node = cells[i]
             x, y = node.location
-            r = node.radius
+            r = node.nuclear_radius
 
             # if node.state == "Pluripotent" or node.state == "Differentiated":
             #     if node.booleans[3] == 0 and node.booleans[2] == 1:
@@ -601,70 +537,83 @@ class Simulation(object):
 #######################################################################################################################
 _name = str(parameters[0])
 _path = str(parameters[1])
+_parallel = bool(parameters[2])
 _end_time = float(parameters[3])
 _time_step = float(parameters[4])
-_pluri_div_thresh = float(parameters[11])
-_diff_div_thresh = float(parameters[12])
-_pluri_to_diff = float(parameters[13])
-_size = eval(parameters[8])
-_spring_max = float(parameters[14])
-_diff_surround_value = int(parameters[15])
-_functions = eval(parameters[9])
-_itrs = int(parameters[18])
-_error = float(parameters[19])
-_parallel = bool(parameters[2])
-_max_fgf4 = int(parameters[20])
-_bounds = eval(parameters[16])
-_spring_constant = float(parameters[17])
-_radius = float(parameters[10])
-_stochastic = bool(parameters[7])
-_num_NANOG = int(parameters[6])
 _num_GATA6 = int(parameters[5])
-_death_threshold = 5
-
-print(_name, _path)
+_num_NANOG = int(parameters[6])
+_stochastic = bool(parameters[7])
+_size = eval(parameters[8])
+_functions = eval(parameters[9])
+_pluri_div_thresh = float(parameters[10])
+_diff_div_thresh = float(parameters[11])
+_pluri_to_diff = float(parameters[12])
+_diff_surround_value = int(parameters[13])
+_bounds = eval(parameters[14])
+_max_fgf4 = int(parameters[15])
+_death_threshold = int(parameters[16])
+_move_time_step = float(parameters[17])
+_move_max_time = float(parameters[18])
+_spring_constant = float(parameters[19])
+_friction = float(parameters[20])
+_energy_kept = float(parameters[21])
+_neighbor_distance = float(parameters[22])
+_mass = float(parameters[23])
+_nuclear_radius = float(parameters[24])
+_cytoplasm_radius = float(parameters[25])
 
 # initializes simulation class which holds all information about the simulation
 simulation = Simulation(_name, _path, _end_time, _time_step, _pluri_div_thresh, _diff_div_thresh, _pluri_to_diff,
-                        _size, _spring_max, _diff_surround_value, _functions, _itrs, _error, _parallel, _max_fgf4,
-                        _bounds, _spring_constant, _death_threshold)
-
+                        _size, _diff_surround_value, _functions, _parallel, _max_fgf4, _bounds, _death_threshold,
+                        _move_time_step, _move_max_time, _spring_constant, _friction, _energy_kept, _neighbor_distance)
 
 # loops over all NANOG_high cells and creates a stem cell object for each one with given parameters
 for i in range(_num_NANOG):
     ID = i
-    point = np.array([r.random() * _size[1], r.random() * _size[2]])
+    location = np.array([r.random() * _size[1], r.random() * _size[2]])
     state = "Pluripotent"
     motion = True
+    mass = _mass
     if _stochastic:
         booleans = np.array([r.randint(0, 1), r.randint(0, 1), 0, 1])
     else:
         booleans = np.array([0, 0, 0, 1])
 
-    radius = _radius
+    nuclear_radius = _nuclear_radius
+    cytoplasm_radius = _cytoplasm_radius
+
     diff_timer = _pluri_to_diff * r.random() * 0.5
     division_timer = _pluri_div_thresh * r.random()
+    death_timer = _death_threshold * r.random() * 0.5
 
-    sim_obj = StemCell(point, radius, ID, booleans, state, diff_timer, division_timer, motion)
+    sim_obj = StemCell(ID, location, motion, mass, nuclear_radius, cytoplasm_radius, booleans, state, diff_timer,
+                       division_timer, death_timer)
+
     simulation.add_object(sim_obj)
     simulation.inc_current_ID()
 
 # loops over all GATA6_high cells and creates a stem cell object for each one with given parameters
 for i in range(_num_GATA6):
     ID = i + _num_NANOG
-    point = np.array([r.random() * _size[1], r.random() * _size[2]])
+    location = np.array([r.random() * _size[1], r.random() * _size[2]])
     state = "Pluripotent"
     motion = True
+    mass = _mass
     if _stochastic:
         booleans = np.array([r.randint(0, 1), r.randint(0, 1), 1, 0])
     else:
         booleans = np.array([0, 0, 1, 0])
 
-    radius = _radius
-    diff_timer = _pluri_to_diff * r.random() * 0.5
-    division_timer = _pluri_div_thresh * r.random()
+    nuclear_radius = _nuclear_radius
+    cytoplasm_radius = _cytoplasm_radius
 
-    sim_obj = StemCell(point, radius, ID, booleans, state, diff_timer, division_timer, motion)
+    diff_timer = _pluri_to_diff * r.random()
+    division_timer = _pluri_div_thresh * r.random()
+    death_timer = _death_threshold * r.random()
+
+    sim_obj = StemCell(ID, location, motion, mass, nuclear_radius, cytoplasm_radius, booleans, state, diff_timer,
+                       division_timer, death_timer)
+
     simulation.add_object(sim_obj)
     simulation.inc_current_ID()
 

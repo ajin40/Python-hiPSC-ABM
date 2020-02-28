@@ -12,7 +12,9 @@ class StemCell(object):
     """ Every cell object in the simulation
         will have this class
     """
-    def __init__(self, location, radius, ID, booleans, state, diff_timer, division_timer, motion):
+    def __init__(self, ID, location, motion, mass, nuclear_radius, cytoplasm_radius, booleans, state, diff_timer,
+                 division_timer, death_timer):
+
         """ location: where the cell is located on the grid "[x,y]"
             radius: the radius of each cell
             ID: the number assigned to each cell "0-number of cells"
@@ -23,17 +25,17 @@ class StemCell(object):
             motion: whether the cell is in moving or not "True or False"
             spring_constant: strength of force applied based on distance
         """
-        self.location = location
-        self.radius = radius
         self.ID = ID
+        self.location = location
+        self.motion = motion
+        self.mass = mass
+        self.nuclear_radius = nuclear_radius
+        self.cytoplasm_radius = cytoplasm_radius
         self.booleans = booleans
         self.state = state
         self.diff_timer = diff_timer
         self.division_timer = division_timer
-        self.motion = motion
-        self.mass = 0.06
-        self.cyto_length = 3
-        self.death_timer = 0
+        self.death_timer = death_timer
 
         # holds the compression force by a cell's neighbors
         self.compress = 0
@@ -116,34 +118,13 @@ class StemCell(object):
             if neighbors[i].state == "Differentiated":
                 dist_vec = neighbors[i].location - self.location
                 dist = Mag(dist_vec)
-                if dist <= sim.spring_max:
+                if dist <= sim.neighbor_distance:
                     counter += 1
 
         # if there are enough cells surrounding the cell the differentiation timer will increase
         if counter >= sim.diff_surround_value:
             self.diff_timer += 1
 
-
-    def compress_force(self, sim):
-        """ finds the compression force of other cells acting on the cell
-            if too great the cell won't divide
-        """
-        # finds neighbors of a cell
-        neighbors = list(sim.network.neighbors(self))
-        # holds the compression force values
-        compress = 0
-        # radius of the cell
-        rd1 = self.radius
-        # loops over all neighbors
-        for i in range(len(neighbors)):
-            rd2 = neighbors[i].radius
-            dist_vec = neighbors[i].location - self.location
-            dist = Mag(dist_vec)
-            cmpr = rd1 + rd2 - dist
-            # only counts cells that are touching or overlapping
-            compress += max(cmpr, 0)
-        compress = float(compress / (1.0 + len(neighbors)))
-        self.compress = compress
 
     def cell_death(self, sim):
         neighbors = list(sim.network.neighbors(self))
@@ -157,7 +138,7 @@ class StemCell(object):
             in a random place outside
         """
         # radius of cell
-        radius = self.radius
+        radius = self.nuclear_radius + self.cytoplasm_radius
         location = self.location
 
         # if there are boundaries
@@ -178,7 +159,10 @@ class StemCell(object):
         ID = sim.get_ID()
 
         # create new cell and add it to the simulation
-        sc = StemCell(location, radius, ID, self.booleans, self.state, self.diff_timer, self.division_timer, self.motion)
+
+        sc = StemCell(ID, location, self.motion, self.mass, self.nuclear_radius, self.cytoplasm_radius, self.booleans,
+                      self.state, self.diff_timer, self.division_timer, self.death_timer)
+
         sim.add_object_to_addition_queue(sc)
 
 
