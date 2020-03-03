@@ -382,7 +382,6 @@ class Simulation(object):
                     obj2.velocity += real_displacement * (self.energy_kept * self.spring_constant / obj2.mass)
 
 
-
             for i in range(len(self.objects)):
                 velocity = self.objects[i].velocity
 
@@ -419,7 +418,8 @@ class Simulation(object):
         cells = list(network.nodes)
 
         # draws the background of the image
-        image1 = Image.new("RGB", (1500, 1500), color=(53, 54, 65))
+        image1 = Image.new("RGB", (1500, 1500), color=(130, 130, 130))
+        # image1 = Image.new("RGB", (1500, 1500), color="black")
         draw = ImageDraw.Draw(image1)
 
         # bounds of the simulation used for drawing patch
@@ -442,8 +442,8 @@ class Simulation(object):
             #     else:
             #         col = (60, 0, 255)
 
-            # if node.state == "Differentiated":
-            #     col = (255, 255, 255)
+            if node.state == "Differentiated":
+                col = (255, 255, 255)
 
             if node.state == "Pluripotent":
                 col = 'white'
@@ -584,7 +584,7 @@ for i in range(_num_NANOG):
 
     diff_timer = _pluri_to_diff * r.random() * 0.5
     division_timer = _pluri_div_thresh * r.random()
-    death_timer = _death_threshold * r.random() * 0.5
+    death_timer = _death_threshold * r.random()
 
     sim_obj = StemCell(ID, location, motion, mass, nuclear_radius, cytoplasm_radius, booleans, state, diff_timer,
                        division_timer, death_timer)
@@ -607,7 +607,7 @@ for i in range(_num_GATA6):
     nuclear_radius = _nuclear_radius
     cytoplasm_radius = _cytoplasm_radius
 
-    diff_timer = _pluri_to_diff * r.random()
+    diff_timer = _pluri_to_diff * r.random() * 0.5
     division_timer = _pluri_div_thresh * r.random()
     death_timer = _death_threshold * r.random()
 

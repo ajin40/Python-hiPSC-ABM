@@ -35,7 +35,6 @@ def update_grid_gpu(self):
 def check_edge_gpu(self):
     self.network.clear()
 
-
     rows = len(self.objects)
     columns = len(self.objects)
     edges_array = np.zeros((rows, columns))
@@ -44,7 +43,6 @@ def check_edge_gpu(self):
 
     for i in range(len(self.objects)):
         location_array = np.append(location_array, np.array([self.objects[i].location]), axis=0)
-
 
     location_array_device_in = cuda.to_device(location_array)
     edges_array_device_in = cuda.to_device(edges_array)
@@ -55,21 +53,15 @@ def check_edge_gpu(self):
     blocks_per_grid = (blocks_per_grid_x, blocks_per_grid_y)
 
     check_edge_cuda[blocks_per_grid, threads_per_block](location_array_device_in, edges_array_device_in)
-
     output = edges_array_device_in.copy_to_host()
-
     output = np.triu(output)
-
-
     edges = np.argwhere(output == 1)
-
 
     for i in range(len(self.objects)):
         self.network.add_node(self.objects[i])
 
     for i in range(len(edges)):
         self.network.add_edge(self.objects[edges[i][0]], self.objects[edges[i][1]])
-
 
 
 @cuda.jit

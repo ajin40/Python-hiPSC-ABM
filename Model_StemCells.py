@@ -263,3 +263,4 @@ def Mag(v1):
     """
     temp = v1[0] ** 2 + v1[1] ** 2
     return math.sqrt(temp)
+
