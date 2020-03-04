@@ -1,8 +1,15 @@
+#########################################################
+# Name:    Functions                                    #
+# Author:  Jack Toppen                                  #
+# Date:    3/4/20                                       #
+#########################################################
 import numpy as np
 import Parallel
 import math
 import Classes
 import random as r
+import os
+import shutil
 
 def handle_collisions(self):
     time_counter = 0
@@ -116,7 +123,7 @@ def update(self):
             self.objects[i].diff_timer += 1
             # if the differentiation counter is greater than the threshold, differentiate
             if self.objects[i].diff_timer >= self.pluri_to_diff:
-                self.differentiate(self.objects[i])
+                differentiate(self.objects[i])
 
 
 def diff_surround(self):
@@ -195,11 +202,11 @@ def divide(self, thing):
         count = 0
         # tries to put the cell on the grid
         while count == 0:
-            location = RandomPointOnSphere(self) * radius * 2.0 + thing.location
+            location = RandomPointOnSphere() * radius * 2.0 + thing.location
             if self.boundary.contains_point(location[0:2]):
                 count = 1
     else:
-        location = RandomPointOnSphere(self) * radius * 2.0 + thing.location
+        location = RandomPointOnSphere() * radius * 2.0 + thing.location
 
     # halve the division timer
     thing.division_timer *= 0.5
@@ -209,9 +216,8 @@ def divide(self, thing):
 
     # create new cell and add it to the simulation
 
-    sc = Classes.StemCell(ID, location, thing.motion, thing.mass, thing.nuclear_radius,
-                  thing.cytoplasm_radius, thing.booleans, thing.state,
-                  thing.diff_timer, thing.division_timer, thing.death_timer)
+    sc = Classes.StemCell(ID, location, thing.motion, thing.mass, thing.nuclear_radius, thing.cytoplasm_radius,
+                          thing.booleans, thing.state, thing.diff_timer, thing.division_timer, thing.death_timer)
 
     add_object_to_addition_queue(self, sc)
 
@@ -220,27 +226,33 @@ def check_edges(self):
         if it is less than a set value create a
         connection between two cells.
     """
+
     self.network.clear()
 
-    # loops over all objects
-    for i in range(len(self.objects)):
-        # loops over all objects not check already
-        for j in range(i + 1, len(self.objects)):
+    if self.parallel:
+        Parallel.check_edge_gpu(self)
+    else:
+        # loops over all objects
+        for i in range(len(self.objects)):
+            # loops over all objects not check already
+            for j in range(i + 1, len(self.objects)):
 
-            # max distance between cells to have a connection
-            interaction_length = self.neighbor_distance
+                # max distance between cells to have a connection
+                interaction_length = self.neighbor_distance
 
-            # get the distance between cells
-            dist_vec = self.objects[i].location - self.objects[j].location
+                # get the distance between cells
+                dist_vec = self.objects[i].location - self.objects[j].location
 
-            # get the magnitude of the distance vector
-            dist = np.linalg.norm(dist_vec)
+                # get the magnitude of the distance vector
+                dist = np.linalg.norm(dist_vec)
 
-            for i in range(len(self.objects)):
-                self.network.add_node(self.objects[i])
+                for i in range(len(self.objects)):
+                    self.network.add_node(self.objects[i])
 
-            if dist <= interaction_length:
-                self.network.add_edge(self.objects[i], self.objects[j])
+                if dist <= interaction_length:
+                    self.network.add_edge(self.objects[i], self.objects[j])
+
+
 
 def add_object(self, sim_object):
     """ Adds the specified object to the array
@@ -313,10 +325,16 @@ def initialize_grid(self):
             self.grid[np.array([0]), np.array([i]), np.array([j])] = r.randint(0, self.max_fgf4)
 
 def update_grid(self):
-    for i in range(self.size[1]):
-        for j in range(self.size[2]):
-            if self.grid[np.array([0]), np.array([i]), np.array([j])] >= 1:
-                self.grid[np.array([0]), np.array([i]), np.array([j])] += -1
+
+    if self.parallel:
+        Parallel.update_grid_gpu(self)
+    else:
+        for i in range(self.size[1]):
+            for j in range(self.size[2]):
+                if self.grid[np.array([0]), np.array([i]), np.array([j])] >= 1:
+                    self.grid[np.array([0]), np.array([i]), np.array([j])] += -1
+
+
 
 def random_movement(self):
     """ has the objects that are in motion
@@ -343,7 +361,7 @@ def kill_cells(self):
         if self.objects[i].death_timer >= self.death_threshold:
             add_object_to_removal_queue(self, self.objects[i])
 
-def differentiate(self, thing):
+def differentiate(thing):
     """ differentiates the cell and updates the boolean values
         and sets the motion to be true
     """
@@ -352,7 +370,7 @@ def differentiate(self, thing):
     thing.booleans[3] = 0
     thing.motion = True
 
-def RandomPointOnSphere(self):
+def RandomPointOnSphere():
     """ Computes a random point on a sphere
         Returns - a point on a unit sphere [x,y] at the origin
     """
@@ -366,3 +384,18 @@ def inc_current_ID(self):
     """Increments the ID of cell by 1 each time called
     """
     self._current_ID += 1
+
+def check_name(self):
+
+    shutil.copy("Initials.txt", self.path + self._sep + self.name + self._sep)
+    try:
+        os.mkdir(self.path + self._sep + self.name)
+    except OSError:
+        # directory already exists overwrite it
+        print("Directory already exists... overwriting directory")
+
+def info(self):
+    print("Time: " + str(self.time_counter))
+    print("Number of objects: " + str(len(self.objects)))
+    # increments the time by time step
+    self.time_counter += self.time_step

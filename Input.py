@@ -1,4 +1,8 @@
-
+#########################################################
+# Name:    Input                                        #
+# Author:  Jack Toppen                                  #
+# Date:    3/4/20                                       #
+#########################################################
 import os
 import Classes
 import numpy as np

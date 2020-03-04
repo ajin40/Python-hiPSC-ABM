@@ -1,16 +1,15 @@
 #########################################################
 # Name:    Classes                                      #
 # Author:  Jack Toppen                                  #
-# Date:    2/15/20                                      #
+# Date:    3/4/20                                       #
 #########################################################
-
 import numpy as np
 import networkx as nx
 import platform
 import matplotlib.path as mpltPath
 
 
-class StemCell(object):
+class StemCell:
     """ Every cell object in the simulation
         will have this class
     """
@@ -44,7 +43,11 @@ class StemCell(object):
 
         self.velocity = np.array([0.0, 0.0])
 
-class Simulation(object):
+
+
+
+
+class Simulation:
     """ called once holds important information about the
         simulation
     """

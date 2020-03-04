@@ -1,7 +1,7 @@
 #########################################################
-# Name:    Model_CUDA                                   #
+# Name:    Parallel                                     #
 # Author:  Jack Toppen                                  #
-# Date:    2/15/20                                      #
+# Date:    3/4/20                                       #
 #########################################################
 from numba import cuda
 import math
@@ -33,7 +33,6 @@ def update_grid_gpu(self):
 
 
 def check_edge_gpu(self):
-    self.network.clear()
 
     rows = len(self.objects)
     columns = len(self.objects)
