@@ -9,7 +9,6 @@ import math
 import Classes
 import random as r
 import os
-import shutil
 
 def handle_collisions(self):
     time_counter = 0
@@ -386,16 +385,25 @@ def inc_current_ID(self):
     self._current_ID += 1
 
 def check_name(self):
+    """Renames the file if need be
+    """
+    while True:
+        try:
+            os.mkdir(self.path + self._sep + self.name)
+            break
+        except OSError:
+            print("Directory already exists")
+            user = input("Would you like to overwrite the existing simulation? (y/n): ")
+            if user == "n":
+                self.name = input("New name: ")
+            if user == "y":
+                try:
+                    os.mkdir(self.path + self._sep + self.name)
+                except OSError:
+                    print("Overwriting directory")
+                    break
 
-    shutil.copy("Initials.txt", self.path + self._sep + self.name + self._sep)
-    try:
-        os.mkdir(self.path + self._sep + self.name)
-    except OSError:
-        # directory already exists overwrite it
-        print("Directory already exists... overwriting directory")
 
 def info(self):
     print("Time: " + str(self.time_counter))
     print("Number of objects: " + str(len(self.objects)))
-    # increments the time by time step
-    self.time_counter += self.time_step

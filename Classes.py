@@ -105,7 +105,7 @@ class Simulation:
         self.image_counter = 0
 
         # keeps a running count of the time
-        self.time_counter = 1.0
+        self.time_counter = 0.0
 
         # array to hold all of the stem cell objects
         self.objects = np.array([])
