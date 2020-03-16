@@ -22,8 +22,8 @@ How many cells will be NANOG high to begin the simulation?
 Stochastic FGFR + ERK values?
 [ True ]
 
-What will be the size of the grid? Ex. (dimensions, rows, columns)
-[ (1, 1000, 1000) ]
+What will be the size of the grid? Ex. (rows, columns)
+[ (1000, 1000) ]
 
 Define the boolean functions below
 [ "x5", "x1 * x4", "x2", "x5 + 1", "(x3+1) * (x4+1)" ]
@@ -75,4 +75,7 @@ Nuclear radius
 
 Cytoplasm radius
 [ 3.0 ]
+
+Gradients
+[ ["FGF4", 10] ]
 _______________________________________________________________________________________________________________________

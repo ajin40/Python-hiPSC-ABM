@@ -4,13 +4,13 @@ import random as r
 import math
 
 class Gradient:
-    def __init__(self, size, max_concentration, parallel):
+    def __init__(self, name, size, max_concentration, parallel):
+        self.name = name
         self.size = size
         self.max_concentration = max_concentration
         self.parallel = parallel
 
         self.grid = np.zeros(self.size)
-
 
 
     def initialize_grid(self):
@@ -21,7 +21,6 @@ class Gradient:
             for i in range(self.size[0]):
                 for j in range(self.size[1]):
                     self.grid[i][j] = r.randint(0, self.max_concentration)
-
 
 
     def update_grid(self):
@@ -61,13 +60,12 @@ class Gradient:
         self.grid = array.copy_to_host()
 
 
-
-
 @cuda.jit
 def initialize_grid_cuda(grid_array):
     a, b = cuda.grid(2)
     if a < grid_array.shape[0] and b < grid_array.shape[1]:
         grid_array[a, b] += 10
+
 
 @cuda.jit
 def update_grid_cuda(grid_array):

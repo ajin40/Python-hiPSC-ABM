@@ -82,9 +82,94 @@ class Simulation:
         # which file separator to use
         if platform.system() == "Windows":
             # windows
-            self._sep = "\\"
+            self.sep = "\\"
         else:
             # linux/unix
-            self._sep = "/"
+            self.sep = "/"
 
         self.boundary = mpltPath.Path(self.bounds)
+
+
+
+    def info(self):
+        print("Time: " + str(self.time_counter))
+        print("Number of objects: " + str(len(self.objects)))
+
+
+    def initialize_gradients(self):
+        for i in range(len(self.gradients)):
+            self.gradients[i].initialize_grid()
+
+
+    def update_gradients(self):
+        for i in range(len(self.gradients)):
+            self.gradients[i].update_grid()
+
+    def update_cells(self):
+        for i in range(len(self.objects)):
+            self.objects[i].update_cell(self)
+
+
+    def add_gradient(self, grid_object):
+        self.gradients = np.append(self.gradients, grid_object)
+
+
+    def add_cell(self, sim_object):
+        """ Adds the specified object to the array
+            and the graph
+        """
+        # adds it to the array
+        self.objects = np.append(self.objects, sim_object)
+
+        # adds it to the graph
+        self.network.add_node(sim_object)
+
+
+    def remove_cell(self, sim_object):
+        """ Removes the specified object from the array
+            and the graph
+        """
+        # removes it from the array
+        self.objects = self.objects[self.objects != sim_object]
+
+        # removes it from the graph
+        self.network.remove_node(sim_object)
+
+
+    def update_object_queue(self):
+        """ Updates the object add and remove queue
+        """
+        print("Adding " + str(len(self._objects_to_add)) + " objects...")
+        print("Removing " + str(len(self._objects_to_remove)) + " objects...")
+
+        # loops over all objects to remove
+        for i in range(len(self._objects_to_remove)):
+            self.remove_cell(self._objects_to_remove[i])
+
+        # loops over all objects to add
+        for i in range(len(self._objects_to_add)):
+            self.add_cell(self._objects_to_add[i])
+
+        # clear the arrays
+        self._objects_to_remove = np.array([])
+        self._objects_to_add = np.array([])
+
+
+    def add_object_to_addition_queue(self, sim_object):
+        """ Will add an object to the simulation object queue
+            which will be added to the simulation at the end of
+            the update phase.
+        """
+        # adds object to array
+        self._objects_to_add = np.append(self._objects_to_add, sim_object)
+
+        # increments the current ID
+        self._current_ID += 1
+
+    def add_object_to_removal_queue(self, sim_object):
+        """ Will add an object to the simulation object queue
+            which will be removed from the simulation at the end of
+            the update phase.
+        """
+        # adds object to array
+        self._objects_to_remove = np.append(self._objects_to_remove, sim_object)

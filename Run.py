@@ -50,8 +50,8 @@ Simulations = Input.Setup()
 
 for Simulation in Simulations:
 
-    # Set the grid up with initial concentrations of FGF4
-    Functions.initialize_grid(Simulation)
+    # Sets up all of the defined gradients with initial concentrations and parameters
+    Simulation.initialize_gradients()
 
     # Check for neighbors surrounding a cell
     Functions.check_edges(Simulation)
@@ -66,22 +66,22 @@ for Simulation in Simulations:
     while Simulation.time_counter <= Simulation.end_time:
 
         # prints the time step and increases the time counter
-        Functions.info(Simulation)
+        Simulation.info()
 
         # kills cells that are without neighbors for too long
         Functions.kill_cells(Simulation)
 
         # updates the grid by degrading the amount of FGF4
-        Functions.update_grid(Simulation)
+        Simulation.update_gradients()
 
         # updates all of the objects (motion, state, booleans)
-        Functions.update(Simulation)
+        Simulation.update_cells()
 
         # sees if cells can differentiate based on pluripotent cells surrounding by differentiated cells
         Functions.diff_surround(Simulation)
 
         # adds/removes all objects from the simulation
-        Functions.update_object_queue(Simulation)
+        Simulation.update_object_queue()
 
         # create/break connections between cells depending on distance apart
         Functions.check_edges(Simulation)

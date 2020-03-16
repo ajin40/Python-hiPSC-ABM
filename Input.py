@@ -4,11 +4,13 @@
 # Date:    3/4/20                                       #
 #########################################################
 import os
-import StemCell
+import Cell
 import numpy as np
 import random as r
 import Functions
 import shutil
+import Gradient
+import Simulation
 
 
 def Setup():
@@ -51,22 +53,29 @@ def Setup():
         _mass = float(parameters[23])
         _nuclear_radius = float(parameters[24])
         _cytoplasm_radius = float(parameters[25])
+        _gradients = eval(parameters[26])
 
         # initializes simulation class which holds all information about the simulation
-        simulation = StemCell.Simulation(_name, _path, _end_time, _time_step, _pluri_div_thresh, _diff_div_thresh,
+        simulation = Simulation.Simulation(_name, _path, _end_time, _time_step, _pluri_div_thresh, _diff_div_thresh,
                                          _pluri_to_diff, _size, _diff_surround_value, _functions, _parallel, _max_fgf4,
                                          _bounds, _death_threshold, _move_time_step, _move_max_time, _spring_constant,
                                          _friction, _energy_kept, _neighbor_distance)
 
-        Functions.check_name(simulation)
+        check_name(simulation)
         shutil.copy(os.getcwd() + "/Setup_files/" + file, simulation.path + simulation.sep + simulation.name +
                     simulation.sep)
+
+        for i in range(len(_gradients)):
+
+            gradient_obj = Gradient.Gradient(_gradients[0], _size, int(_gradients[1]), _parallel)
+
+            simulation.add_gradient(gradient_obj)
 
 
         # loops over all NANOG_high cells and creates a stem cell object for each one with given parameters
         for i in range(_num_NANOG):
             ID = i
-            location = np.array([r.random() * _size[1], r.random() * _size[2]])
+            location = np.array([r.random() * _size[0], r.random() * _size[1]])
             state = "Pluripotent"
             motion = True
             mass = _mass
@@ -82,16 +91,16 @@ def Setup():
             division_timer = _pluri_div_thresh * r.random()
             death_timer = _death_threshold * r.random()
 
-            sim_obj = StemCell.StemCell(ID, location, motion, mass, nuclear_radius, cytoplasm_radius, booleans, state,
-                                        diff_timer, division_timer, death_timer)
+            sim_obj = Cell.StemCell(ID, location, motion, mass, nuclear_radius, cytoplasm_radius, booleans, state,
+                                    diff_timer, division_timer, death_timer)
 
-            Functions.add_object(simulation, sim_obj)
+            simulation.add_cell(sim_obj)
             Functions.inc_current_ID(simulation)
 
         # loops over all GATA6_high cells and creates a stem cell object for each one with given parameters
         for i in range(_num_GATA6):
             ID = i + _num_NANOG
-            location = np.array([r.random() * _size[1], r.random() * _size[2]])
+            location = np.array([r.random() * _size[0], r.random() * _size[1]])
             state = "Pluripotent"
             motion = True
             mass = _mass
@@ -107,11 +116,30 @@ def Setup():
             division_timer = _pluri_div_thresh * r.random()
             death_timer = _death_threshold * r.random()
 
-            sim_obj = StemCell.StemCell(ID, location, motion, mass, nuclear_radius, cytoplasm_radius, booleans, state,
-                                        diff_timer, division_timer, death_timer)
+            sim_obj = Cell.StemCell(ID, location, motion, mass, nuclear_radius, cytoplasm_radius, booleans, state,
+                                    diff_timer, division_timer, death_timer)
 
-            Functions.add_object(simulation, sim_obj)
+            simulation.add_cell(sim_obj)
             Functions.inc_current_ID(simulation)
 
         simulations.append(simulation)
     return simulations
+
+def check_name(self):
+    """Renames the file if need be
+    """
+    while True:
+        try:
+            os.mkdir(self.path + self.sep + self.name)
+            break
+        except OSError:
+            print("Directory already exists")
+            user = input("Would you like to overwrite the existing simulation? (y/n): ")
+            if user == "n":
+                self.name = input("New name: ")
+            if user == "y":
+                try:
+                    os.mkdir(self.path + self.sep + self.name)
+                except OSError:
+                    print("Overwriting directory")
+                    break
