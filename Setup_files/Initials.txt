@@ -1,5 +1,5 @@
 What is the name of the simulation?
-[ Run_44 ]
+[ Run_72 ]
 
 Define where the model will output its images, data, and video. Ex: C:\Python27\Model
 [ C:\Python27\MEGA-ARRAY ]
@@ -56,7 +56,7 @@ Max time for movement
 [ 1.0 ]
 
 Spring constant
-[ 0.20 ]
+[ 0.50 ]
 
 Friction
 [ 9.8 ]

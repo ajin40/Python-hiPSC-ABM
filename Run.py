@@ -12,6 +12,34 @@ import Functions
 Run this file in order to the simulation as a whole
 Input.Setup() takes Setup_files and creates an instance of the Simulation class
 This instance hold all import important parameters and holds the StemCell objects too
+
+Stuff I need to do:
+Variable grid size
+Renaming everything
+Documentation
+Color schemes
+Cuda for collisions
+Collisions with boundaries
+Random movement
+Resize boundaries so that cells are visible
+Variable size and mass
+Variable Boolean function length
+Error handling
+Ease of use
+Determine libraries
+Delete unnecessary crap
+Cuda Boolean update
+Variable Boolean updates
+Asynchronous updates?
+Cell death
+Imposing membranes
+Saving variability
+Numpy array sizes
+Cuda block/thread optimization
+3D
+Boolean values setup
+Easter eggs
+
 """
 
 
@@ -61,12 +89,13 @@ for Simulation in Simulations:
         # moves cells in "motion" in a random fashion
         Functions.random_movement(Simulation)
 
-        # Move the cells to a state a equilibrium so that there is minimal overlap
+        # move the cells to a state a equilibrium so that there is minimal overlap
         Functions.handle_collisions(Simulation)
 
         # saves the image file and txt file with all important information
         Output.save_file(Simulation)
 
+        # increase time closer to threshold
         Simulation.time_counter += Simulation.time_step
 
     # turns all images into a video at the end

@@ -74,7 +74,7 @@ def image_to_video(self):
         the end of the simulation
     """
     # gets base path
-    base_path = self.path + self._sep + self.name + self._sep
+    base_path = self.path + self.sep + self.name + self.sep
 
     # image list to hold all image objects
     img_array = []
@@ -125,7 +125,7 @@ def save_file(self):
         and image files
     """
     # get the base path
-    base_path = self.path + self._sep + self.name + self._sep
+    base_path = self.path + self.sep + self.name + self.sep
 
     # saves the txt file with all the key information
     n2_path = base_path + "network_values" + str(int(self.time_counter)) + ".csv"

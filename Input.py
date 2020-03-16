@@ -4,7 +4,7 @@
 # Date:    3/4/20                                       #
 #########################################################
 import os
-import Classes
+import StemCell
 import numpy as np
 import random as r
 import Functions
@@ -53,13 +53,14 @@ def Setup():
         _cytoplasm_radius = float(parameters[25])
 
         # initializes simulation class which holds all information about the simulation
-        simulation = Classes.Simulation(_name, _path, _end_time, _time_step, _pluri_div_thresh, _diff_div_thresh, _pluri_to_diff,
-                                _size, _diff_surround_value, _functions, _parallel, _max_fgf4, _bounds, _death_threshold,
-                                _move_time_step, _move_max_time, _spring_constant, _friction, _energy_kept,
-                                _neighbor_distance)
+        simulation = StemCell.Simulation(_name, _path, _end_time, _time_step, _pluri_div_thresh, _diff_div_thresh,
+                                         _pluri_to_diff, _size, _diff_surround_value, _functions, _parallel, _max_fgf4,
+                                         _bounds, _death_threshold, _move_time_step, _move_max_time, _spring_constant,
+                                         _friction, _energy_kept, _neighbor_distance)
 
         Functions.check_name(simulation)
-        shutil.copy(os.getcwd() + "/Setup_files/" + file, simulation.path + simulation._sep + simulation.name + simulation._sep)
+        shutil.copy(os.getcwd() + "/Setup_files/" + file, simulation.path + simulation.sep + simulation.name +
+                    simulation.sep)
 
 
         # loops over all NANOG_high cells and creates a stem cell object for each one with given parameters
@@ -81,8 +82,8 @@ def Setup():
             division_timer = _pluri_div_thresh * r.random()
             death_timer = _death_threshold * r.random()
 
-            sim_obj = Classes.StemCell(ID, location, motion, mass, nuclear_radius, cytoplasm_radius, booleans, state,
-                                       diff_timer, division_timer, death_timer)
+            sim_obj = StemCell.StemCell(ID, location, motion, mass, nuclear_radius, cytoplasm_radius, booleans, state,
+                                        diff_timer, division_timer, death_timer)
 
             Functions.add_object(simulation, sim_obj)
             Functions.inc_current_ID(simulation)
@@ -106,16 +107,11 @@ def Setup():
             division_timer = _pluri_div_thresh * r.random()
             death_timer = _death_threshold * r.random()
 
-            sim_obj = Classes.StemCell(ID, location, motion, mass, nuclear_radius, cytoplasm_radius, booleans, state,
-                                       diff_timer, division_timer, death_timer)
+            sim_obj = StemCell.StemCell(ID, location, motion, mass, nuclear_radius, cytoplasm_radius, booleans, state,
+                                        diff_timer, division_timer, death_timer)
 
             Functions.add_object(simulation, sim_obj)
             Functions.inc_current_ID(simulation)
 
         simulations.append(simulation)
     return simulations
-
-
-
-
-
