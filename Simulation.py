@@ -1,3 +1,4 @@
+import numpy as np
 import networkx as nx
 import platform
 import matplotlib.path as mpltPath
@@ -56,8 +57,6 @@ class Simulation:
         self.energy_kept = energy_kept
         self.neighbor_distance = neighbor_distance
 
-        # the array that represents the grid and all its patches
-        self.grid = np.zeros(self.size)
 
         # counts how many times an image is created for making videos
         self.image_counter = 0
@@ -67,6 +66,8 @@ class Simulation:
 
         # array to hold all of the stem cell objects
         self.objects = np.array([])
+
+        self.gradients = np.array([])
 
         # graph representing all the objects and their connections to other objects
         self.network = nx.Graph()
