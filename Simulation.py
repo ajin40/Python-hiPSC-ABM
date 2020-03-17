@@ -66,25 +66,24 @@ class Simulation:
         self.energy_kept = energy_kept
         self.neighbor_distance = neighbor_distance
 
-
         # counts how many times an image is created for making videos
         self.image_counter = 0
 
         # keeps a running count of the time
         self.time_counter = 0.0
 
-        # array to hold all of the stem cell objects
-        self.objects = np.array([], dtype=np.object)
+        # array to hold all of the cell objects
+        self.cells = np.array([], dtype=np.object)
 
-
+        # array to hold all of the gradient objects
         self.gradients = np.array([], dtype=np.object)
 
-        # graph representing all the objects and their connections to other objects
+        # graph representing all the cells and their connections to other cells
         self.network = nx.Graph()
 
         # holds the objects until they are added or removed from the simulation
-        self._objects_to_remove = np.array([], dtype=np.object)
-        self._objects_to_add = np.array([], dtype=np.object)
+        self.cells_to_remove = np.array([], dtype=np.object)
+        self.cells_to_add = np.array([], dtype=np.object)
 
         # which file separator to use
         if platform.system() == "Windows":
@@ -94,133 +93,139 @@ class Simulation:
             # linux/unix
             self.sep = "/"
 
+        # bounds of the simulation used in cell division
         self.boundary = mpltPath.Path(self.bounds)
 
 
-
     def info(self):
+        """ prints information about the simulation as it
+            runs. May include more information later
+        """
         print("Time: " + str(self.time_counter))
-        print("Number of objects: " + str(len(self.objects)))
-
+        print("Number of objects: " + str(len(self.cells)))
 
     def initialize_gradients(self):
+        """ adds initial concentrations to each gradient grid
+        """
         for i in range(len(self.gradients)):
             self.gradients[i].initialize_grid()
 
-
     def update_gradients(self):
+        """ currently degrades the concentrations of molecules
+            in the grids
+        """
         for i in range(len(self.gradients)):
             self.gradients[i].update_grid()
 
-
     def update_cells(self):
-        for i in range(len(self.objects)):
-            self.objects[i].update_cell(self)
+        """ updates each cell by allowing them to divide
+            and differentiate among other things
+        """
+        for i in range(len(self.cells)):
+            self.cells[i].update_cell(self)
 
     def kill_cells(self):
-        for i in range(len(self.objects)):
-            self.objects[i].kill_cell(self)
+        """ kills the cells that are alone for too long
+        """
+        for i in range(len(self.cells)):
+            self.cells[i].kill_cell(self)
 
     def diff_surround_cells(self):
-        for i in range(len(self.objects)):
-            self.objects[i].diff_surround(self)
+        """ increases the differentiation counter if enough
+            differentiated cells surround a pluripotent cell
+        """
+        for i in range(len(self.cells)):
+            self.cells[i].diff_surround(self)
 
+    def add_gradient(self, grid):
+        """ adds a gradient object to the simulation instance
+        """
+        self.gradients = np.append(self.gradients, grid)
 
-    def add_gradient(self, grid_object):
-        self.gradients = np.append(self.gradients, grid_object)
-
-
-    def add_cell(self, sim_object):
+    def add_cell(self, cell):
         """ Adds the specified object to the array
             and the graph
         """
         # adds it to the array
-        self.objects = np.append(self.objects, sim_object)
+        self.cells = np.append(self.cells, cell)
 
         # adds it to the graph
-        self.network.add_node(sim_object)
+        self.network.add_node(cell)
 
-
-    def remove_cell(self, sim_object):
+    def remove_cell(self, cell):
         """ Removes the specified object from the array
             and the graph
         """
         # removes it from the array
-        self.objects = self.objects[self.objects != sim_object]
+        self.cells = self.cells[self.cells != cell]
 
         # removes it from the graph
-        self.network.remove_node(sim_object)
-
+        self.network.remove_node(cell)
 
     def update_cell_queue(self):
         """ Updates the object add and remove queue
         """
-        print("Adding " + str(len(self._objects_to_add)) + " objects...")
-        print("Removing " + str(len(self._objects_to_remove)) + " objects...")
+        print("Adding " + str(len(self.cells_to_add)) + " objects...")
+        print("Removing " + str(len(self.cells_to_remove)) + " objects...")
 
         # loops over all objects to remove
-        for i in range(len(self._objects_to_remove)):
-            self.remove_cell(self._objects_to_remove[i])
+        for i in range(len(self.cells_to_remove)):
+            self.remove_cell(self.cells_to_remove[i])
 
         # loops over all objects to add
-        for i in range(len(self._objects_to_add)):
-            self.add_cell(self._objects_to_add[i])
+        for i in range(len(self.cells_to_add)):
+            self.add_cell(self.cells_to_add[i])
 
         # clear the arrays
-        self._objects_to_remove = np.array([])
-        self._objects_to_add = np.array([])
+        self.cells_to_remove = np.array([], dtype=np.object)
+        self.cells_to_add = np.array([], dtype=np.object)
 
-
-    def add_object_to_addition_queue(self, sim_object):
+    def add_object_to_addition_queue(self, cell):
         """ Will add an object to the simulation object queue
             which will be added to the simulation at the end of
             the update phase.
         """
         # adds object to array
-        self._objects_to_add = np.append(self._objects_to_add, sim_object)
+        self.cells_to_add = np.append(self.cells_to_add, cell)
 
-
-    def add_object_to_removal_queue(self, sim_object):
+    def add_object_to_removal_queue(self, cell):
         """ Will add an object to the simulation object queue
             which will be removed from the simulation at the end of
             the update phase.
         """
         # adds object to array
-        self._objects_to_remove = np.append(self._objects_to_remove, sim_object)
-
+        self.cells_to_remove = np.append(self.cells_to_remove, cell)
 
     def check_neighbors(self):
         """ checks all of the distances between cells
             if it is less than a set value create a
             connection between two cells.
         """
-
+        # clears the current graph to prevent existing edges remaining
         self.network.clear()
 
+        # tries to run the parallel version of the model
         if self.parallel:
             Parallel.check_neighbors_gpu(self)
         else:
             # loops over all objects
-            for i in range(len(self.objects)):
+            for i in range(len(self.cells)):
 
-                self.network.add_node(self.objects[i])
+                # adds all of the cells to the simulation
+                self.network.add_node(self.cells[i])
 
                 # loops over all objects not check already
-                for j in range(i + 1, len(self.objects)):
-
-                    # max distance between cells to have a connection
-                    interaction_length = self.neighbor_distance
+                for j in range(i + 1, len(self.cells)):
 
                     # get the distance between cells
-                    dist_vec = self.objects[i].location - self.objects[j].location
+                    dist_vec = self.cells[i].location - self.cells[j].location
 
                     # get the magnitude of the distance vector
                     dist = np.linalg.norm(dist_vec)
 
-
-
-                    if dist <= interaction_length:
-                        self.network.add_edge(self.objects[i], self.objects[j])
+                    # if the cells are close enough, add an edge between them
+                    if dist <= self.neighbor_distance:
+                        self.network.add_edge(self.cells[i], self.cells[j])
 
     def handle_collisions(self):
 
