@@ -47,10 +47,8 @@ def draw_cell_image(self, network, path):
         #     else:
         #         col = (60, 0, 255)
 
-
         if node.state == "Pluripotent":
             col = 'white'
-
         else:
             col = 'black'
 

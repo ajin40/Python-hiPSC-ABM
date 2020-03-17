@@ -295,13 +295,21 @@ class Simulation:
                 self.check_neighbors()
 
     def update_constraints(self):
-        for i in range(len(self.cells)):
+        """ makes sure the new location of the cell is within the grid
+            if not it will create a collision with the boundaries
+        """
+        # this is still in development as I need to develop a better way of modeling collisions with the boundaries
 
+        # loops over all cells
+        for i in range(len(self.cells)):
+            # adds the displacement vector to the location
             self.cells[i].location += self.cells[i].disp_vec
 
+            # if the cell's new location isn't in the grid subtract two times the displacement vector
             if not 0 <= self.cells[i].location[0] <= 1000:
                 self.cells[i].location[0] -= 2 * self.cells[i].disp_vec[0]
 
+            # if the cell's new location isn't in the grid subtract two times the displacement vector
             if not 0 <= self.cells[i].location[1] <= 1000:
                 self.cells[i].location[1] -= 2 * self.cells[i].disp_vec[1]
 
@@ -312,7 +320,9 @@ class Simulation:
         """ has the objects that are in motion
             move in a random way
         """
-        # loops over all objects
+        # this is still in development as I need to incorporate collisions into this
+
+        # loops over all cells
         for i in range(len(self.cells)):
             # finds the objects in motion
             if self.cells[i].motion:
@@ -320,4 +330,5 @@ class Simulation:
                 self.cells[i].disp_vec[0] += r.uniform(-1, 1) * 10
                 self.cells[i].disp_vec[1] += r.uniform(-1, 1) * 10
 
+        # make sure the new location will be within the grid
         self.update_constraints()
