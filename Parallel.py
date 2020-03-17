@@ -86,13 +86,14 @@ def check_neighbors_gpu(self):
     # turns the arrays into a form able to send to the gpu
     location_array_cuda = cuda.to_device(location_array)
     edges_array_cuda = cuda.to_device(edges_array)
+    distance_cuda = cuda.to_device(self.neighbor_distance)
 
     # sets up the correct allocation of threads and blocks
     threads_per_block = 32
     blocks_per_grid = math.ceil(location_array.size / threads_per_block)
 
     # calls the cuda function
-    check_neighbors_cuda[blocks_per_grid, threads_per_block](location_array_cuda, edges_array_cuda)
+    check_neighbors_cuda[blocks_per_grid, threads_per_block](location_array_cuda, edges_array_cuda, distance_cuda)
 
     # returns the array
     output = edges_array_cuda.copy_to_host()
@@ -112,17 +113,23 @@ def check_neighbors_gpu(self):
         self.network.add_edge(self.cells[edges[i][0]], self.cells[edges[i][1]])
 
 @cuda.jit
-def check_neighbors_cuda(locations, edges):
+def check_neighbors_cuda(locations, edges, distance):
     """ this is the function being run in parallel
     """
+    # i provides the location on the array as it runs
     i = cuda.grid(1)
+
+    # checks to see that position is in the array
     if i < locations.shape[0]:
+
+        # loops over all cells
         for j in range(locations.shape[0]):
-            if ((locations[i][0] - locations[j][0]) ** 2 + (locations[i][1] - locations[j][1]) ** 2) ** 0.5 <= 24:
+
+            # if the distance between the cells is less than or equal to the neighbor distance
+            if ((locations[i][0] - locations[j][0])**2 + (locations[i][1] - locations[j][1])**2) ** 0.5 <= distance[0]:
+                # no edge for the cell and itself. "1" denotes an edge
                 if i != j:
                     edges[i][j] = 1
-
-
 
 
 def handle_collisions_gpu(self):
