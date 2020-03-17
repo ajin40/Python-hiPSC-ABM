@@ -82,7 +82,7 @@ def Setup():
         for i in range(len(_gradients)):
 
             # initializes the gradient class
-            gradient_obj = Gradient.Gradient(_gradients[0], _size, int(_gradients[1]), _parallel)
+            gradient_obj = Gradient.Gradient(_gradients[i][0], _size, int(_gradients[i][1]), _parallel)
 
             # adds the gradient object
             simulation.add_gradient(gradient_obj)

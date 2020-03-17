@@ -167,12 +167,12 @@ class Cell:
 
         # if a certain spot of the grid is less than the max FGF4 it can hold and the cell is NANOG high increase the
         # FGF4 by 1
-        if simulation.gradients[0].grid[array_location_x][array_location_y] < simulation.gradients[0].max_concentration\
+        if simulation.gradients[0].grid[0][array_location_x][array_location_y] < simulation.gradients[0].max_concentration\
                 and self.booleans[3] == 1:
-            simulation.gradients[0].grid[array_location_x][array_location_y] += 1
+            simulation.gradients[0].grid[0][array_location_x][array_location_y] += 1
 
         # if the FGF4 amount for the location is greater than 0, set the fgf4_bool value to be 1 for the functions
-        if simulation.gradients[0].grid[array_location_x][array_location_y] > 0:
+        if simulation.gradients[0].grid[0][array_location_x][array_location_y] > 0:
             fgf4_bool = 1
 
         else:
@@ -187,8 +187,8 @@ class Cell:
         # if the temporary FGFR value is 0 and the FGF4 value is 1 decrease the amount of FGF4 by 1
         # this simulates FGFR using FGF4
 
-        if tempFGFR == 0 and fgf4 == 1 and simulation.gradients[0].grid[array_location_x][array_location_y] >= 1:
-            simulation.gradients[0].grid[array_location_x][array_location_y] -= 1
+        if tempFGFR == 0 and fgf4 == 1 and simulation.gradients[0].grid[0][array_location_x][array_location_y] >= 1:
+            simulation.gradients[0].grid[0][array_location_x][array_location_y] -= 1
 
         # if the cell is GATA6 high and Pluripotent increase the differentiation counter by 1
         if self.booleans[2] == 1 and self.state == "Pluripotent":

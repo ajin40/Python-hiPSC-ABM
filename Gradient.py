@@ -24,7 +24,8 @@ class Gradient:
         else:
             for i in range(self.size[0]):
                 for j in range(self.size[1]):
-                    self.grid[i][j] = r.randint(0, self.max_concentration)
+                    for k in range(self.size[2]):
+                        self.grid[i][j][k] = r.randint(0, self.max_concentration)
 
 
     def update_grid(self):
@@ -34,5 +35,6 @@ class Gradient:
         else:
             for i in range(self.size[0]):
                 for j in range(self.size[1]):
-                    if self.grid[i][j] >= 1:
-                        self.grid[i][j] += -1
+                    for k in range(self.size[2]):
+                        if self.grid[i][j][k] >= 1:
+                            self.grid[i][j][k] += -1

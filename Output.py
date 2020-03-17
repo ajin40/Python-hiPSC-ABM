@@ -103,7 +103,6 @@ def location_to_text(self, path):
                             'diff_count', 'div_count'])
 
     for i in range(len(self.objects)):
-        ID = str(self.objects[i].ID)
         x_coord = str(round(self.objects[i].location[0], 1))
         y_coord = str(round(self.objects[i].location[1], 1))
         x1 = str(self.objects[i].booleans[0])
@@ -115,7 +114,7 @@ def location_to_text(self, path):
         state = str(self.objects[i].state)
         motion = str(self.objects[i].motion)
 
-        object_writer.writerow([ID, x_coord, y_coord, state, x1, x2, x3, x4, motion, diff, div])
+        object_writer.writerow([x_coord, y_coord, state, x1, x2, x3, x4, motion, diff, div])
 
 
 def save_file(self):
