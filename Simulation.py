@@ -44,6 +44,9 @@ class Simulation:
             max_fgf4: the limit a patch will hold for fgf4
             bounds: the bounds of the simulation
             spring_constant: strength of spring
+            friction: resistance to moving in the environment
+            energy_kept: percent of energy left after turning spring energy into kinetic
+            neighbor_distance: how close cells are to be neighbors
         """
         self.name = name
         self.path = path
@@ -242,52 +245,53 @@ class Simulation:
                 time_counter += self.move_time_step
 
                 # gets all of the neighbor connections
-                edges = list(self.network.edges())
+                edges = self.network.edges()
 
                 # loops over the connections as these cells are close together
                 for i in range(len(edges)):
                     cell_1 = edges[i][0]
                     cell_2 = edges[i][1]
 
-                    displacement = cell_1.location - cell_2.location
+                    # vector between the center of each cell for the edge
+                    displacement_vec = cell_1.location - cell_2.location
 
-                    if np.linalg.norm(
-                            displacement) < cell_1.nuclear_radius + cell_1.cytoplasm_radius + cell_2.nuclear_radius + cell_2.cytoplasm_radius:
-                        displacement_normal = displacement / np.linalg.norm(displacement)
+                    # addition of total cell radius
+                    cell_1_total_radius = cell_1.nuclear_radius + cell_1.cytoplasm_radius
+                    cell_2_total_radius = cell_2.nuclear_radius + cell_2.cytoplasm_radius
+                    total_radii = cell_1_total_radius + cell_2_total_radius
 
-                        obj1_displacement = (cell_1.nuclear_radius + cell_1.cytoplasm_radius) * displacement_normal
-                        obj2_displacement = (cell_2.nuclear_radius + cell_2.cytoplasm_radius) * displacement_normal
+                    # checks to see if the cells are overlapping
+                    if np.linalg.norm(displacement_vec) < total_radii:
 
-                        real_displacement = (displacement - (obj1_displacement + obj2_displacement)) / 2
+                        # find the displacement of the membrane overlap for each cell
+                        displacement_normal = displacement_vec / np.linalg.norm(displacement_vec)
+                        overlap = (displacement_vec - (total_radii * displacement_normal)) / 2
 
-                        cell_1.velocity[0] -= real_displacement[0] * (
-                                    self.energy_kept * self.spring_constant / cell_1.mass) ** 0.5
-                        cell_1.velocity[1] -= real_displacement[1] * (
-                                    self.energy_kept * self.spring_constant / cell_1.mass) ** 0.5
+                        # converts the spring energy into kinetic energy in opposing directions
+                        cell_1.velocity[0] -= overlap[0] * (self.energy_kept * self.spring_constant / cell_1.mass)**0.5
+                        cell_1.velocity[1] -= overlap[1] * (self.energy_kept * self.spring_constant / cell_1.mass)**0.5
+                        cell_2.velocity[0] += overlap[0] * (self.energy_kept * self.spring_constant / cell_2.mass)**0.5
+                        cell_2.velocity[0] += overlap[0] * (self.energy_kept * self.spring_constant / cell_2.mass)**0.5
 
-                        cell_2.velocity[0] += real_displacement[0] * (
-                                    self.energy_kept * self.spring_constant / cell_2.mass) ** 0.5
-                        cell_2.velocity[1] += real_displacement[1] * (
-                                    self.energy_kept * self.spring_constant / cell_2.mass) ** 0.5
-
+                # loop over all of the cells and turn their velocities into displacement vectors
                 for i in range(len(self.cells)):
-                    velocity = self.cells[i].velocity
 
-                    movement = velocity * self.move_time_step
+                    # multiplies the time step by the velocity and adds that vector to the cell's holder
+                    v = self.cells[i].velocity
+                    movement = v * self.move_time_step
                     self.cells[i].disp_vec += movement
 
-                    new_velocity = np.array([0.0, 0.0])
+                    # subtracts the work from the kinetic energy and recalculates a new velocity
+                    new_velocity_x = np.sign(v[0]) * max(v[0] ** 2 - 2 * self.friction * abs(movement[0]), 0.0) ** 0.5
+                    new_velocity_y = np.sign(v[1]) * max(v[1] ** 2 - 2 * self.friction * abs(movement[1]), 0.0) ** 0.5
 
-                    new_velocity[0] = np.sign(velocity[0]) * max(
-                        (velocity[0]) ** 2 - 2 * self.friction * abs(movement[0]), 0.0) ** 0.5
-                    new_velocity[1] = np.sign(velocity[0]) * max(
-                        (velocity[1]) ** 2 - 2 * self.friction * abs(movement[1]), 0.0) ** 0.5
+                    # assign new velocity
+                    self.cells[i].velocity = np.array([new_velocity_x, new_velocity_y])
 
-                    self.cells[i].velocity = new_velocity
-
-
+                # make sure the new location will be within the grid
                 self.update_constraints()
 
+                # checks neighbors after the cells move for re-evaluation of collisions
                 self.check_neighbors()
 
     def update_constraints(self):
