@@ -109,17 +109,17 @@ def location_to_text(self, path):
                             'diff_count', 'div_count'])
 
     # writes for each cell. Lists the last four boolean values
-    for i in range(len(self.objects)):
-        x_coord = str(round(self.objects[i].location[0], 1))
-        y_coord = str(round(self.objects[i].location[1], 1))
-        x1 = str(self.objects[i].booleans[0])
-        x2 = str(self.objects[i].booleans[1])
-        x3 = str(self.objects[i].booleans[2])
-        x4 = str(self.objects[i].booleans[3])
-        diff = str(round(self.objects[i].diff_timer, 1))
-        div = str(round(self.objects[i].division_timer, 1))
-        state = str(self.objects[i].state)
-        motion = str(self.objects[i].motion)
+    for i in range(len(self.cells)):
+        x_coord = str(round(self.cells[i].location[0], 1))
+        y_coord = str(round(self.cells[i].location[1], 1))
+        x1 = str(self.cells[i].booleans[0])
+        x2 = str(self.cells[i].booleans[1])
+        x3 = str(self.cells[i].booleans[2])
+        x4 = str(self.cells[i].booleans[3])
+        diff = str(round(self.cells[i].diff_timer, 1))
+        div = str(round(self.cells[i].division_timer, 1))
+        state = str(self.cells[i].state)
+        motion = str(self.cells[i].motion)
 
         object_writer.writerow([x_coord, y_coord, state, x1, x2, x3, x4, motion, diff, div])
 

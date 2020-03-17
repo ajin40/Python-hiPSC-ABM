@@ -204,7 +204,7 @@ class Simulation:
         # clears the current graph to prevent existing edges remaining
         self.network.clear()
 
-        # tries to run the parallel version of the model
+        # tries to run the parallel version of the function
         if self.parallel:
             Parallel.check_neighbors_gpu(self)
         else:
@@ -228,46 +228,53 @@ class Simulation:
                         self.network.add_edge(self.cells[i], self.cells[j])
 
     def handle_collisions(self):
-
+        """ Move the cells in small increments and manages
+            any collisions that will arise
+        """
+        # tries to run the parallel version of the function
         if self.parallel:
             Parallel.handle_collisions_gpu(self)
         else:
+            # the while loop controls the amount of time steps for movement
             time_counter = 0
             while time_counter <= self.move_max_time:
+                # smaller the time step, less error from missing collisions
                 time_counter += self.move_time_step
 
+                # gets all of the neighbor connections
                 edges = list(self.network.edges())
 
+                # loops over the connections as these cells are close together
                 for i in range(len(edges)):
-                    obj1 = edges[i][0]
-                    obj2 = edges[i][1]
+                    cell_1 = edges[i][0]
+                    cell_2 = edges[i][1]
 
-                    displacement = obj1.location - obj2.location
+                    displacement = cell_1.location - cell_2.location
 
                     if np.linalg.norm(
-                            displacement) < obj1.nuclear_radius + obj1.cytoplasm_radius + obj2.nuclear_radius + obj2.cytoplasm_radius:
+                            displacement) < cell_1.nuclear_radius + cell_1.cytoplasm_radius + cell_2.nuclear_radius + cell_2.cytoplasm_radius:
                         displacement_normal = displacement / np.linalg.norm(displacement)
 
-                        obj1_displacement = (obj1.nuclear_radius + obj1.cytoplasm_radius) * displacement_normal
-                        obj2_displacement = (obj2.nuclear_radius + obj1.cytoplasm_radius) * displacement_normal
+                        obj1_displacement = (cell_1.nuclear_radius + cell_1.cytoplasm_radius) * displacement_normal
+                        obj2_displacement = (cell_2.nuclear_radius + cell_2.cytoplasm_radius) * displacement_normal
 
                         real_displacement = (displacement - (obj1_displacement + obj2_displacement)) / 2
 
-                        obj1.velocity[0] -= real_displacement[0] * (
-                                    self.energy_kept * self.spring_constant / obj1.mass) ** 0.5
-                        obj1.velocity[1] -= real_displacement[1] * (
-                                    self.energy_kept * self.spring_constant / obj1.mass) ** 0.5
+                        cell_1.velocity[0] -= real_displacement[0] * (
+                                    self.energy_kept * self.spring_constant / cell_1.mass) ** 0.5
+                        cell_1.velocity[1] -= real_displacement[1] * (
+                                    self.energy_kept * self.spring_constant / cell_1.mass) ** 0.5
 
-                        obj2.velocity[0] += real_displacement[0] * (
-                                    self.energy_kept * self.spring_constant / obj2.mass) ** 0.5
-                        obj2.velocity[1] += real_displacement[1] * (
-                                    self.energy_kept * self.spring_constant / obj2.mass) ** 0.5
+                        cell_2.velocity[0] += real_displacement[0] * (
+                                    self.energy_kept * self.spring_constant / cell_2.mass) ** 0.5
+                        cell_2.velocity[1] += real_displacement[1] * (
+                                    self.energy_kept * self.spring_constant / cell_2.mass) ** 0.5
 
-                for i in range(len(self.objects)):
-                    velocity = self.objects[i].velocity
+                for i in range(len(self.cells)):
+                    velocity = self.cells[i].velocity
 
                     movement = velocity * self.move_time_step
-                    self.objects[i].disp_vec += movement
+                    self.cells[i].disp_vec += movement
 
                     new_velocity = np.array([0.0, 0.0])
 
@@ -276,7 +283,7 @@ class Simulation:
                     new_velocity[1] = np.sign(velocity[0]) * max(
                         (velocity[1]) ** 2 - 2 * self.friction * abs(movement[1]), 0.0) ** 0.5
 
-                    self.objects[i].velocity = new_velocity
+                    self.cells[i].velocity = new_velocity
 
 
                 self.update_constraints()
@@ -284,29 +291,29 @@ class Simulation:
                 self.check_neighbors()
 
     def update_constraints(self):
-        for i in range(len(self.objects)):
+        for i in range(len(self.cells)):
 
-            self.objects[i].location += self.objects[i].disp_vec
+            self.cells[i].location += self.cells[i].disp_vec
 
-            if not 0 <= self.objects[i].location[0] <= 1000:
-                self.objects[i].location[0] -= 2 * self.objects[i].disp_vec[0]
+            if not 0 <= self.cells[i].location[0] <= 1000:
+                self.cells[i].location[0] -= 2 * self.cells[i].disp_vec[0]
 
-            if not 0 <= self.objects[i].location[1] <= 1000:
-                self.objects[i].location[1] -= 2 * self.objects[i].disp_vec[1]
+            if not 0 <= self.cells[i].location[1] <= 1000:
+                self.cells[i].location[1] -= 2 * self.cells[i].disp_vec[1]
 
             # resets the movement vector to [0,0]
-            self.objects[i].disp_vec = np.array([0.0, 0.0])
+            self.cells[i].disp_vec = np.array([0.0, 0.0])
 
     def random_movement(self):
         """ has the objects that are in motion
             move in a random way
         """
         # loops over all objects
-        for i in range(len(self.objects)):
+        for i in range(len(self.cells)):
             # finds the objects in motion
-            if self.objects[i].motion:
+            if self.cells[i].motion:
                 # new location of 10 times a random float from -1 to 1
-                self.objects[i].disp_vec[0] += r.uniform(-1, 1) * 10
-                self.objects[i].disp_vec[1] += r.uniform(-1, 1) * 10
+                self.cells[i].disp_vec[0] += r.uniform(-1, 1) * 10
+                self.cells[i].disp_vec[1] += r.uniform(-1, 1) * 10
 
         self.update_constraints()
