@@ -245,7 +245,7 @@ class Simulation:
                 time_counter += self.move_time_step
 
                 # gets all of the neighbor connections
-                edges = self.network.edges()
+                edges = list(self.network.edges())
 
                 # loops over the connections as these cells are close together
                 for i in range(len(edges)):

@@ -133,100 +133,107 @@ def check_neighbors_cuda(locations, edges, distance):
 
 
 def handle_collisions_gpu(self):
+    """ the parallel form of "handle_collisions"
+    """
+    # the while loop controls the amount of time steps for movement
     time_counter = 0
     while time_counter <= self.move_max_time:
+        # smaller the time step, less error from missing collisions
         time_counter += self.move_time_step
 
+        # arrays that hold the cell locations, radii, and masses
         location_array = np.empty((0, 2), int)
         nuclear_array = np.array([])
         cytoplasm_array = np.array([])
         mass_array = np.array([])
 
+        # arrays that hold the energy and spring values
         energy_kept = np.array([self.energy_kept])
         spring_constant = np.array([self.spring_constant])
 
-
+        # array to hold the new cell velocities
         velocities_array = np.zeros((len(self.cells), 2))
 
+        # loops over all over the cells and puts their locations into a holder array
         for i in range(len(self.cells)):
             location_array = np.append(location_array, np.array([self.cells[i].location]), axis=0)
             nuclear_array = np.append(nuclear_array, np.array([self.cells[i].nuclear_radius]), axis=0)
             cytoplasm_array = np.append(cytoplasm_array, np.array([self.cells[i].cytoplasm_radius]), axis=0)
             mass_array = np.append(mass_array, np.array([self.cells[i].mass]), axis=0)
 
-
+        # turns the arrays into a form able to send to the gpu
         location_array = cuda.to_device(location_array)
         nuclear_array = cuda.to_device(nuclear_array)
         cytoplasm_array = cuda.to_device(cytoplasm_array)
         mass_array = cuda.to_device(mass_array)
-
         energy_kept = cuda.to_device(energy_kept)
         spring_constant = cuda.to_device(spring_constant)
-
         velocities_array = cuda.to_device(velocities_array)
 
-        threadsperblock = 32
-        blockspergrid = (location_array.size + (threadsperblock - 1)) // threadsperblock
-        handle_collisions_cuda[blockspergrid, threadsperblock](location_array, nuclear_array, cytoplasm_array, mass_array, energy_kept, spring_constant, velocities_array)
-
+        # sets up the correct allocation of threads and blocks
+        threads_per_block = 32
+        blocks_per_grid = math.ceil(location_array.size / threads_per_block)
+        handle_collisions_cuda[blocks_per_grid, threads_per_block](location_array, nuclear_array, cytoplasm_array,
+                                                                   mass_array, energy_kept, spring_constant,
+                                                                   velocities_array)
+        # returns the array
         output = velocities_array.copy_to_host()
 
+        # adds the output velocity to the old velocity
         for i in range(len(self.cells)):
-            velocity = output[i]
+            self.cells[i].velocity += output[i]
 
-
-            movement = velocity * self.move_time_step
+        for i in range(len(self.cells)):
+            # multiplies the time step by the velocity and adds that vector to the cell's holder
+            v = self.cells[i].velocity
+            movement = v * self.move_time_step
             self.cells[i].disp_vec += movement
 
-            new_velocity = np.array([0.0, 0.0])
+            # subtracts the work from the kinetic energy and recalculates a new velocity
+            new_velocity_x = np.sign(v[0]) * max(v[0] ** 2 - 2 * self.friction * abs(movement[0]), 0.0) ** 0.5
+            new_velocity_y = np.sign(v[1]) * max(v[1] ** 2 - 2 * self.friction * abs(movement[1]), 0.0) ** 0.5
 
-            new_velocity[0] = np.sign(velocity[0]) * max((velocity[0]) ** 2 - 2 * self.friction * abs(movement[0]),
-                                                         0.0) ** 0.5
-            new_velocity[1] = np.sign(velocity[0]) * max((velocity[1]) ** 2 - 2 * self.friction * abs(movement[1]),
-                                                         0.0) ** 0.5
+            # assign new velocity
+            self.cells[i].velocity = np.array([new_velocity_x, new_velocity_y])
 
-            self.cells[i].velocity = new_velocity
-
-
-            self.cells[i].location += self.cells[i].disp_vec
-
-            if not 0 <= self.cells[i].location[0] < 1000:
-                self.cells[i].location[0] -= 2 * self.cells[i].disp_vec[0]
-
-            if not 0 <= self.cells[i].location[1] < 1000:
-                self.cells[i].location[1] -= 2 * self.cells[i].disp_vec[1]
-
-            # resets the movement vector to [0,0]
-            self.cells[i].disp_vec = np.array([0.0, 0.0])
-
-
+        # make sure the new location will be within the grid
+        self.update_constraints()
 
 @cuda.jit
 def handle_collisions_cuda(locations, nuclear, cytoplasm, mass, energy, spring, velocities):
+    """ this is the function being run in parallel
+    """
+    # i provides the location on the array as it runs
     i = cuda.grid(1)
-    if i < len(locations):
-        for j in range(len(locations)):
+
+    # checks to see that position is in the array
+    if i < locations.shape[0]:
+
+        # loops over all cells
+        for j in range(locations.shape[0]):
+
+            # gets the distance between the cells
             displacement_x = locations[i][0] - locations[j][0]
             displacement_y = locations[i][1] - locations[j][1]
-
             mag = (displacement_x ** 2 + displacement_y ** 2) ** 0.5
 
+            # if the cells are overlapping then proceed
             if mag <= nuclear[i] + nuclear[j] + cytoplasm[i] + cytoplasm[j]:
+
+                # gets a normal vector of the vector between the centers of both cells
                 normal_x = displacement_x / mag
                 normal_y = displacement_y / mag
 
-
+                # find the displacement of the membrane overlap for each cell
                 obj1_displacement_x = (nuclear[i] + cytoplasm[i]) * normal_x
                 obj1_displacement_y = (nuclear[i] + cytoplasm[i]) * normal_y
-
                 obj2_displacement_x = (nuclear[j] + cytoplasm[j]) * normal_x
                 obj2_displacement_y = (nuclear[j] + cytoplasm[j]) * normal_y
+                overlap_x = (displacement_x - (obj1_displacement_x + obj2_displacement_x)) / 2
+                overlap_y = (displacement_y - (obj1_displacement_y + obj2_displacement_y)) / 2
 
-                real_displacement_x = (displacement_x - (obj1_displacement_x + obj2_displacement_x)) / 2
-                real_displacement_y = (displacement_y - (obj1_displacement_y + obj2_displacement_y)) / 2
-
-                velocities[i][0] -= real_displacement_x * (energy[0] * spring[0] / mass[i]) ** 0.5
-                velocities[i][1] -= real_displacement_y * (energy[0] * spring[0] / mass[i]) ** 0.5
-
-                velocities[j][0] += real_displacement_x * (energy[0] * spring[0] / mass[j]) ** 0.5
-                velocities[j][1] += real_displacement_y * (energy[0] * spring[0] / mass[j]) ** 0.5
+                # converts the spring energy into kinetic energy in opposing directions
+                velocities[i][0] -= overlap_x * (energy[0] * spring[0] / mass[i]) ** 0.5
+                velocities[i][1] -= overlap_y * (energy[0] * spring[0] / mass[i]) ** 0.5
+                velocities[j][0] += overlap_x * (energy[0] * spring[0] / mass[j]) ** 0.5
+                velocities[j][1] += overlap_y * (energy[0] * spring[0] / mass[j]) ** 0.5

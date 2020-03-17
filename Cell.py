@@ -44,7 +44,10 @@ class Cell:
 
         self.velocity = np.array([0.0, 0.0], dtype=np.float32)
 
+
     def divide(self, simulation):
+        """ produces another cell via mitosis
+        """
         # radius of cell
         radius = self.nuclear_radius + self.cytoplasm_radius
         location = self.location
@@ -65,13 +68,15 @@ class Cell:
 
         # create new cell and add it to the simulation
 
-        sc = Cell(location, self.motion, self.mass, self.nuclear_radius, self.cytoplasm_radius, self.booleans,
-                  self.state, self.diff_timer, self.division_timer, self.death_timer)
+        cell = Cell(location, self.motion, self.mass, self.nuclear_radius, self.cytoplasm_radius, self.booleans,
+                    self.state, self.diff_timer, self.division_timer, self.death_timer)
 
-        simulation.add_object_to_addition_queue(sc)
+        simulation.add_object_to_addition_queue(cell)
 
 
     def boolean_function(self, fgf4_bool, simulation):
+        """ updates the boolean values of the cell
+        """
         function_list = simulation.functions
 
         # xn is equal to the value corresponding to its function
@@ -103,11 +108,15 @@ class Cell:
         self.motion = True
 
     def kill_cell(self, simulation):
-
+        """ if the cell is without neighbors,
+            increase the counter for death or kill it
+        """
+        # looks at the neighbors
         neighbors = list(simulation.network.neighbors(self))
         if len(neighbors) < 1:
             self.death_timer += 1
 
+        # increases timer
         if self.death_timer >= simulation.death_threshold:
             simulation.add_object_to_removal_queue(self)
 
