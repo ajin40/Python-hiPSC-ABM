@@ -10,7 +10,9 @@ import matplotlib.path as mpltPath
 import random as r
 import Parallel
 
-
+"""
+The simulation class.
+"""
 
 
 class Simulation:
@@ -73,6 +75,7 @@ class Simulation:
 
         # array to hold all of the stem cell objects
         self.objects = np.array([], dtype=np.object)
+
 
         self.gradients = np.array([], dtype=np.object)
 

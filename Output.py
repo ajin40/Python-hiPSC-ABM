@@ -7,6 +7,11 @@ from PIL import Image, ImageDraw
 import cv2
 import csv
 
+"""
+This contains all important functions for handling the output
+of data from the simulation. Including images, CSV, and video
+"""
+
 
 def draw_cell_image(self, network, path):
     """ Turns the graph into an image at each timestep
@@ -93,15 +98,17 @@ def image_to_video(self):
 
 
 def location_to_text(self, path):
-    """Outputs a txt file of the cell coordinates and the boolean values
+    """ Outputs a txt file of the cell coordinates and the boolean values
     """
     # opens file
     new_file = open(path, "w")
 
+    # initializes csv file
     object_writer = csv.writer(new_file)
     object_writer.writerow(['ID', 'x_coord', 'y_coord', 'State', 'FGFR', 'ERK', 'GATA6', 'NANOG', 'Motion',
                             'diff_count', 'div_count'])
 
+    # writes for each cell. Lists the last four boolean values
     for i in range(len(self.objects)):
         x_coord = str(round(self.objects[i].location[0], 1))
         y_coord = str(round(self.objects[i].location[1], 1))

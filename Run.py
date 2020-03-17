@@ -6,40 +6,17 @@
 import Input
 import Output
 
-"""
-Run this file in order to the simulation as a whole
-Input.Setup() takes Setup_files and creates an instance of the Simulation class
-This instance hold all import important parameters and holds the StemCell objects too
 
-Stuff I need to do:
-Variable grid size
-Renaming everything
-Documentation
-Color schemes
-Cuda for collisions
-Collisions with boundaries
-Random movement
-Resize boundaries so that cells are visible
-Variable size and mass
-Variable Boolean function length
-Error handling
-Ease of use
-Determine libraries
-Delete unnecessary crap
-Cuda Boolean update
-Variable Boolean updates
-Asynchronous updates?
-Cell death
-Imposing membranes
-Saving variability
-Numpy array sizes
-Cuda block/thread optimization
-3D
-Boolean values setup
-Easter eggs
 
 """
+Run this file in order to the simulation as a whole.
 
+
+If you run into issues, read the following quote.
+
+"That's just how the peaches roll."
+                     - Garret Fritz
+"""
 
 
 # This calls the Simulation class allowing something to hold all important parameters to the model.

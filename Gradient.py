@@ -7,7 +7,14 @@ import numpy as np
 import random as r
 import Parallel
 
+"""
+The Gradient class.
+"""
+
 class Gradient:
+    """ called once holds important information about the
+            simulation
+        """
     def __init__(self, name, size, max_concentration, parallel):
         self.name = name
         self.size = size
