@@ -7,82 +7,123 @@ from numba import cuda
 import math
 import numpy as np
 
-
+"""
+Here are the functions used for parallel gpu processing. If it looks confusing,
+good because it is.
+"""
 
 def initialize_grid_gpu(self):
-    array = cuda.to_device(self.grid)
-
+    """ the parallel form of "initialize_grid"
+    """
+    # sets up the correct allocation of threads and blocks
     threads_per_block = (32, 32)
     blocks_per_grid_x = math.ceil(self.grid.shape[1] / threads_per_block[0])
     blocks_per_grid_y = math.ceil(self.grid.shape[2] / threads_per_block[1])
     blocks_per_grid = (blocks_per_grid_x, blocks_per_grid_y)
 
-    initialize_grid_cuda[blocks_per_grid, threads_per_block](array)
+    # turns the grid into a form able to send to the gpu
+    cuda_grid = cuda.to_device(self.grid)
 
-    self.grid = array.copy_to_host()
+    # calls the cuda function
+    initialize_grid_cuda[blocks_per_grid, threads_per_block](cuda_grid)
 
-
-def update_grid_gpu(self):
-    array = cuda.to_device(self.grid)
-
-    threads_per_block = (32, 32)
-    blocks_per_grid_x = math.ceil(self.grid.shape[1] / threads_per_block[0])
-    blocks_per_grid_y = math.ceil(self.grid.shape[2] / threads_per_block[1])
-    blocks_per_grid = (blocks_per_grid_x, blocks_per_grid_y)
-
-    initialize_grid_cuda[blocks_per_grid, threads_per_block](array)
-
-    self.grid = array.copy_to_host()
-
+    # returns the grid and reassigns the new grid
+    self.grid = cuda_grid.copy_to_host()
 
 @cuda.jit
 def initialize_grid_cuda(grid_array):
+    """ this is the function being run in parallel
+    """
+    # a and b provide the location on the array as it runs
     a, b = cuda.grid(2)
-    if a < grid_array.shape[1] and b < grid_array.shape[2]:
-        grid_array[0][a][b] += 10.0
 
+    # checks that the location is within the array
+    if a < grid_array.shape[1] and b < grid_array.shape[2]:
+        grid_array[0][a][b] += 5.0
+
+
+def update_grid_gpu(self):
+    """ the parallel form of "update_grid"
+    """
+    # sets up the correct allocation of threads and blocks
+    threads_per_block = (32, 32)
+    blocks_per_grid_x = math.ceil(self.grid.shape[1] / threads_per_block[0])
+    blocks_per_grid_y = math.ceil(self.grid.shape[2] / threads_per_block[1])
+    blocks_per_grid = (blocks_per_grid_x, blocks_per_grid_y)
+
+    # turns the grid into a form able to send to the gpu
+    cuda_grid = cuda.to_device(self.grid)
+
+    # calls the cuda function
+    update_grid_cuda[blocks_per_grid, threads_per_block](cuda_grid)
+
+    # returns the grid and reassigns the new grid
+    self.grid = cuda_grid.copy_to_host()
 
 @cuda.jit
 def update_grid_cuda(grid_array):
+    """ this is the function being run in parallel
+    """
+    # a and b provide the location on the array as it runs
     a, b = cuda.grid(2)
-    if a < grid_array.shape[1] and b < grid_array.shape[2] and grid_array[a, b] >= 1:
+
+    # checks that the location is within the array and that the concentration is larger than zero
+    if a < grid_array.shape[1] and b < grid_array.shape[2] and grid_array[0][a][b] > 0:
         grid_array[0][a][b] -= 1.0
 
 
 def check_neighbors_gpu(self):
-
+    """ the parallel form of "check_neighbors"
+    """
+    # arrays that will hold the cell locations and the output of edges
     location_array = np.empty((0, 2), int)
     edges_array = np.zeros((len(self.cells), len(self.cells)))
 
+    # loops over all over the cells and puts their locations into a holder array
     for i in range(len(self.cells)):
         location_array = np.append(location_array, np.array([self.cells[i].location]), axis=0)
 
-    location_array_device_in = cuda.to_device(location_array)
-    edges_array_device_in = cuda.to_device(edges_array)
+    # turns the arrays into a form able to send to the gpu
+    location_array_cuda = cuda.to_device(location_array)
+    edges_array_cuda = cuda.to_device(edges_array)
 
-    threadsperblock = 32
-    blockspergrid = math.ceil(location_array.size / threadsperblock)
+    # sets up the correct allocation of threads and blocks
+    threads_per_block = 32
+    blocks_per_grid = math.ceil(location_array.size / threads_per_block)
 
-    check_neighbors_cuda[blockspergrid, threadsperblock](location_array_device_in, edges_array_device_in)
+    # calls the cuda function
+    check_neighbors_cuda[blocks_per_grid, threads_per_block](location_array_cuda, edges_array_cuda)
 
-    output = edges_array_device_in.copy_to_host()
+    # returns the array
+    output = edges_array_cuda.copy_to_host()
+
+    # turns the array into an upper triangular matrix as we don't need to double count edges
     output = np.triu(output)
+
+    # gives pairs where there should be a connection
     edges = np.argwhere(output == 1)
 
+    # re-adds the cells as nodes
     for i in range(len(self.cells)):
         self.network.add_node(self.cells[i])
 
+    # forms an edge between cells that are close enough
     for i in range(len(edges)):
         self.network.add_edge(self.cells[edges[i][0]], self.cells[edges[i][1]])
 
 @cuda.jit
 def check_neighbors_cuda(locations, edges):
-    pos = cuda.grid(1)
-    if pos < len(locations):
-        for i in range(len(locations)):
-            if ((locations[pos][0] - locations[i][0]) ** 2 + (locations[pos][1] - locations[i][1]) ** 2) ** 0.5 <= 24:
-                if pos != i:
-                    edges[pos][i] = 1
+    """ this is the function being run in parallel
+    """
+    i = cuda.grid(1)
+    if i < locations.shape[0]:
+        for j in range(locations.shape[0]):
+            if ((locations[i][0] - locations[j][0]) ** 2 + (locations[i][1] - locations[j][1]) ** 2) ** 0.5 <= 24:
+                if i != j:
+                    edges[i][j] = 1
+
+
+
 
 def handle_collisions_gpu(self):
     time_counter = 0
