@@ -1,5 +1,5 @@
 What is the name of the simulation?
-[ Run_72 ]
+[ Run_73 ]
 
 Define where the model will output its images, data, and video. Ex: C:\Python27\Model
 [ C:\Python27\MEGA-ARRAY ]
@@ -23,7 +23,7 @@ Stochastic FGFR + ERK values?
 [ True ]
 
 What will be the size of the grid? Ex. (rows, columns)
-[ (1000, 1000) ]
+[ (1, 1000, 1000) ]
 
 Define the boolean functions below
 [ "x5", "x1 * x4", "x2", "x5 + 1", "(x3+1) * (x4+1)" ]
@@ -50,16 +50,16 @@ Death threshold
 [ 5 ]
 
 Time step for movement
-[ 0.1 ]
-
-Max time for movement
 [ 1.0 ]
 
+Max time for movement
+[ 10.0 ]
+
 Spring constant
-[ 0.50 ]
+[ 0.2 ]
 
 Friction
-[ 9.8 ]
+[ 0.5 ]
 
 Energy kept
 [ 0.80 ]
@@ -68,7 +68,7 @@ Distance that constitutes a neighbor
 [ 18.0 ]
 
 Mass
-[ 0.6 ]
+[ 6.0 ]
 
 Nuclear radius
 [ 6.0 ]

@@ -1,35 +1,45 @@
 #########################################################
 # Name:    Input                                        #
 # Author:  Jack Toppen                                  #
-# Date:    3/4/20                                       #
+# Date:    3/17/20                                      #
 #########################################################
 import os
 import Cell
 import numpy as np
 import random as r
-import Functions
 import shutil
 import Gradient
 import Simulation
 
 
+
 def Setup():
+    """ Looks at all of the setup files and turns them into
+        instances of the simulation class
+    """
+    # holds all of the instances of the simulation class
     simulations = []
 
+    # opens the directory of the setup files
     files = os.listdir(os.getcwd() + "/Setup_files")
 
+    # loops over all of the files in the directory
     for file in files:
 
+        # opens the files and turns the lines into a list
         setup_file = open(os.getcwd() + "/Setup_files/" + file, "r")
         setup_list = setup_file.readlines()
         parameters = []
+
+        # looks at every third line, the ones with parameters
         for i in range(len(setup_list)):
             if i % 3 == 1:
                 parameters.append(setup_list[i][2:-3])
 
+        # organizes all of the parameters and converts them from strings to their desired type
         _name = str(parameters[0])
         _path = str(parameters[1])
-        _parallel = bool(parameters[2])
+        _parallel = eval(parameters[2])
         _end_time = float(parameters[3])
         _time_step = float(parameters[4])
         _num_GATA6 = int(parameters[5])
@@ -57,76 +67,121 @@ def Setup():
 
         # initializes simulation class which holds all information about the simulation
         simulation = Simulation.Simulation(_name, _path, _end_time, _time_step, _pluri_div_thresh, _diff_div_thresh,
-                                         _pluri_to_diff, _size, _diff_surround_value, _functions, _parallel, _max_fgf4,
-                                         _bounds, _death_threshold, _move_time_step, _move_max_time, _spring_constant,
-                                         _friction, _energy_kept, _neighbor_distance)
+                                           _pluri_to_diff, _size, _diff_surround_value, _functions, _parallel,
+                                           _max_fgf4, _bounds, _death_threshold, _move_time_step, _move_max_time,
+                                           _spring_constant, _friction, _energy_kept, _neighbor_distance)
 
+        # checks to see if the simulation name is desired and valid
         check_name(simulation)
+
+        # copies the setup file to the new directory for each instance of simulation
         shutil.copy(os.getcwd() + "/Setup_files/" + file, simulation.path + simulation.sep + simulation.name +
                     simulation.sep)
 
+        # loops over the gradients and adds them to the simulation
         for i in range(len(_gradients)):
 
+            # initializes the gradient class
             gradient_obj = Gradient.Gradient(_gradients[0], _size, int(_gradients[1]), _parallel)
 
+            # adds the gradient object
             simulation.add_gradient(gradient_obj)
-
 
         # loops over all NANOG_high cells and creates a stem cell object for each one with given parameters
         for i in range(_num_NANOG):
-            ID = i
+
+            # random location on grid
             location = np.array([r.random() * _size[0], r.random() * _size[1]])
+
+            # initially Pluripotent
             state = "Pluripotent"
+
+            # initially Moving
             motion = True
+
+            # initial mass
             mass = _mass
+
+            # staring boolean values
             if _stochastic:
                 booleans = np.array([r.randint(0, 1), r.randint(0, 1), 0, 1])
             else:
                 booleans = np.array([0, 0, 0, 1])
 
+            # initial nuclear radius
             nuclear_radius = _nuclear_radius
+
+            # initial cytoplasm radius
             cytoplasm_radius = _cytoplasm_radius
 
+            # gives random initial differentiation timer
             diff_timer = _pluri_to_diff * r.random() * 0.5
+
+            # gives random initial division timer
             division_timer = _pluri_div_thresh * r.random()
+
+            # gives random initial death timer
             death_timer = _death_threshold * r.random()
 
-            sim_obj = Cell.StemCell(ID, location, motion, mass, nuclear_radius, cytoplasm_radius, booleans, state,
-                                    diff_timer, division_timer, death_timer)
+            # creates instance of Cell class
+            sim_obj = Cell.Cell(location, motion, mass, nuclear_radius, cytoplasm_radius, booleans, state, diff_timer,
+                                division_timer, death_timer)
 
+            # adds object to simulation instance
             simulation.add_cell(sim_obj)
-            Functions.inc_current_ID(simulation)
 
         # loops over all GATA6_high cells and creates a stem cell object for each one with given parameters
         for i in range(_num_GATA6):
-            ID = i + _num_NANOG
+
+            # random location on grid
             location = np.array([r.random() * _size[0], r.random() * _size[1]])
+
+            # initially Pluripotent
             state = "Pluripotent"
+
+            # initially Moving
             motion = True
+
+            # initial mass
             mass = _mass
+
+            # staring boolean values
             if _stochastic:
                 booleans = np.array([r.randint(0, 1), r.randint(0, 1), 1, 0])
             else:
                 booleans = np.array([0, 0, 1, 0])
 
+            # initial nuclear radius
             nuclear_radius = _nuclear_radius
+
+            # initial cytoplasm radius
             cytoplasm_radius = _cytoplasm_radius
 
+            # gives random initial differentiation timer
             diff_timer = _pluri_to_diff * r.random() * 0.5
+
+            # gives random initial division timer
             division_timer = _pluri_div_thresh * r.random()
+
+            # gives random initial death timer
             death_timer = _death_threshold * r.random()
 
-            sim_obj = Cell.StemCell(ID, location, motion, mass, nuclear_radius, cytoplasm_radius, booleans, state,
-                                    diff_timer, division_timer, death_timer)
+            # creates instance of Cell class
+            sim_obj = Cell.Cell(location, motion, mass, nuclear_radius, cytoplasm_radius, booleans, state, diff_timer,
+                                division_timer, death_timer)
 
+            # adds object to simulation instance
             simulation.add_cell(sim_obj)
-            Functions.inc_current_ID(simulation)
 
+        # adds simulation to the list
         simulations.append(simulation)
+
+    # returns the list of simulations
     return simulations
 
+
 def check_name(self):
-    """Renames the file if need be
+    """ Renames the file if need be
     """
     while True:
         try:

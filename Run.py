@@ -1,12 +1,10 @@
 #########################################################
 # Name:    Run                                          #
 # Author:  Jack Toppen                                  #
-# Date:    3/4/20                                       #
+# Date:    3/17/20                                      #
 #########################################################
 import Input
 import Output
-import Functions
-
 
 """
 Run this file in order to the simulation as a whole
@@ -47,17 +45,17 @@ Easter eggs
 # This calls the Simulation class allowing something to hold all important parameters to the model.
 Simulations = Input.Setup()
 
-
+# loops over all simulations and runs them one at a time
 for Simulation in Simulations:
 
     # Sets up all of the defined gradients with initial concentrations and parameters
     Simulation.initialize_gradients()
 
-    # Check for neighbors surrounding a cell
-    Functions.check_edges(Simulation)
+    # Check for neighbors surrounding a cell and adds them to the graph
+    Simulation.check_neighbors()
 
     # Move the cells to a state a equilibrium so that there is minimal overlap
-    Functions.handle_collisions(Simulation)
+    Simulation.handle_collisions()
 
     # Save the first image and stats of the simulation. This is before any updates
     Output.save_file(Simulation)
@@ -68,29 +66,32 @@ for Simulation in Simulations:
         # prints the time step and increases the time counter
         Simulation.info()
 
-        # kills cells that are without neighbors for too long
-        Functions.kill_cells(Simulation)
-
         # updates the grid by degrading the amount of FGF4
         Simulation.update_gradients()
+
+        # create/break connections between cells depending on distance apart
+        Simulation.check_neighbors()
 
         # updates all of the objects (motion, state, booleans)
         Simulation.update_cells()
 
-        # sees if cells can differentiate based on pluripotent cells surrounding by differentiated cells
-        Functions.diff_surround(Simulation)
+        # if enough differentiated cells surround a cell then it will increase the differentiation
+        Simulation.diff_surround_cells()
+
+        # if cells are without a neighbor for too long it will die
+        Simulation.kill_cells()
 
         # adds/removes all objects from the simulation
-        Simulation.update_object_queue()
-
-        # create/break connections between cells depending on distance apart
-        Functions.check_edges(Simulation)
+        Simulation.update_cell_queue()
 
         # moves cells in "motion" in a random fashion
-        Functions.random_movement(Simulation)
+        Simulation.random_movement()
+
+        # re-checks for neighbors before handling collisions
+        Simulation.check_neighbors()
 
         # move the cells to a state a equilibrium so that there is minimal overlap
-        Functions.handle_collisions(Simulation)
+        Simulation.handle_collisions()
 
         # saves the image file and txt file with all important information
         Output.save_file(Simulation)

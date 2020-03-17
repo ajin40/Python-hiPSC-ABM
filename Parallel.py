@@ -1,7 +1,7 @@
 #########################################################
 # Name:    Parallel                                     #
 # Author:  Jack Toppen                                  #
-# Date:    3/4/20                                       #
+# Date:    3/17/20                                      #
 #########################################################
 from numba import cuda
 import math
@@ -9,12 +9,47 @@ import numpy as np
 
 
 
+def initialize_grid_gpu(self):
+    array = cuda.to_device(self.grid)
+
+    threads_per_block = (32, 32)
+    blocks_per_grid_x = math.ceil(self.grid.shape[0] / threads_per_block[0])
+    blocks_per_grid_y = math.ceil(self.grid.shape[1] / threads_per_block[1])
+    blocks_per_grid = (blocks_per_grid_x, blocks_per_grid_y)
+
+    initialize_grid_cuda[blocks_per_grid, threads_per_block](array)
+
+    self.grid = array.copy_to_host()
 
 
+def update_grid_gpu(self):
+    array = cuda.to_device(self.grid)
+
+    threads_per_block = (32, 32)
+    blocks_per_grid_x = math.ceil(self.grid.shape[0] / threads_per_block[0])
+    blocks_per_grid_y = math.ceil(self.grid.shape[1] / threads_per_block[1])
+    blocks_per_grid = (blocks_per_grid_x, blocks_per_grid_y)
+
+    initialize_grid_cuda[blocks_per_grid, threads_per_block](array)
+
+    self.grid = array.copy_to_host()
 
 
+@cuda.jit
+def initialize_grid_cuda(grid_array):
+    a, b = cuda.grid(2)
+    if a < grid_array.shape[0] and b < grid_array.shape[1]:
+        grid_array[a, b] += 10
 
-def check_edge_gpu(self):
+
+@cuda.jit
+def update_grid_cuda(grid_array):
+    a, b = cuda.grid(2)
+    if a < grid_array.shape[0] and b < grid_array.shape[1] and grid_array[a, b] >= 1:
+        grid_array[a, b] -= 1
+
+
+def check_neighbors_gpu(self):
 
     location_array = np.empty((0, 2), int)
     edges_array = np.zeros((len(self.objects), len(self.objects)))
@@ -28,7 +63,7 @@ def check_edge_gpu(self):
     threadsperblock = 32
     blockspergrid = math.ceil(location_array.size / threadsperblock)
 
-    check_edge_cuda[blockspergrid, threadsperblock](location_array_device_in, edges_array_device_in)
+    check_neighbors_cuda[blockspergrid, threadsperblock](location_array_device_in, edges_array_device_in)
 
     output = edges_array_device_in.copy_to_host()
     output = np.triu(output)
@@ -41,7 +76,7 @@ def check_edge_gpu(self):
         self.network.add_edge(self.objects[edges[i][0]], self.objects[edges[i][1]])
 
 @cuda.jit
-def check_edge_cuda(locations, edges):
+def check_neighbors_cuda(locations, edges):
     pos = cuda.grid(1)
     if pos < len(locations):
         for i in range(len(locations)):
@@ -91,8 +126,9 @@ def handle_collisions_gpu(self):
         for i in range(len(self.objects)):
             velocity = output[i]
 
+
             movement = velocity * self.move_time_step
-            self.objects[i]._disp_vec += movement
+            self.objects[i].disp_vec += movement
 
             new_velocity = np.array([0.0, 0.0])
 
@@ -103,16 +139,17 @@ def handle_collisions_gpu(self):
 
             self.objects[i].velocity = new_velocity
 
-            self.objects[i].location += self.objects[i]._disp_vec
+
+            self.objects[i].location += self.objects[i].disp_vec
 
             if not 0 <= self.objects[i].location[0] < 1000:
-                self.objects[i].location[0] -= 2 * self.objects[i]._disp_vec[0]
+                self.objects[i].location[0] -= 2 * self.objects[i].disp_vec[0]
 
             if not 0 <= self.objects[i].location[1] < 1000:
-                self.objects[i].location[1] -= 2 * self.objects[i]._disp_vec[1]
+                self.objects[i].location[1] -= 2 * self.objects[i].disp_vec[1]
 
             # resets the movement vector to [0,0]
-            self.objects[i]._disp_vec = np.array([0.0, 0.0])
+            self.objects[i].disp_vec = np.array([0.0, 0.0])
 
 
 
@@ -145,23 +182,3 @@ def handle_collisions_cuda(locations, nuclear, cytoplasm, mass, energy, spring, 
 
                 velocities[j][0] += real_displacement_x * (energy[0] * spring[0] / mass[j]) ** 0.5
                 velocities[j][1] += real_displacement_y * (energy[0] * spring[0] / mass[j]) ** 0.5
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-

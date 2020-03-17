@@ -1,19 +1,18 @@
 #########################################################
-# Name:    Classes                                      #
+# Name:    Cell                                         #
 # Author:  Jack Toppen                                  #
-# Date:    3/4/20                                       #
+# Date:    3/17/20                                      #
 #########################################################
 import numpy as np
 import math
-
-
+import random as r
 
 
 class Cell:
     """ Every cell object in the simulation
         will have this class
     """
-    def __init__(self, ID, location, motion, mass, nuclear_radius, cytoplasm_radius, booleans, state, diff_timer,
+    def __init__(self, location, motion, mass, nuclear_radius, cytoplasm_radius, booleans, state, diff_timer,
                  division_timer, death_timer):
 
         """ location: where the cell is located on the grid "[x,y]"
@@ -26,7 +25,6 @@ class Cell:
             motion: whether the cell is in moving or not "True or False"
             spring_constant: strength of force applied based on distance
         """
-        self.ID = ID
         self.location = location
         self.motion = motion
         self.mass = mass
@@ -39,9 +37,9 @@ class Cell:
         self.death_timer = death_timer
 
         # holds the value of the movement vector of the cell
-        self._disp_vec = np.array([0.0, 0.0])
+        self.disp_vec = np.array([0.0, 0.0], dtype=np.float32)
 
-        self.velocity = np.array([0.0, 0.0])
+        self.velocity = np.array([0.0, 0.0], dtype=np.float32)
 
     def divide(self, simulation):
         # radius of cell
@@ -54,7 +52,7 @@ class Cell:
             # tries to put the cell on the grid
             while count == 0:
                 location = RandomPointOnSphere() * radius * 2.0 + self.location
-                if self.boundary.contains_point(location):
+                if simulation.boundary.contains_point(location):
                     count = 1
         else:
             location = RandomPointOnSphere() * radius * 2.0 + self.location
@@ -62,12 +60,9 @@ class Cell:
         # halve the division timer
         self.division_timer *= 0.5
 
-        # ID the cell
-        ID = simulation._current_ID
-
         # create new cell and add it to the simulation
 
-        sc = Cell(ID, location, self.motion, self.mass, self.nuclear_radius, self.cytoplasm_radius, self.booleans,
+        sc = Cell(location, self.motion, self.mass, self.nuclear_radius, self.cytoplasm_radius, self.booleans,
                   self.state, self.diff_timer, self.division_timer, self.death_timer)
 
         simulation.add_object_to_addition_queue(sc)
@@ -103,6 +98,39 @@ class Cell:
         self.booleans[2] = 1
         self.booleans[3] = 0
         self.motion = True
+
+    def kill_cell(self, simulation):
+
+        neighbors = list(simulation.network.neighbors(self))
+        if len(neighbors) < 1:
+            self.death_timer += 1
+
+        if self.death_timer >= simulation.death_threshold:
+            simulation.add_object_to_removal_queue(self)
+
+    def diff_surround(self, simulation):
+        """ calls the object function that determines if
+            a cell will differentiate based on the cells
+            that surround it
+        """
+
+        # checks to see if they are Pluripotent and GATA6 low
+        if self.state == "Pluripotent" and self.booleans[2] == 0:
+
+            # finds neighbors of a cell
+            neighbors = list(simulation.network.neighbors(self))
+            # counts neighbors that are differentiated and in the interaction distance
+            counter = 0
+            for j in range(len(neighbors)):
+                if neighbors[j].state == "Differentiated":
+                    dist_vec = neighbors[j].location - self.location
+                    dist = np.linalg.norm(dist_vec)
+                    if dist <= simulation.neighbor_distance:
+                        counter += 1
+
+            # if there are enough cells surrounding the cell the differentiation timer will increase
+            if counter >= simulation.diff_surround_value:
+                self.diff_timer += 1
 
 
     def update_cell(self, simulation):
@@ -169,6 +197,12 @@ class Cell:
             if self.diff_timer >= simulation.pluri_to_diff:
                 self.differentiate()
 
+def RandomPointOnSphere():
+    """ Computes a random point on a sphere
+        Returns - a point on a unit sphere [x,y] at the origin
+    """
+    theta = r.random() * 2 * math.pi
+    x = math.cos(theta)
+    y = math.sin(theta)
 
-
-
+    return np.array((x, y))

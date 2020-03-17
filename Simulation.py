@@ -1,7 +1,14 @@
+#########################################################
+# Name:    Simulation                                   #
+# Author:  Jack Toppen                                  #
+# Date:    3/17/20                                      #
+#########################################################
 import numpy as np
 import networkx as nx
 import platform
 import matplotlib.path as mpltPath
+import random as r
+import Parallel
 
 
 
@@ -65,19 +72,16 @@ class Simulation:
         self.time_counter = 0.0
 
         # array to hold all of the stem cell objects
-        self.objects = np.array([])
+        self.objects = np.array([], dtype=np.object)
 
-        self.gradients = np.array([])
+        self.gradients = np.array([], dtype=np.object)
 
         # graph representing all the objects and their connections to other objects
         self.network = nx.Graph()
 
         # holds the objects until they are added or removed from the simulation
-        self._objects_to_remove = np.array([])
-        self._objects_to_add = np.array([])
-
-        # keeps track of the current cell ID
-        self._current_ID = 0
+        self._objects_to_remove = np.array([], dtype=np.object)
+        self._objects_to_add = np.array([], dtype=np.object)
 
         # which file separator to use
         if platform.system() == "Windows":
@@ -105,9 +109,18 @@ class Simulation:
         for i in range(len(self.gradients)):
             self.gradients[i].update_grid()
 
+
     def update_cells(self):
         for i in range(len(self.objects)):
             self.objects[i].update_cell(self)
+
+    def kill_cells(self):
+        for i in range(len(self.objects)):
+            self.objects[i].kill_cell(self)
+
+    def diff_surround_cells(self):
+        for i in range(len(self.objects)):
+            self.objects[i].diff_surround(self)
 
 
     def add_gradient(self, grid_object):
@@ -136,7 +149,7 @@ class Simulation:
         self.network.remove_node(sim_object)
 
 
-    def update_object_queue(self):
+    def update_cell_queue(self):
         """ Updates the object add and remove queue
         """
         print("Adding " + str(len(self._objects_to_add)) + " objects...")
@@ -163,8 +176,6 @@ class Simulation:
         # adds object to array
         self._objects_to_add = np.append(self._objects_to_add, sim_object)
 
-        # increments the current ID
-        self._current_ID += 1
 
     def add_object_to_removal_queue(self, sim_object):
         """ Will add an object to the simulation object queue
@@ -173,3 +184,121 @@ class Simulation:
         """
         # adds object to array
         self._objects_to_remove = np.append(self._objects_to_remove, sim_object)
+
+
+    def check_neighbors(self):
+        """ checks all of the distances between cells
+            if it is less than a set value create a
+            connection between two cells.
+        """
+
+        self.network.clear()
+
+        if self.parallel:
+            Parallel.check_neighbors_gpu(self)
+        else:
+            # loops over all objects
+            for i in range(len(self.objects)):
+
+                self.network.add_node(self.objects[i])
+
+                # loops over all objects not check already
+                for j in range(i + 1, len(self.objects)):
+
+                    # max distance between cells to have a connection
+                    interaction_length = self.neighbor_distance
+
+                    # get the distance between cells
+                    dist_vec = self.objects[i].location - self.objects[j].location
+
+                    # get the magnitude of the distance vector
+                    dist = np.linalg.norm(dist_vec)
+
+
+
+                    if dist <= interaction_length:
+                        self.network.add_edge(self.objects[i], self.objects[j])
+
+    def handle_collisions(self):
+
+        if self.parallel:
+            Parallel.handle_collisions_gpu(self)
+        else:
+            time_counter = 0
+            while time_counter <= self.move_max_time:
+                time_counter += self.move_time_step
+
+                edges = list(self.network.edges())
+
+                for i in range(len(edges)):
+                    obj1 = edges[i][0]
+                    obj2 = edges[i][1]
+
+                    displacement = obj1.location - obj2.location
+
+                    if np.linalg.norm(
+                            displacement) < obj1.nuclear_radius + obj1.cytoplasm_radius + obj2.nuclear_radius + obj2.cytoplasm_radius:
+                        displacement_normal = displacement / np.linalg.norm(displacement)
+
+                        obj1_displacement = (obj1.nuclear_radius + obj1.cytoplasm_radius) * displacement_normal
+                        obj2_displacement = (obj2.nuclear_radius + obj1.cytoplasm_radius) * displacement_normal
+
+                        real_displacement = (displacement - (obj1_displacement + obj2_displacement)) / 2
+
+                        obj1.velocity[0] -= real_displacement[0] * (
+                                    self.energy_kept * self.spring_constant / obj1.mass) ** 0.5
+                        obj1.velocity[1] -= real_displacement[1] * (
+                                    self.energy_kept * self.spring_constant / obj1.mass) ** 0.5
+
+                        obj2.velocity[0] += real_displacement[0] * (
+                                    self.energy_kept * self.spring_constant / obj2.mass) ** 0.5
+                        obj2.velocity[1] += real_displacement[1] * (
+                                    self.energy_kept * self.spring_constant / obj2.mass) ** 0.5
+
+                for i in range(len(self.objects)):
+                    velocity = self.objects[i].velocity
+
+                    movement = velocity * self.move_time_step
+                    self.objects[i].disp_vec += movement
+
+                    new_velocity = np.array([0.0, 0.0])
+
+                    new_velocity[0] = np.sign(velocity[0]) * max(
+                        (velocity[0]) ** 2 - 2 * self.friction * abs(movement[0]), 0.0) ** 0.5
+                    new_velocity[1] = np.sign(velocity[0]) * max(
+                        (velocity[1]) ** 2 - 2 * self.friction * abs(movement[1]), 0.0) ** 0.5
+
+                    self.objects[i].velocity = new_velocity
+
+
+                self.update_constraints()
+
+                self.check_neighbors()
+
+    def update_constraints(self):
+        for i in range(len(self.objects)):
+
+            self.objects[i].location += self.objects[i].disp_vec
+
+            if not 0 <= self.objects[i].location[0] <= 1000:
+                self.objects[i].location[0] -= 2 * self.objects[i].disp_vec[0]
+
+            if not 0 <= self.objects[i].location[1] <= 1000:
+                self.objects[i].location[1] -= 2 * self.objects[i].disp_vec[1]
+
+            # resets the movement vector to [0,0]
+            self.objects[i].disp_vec = np.array([0.0, 0.0])
+
+    def random_movement(self):
+        """ has the objects that are in motion
+            move in a random way
+        """
+        # loops over all objects
+        for i in range(len(self.objects)):
+            # finds the objects in motion
+            if self.objects[i].motion:
+                # new location of 10 times a random float from -1 to 1
+                self.objects[i].disp_vec[0] += r.uniform(-1, 1) * 10
+                self.objects[i].disp_vec[1] += r.uniform(-1, 1) * 10
+
+        self.update_constraints()

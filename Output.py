@@ -1,7 +1,7 @@
 #########################################################
 # Name:    Output                                       #
 # Author:  Jack Toppen                                  #
-# Date:    3/4/20                                       #
+# Date:    3/17/20                                      #
 #########################################################
 from PIL import Image, ImageDraw
 import cv2
@@ -9,7 +9,7 @@ import csv
 
 
 def draw_cell_image(self, network, path):
-    """Turns the graph into an image at each timestep
+    """ Turns the graph into an image at each timestep
     """
     # increases the image counter by 1 each time this is called
     self.image_counter += 1
@@ -42,8 +42,6 @@ def draw_cell_image(self, network, path):
         #     else:
         #         col = (60, 0, 255)
 
-        if node.state == "Differentiated":
-            col = (255, 255, 255)
 
         if node.state == "Pluripotent":
             col = 'white'
