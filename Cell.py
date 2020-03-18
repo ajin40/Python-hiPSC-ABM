@@ -53,7 +53,7 @@ class Cell:
 
         location = self.location + RandomPointOnSphere() * 2.0 * radius
 
-        while not 0 <= location[0] <= 1000 or not 0 <= location[1] <= 1000:
+        while not 0 <= location[0] < 1000 or not 0 <= location[1] < 1000:
             location = self.location + RandomPointOnSphere() * 2.0 * radius
 
         # halve the division timer

@@ -294,7 +294,6 @@ class Simulation:
         """ makes sure the new location of the cell is within the grid
             if not it will create a collision with the boundaries
         """
-        # this is still in development as I need to develop a better way of modeling collisions with the boundaries
 
         # loops over all cells
         for i in range(len(self.cells)):
@@ -302,11 +301,11 @@ class Simulation:
             self.cells[i].location += self.cells[i].disp_vec
 
             # if the cell's new location isn't in the grid subtract two times the displacement vector
-            if not 0 <= self.cells[i].location[0] <= 1000:
+            if not 0 <= self.cells[i].location[0] < self.size[1]:
                 self.cells[i].location[0] -= 2 * self.cells[i].disp_vec[0]
 
             # if the cell's new location isn't in the grid subtract two times the displacement vector
-            if not 0 <= self.cells[i].location[1] <= 1000:
+            if not 0 <= self.cells[i].location[1] < self.size[2]:
                 self.cells[i].location[1] -= 2 * self.cells[i].disp_vec[1]
 
             # resets the movement vector to [0,0]

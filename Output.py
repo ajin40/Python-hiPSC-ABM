@@ -29,7 +29,7 @@ def draw_cell_image(self, network, path):
 
     # bounds of the simulation used for drawing patch
     # inherit
-    bounds = [[0, 0], [0, 1000], [1000, 1000], [1000, 0]]
+    bounds = [[0, 0], [0, self.size[2]], [self.size[1], self.size[2]], [self.size[1], 0]]
 
     # loops over all of the cells/nodes and draws a circle with corresponding color
     for i in range(len(cells)):
@@ -54,6 +54,7 @@ def draw_cell_image(self, network, path):
 
         out = "black"
         draw.ellipse((x - r + 250, y - r + 250, x + r + 250, y + r + 250), outline=out, fill=col)
+
 
     # loops over all of the bounds and draws lines to represent the grid
     for i in range(len(bounds)):
