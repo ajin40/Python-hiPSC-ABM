@@ -38,7 +38,6 @@ for Simulation in Simulations:
     # Save the first image and stats of the simulation. This is before any updates
     Output.save_file(Simulation)
 
-
     # run simulation until end time
     while Simulation.time_counter <= Simulation.end_time:
 

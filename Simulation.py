@@ -277,18 +277,35 @@ class Simulation:
                     # multiplies the time step by the velocity and adds that vector to the cell's holder
                     v = self.cells[i].velocity
                     movement = v * self.move_time_step
-                    self.cells[i].disp_vec += movement
+                    location = self.cells[i].location
+
+                    new_location = location + movement
+
+                    if not 0 <= new_location[0] < self.size[0]:
+                        self.cells[i].velocity[0] *= -1
+                        self.cells[i].location[0] -= movement[0]
+                    else:
+                        self.cells[i].location[0] = new_location[0]
+
+                    if not 0 <= new_location[1] < self.size[1]:
+                        self.cells[i].velocity[1] *= -1
+                        self.cells[i].location[1] -= movement[1]
+                    else:
+                        self.cells[i].location[1] = new_location[1]
+
+                    if not 0 <= new_location[2] < self.size[2]:
+                        self.cells[i].velocity[2] *= -1
+                        self.cells[i].location[2] -= movement[2]
+                    else:
+                        self.cells[i].location[2] = new_location[2]
 
                     # subtracts the work from the kinetic energy and recalculates a new velocity
-                    new_velocity_x = np.sign(v[0]) * max(v[0] ** 2 - 2 * self.friction * abs(movement[0]), 0.0) ** 0.5
-                    new_velocity_y = np.sign(v[1]) * max(v[1] ** 2 - 2 * self.friction * abs(movement[1]), 0.0) ** 0.5
-                    new_velocity_z = np.sign(v[2]) * max(v[2] ** 2 - 2 * self.friction * abs(movement[2]), 0.0) ** 0.5
+                    new_velocity_x = np.sign(v[0]) * max(v[0] ** 2 - 2 * self.friction * abs(movement[0]), 0.0)**0.5
+                    new_velocity_y = np.sign(v[1]) * max(v[1] ** 2 - 2 * self.friction * abs(movement[1]), 0.0)**0.5
+                    new_velocity_z = np.sign(v[2]) * max(v[2] ** 2 - 2 * self.friction * abs(movement[2]), 0.0)**0.5
 
                     # assign new velocity
                     self.cells[i].velocity = np.array([new_velocity_x, new_velocity_y, new_velocity_z])
-
-                # make sure the new location will be within the grid
-                self.update_constraints()
 
                 # checks neighbors after the cells move for re-evaluation of collisions
                 self.check_neighbors()
@@ -322,19 +339,12 @@ class Simulation:
         """ has the objects that are in motion
             move in a random way
         """
-        # this is still in development as I need to incorporate collisions into this
 
         # loops over all cells
         for i in range(len(self.cells)):
             # finds the objects in motion
             if self.cells[i].motion:
                 # new location of 10 times a random float from -1 to 1
-                self.cells[i].disp_vec[0] += r.uniform(-1, 1) * 10
-                self.cells[i].disp_vec[1] += r.uniform(-1, 1) * 10
-                self.cells[i].disp_vec[2] += r.uniform(-1, 1) * 10
-
-        # make sure the new location will be within the grid
-        self.update_constraints()
-
-
-
+                self.cells[i].velocity[0] += r.uniform(-1, 1) * 3
+                self.cells[i].velocity[1] += r.uniform(-1, 1) * 3
+                self.cells[i].velocity[2] += r.uniform(-1, 1) * 3

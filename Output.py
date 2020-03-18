@@ -13,7 +13,7 @@ of data from the simulation. Including images, CSV, and video
 """
 
 
-def draw_cell_image(self, network, path):
+def draw_cell_image_xy(self, network, path):
     """ Turns the graph into an image at each timestep
     """
     # increases the image counter by 1 each time this is called
@@ -29,7 +29,9 @@ def draw_cell_image(self, network, path):
 
     # bounds of the simulation used for drawing patch
     # inherit
-    bounds = [[0, 0], [0, self.size[1]], [self.size[0], self.size[1]], [self.size[0], 0]]
+    bounds_xy = [[-12, -12], [-12, self.size[1] + 12], [self.size[0] + 12, self.size[1] + 12], [self.size[0] + 12, -12]]
+    bounds_xz = [[-12, -12], [-12, self.size[2] + 12], [self.size[0] + 12, self.size[2] + 12], [self.size[0] + 12, -12]]
+    bounds_yz = [[-12, -12], [-12, self.size[2] + 12], [self.size[1] + 12, self.size[2] + 12], [self.size[1] + 12, -12]]
 
     # loops over all of the cells/nodes and draws a circle with corresponding color
     for i in range(len(cells)):
@@ -57,12 +59,130 @@ def draw_cell_image(self, network, path):
 
 
     # loops over all of the bounds and draws lines to represent the grid
-    for i in range(len(bounds)):
-        x, y = bounds[i]
-        if i < len(bounds) - 1:
-            x1, y1 = bounds[i + 1]
+    for i in range(len(bounds_xy)):
+        x, y = bounds_xy[i]
+        if i < len(bounds_xy) - 1:
+            x1, y1 = bounds_xy[i + 1]
         else:
-            x1, y1 = bounds[0]
+            x1, y1 = bounds_xy[0]
+        r = 4
+        draw.ellipse((x - r + 250, y - r + 250, x + r + 250, y + r + 250), outline='white', fill='white')
+        draw.line((x + 250, y + 250, x1 + 250, y1 + 250), fill='white', width=10)
+
+    # saves the image as a .png
+    image1.save(path + ".png", 'PNG')
+
+def draw_cell_image_xz(self, network, path):
+    """ Turns the graph into an image at each timestep
+    """
+    # increases the image counter by 1 each time this is called
+    self.image_counter += 1
+
+    # get list of all objects/nodes in the simulation
+    cells = list(network.nodes)
+
+    # draws the background of the image
+    image1 = Image.new("RGB", (1500, 1500), color=(130, 130, 130))
+    # image1 = Image.new("RGB", (1500, 1500), color="black")
+    draw = ImageDraw.Draw(image1)
+
+    # bounds of the simulation used for drawing patch
+    # inherit
+    bounds_xy = [[-12, -12], [-12, self.size[1] + 12], [self.size[0] + 12, self.size[1] + 12], [self.size[0] + 12, -12]]
+    bounds_xz = [[-12, -12], [-12, self.size[2] + 12], [self.size[0] + 12, self.size[2] + 12], [self.size[0] + 12, -12]]
+    bounds_yz = [[-12, -12], [-12, self.size[2] + 12], [self.size[1] + 12, self.size[2] + 12], [self.size[1] + 12, -12]]
+
+    # loops over all of the cells/nodes and draws a circle with corresponding color
+    for i in range(len(cells)):
+        node = cells[i]
+        x, y, z = node.location
+        r = node.nuclear_radius
+
+        # if node.state == "Pluripotent" or node.state == "Differentiated":
+        #     if node.booleans[3] == 0 and node.booleans[2] == 1:
+        #         col = (255, 0, 0)
+        #     elif node.booleans[3] == 1 and node.booleans[2] == 0:
+        #         col = (17, 235, 24)
+        #     elif node.booleans[3] == 1 and node.booleans[2] == 1:
+        #         col = (245, 213, 7)
+        #     else:
+        #         col = (60, 0, 255)
+
+        if node.state == "Pluripotent":
+            col = 'white'
+        else:
+            col = 'black'
+
+        out = "black"
+        draw.ellipse((x - r + 250, z - r + 250, x + r + 250, z + r + 250), outline=out, fill=col)
+
+
+    # loops over all of the bounds and draws lines to represent the grid
+    for i in range(len(bounds_xz)):
+        x, y = bounds_xz[i]
+        if i < len(bounds_xz) - 1:
+            x1, y1 = bounds_xz[i + 1]
+        else:
+            x1, y1 = bounds_xz[0]
+        r = 4
+        draw.ellipse((x - r + 250, y - r + 250, x + r + 250, y + r + 250), outline='white', fill='white')
+        draw.line((x + 250, y + 250, x1 + 250, y1 + 250), fill='white', width=10)
+
+    # saves the image as a .png
+    image1.save(path + ".png", 'PNG')
+
+def draw_cell_image_yz(self, network, path):
+    """ Turns the graph into an image at each timestep
+    """
+    # increases the image counter by 1 each time this is called
+    self.image_counter += 1
+
+    # get list of all objects/nodes in the simulation
+    cells = list(network.nodes)
+
+    # draws the background of the image
+    image1 = Image.new("RGB", (1500, 1500), color=(130, 130, 130))
+    # image1 = Image.new("RGB", (1500, 1500), color="black")
+    draw = ImageDraw.Draw(image1)
+
+    # bounds of the simulation used for drawing patch
+    # inherit
+    bounds_xy = [[-12, -12], [-12, self.size[1] + 12], [self.size[0] + 12, self.size[1] + 12], [self.size[0] + 12, -12]]
+    bounds_xz = [[-12, -12], [-12, self.size[2] + 12], [self.size[0] + 12, self.size[2] + 12], [self.size[0] + 12, -12]]
+    bounds_yz = [[-12, -12], [-12, self.size[2] + 12], [self.size[1] + 12, self.size[2] + 12], [self.size[1] + 12, -12]]
+
+    # loops over all of the cells/nodes and draws a circle with corresponding color
+    for i in range(len(cells)):
+        node = cells[i]
+        x, y, z = node.location
+        r = node.nuclear_radius
+
+        # if node.state == "Pluripotent" or node.state == "Differentiated":
+        #     if node.booleans[3] == 0 and node.booleans[2] == 1:
+        #         col = (255, 0, 0)
+        #     elif node.booleans[3] == 1 and node.booleans[2] == 0:
+        #         col = (17, 235, 24)
+        #     elif node.booleans[3] == 1 and node.booleans[2] == 1:
+        #         col = (245, 213, 7)
+        #     else:
+        #         col = (60, 0, 255)
+
+        if node.state == "Pluripotent":
+            col = 'white'
+        else:
+            col = 'black'
+
+        out = "black"
+        draw.ellipse((y - r + 250, z - r + 250, y + r + 250, z + r + 250), outline=out, fill=col)
+
+
+    # loops over all of the bounds and draws lines to represent the grid
+    for i in range(len(bounds_yz)):
+        x, y = bounds_yz[i]
+        if i < len(bounds_yz) - 1:
+            x1, y1 = bounds_yz[i + 1]
+        else:
+            x1, y1 = bounds_yz[0]
         r = 4
         draw.ellipse((x - r + 250, y - r + 250, x + r + 250, y + r + 250), outline='white', fill='white')
         draw.line((x + 250, y + 250, x1 + 250, y1 + 250), fill='white', width=10)
@@ -141,4 +261,6 @@ def save_file(self):
     location_to_text(self, n2_path)
 
     # draws the image of the simulation
-    draw_cell_image(self, self.network, base_path + "network_image" + str(int(self.time_counter)))
+    draw_cell_image_xy(self, self.network, base_path + "network_image_xy" + str(int(self.time_counter)))
+    draw_cell_image_xz(self, self.network, base_path + "network_image_xz" + str(int(self.time_counter)))
+    draw_cell_image_yz(self, self.network, base_path + "network_image_yz" + str(int(self.time_counter)))

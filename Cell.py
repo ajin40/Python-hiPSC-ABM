@@ -48,21 +48,20 @@ class Cell:
     def divide(self, simulation):
         """ produces another cell via mitosis
         """
-        # radius of cell
-        radius = self.nuclear_radius + self.cytoplasm_radius
-
-        location = self.location + RandomPointOnSphere() * 2.0 * radius
-
-        while not 0 <= location[0] < simulation.size[0] or not 0 <= location[1] < simulation.size[1] or not 0 <= location[2] < simulation.size[2]:
-            location = self.location + RandomPointOnSphere() * 2.0 * radius
 
         # halve the division timer
         self.division_timer *= 0.5
 
         # create new cell and add it to the simulation
 
-        cell = Cell(location, self.motion, self.mass, self.nuclear_radius, self.cytoplasm_radius, self.booleans,
+        cell = Cell(self.location, self.motion, self.mass, self.nuclear_radius, self.cytoplasm_radius, self.booleans,
                     self.state, self.diff_timer, self.division_timer, self.death_timer)
+
+        self.velocity[0] += r.uniform(-1, 1) * 10
+        self.velocity[1] += r.uniform(-1, 1) * 10
+        self.velocity[2] += r.uniform(-1, 1) * 10
+
+        cell.velocity = -1 * self.velocity
 
         simulation.add_object_to_addition_queue(cell)
 
