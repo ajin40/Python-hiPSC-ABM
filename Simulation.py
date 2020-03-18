@@ -6,7 +6,6 @@
 import numpy as np
 import networkx as nx
 import platform
-import matplotlib.path as mpltPath
 import random as r
 import Parallel
 
@@ -21,7 +20,7 @@ class Simulation:
     """
 
     def __init__(self, name, path, end_time, time_step, pluri_div_thresh, diff_div_thresh, pluri_to_diff, size,
-                 diff_surround_value, functions, parallel, max_fgf4, bounds, death_threshold, move_time_step,
+                 diff_surround_value, functions, parallel, max_fgf4, death_threshold, move_time_step,
                  move_max_time, spring_constant, friction, energy_kept, neighbor_distance):
 
         """ Initialization function for the simulation setup.
@@ -60,7 +59,6 @@ class Simulation:
         self.functions = functions
         self.parallel = parallel
         self.max_fgf4 = max_fgf4
-        self.bounds = bounds
         self.death_threshold = death_threshold
         self.move_time_step = move_time_step
         self.move_max_time = move_max_time
@@ -96,8 +94,6 @@ class Simulation:
             # linux/unix
             self.sep = "/"
 
-        # bounds of the simulation used in cell division
-        self.boundary = mpltPath.Path(self.bounds)
 
 
     def info(self):
@@ -271,7 +267,7 @@ class Simulation:
                         cell_1.velocity[0] -= overlap[0] * (self.energy_kept * self.spring_constant / cell_1.mass)**0.5
                         cell_1.velocity[1] -= overlap[1] * (self.energy_kept * self.spring_constant / cell_1.mass)**0.5
                         cell_2.velocity[0] += overlap[0] * (self.energy_kept * self.spring_constant / cell_2.mass)**0.5
-                        cell_2.velocity[0] += overlap[0] * (self.energy_kept * self.spring_constant / cell_2.mass)**0.5
+                        cell_2.velocity[1] += overlap[1] * (self.energy_kept * self.spring_constant / cell_2.mass)**0.5
 
                 # loop over all of the cells and turn their velocities into displacement vectors
                 for i in range(len(self.cells)):

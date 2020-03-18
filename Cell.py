@@ -50,18 +50,11 @@ class Cell:
         """
         # radius of cell
         radius = self.nuclear_radius + self.cytoplasm_radius
-        location = self.location
 
-        # if there are boundaries
-        if len(simulation.bounds) > 0:
-            count = 0
-            # tries to put the cell on the grid
-            while count == 0:
-                location = RandomPointOnSphere() * radius * 2.0 + self.location
-                if simulation.boundary.contains_point(location):
-                    count = 1
-        else:
-            location = RandomPointOnSphere() * radius * 2.0 + self.location
+        location = self.location + RandomPointOnSphere() * 2.0 * radius
+
+        while not 0 <= location[0] <= 1000 or not 0 <= location[1] <= 1000:
+            location = self.location + RandomPointOnSphere() * 2.0 * radius
 
         # halve the division timer
         self.division_timer *= 0.5

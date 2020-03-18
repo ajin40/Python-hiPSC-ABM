@@ -29,7 +29,7 @@ def draw_cell_image(self, network, path):
 
     # bounds of the simulation used for drawing patch
     # inherit
-    bounds = self.bounds
+    bounds = [[0, 0], [0, 1000], [1000, 1000], [1000, 0]]
 
     # loops over all of the cells/nodes and draws a circle with corresponding color
     for i in range(len(cells)):

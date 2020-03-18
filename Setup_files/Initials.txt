@@ -1,11 +1,11 @@
 What is the name of the simulation?
-[ Run_73 ]
+[ Run_77 ]
 
 Define where the model will output its images, data, and video. Ex: C:\Python27\Model
 [ C:\Python27\MEGA-ARRAY ]
 
 Do you want the simulation to use parallel GPU processing?
-[ False ]
+[ True ]
 
 How many total steps will the model run for?
 [ 30.0 ]
@@ -40,9 +40,6 @@ Length of time steps required for a pluripotent cell to differentiate
 Amount of differentiated cells needed to surround a pluripotent cell and differentiate it
 [ 5 ]
 
-Bounds of the simulation
-[ [[0, 0], [0, 1000], [1000, 1000], [1000, 0]] ]
-
 Max FGF4 on a patch
 [ 10 ]
 
@@ -65,7 +62,7 @@ Energy kept
 [ 0.80 ]
 
 Distance that constitutes a neighbor
-[ 18.0 ]
+[ 24.0 ]
 
 Mass
 [ 6.0 ]

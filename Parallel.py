@@ -183,6 +183,7 @@ def handle_collisions_gpu(self):
         for i in range(len(self.cells)):
             self.cells[i].velocity += output[i]
 
+
         for i in range(len(self.cells)):
             # multiplies the time step by the velocity and adds that vector to the cell's holder
             v = self.cells[i].velocity
