@@ -40,9 +40,9 @@ class Cell:
         self.death_timer = death_timer
 
         # holds the value of the movement vector of the cell
-        self.disp_vec = np.array([0.0, 0.0], dtype=np.float32)
+        self.disp_vec = np.array([0.0, 0.0, 0.0], dtype=np.float32)
 
-        self.velocity = np.array([0.0, 0.0], dtype=np.float32)
+        self.velocity = np.array([0.0, 0.0, 0.0], dtype=np.float32)
 
 
     def divide(self, simulation):
@@ -53,7 +53,7 @@ class Cell:
 
         location = self.location + RandomPointOnSphere() * 2.0 * radius
 
-        while not 0 <= location[0] < 1000 or not 0 <= location[1] < 1000:
+        while not 0 <= location[0] < simulation.size[0] or not 0 <= location[1] < simulation.size[1] or not 0 <= location[2] < simulation.size[2]:
             location = self.location + RandomPointOnSphere() * 2.0 * radius
 
         # halve the division timer
@@ -162,22 +162,23 @@ class Cell:
 
             if self.state == "Pluripotent" and self.division_timer >= simulation.pluri_div_thresh:
                 self.divide(simulation)
-
             else:
                 self.division_timer += 1
 
         # coverts position on grid into an integer for array location
         array_location_x = int(math.floor(self.location[0]))
         array_location_y = int(math.floor(self.location[1]))
+        array_location_z = int(math.floor(self.location[2]))
+
 
         # if a certain spot of the grid is less than the max FGF4 it can hold and the cell is NANOG high increase the
         # FGF4 by 1
-        if simulation.gradients[0].grid[0][array_location_x][array_location_y] < simulation.gradients[0].max_concentration\
+        if simulation.gradients[0].grid[array_location_x][array_location_y][array_location_z] < simulation.gradients[0].max_concentration\
                 and self.booleans[3] == 1:
-            simulation.gradients[0].grid[0][array_location_x][array_location_y] += 1
+            simulation.gradients[0].grid[array_location_x][array_location_y][array_location_z] += 1
 
         # if the FGF4 amount for the location is greater than 0, set the fgf4_bool value to be 1 for the functions
-        if simulation.gradients[0].grid[0][array_location_x][array_location_y] > 0:
+        if simulation.gradients[0].grid[array_location_x][array_location_y][array_location_z] > 0:
             fgf4_bool = 1
 
         else:
@@ -192,8 +193,8 @@ class Cell:
         # if the temporary FGFR value is 0 and the FGF4 value is 1 decrease the amount of FGF4 by 1
         # this simulates FGFR using FGF4
 
-        if tempFGFR == 0 and fgf4 == 1 and simulation.gradients[0].grid[0][array_location_x][array_location_y] >= 1:
-            simulation.gradients[0].grid[0][array_location_x][array_location_y] -= 1
+        if tempFGFR == 0 and fgf4 == 1 and simulation.gradients[0].grid[array_location_x][array_location_y][array_location_z] >= 1:
+            simulation.gradients[0].grid[array_location_x][array_location_y][array_location_z] -= 1
 
         # if the cell is GATA6 high and Pluripotent increase the differentiation counter by 1
         if self.booleans[2] == 1 and self.state == "Pluripotent":
@@ -204,10 +205,11 @@ class Cell:
 
 def RandomPointOnSphere():
     """ Computes a random point on a sphere
-        Returns - a point on a unit sphere [x,y] at the origin
+        Returns - a point on a unit sphere [x,y,z] at the origin
     """
     theta = r.random() * 2 * math.pi
     x = math.cos(theta)
     y = math.sin(theta)
+    z = r.random()
 
-    return np.array((x, y))
+    return np.array([x, y, z])

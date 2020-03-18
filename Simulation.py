@@ -20,8 +20,8 @@ class Simulation:
     """
 
     def __init__(self, name, path, end_time, time_step, pluri_div_thresh, diff_div_thresh, pluri_to_diff, size,
-                 diff_surround_value, functions, parallel, max_fgf4, death_threshold, move_time_step,
-                 move_max_time, spring_constant, friction, energy_kept, neighbor_distance):
+                 diff_surround_value, functions, parallel, death_threshold, move_time_step, move_max_time,
+                 spring_constant, friction, energy_kept, neighbor_distance):
 
         """ Initialization function for the simulation setup.
             name: the simulation name
@@ -58,7 +58,6 @@ class Simulation:
         self.diff_surround_value = diff_surround_value
         self.functions = functions
         self.parallel = parallel
-        self.max_fgf4 = max_fgf4
         self.death_threshold = death_threshold
         self.move_time_step = move_time_step
         self.move_max_time = move_max_time
@@ -266,8 +265,11 @@ class Simulation:
                         # converts the spring energy into kinetic energy in opposing directions
                         cell_1.velocity[0] -= overlap[0] * (self.energy_kept * self.spring_constant / cell_1.mass)**0.5
                         cell_1.velocity[1] -= overlap[1] * (self.energy_kept * self.spring_constant / cell_1.mass)**0.5
-                        cell_2.velocity[0] += overlap[0] * (self.energy_kept * self.spring_constant / cell_2.mass)**0.5
+                        cell_1.velocity[2] -= overlap[2] * (self.energy_kept * self.spring_constant / cell_1.mass)**0.5
+
+                        cell_1.velocity[0] -= overlap[0] * (self.energy_kept * self.spring_constant / cell_2.mass)**0.5
                         cell_2.velocity[1] += overlap[1] * (self.energy_kept * self.spring_constant / cell_2.mass)**0.5
+                        cell_2.velocity[2] += overlap[2] * (self.energy_kept * self.spring_constant / cell_2.mass)**0.5
 
                 # loop over all of the cells and turn their velocities into displacement vectors
                 for i in range(len(self.cells)):
@@ -280,9 +282,10 @@ class Simulation:
                     # subtracts the work from the kinetic energy and recalculates a new velocity
                     new_velocity_x = np.sign(v[0]) * max(v[0] ** 2 - 2 * self.friction * abs(movement[0]), 0.0) ** 0.5
                     new_velocity_y = np.sign(v[1]) * max(v[1] ** 2 - 2 * self.friction * abs(movement[1]), 0.0) ** 0.5
+                    new_velocity_z = np.sign(v[2]) * max(v[2] ** 2 - 2 * self.friction * abs(movement[2]), 0.0) ** 0.5
 
                     # assign new velocity
-                    self.cells[i].velocity = np.array([new_velocity_x, new_velocity_y])
+                    self.cells[i].velocity = np.array([new_velocity_x, new_velocity_y, new_velocity_z])
 
                 # make sure the new location will be within the grid
                 self.update_constraints()
@@ -301,15 +304,19 @@ class Simulation:
             self.cells[i].location += self.cells[i].disp_vec
 
             # if the cell's new location isn't in the grid subtract two times the displacement vector
-            if not 0 <= self.cells[i].location[0] < self.size[1]:
-                self.cells[i].location[0] -= 2 * self.cells[i].disp_vec[0]
+            if not 0 <= self.cells[i].location[0] < self.size[0]:
+                self.cells[i].location[0] -= self.cells[i].disp_vec[0]
 
             # if the cell's new location isn't in the grid subtract two times the displacement vector
-            if not 0 <= self.cells[i].location[1] < self.size[2]:
-                self.cells[i].location[1] -= 2 * self.cells[i].disp_vec[1]
+            if not 0 <= self.cells[i].location[1] < self.size[1]:
+                self.cells[i].location[1] -= self.cells[i].disp_vec[1]
 
-            # resets the movement vector to [0,0]
-            self.cells[i].disp_vec = np.array([0.0, 0.0])
+            # if the cell's new location isn't in the grid subtract two times the displacement vector
+            if not 0 <= self.cells[i].location[2] < self.size[2]:
+                self.cells[i].location[2] -= self.cells[i].disp_vec[2]
+
+            # resets the movement vector to [0,0,0]
+            self.cells[i].disp_vec = np.array([0.0, 0.0, 0.0])
 
     def random_movement(self):
         """ has the objects that are in motion
@@ -324,6 +331,10 @@ class Simulation:
                 # new location of 10 times a random float from -1 to 1
                 self.cells[i].disp_vec[0] += r.uniform(-1, 1) * 10
                 self.cells[i].disp_vec[1] += r.uniform(-1, 1) * 10
+                self.cells[i].disp_vec[2] += r.uniform(-1, 1) * 10
 
         # make sure the new location will be within the grid
         self.update_constraints()
+
+
+

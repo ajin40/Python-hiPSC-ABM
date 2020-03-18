@@ -29,12 +29,12 @@ def draw_cell_image(self, network, path):
 
     # bounds of the simulation used for drawing patch
     # inherit
-    bounds = [[0, 0], [0, self.size[2]], [self.size[1], self.size[2]], [self.size[1], 0]]
+    bounds = [[0, 0], [0, self.size[1]], [self.size[0], self.size[1]], [self.size[0], 0]]
 
     # loops over all of the cells/nodes and draws a circle with corresponding color
     for i in range(len(cells)):
         node = cells[i]
-        x, y = node.location
+        x, y, z = node.location
         r = node.nuclear_radius
 
         # if node.state == "Pluripotent" or node.state == "Differentiated":
@@ -104,23 +104,29 @@ def location_to_text(self, path):
 
     # initializes csv file
     object_writer = csv.writer(new_file)
-    object_writer.writerow(['ID', 'x_coord', 'y_coord', 'State', 'FGFR', 'ERK', 'GATA6', 'NANOG', 'Motion',
-                            'diff_count', 'div_count'])
+    object_writer.writerow(['x_coord', 'y_coord', 'z_coord', 'Motion', 'Mass', 'Nuclear_Radius', 'Cytoplasm_Radius',
+                            'FGFR', 'ERK', 'GATA6', 'NANOG', 'State', 'Diff_Timer', 'Div_Timer', 'Death_Timer'])
 
     # writes for each cell. Lists the last four boolean values
     for i in range(len(self.cells)):
         x_coord = str(round(self.cells[i].location[0], 1))
         y_coord = str(round(self.cells[i].location[1], 1))
-        x1 = str(self.cells[i].booleans[0])
-        x2 = str(self.cells[i].booleans[1])
-        x3 = str(self.cells[i].booleans[2])
-        x4 = str(self.cells[i].booleans[3])
+        z_coord = str(round(self.cells[i].location[2], 1))
+        motion = str(self.cells[i].motion)
+        mass = str(self.cells[i].mass)
+        nuclear = str(self.cells[i].nuclear_radius)
+        cytoplasm = str(self.cells[i].cytoplasm_radius)
+        fgfr = str(self.cells[i].booleans[0])
+        erk = str(self.cells[i].booleans[1])
+        gata = str(self.cells[i].booleans[2])
+        nanog = str(self.cells[i].booleans[3])
+        state = str(self.cells[i].state)
         diff = str(round(self.cells[i].diff_timer, 1))
         div = str(round(self.cells[i].division_timer, 1))
-        state = str(self.cells[i].state)
-        motion = str(self.cells[i].motion)
+        death = str(round(self.cells[i].death_timer, 1))
 
-        object_writer.writerow([x_coord, y_coord, state, x1, x2, x3, x4, motion, diff, div])
+        object_writer.writerow([x_coord, y_coord, z_coord, motion, mass, nuclear, cytoplasm, fgfr, erk, gata, nanog,
+                                state, diff, div, death])
 
 
 def save_file(self):

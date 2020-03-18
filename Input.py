@@ -57,24 +57,23 @@ def Setup():
         _diff_div_thresh = float(parameters[11])
         _pluri_to_diff = float(parameters[12])
         _diff_surround_value = int(parameters[13])
-        _max_fgf4 = int(parameters[14])
-        _death_threshold = int(parameters[15])
-        _move_time_step = float(parameters[16])
-        _move_max_time = float(parameters[17])
-        _spring_constant = float(parameters[18])
-        _friction = float(parameters[19])
-        _energy_kept = float(parameters[20])
-        _neighbor_distance = float(parameters[21])
-        _mass = float(parameters[22])
-        _nuclear_radius = float(parameters[23])
-        _cytoplasm_radius = float(parameters[24])
-        _gradients = eval(parameters[25])
+        _death_threshold = int(parameters[14])
+        _move_time_step = float(parameters[15])
+        _move_max_time = float(parameters[16])
+        _spring_constant = float(parameters[17])
+        _friction = float(parameters[18])
+        _energy_kept = float(parameters[19])
+        _neighbor_distance = float(parameters[20])
+        _mass = float(parameters[21])
+        _nuclear_radius = float(parameters[22])
+        _cytoplasm_radius = float(parameters[23])
+        _gradients = eval(parameters[24])
 
         # initializes simulation class which holds all information about the simulation
         simulation = Simulation.Simulation(_name, _path, _end_time, _time_step, _pluri_div_thresh, _diff_div_thresh,
                                            _pluri_to_diff, _size, _diff_surround_value, _functions, _parallel,
-                                           _max_fgf4, _death_threshold, _move_time_step, _move_max_time,
-                                           _spring_constant, _friction, _energy_kept, _neighbor_distance)
+                                           _death_threshold, _move_time_step, _move_max_time, _spring_constant,
+                                           _friction, _energy_kept, _neighbor_distance)
 
         # checks to see if the simulation name is desired and valid
         check_name(simulation)
@@ -96,7 +95,10 @@ def Setup():
         for i in range(_num_NANOG):
 
             # random location on grid
-            location = np.array([r.random() * _size[1], r.random() * _size[2]])
+            location = np.array([r.random() * _size[0], r.random() * _size[1], r.random() * _size[2]])
+
+            if _size[0] == 1:
+                location[2] = 0.0
 
             # initially Pluripotent
             state = "Pluripotent"
@@ -139,7 +141,10 @@ def Setup():
         for i in range(_num_GATA6):
 
             # random location on grid
-            location = np.array([r.random() * _size[1], r.random() * _size[2]])
+            location = np.array([r.random() * _size[0], r.random() * _size[1], r.random() * _size[2]])
+
+            if _size[0] == 1:
+                location[2] = 0.0
 
             # initially Pluripotent
             state = "Pluripotent"

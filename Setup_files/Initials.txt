@@ -22,8 +22,8 @@ How many cells will be NANOG high to begin the simulation?
 Stochastic FGFR + ERK values?
 [ True ]
 
-What will be the size of the grid? Ex. (rows, columns)
-[ (1, 1000, 1000) ]
+What will be the size of the grid? Ex. (x, y, z)
+[ (1000, 1000, 100) ]
 
 Define the boolean functions below
 [ "x5", "x1 * x4", "x2", "x5 + 1", "(x3+1) * (x4+1)" ]
@@ -39,9 +39,6 @@ Length of time steps required for a pluripotent cell to differentiate
 
 Amount of differentiated cells needed to surround a pluripotent cell and differentiate it
 [ 5 ]
-
-Max FGF4 on a patch
-[ 10 ]
 
 Death threshold
 [ 5 ]
@@ -64,7 +61,7 @@ Energy kept
 Distance that constitutes a neighbor
 [ 24.0 ]
 
-Mass
+Initial Mass
 [ 6.0 ]
 
 Nuclear radius

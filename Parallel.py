@@ -16,10 +16,11 @@ def initialize_grid_gpu(self):
     """ the parallel form of "initialize_grid"
     """
     # sets up the correct allocation of threads and blocks
-    threads_per_block = (32, 32)
-    blocks_per_grid_x = math.ceil(self.grid.shape[1] / threads_per_block[0])
-    blocks_per_grid_y = math.ceil(self.grid.shape[2] / threads_per_block[1])
-    blocks_per_grid = (blocks_per_grid_x, blocks_per_grid_y)
+    threads_per_block = (16, 16, 4)
+    blocks_per_grid_x = math.ceil(self.grid.shape[0] / threads_per_block[0])
+    blocks_per_grid_y = math.ceil(self.grid.shape[1] / threads_per_block[1])
+    blocks_per_grid_z = math.ceil(self.grid.shape[2] / threads_per_block[2])
+    blocks_per_grid = (blocks_per_grid_x, blocks_per_grid_y, blocks_per_grid_z)
 
     # turns the grid into a form able to send to the gpu
     cuda_grid = cuda.to_device(self.grid)
@@ -35,21 +36,22 @@ def initialize_grid_cuda(grid_array):
     """ this is the function being run in parallel
     """
     # a and b provide the location on the array as it runs
-    a, b = cuda.grid(2)
+    a, b, c = cuda.grid(3)
 
     # checks that the location is within the array
-    if a < grid_array.shape[1] and b < grid_array.shape[2]:
-        grid_array[0][a][b] += 5.0
+    if a < grid_array.shape[0] and b < grid_array.shape[1] and c < grid_array.shape[2]:
+        grid_array[a][b][c] += 5.0
 
 
 def update_grid_gpu(self):
     """ the parallel form of "update_grid"
     """
     # sets up the correct allocation of threads and blocks
-    threads_per_block = (32, 32)
-    blocks_per_grid_x = math.ceil(self.grid.shape[1] / threads_per_block[0])
-    blocks_per_grid_y = math.ceil(self.grid.shape[2] / threads_per_block[1])
-    blocks_per_grid = (blocks_per_grid_x, blocks_per_grid_y)
+    threads_per_block = (16, 16, 4)
+    blocks_per_grid_x = math.ceil(self.grid.shape[0] / threads_per_block[0])
+    blocks_per_grid_y = math.ceil(self.grid.shape[1] / threads_per_block[1])
+    blocks_per_grid_z = math.ceil(self.grid.shape[2] / threads_per_block[2])
+    blocks_per_grid = (blocks_per_grid_x, blocks_per_grid_y, blocks_per_grid_z)
 
     # turns the grid into a form able to send to the gpu
     cuda_grid = cuda.to_device(self.grid)
@@ -65,18 +67,18 @@ def update_grid_cuda(grid_array):
     """ this is the function being run in parallel
     """
     # a and b provide the location on the array as it runs
-    a, b = cuda.grid(2)
+    a, b, c = cuda.grid(3)
 
     # checks that the location is within the array and that the concentration is larger than zero
-    if a < grid_array.shape[1] and b < grid_array.shape[2] and grid_array[0][a][b] > 0:
-        grid_array[0][a][b] -= 1.0
+    if a < grid_array.shape[0] and b < grid_array.shape[1] and c < grid_array.shape[2] and grid_array[a][b][c] > 0:
+        grid_array[a][b][c] -= 1.0
 
 
 def check_neighbors_gpu(self):
     """ the parallel form of "check_neighbors"
     """
     # arrays that will hold the cell locations and the output of edges
-    location_array = np.empty((0, 2), int)
+    location_array = np.empty((0, 3), int)
     edges_array = np.zeros((len(self.cells), len(self.cells)))
 
     # loops over all over the cells and puts their locations into a holder array
@@ -126,7 +128,7 @@ def check_neighbors_cuda(locations, edges, distance):
         for j in range(locations.shape[0]):
 
             # if the distance between the cells is less than or equal to the neighbor distance
-            if ((locations[i][0] - locations[j][0])**2 + (locations[i][1] - locations[j][1])**2) ** 0.5 <= distance[0]:
+            if ((locations[i][0] - locations[j][0])**2 + (locations[i][1] - locations[j][1])**2 + (locations[i][2] - locations[j][2])**2) ** 0.5 <= distance[0]:
                 # no edge for the cell and itself. "1" denotes an edge
                 if i != j:
                     edges[i][j] = 1
@@ -142,7 +144,7 @@ def handle_collisions_gpu(self):
         time_counter += self.move_time_step
 
         # arrays that hold the cell locations, radii, and masses
-        location_array = np.empty((0, 2), int)
+        location_array = np.empty((0, 3), int)
         nuclear_array = np.array([])
         cytoplasm_array = np.array([])
         mass_array = np.array([])
@@ -152,7 +154,7 @@ def handle_collisions_gpu(self):
         spring_constant = np.array([self.spring_constant])
 
         # array to hold the new cell velocities
-        velocities_array = np.zeros((len(self.cells), 2))
+        velocities_array = np.zeros((len(self.cells), 3))
 
         # loops over all over the cells and puts their locations into a holder array
         for i in range(len(self.cells)):
@@ -193,9 +195,10 @@ def handle_collisions_gpu(self):
             # subtracts the work from the kinetic energy and recalculates a new velocity
             new_velocity_x = np.sign(v[0]) * max(v[0] ** 2 - 2 * self.friction * abs(movement[0]), 0.0) ** 0.5
             new_velocity_y = np.sign(v[1]) * max(v[1] ** 2 - 2 * self.friction * abs(movement[1]), 0.0) ** 0.5
+            new_velocity_z = np.sign(v[2]) * max(v[2] ** 2 - 2 * self.friction * abs(movement[2]), 0.0) ** 0.5
 
             # assign new velocity
-            self.cells[i].velocity = np.array([new_velocity_x, new_velocity_y])
+            self.cells[i].velocity = np.array([new_velocity_x, new_velocity_y, new_velocity_z])
 
         # make sure the new location will be within the grid
         self.update_constraints()
@@ -216,7 +219,8 @@ def handle_collisions_cuda(locations, nuclear, cytoplasm, mass, energy, spring, 
             # gets the distance between the cells
             displacement_x = locations[i][0] - locations[j][0]
             displacement_y = locations[i][1] - locations[j][1]
-            mag = (displacement_x ** 2 + displacement_y ** 2) ** 0.5
+            displacement_z = locations[i][2] - locations[j][2]
+            mag = (displacement_x ** 2 + displacement_y ** 2 + displacement_z ** 2) ** 0.5
 
             # if the cells are overlapping then proceed
             if mag <= nuclear[i] + nuclear[j] + cytoplasm[i] + cytoplasm[j]:
@@ -224,17 +228,26 @@ def handle_collisions_cuda(locations, nuclear, cytoplasm, mass, energy, spring, 
                 # gets a normal vector of the vector between the centers of both cells
                 normal_x = displacement_x / mag
                 normal_y = displacement_y / mag
+                normal_z = displacement_z / mag
 
                 # find the displacement of the membrane overlap for each cell
                 obj1_displacement_x = (nuclear[i] + cytoplasm[i]) * normal_x
                 obj1_displacement_y = (nuclear[i] + cytoplasm[i]) * normal_y
+                obj1_displacement_z = (nuclear[i] + cytoplasm[i]) * normal_z
+
                 obj2_displacement_x = (nuclear[j] + cytoplasm[j]) * normal_x
                 obj2_displacement_y = (nuclear[j] + cytoplasm[j]) * normal_y
+                obj2_displacement_z = (nuclear[i] + cytoplasm[i]) * normal_z
+
                 overlap_x = (displacement_x - (obj1_displacement_x + obj2_displacement_x)) / 2
                 overlap_y = (displacement_y - (obj1_displacement_y + obj2_displacement_y)) / 2
+                overlap_z = (displacement_z - (obj1_displacement_z + obj2_displacement_z)) / 2
 
                 # converts the spring energy into kinetic energy in opposing directions
                 velocities[i][0] -= overlap_x * (energy[0] * spring[0] / mass[i]) ** 0.5
                 velocities[i][1] -= overlap_y * (energy[0] * spring[0] / mass[i]) ** 0.5
+                velocities[i][2] -= overlap_z * (energy[0] * spring[0] / mass[i]) ** 0.5
+
                 velocities[j][0] += overlap_x * (energy[0] * spring[0] / mass[j]) ** 0.5
                 velocities[j][1] += overlap_y * (energy[0] * spring[0] / mass[j]) ** 0.5
+                velocities[j][2] += overlap_z * (energy[0] * spring[0] / mass[j]) ** 0.5

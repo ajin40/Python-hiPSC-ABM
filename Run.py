@@ -5,6 +5,7 @@
 #########################################################
 import Input
 import Output
+import time
 
 
 
@@ -12,7 +13,7 @@ import Output
 Run this file in order to the simulation as a whole.
 
 
-If you run into issues, read the following quote.
+If you run into issues, please read the following quote.
 
 "That's just how the peaches roll."
                      - Garret Fritz
@@ -37,6 +38,7 @@ for Simulation in Simulations:
     # Save the first image and stats of the simulation. This is before any updates
     Output.save_file(Simulation)
 
+
     # run simulation until end time
     while Simulation.time_counter <= Simulation.end_time:
 
@@ -57,6 +59,9 @@ for Simulation in Simulations:
 
         # if cells are without a neighbor for too long it will die
         Simulation.kill_cells()
+
+        # change the sizes and shapes of the cells
+        # Simulation.change_size_cells()
 
         # adds/removes all objects from the simulation
         Simulation.update_cell_queue()
