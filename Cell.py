@@ -54,14 +54,10 @@ class Cell:
 
         # create new cell and add it to the simulation
 
-        cell = Cell(self.location, self.motion, self.mass, self.nuclear_radius, self.cytoplasm_radius, self.booleans,
+        location = self.location + np.array([r.uniform(-1, 1), r.uniform(-1, 1), 0])
+
+        cell = Cell(location, self.motion, self.mass, self.nuclear_radius, self.cytoplasm_radius, self.booleans,
                     self.state, self.diff_timer, self.division_timer, self.death_timer)
-
-        self.velocity[0] += r.uniform(-1, 1) * 10
-        self.velocity[1] += r.uniform(-1, 1) * 10
-        self.velocity[2] += r.uniform(-1, 1) * 10
-
-        cell.velocity = -1 * self.velocity
 
         simulation.add_object_to_addition_queue(cell)
 

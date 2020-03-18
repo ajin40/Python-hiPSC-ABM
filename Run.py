@@ -53,6 +53,8 @@ for Simulation in Simulations:
         # updates all of the objects (motion, state, booleans)
         Simulation.update_cells()
 
+        Simulation.move_cells()
+
         # if enough differentiated cells surround a cell then it will increase the differentiation
         Simulation.diff_surround_cells()
 

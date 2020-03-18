@@ -96,6 +96,7 @@ def Setup():
 
             # random location on grid
             location = np.array([r.random() * _size[0], r.random() * _size[1], r.random() * _size[2]])
+            location = np.array([r.random() * _size[0], r.random() * _size[1], 0.0])
 
             if _size[0] == 1:
                 location[2] = 0.0
@@ -142,6 +143,7 @@ def Setup():
 
             # random location on grid
             location = np.array([r.random() * _size[0], r.random() * _size[1], r.random() * _size[2]])
+            location = np.array([r.random() * _size[0], r.random() * _size[1], 0.0])
 
             if _size[0] == 1:
                 location[2] = 0.0

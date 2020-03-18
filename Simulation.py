@@ -271,69 +271,48 @@ class Simulation:
                         cell_2.velocity[1] += overlap[1] * (self.energy_kept * self.spring_constant / cell_2.mass)**0.5
                         cell_2.velocity[2] += overlap[2] * (self.energy_kept * self.spring_constant / cell_2.mass)**0.5
 
-                # loop over all of the cells and turn their velocities into displacement vectors
-                for i in range(len(self.cells)):
 
-                    # multiplies the time step by the velocity and adds that vector to the cell's holder
-                    v = self.cells[i].velocity
-                    movement = v * self.move_time_step
-                    location = self.cells[i].location
-
-                    new_location = location + movement
-
-                    if not 0 <= new_location[0] < self.size[0]:
-                        self.cells[i].velocity[0] *= -1
-                        self.cells[i].location[0] -= movement[0]
-                    else:
-                        self.cells[i].location[0] = new_location[0]
-
-                    if not 0 <= new_location[1] < self.size[1]:
-                        self.cells[i].velocity[1] *= -1
-                        self.cells[i].location[1] -= movement[1]
-                    else:
-                        self.cells[i].location[1] = new_location[1]
-
-                    if not 0 <= new_location[2] < self.size[2]:
-                        self.cells[i].velocity[2] *= -1
-                        self.cells[i].location[2] -= movement[2]
-                    else:
-                        self.cells[i].location[2] = new_location[2]
-
-                    # subtracts the work from the kinetic energy and recalculates a new velocity
-                    new_velocity_x = np.sign(v[0]) * max(v[0] ** 2 - 2 * self.friction * abs(movement[0]), 0.0)**0.5
-                    new_velocity_y = np.sign(v[1]) * max(v[1] ** 2 - 2 * self.friction * abs(movement[1]), 0.0)**0.5
-                    new_velocity_z = np.sign(v[2]) * max(v[2] ** 2 - 2 * self.friction * abs(movement[2]), 0.0)**0.5
-
-                    # assign new velocity
-                    self.cells[i].velocity = np.array([new_velocity_x, new_velocity_y, new_velocity_z])
 
                 # checks neighbors after the cells move for re-evaluation of collisions
                 self.check_neighbors()
 
-    def update_constraints(self):
-        """ makes sure the new location of the cell is within the grid
-            if not it will create a collision with the boundaries
-        """
-
-        # loops over all cells
+    def move_cells(self):
+        # loop over all of the cells and turn their velocities into displacement vectors
         for i in range(len(self.cells)):
-            # adds the displacement vector to the location
-            self.cells[i].location += self.cells[i].disp_vec
 
-            # if the cell's new location isn't in the grid subtract two times the displacement vector
-            if not 0 <= self.cells[i].location[0] < self.size[0]:
-                self.cells[i].location[0] -= self.cells[i].disp_vec[0]
+            # multiplies the time step by the velocity and adds that vector to the cell's holder
+            v = self.cells[i].velocity
+            movement = v * self.move_time_step
+            location = self.cells[i].location
 
-            # if the cell's new location isn't in the grid subtract two times the displacement vector
-            if not 0 <= self.cells[i].location[1] < self.size[1]:
-                self.cells[i].location[1] -= self.cells[i].disp_vec[1]
+            new_location = location + movement
 
-            # if the cell's new location isn't in the grid subtract two times the displacement vector
-            if not 0 <= self.cells[i].location[2] < self.size[2]:
-                self.cells[i].location[2] -= self.cells[i].disp_vec[2]
+            if not 0 <= new_location[0] < self.size[0]:
+                self.cells[i].velocity[0] *= -1
+                self.cells[i].location[0] -= movement[0]
+            else:
+                self.cells[i].location[0] = new_location[0]
 
-            # resets the movement vector to [0,0,0]
-            self.cells[i].disp_vec = np.array([0.0, 0.0, 0.0])
+            if not 0 <= new_location[1] < self.size[1]:
+                self.cells[i].velocity[1] *= -1
+                self.cells[i].location[1] -= movement[1]
+            else:
+                self.cells[i].location[1] = new_location[1]
+
+            if not 0 <= new_location[2] < self.size[2]:
+                self.cells[i].velocity[2] *= -1
+                self.cells[i].location[2] -= movement[2]
+            else:
+                self.cells[i].location[2] = new_location[2]
+
+            # subtracts the work from the kinetic energy and recalculates a new velocity
+            new_velocity_x = np.sign(v[0]) * max(v[0] ** 2 - 2 * self.friction * abs(movement[0]), 0.0) ** 0.5
+            new_velocity_y = np.sign(v[1]) * max(v[1] ** 2 - 2 * self.friction * abs(movement[1]), 0.0) ** 0.5
+            new_velocity_z = np.sign(v[2]) * max(v[2] ** 2 - 2 * self.friction * abs(movement[2]), 0.0) ** 0.5
+
+            # assign new velocity
+            self.cells[i].velocity = np.array([new_velocity_x, new_velocity_y, new_velocity_z])
+
 
     def random_movement(self):
         """ has the objects that are in motion
@@ -347,4 +326,4 @@ class Simulation:
                 # new location of 10 times a random float from -1 to 1
                 self.cells[i].velocity[0] += r.uniform(-1, 1) * 3
                 self.cells[i].velocity[1] += r.uniform(-1, 1) * 3
-                self.cells[i].velocity[2] += r.uniform(-1, 1) * 3
+                # self.cells[i].velocity[2] += r.uniform(-1, 1) * 3

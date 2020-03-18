@@ -224,7 +224,7 @@ def location_to_text(self, path):
 
     # initializes csv file
     object_writer = csv.writer(new_file)
-    object_writer.writerow(['x_coord', 'y_coord', 'z_coord', 'Motion', 'Mass', 'Nuclear_Radius', 'Cytoplasm_Radius',
+    object_writer.writerow(['x_coord', 'y_coord', 'z_coord', 'x_vel', 'y_vel', 'z_vel', 'Motion', 'Mass', 'Nuclear_Radius', 'Cytoplasm_Radius',
                             'FGFR', 'ERK', 'GATA6', 'NANOG', 'State', 'Diff_Timer', 'Div_Timer', 'Death_Timer'])
 
     # writes for each cell. Lists the last four boolean values
@@ -232,6 +232,9 @@ def location_to_text(self, path):
         x_coord = str(round(self.cells[i].location[0], 1))
         y_coord = str(round(self.cells[i].location[1], 1))
         z_coord = str(round(self.cells[i].location[2], 1))
+        x_vel = str(round(self.cells[i].velocity[0], 1))
+        y_vel = str(round(self.cells[i].velocity[1], 1))
+        z_vel = str(round(self.cells[i].velocity[2], 1))
         motion = str(self.cells[i].motion)
         mass = str(self.cells[i].mass)
         nuclear = str(self.cells[i].nuclear_radius)
@@ -245,7 +248,7 @@ def location_to_text(self, path):
         div = str(round(self.cells[i].division_timer, 1))
         death = str(round(self.cells[i].death_timer, 1))
 
-        object_writer.writerow([x_coord, y_coord, z_coord, motion, mass, nuclear, cytoplasm, fgfr, erk, gata, nanog,
+        object_writer.writerow([x_coord, y_coord, z_coord, x_vel, y_vel, z_vel, motion, mass, nuclear, cytoplasm, fgfr, erk, gata, nanog,
                                 state, diff, div, death])
 
 
