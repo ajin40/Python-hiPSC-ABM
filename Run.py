@@ -62,7 +62,7 @@ for Simulation in Simulations:
         Simulation.diff_surround_cells()
 
         # change the sizes and shapes of the cells
-        # Simulation.change_size_cells()
+        Simulation.change_size_cells()
 
         # adds/removes all objects from the simulation
         Simulation.update_cell_queue()

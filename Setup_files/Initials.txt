@@ -1,5 +1,5 @@
 What is the name of the simulation?
-[ Run_92 ]
+[ Run_93 ]
 
 Define where the model will output its images, data, and video. Ex: C:\Python27\Model
 [ C:\Python27\MEGA-ARRAY ]
@@ -23,7 +23,7 @@ Stochastic FGFR + ERK values?
 [ True ]
 
 What will be the size of the grid? Ex. (x, y, z)
-[ (1000, 1000, 1) ]
+[ (1000, 1000, 100) ]
 
 Define the boolean functions below
 [ "x5", "x1 * x4", "x2", "x5 + 1", "(x3+1) * (x4+1)" ]
@@ -64,15 +64,15 @@ Distance that constitutes a neighbor
 Initial Mass
 [ 6.0 ]
 
-Nuclear radius
+Radius
 [ 6.0 ]
-
-Cytoplasm radius
-[ 3.0 ]
 
 Gradients
 [ [["FGF4", 10]] ]
 
 Three D
-[ True ]
+[ False ]
+
+Cell density
+[ 0.006 ]
 _______________________________________________________________________________________________________________________

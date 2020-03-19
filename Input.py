@@ -65,16 +65,16 @@ def Setup():
         _energy_kept = float(parameters[19])
         _neighbor_distance = float(parameters[20])
         _mass = float(parameters[21])
-        _nuclear_radius = float(parameters[22])
-        _cytoplasm_radius = float(parameters[23])
-        _gradients = eval(parameters[24])
-        _three_D = eval(parameters[25])
+        _radius = float(parameters[22])
+        _gradients = eval(parameters[23])
+        _three_D = eval(parameters[24])
+        _density = float(parameters[25])
 
         # initializes simulation class which holds all information about the simulation
         simulation = Simulation.Simulation(_name, _path, _end_time, _time_step, _pluri_div_thresh, _diff_div_thresh,
                                            _pluri_to_diff, _size, _diff_surround_value, _functions, _parallel,
                                            _death_threshold, _move_time_step, _move_max_time, _spring_constant,
-                                           _friction, _energy_kept, _neighbor_distance, _three_D)
+                                           _friction, _energy_kept, _neighbor_distance, _three_D, _density)
 
         # checks to see if the simulation name is desired and valid
         check_name(simulation)
@@ -117,11 +117,8 @@ def Setup():
             else:
                 booleans = np.array([0, 0, 0, 1])
 
-            # initial nuclear radius
-            nuclear_radius = _nuclear_radius
-
-            # initial cytoplasm radius
-            cytoplasm_radius = _cytoplasm_radius
+            # initial radius
+            radius = _radius
 
             # gives random initial differentiation timer
             diff_timer = _pluri_to_diff * r.random() * 0.5
@@ -135,7 +132,7 @@ def Setup():
             velocity = np.array([0.0, 0.0, 0.0], np.float32)
 
             # creates instance of Cell class
-            sim_obj = Cell.Cell(location, motion, velocity, mass, nuclear_radius, cytoplasm_radius, booleans, state, diff_timer,
+            sim_obj = Cell.Cell(location, motion, velocity, mass, radius, booleans, state, diff_timer,
                                 division_timer, death_timer)
 
             # adds object to simulation instance
@@ -165,11 +162,8 @@ def Setup():
             else:
                 booleans = np.array([0, 0, 1, 0])
 
-            # initial nuclear radius
-            nuclear_radius = _nuclear_radius
-
-            # initial cytoplasm radius
-            cytoplasm_radius = _cytoplasm_radius
+            # initial radius
+            radius = _radius
 
             # gives random initial differentiation timer
             diff_timer = _pluri_to_diff * r.random() * 0.5
@@ -183,7 +177,7 @@ def Setup():
             velocity = np.array([0.0, 0.0, 0.0], np.float32)
 
             # creates instance of Cell class
-            sim_obj = Cell.Cell(location, motion, velocity, mass, nuclear_radius, cytoplasm_radius, booleans, state, diff_timer,
+            sim_obj = Cell.Cell(location, motion, velocity, mass, radius, booleans, state, diff_timer,
                                 division_timer, death_timer)
 
             # adds object to simulation instance

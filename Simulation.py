@@ -21,7 +21,7 @@ class Simulation:
 
     def __init__(self, name, path, end_time, time_step, pluri_div_thresh, diff_div_thresh, pluri_to_diff, size,
                  diff_surround_value, functions, parallel, death_threshold, move_time_step, move_max_time,
-                 spring_constant, friction, energy_kept, neighbor_distance, three_D):
+                 spring_constant, friction, energy_kept, neighbor_distance, three_D, density):
 
         """ Initialization function for the simulation setup.
             name: the simulation name
@@ -62,6 +62,7 @@ class Simulation:
         self.energy_kept = energy_kept
         self.neighbor_distance = neighbor_distance
         self.three_D = three_D
+        self.density = density
 
         # counts how many times an image is created for making videos
         self.image_counter = 0
@@ -131,6 +132,13 @@ class Simulation:
         """
         for i in range(len(self.cells)):
             self.cells[i].diff_surround(self)
+
+    def change_size_cells(self):
+        """ updates the cell's radius and mass based on
+            the division counter
+        """
+        for i in range(len(self.cells)):
+            self.cells[i].change_size(self)
 
     def add_gradient(self, grid):
         """ adds a gradient object to the simulation instance
@@ -248,8 +256,8 @@ class Simulation:
                     displacement_vec = cell_1.location - cell_2.location
 
                     # addition of total cell radius
-                    cell_1_total_radius = cell_1.nuclear_radius + cell_1.cytoplasm_radius
-                    cell_2_total_radius = cell_2.nuclear_radius + cell_2.cytoplasm_radius
+                    cell_1_total_radius = cell_1.radius
+                    cell_2_total_radius = cell_2.radius
                     total_radii = cell_1_total_radius + cell_2_total_radius
 
                     # checks to see if the cells are overlapping

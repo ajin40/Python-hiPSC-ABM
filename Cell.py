@@ -15,7 +15,7 @@ class Cell:
     """ Every cell object in the simulation
         will have this class
     """
-    def __init__(self, location, motion, velocity, mass, nuclear_radius, cytoplasm_radius, booleans, state, diff_timer,
+    def __init__(self, location, motion, velocity, mass, radius, booleans, state, diff_timer,
                  division_timer, death_timer):
 
         """ location: where the cell is located on the grid "[x,y]"
@@ -32,8 +32,7 @@ class Cell:
         self.motion = motion
         self.velocity = velocity
         self.mass = mass
-        self.nuclear_radius = nuclear_radius
-        self.cytoplasm_radius = cytoplasm_radius
+        self.radius = radius
         self.booleans = booleans
         self.state = state
         self.diff_timer = diff_timer
@@ -47,17 +46,26 @@ class Cell:
 
         # halve the division timer
         self.division_timer *= 0.5
+        self.mass *= 0.5
 
         location = self.location + RandomPointOnSphere() * 3.0
 
         while not 0 <= location[0] < simulation.size[0] or not 0 <= location[1] < simulation.size[1] or not 0 <= location[2] < simulation.size[2]:
             location = self.location + RandomPointOnSphere() * 3.0
 
-
-        cell = Cell(location, self.motion, self.velocity, self.mass, self.nuclear_radius, self.cytoplasm_radius, self.booleans,
+        cell = Cell(location, self.motion, self.velocity, self.mass, self.radius, self.booleans,
                     self.state, self.diff_timer, self.division_timer, self.death_timer)
 
         simulation.add_object_to_addition_queue(cell)
+
+    def change_size(self, simulation):
+        self.mass *= 1.2
+
+        if simulation.three_D:
+            self.radius = ((3/(4 * 3.14159)) / simulation.density) ** (1/3)
+        else:
+            self.radius = (3 / (4 * 3.14159) / simulation.density) ** 0.5
+
 
 
     def boolean_function(self, fgf4_bool, simulation):

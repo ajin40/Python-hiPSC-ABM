@@ -145,8 +145,7 @@ def handle_collisions_gpu(self):
 
         # arrays that hold the cell locations, radii, and masses
         location_array = np.empty((0, 3), int)
-        nuclear_array = np.array([])
-        cytoplasm_array = np.array([])
+        radius_array = np.array([])
         mass_array = np.array([])
 
         # arrays that hold the energy and spring values
@@ -159,14 +158,12 @@ def handle_collisions_gpu(self):
         # loops over all over the cells and puts their locations into a holder array
         for i in range(len(self.cells)):
             location_array = np.append(location_array, np.array([self.cells[i].location]), axis=0)
-            nuclear_array = np.append(nuclear_array, np.array([self.cells[i].nuclear_radius]), axis=0)
-            cytoplasm_array = np.append(cytoplasm_array, np.array([self.cells[i].cytoplasm_radius]), axis=0)
+            radius_array = np.append(radius_array, np.array([self.cells[i].radius]), axis=0)
             mass_array = np.append(mass_array, np.array([self.cells[i].mass]), axis=0)
 
         # turns the arrays into a form able to send to the gpu
         location_array = cuda.to_device(location_array)
-        nuclear_array = cuda.to_device(nuclear_array)
-        cytoplasm_array = cuda.to_device(cytoplasm_array)
+        radius_array = cuda.to_device(radius_array)
         mass_array = cuda.to_device(mass_array)
         energy_kept = cuda.to_device(energy_kept)
         spring_constant = cuda.to_device(spring_constant)
@@ -175,7 +172,7 @@ def handle_collisions_gpu(self):
         # sets up the correct allocation of threads and blocks
         threads_per_block = 32
         blocks_per_grid = math.ceil(location_array.size / threads_per_block)
-        handle_collisions_cuda[blocks_per_grid, threads_per_block](location_array, nuclear_array, cytoplasm_array,
+        handle_collisions_cuda[blocks_per_grid, threads_per_block](location_array, radius_array,
                                                                    mass_array, energy_kept, spring_constant,
                                                                    velocities_array)
         # returns the array
@@ -189,7 +186,6 @@ def handle_collisions_gpu(self):
 
             # multiplies the time step by the velocity and adds that vector to the cell's holder
             v = self.cells[i].velocity
-
             movement = v * self.move_time_step
             location = self.cells[i].location
 
@@ -231,7 +227,7 @@ def handle_collisions_gpu(self):
             self.cells[i].velocity = np.array([new_velocity_x, new_velocity_y, new_velocity_z])
 
 @cuda.jit
-def handle_collisions_cuda(locations, nuclear, cytoplasm, mass, energy, spring, velocities):
+def handle_collisions_cuda(locations, radius, mass, energy, spring, velocities):
     """ this is the function being run in parallel
     """
     # i provides the location on the array as it runs
@@ -250,7 +246,7 @@ def handle_collisions_cuda(locations, nuclear, cytoplasm, mass, energy, spring, 
             mag = (displacement_x ** 2 + displacement_y ** 2 + displacement_z ** 2) ** 0.5
 
             # if the cells are overlapping then proceed
-            if mag <= nuclear[i] + nuclear[j] + cytoplasm[i] + cytoplasm[j]:
+            if mag <= radius[i] + radius[j]:
 
                 # gets a normal vector of the vector between the centers of both cells
                 if mag == 0.0:
@@ -263,13 +259,13 @@ def handle_collisions_cuda(locations, nuclear, cytoplasm, mass, energy, spring, 
                     normal_x = displacement_x / mag
 
                 # find the displacement of the membrane overlap for each cell
-                obj1_displacement_x = (nuclear[i] + cytoplasm[i]) * normal_x
-                obj1_displacement_y = (nuclear[i] + cytoplasm[i]) * normal_y
-                obj1_displacement_z = (nuclear[i] + cytoplasm[i]) * normal_z
+                obj1_displacement_x = radius[i] * normal_x
+                obj1_displacement_y = radius[i] * normal_y
+                obj1_displacement_z = radius[i]* normal_z
 
-                obj2_displacement_x = (nuclear[j] + cytoplasm[j]) * normal_x
-                obj2_displacement_y = (nuclear[j] + cytoplasm[j]) * normal_y
-                obj2_displacement_z = (nuclear[i] + cytoplasm[i]) * normal_z
+                obj2_displacement_x = radius[j] * normal_x
+                obj2_displacement_y = radius[j] * normal_y
+                obj2_displacement_z = radius[j] * normal_z
 
                 overlap_x = (displacement_x - (obj1_displacement_x + obj2_displacement_x)) / 2
                 overlap_y = (displacement_y - (obj1_displacement_y + obj2_displacement_y)) / 2
