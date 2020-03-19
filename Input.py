@@ -131,8 +131,10 @@ def Setup():
             # gives random initial death timer
             death_timer = _death_threshold * r.random()
 
+            velocity = np.array([0.0, 0.0, 0.0], np.float32)
+
             # creates instance of Cell class
-            sim_obj = Cell.Cell(location, motion, mass, nuclear_radius, cytoplasm_radius, booleans, state, diff_timer,
+            sim_obj = Cell.Cell(location, motion, velocity, mass, nuclear_radius, cytoplasm_radius, booleans, state, diff_timer,
                                 division_timer, death_timer)
 
             # adds object to simulation instance
@@ -178,8 +180,10 @@ def Setup():
             # gives random initial death timer
             death_timer = _death_threshold * r.random()
 
+            velocity = np.array([0.0, 0.0, 0.0], np.float32)
+
             # creates instance of Cell class
-            sim_obj = Cell.Cell(location, motion, mass, nuclear_radius, cytoplasm_radius, booleans, state, diff_timer,
+            sim_obj = Cell.Cell(location, motion, velocity, mass, nuclear_radius, cytoplasm_radius, booleans, state, diff_timer,
                                 division_timer, death_timer)
 
             # adds object to simulation instance

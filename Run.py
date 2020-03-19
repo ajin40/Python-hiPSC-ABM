@@ -50,16 +50,17 @@ for Simulation in Simulations:
         # create/break connections between cells depending on distance apart
         Simulation.check_neighbors()
 
+        # if cells are without a neighbor for too long it will die
+        Simulation.kill_cells()
+
         # updates all of the objects (motion, state, booleans)
         Simulation.update_cells()
 
-        Simulation.move_cells()
+        # moves cells in "motion" in a random fashion
+        # Simulation.random_movement()
 
         # if enough differentiated cells surround a cell then it will increase the differentiation
         Simulation.diff_surround_cells()
-
-        # if cells are without a neighbor for too long it will die
-        Simulation.kill_cells()
 
         # change the sizes and shapes of the cells
         # Simulation.change_size_cells()
@@ -67,14 +68,12 @@ for Simulation in Simulations:
         # adds/removes all objects from the simulation
         Simulation.update_cell_queue()
 
-        # moves cells in "motion" in a random fashion
-        Simulation.random_movement()
-
         # re-checks for neighbors before handling collisions
         Simulation.check_neighbors()
 
         # move the cells to a state a equilibrium so that there is minimal overlap
-        Simulation.handle_collisions()
+        # Simulation.handle_collisions()
+        Simulation.movement()
 
         # saves the image file and txt file with all important information
         Output.save_file(Simulation)

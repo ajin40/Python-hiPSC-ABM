@@ -15,7 +15,7 @@ class Cell:
     """ Every cell object in the simulation
         will have this class
     """
-    def __init__(self, location, motion, mass, nuclear_radius, cytoplasm_radius, booleans, state, diff_timer,
+    def __init__(self, location, motion, velocity, mass, nuclear_radius, cytoplasm_radius, booleans, state, diff_timer,
                  division_timer, death_timer):
 
         """ location: where the cell is located on the grid "[x,y]"
@@ -30,6 +30,7 @@ class Cell:
         """
         self.location = location
         self.motion = motion
+        self.velocity = velocity
         self.mass = mass
         self.nuclear_radius = nuclear_radius
         self.cytoplasm_radius = cytoplasm_radius
@@ -39,11 +40,6 @@ class Cell:
         self.division_timer = division_timer
         self.death_timer = death_timer
 
-        # holds the value of the movement vector of the cell
-        self.disp_vec = np.array([0.0, 0.0, 0.0], dtype=np.float32)
-
-        self.velocity = np.array([0.0, 0.0, 0.0], dtype=np.float32)
-
 
     def divide(self, simulation):
         """ produces another cell via mitosis
@@ -52,12 +48,14 @@ class Cell:
         # halve the division timer
         self.division_timer *= 0.5
 
-        # create new cell and add it to the simulation
+        self.velocity = np.array([60.0, 60.0, 0.0])
+        velocity = -1 * np.array([60.0, 60.0, 0.0])
+        print(velocity)
 
-        location = self.location + np.array([r.uniform(-1, 1), r.uniform(-1, 1), 0])
-
-        cell = Cell(location, self.motion, self.mass, self.nuclear_radius, self.cytoplasm_radius, self.booleans,
+        cell = Cell(self.location, self.motion, velocity, self.mass, self.nuclear_radius, self.cytoplasm_radius, self.booleans,
                     self.state, self.diff_timer, self.division_timer, self.death_timer)
+
+
 
         simulation.add_object_to_addition_queue(cell)
 

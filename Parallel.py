@@ -181,31 +181,34 @@ def handle_collisions_gpu(self):
         # returns the array
         output = velocities_array.copy_to_host()
 
-        # adds the output velocity to the old velocity
         for i in range(len(self.cells)):
             self.cells[i].velocity += output[i]
+        # adds the output velocity to the old velocity
+
+        for i in range(len(self.cells)):
 
             # multiplies the time step by the velocity and adds that vector to the cell's holder
             v = self.cells[i].velocity
+
             movement = v * self.move_time_step
             location = self.cells[i].location
 
             new_location = location + movement
 
             if not 0 <= new_location[0] < self.size[0]:
-                self.cells[i].velocity[0] *= -1
+                self.cells[i].velocity[0] *= -0.5
                 self.cells[i].location[0] -= movement[0]
             else:
                 self.cells[i].location[0] = new_location[0]
 
             if not 0 <= new_location[1] < self.size[1]:
-                self.cells[i].velocity[1] *= -1
+                self.cells[i].velocity[1] *= -0.5
                 self.cells[i].location[1] -= movement[1]
             else:
                 self.cells[i].location[1] = new_location[1]
 
             if not 0 <= new_location[2] < self.size[2]:
-                self.cells[i].velocity[2] *= -1
+                self.cells[i].velocity[2] *= -0.5
                 self.cells[i].location[2] -= movement[2]
             else:
                 self.cells[i].location[2] = new_location[2]
@@ -217,7 +220,6 @@ def handle_collisions_gpu(self):
 
             # assign new velocity
             self.cells[i].velocity = np.array([new_velocity_x, new_velocity_y, new_velocity_z])
-
 
 @cuda.jit
 def handle_collisions_cuda(locations, nuclear, cytoplasm, mass, energy, spring, velocities):
@@ -242,9 +244,14 @@ def handle_collisions_cuda(locations, nuclear, cytoplasm, mass, energy, spring, 
             if mag <= nuclear[i] + nuclear[j] + cytoplasm[i] + cytoplasm[j]:
 
                 # gets a normal vector of the vector between the centers of both cells
-                normal_x = displacement_x / mag
-                normal_y = displacement_y / mag
-                normal_z = displacement_z / mag
+                if mag == 0.0:
+                    normal_x = 0.0
+                    normal_y = 0.0
+                    normal_z = 0.0
+                else:
+                    normal_y = displacement_y / mag
+                    normal_z = displacement_z / mag
+                    normal_x = displacement_x / mag
 
                 # find the displacement of the membrane overlap for each cell
                 obj1_displacement_x = (nuclear[i] + cytoplasm[i]) * normal_x
