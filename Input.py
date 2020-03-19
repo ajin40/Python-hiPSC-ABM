@@ -68,12 +68,13 @@ def Setup():
         _nuclear_radius = float(parameters[22])
         _cytoplasm_radius = float(parameters[23])
         _gradients = eval(parameters[24])
+        _three_D = eval(parameters[25])
 
         # initializes simulation class which holds all information about the simulation
         simulation = Simulation.Simulation(_name, _path, _end_time, _time_step, _pluri_div_thresh, _diff_div_thresh,
                                            _pluri_to_diff, _size, _diff_surround_value, _functions, _parallel,
                                            _death_threshold, _move_time_step, _move_max_time, _spring_constant,
-                                           _friction, _energy_kept, _neighbor_distance)
+                                           _friction, _energy_kept, _neighbor_distance, _three_D)
 
         # checks to see if the simulation name is desired and valid
         check_name(simulation)
@@ -95,11 +96,11 @@ def Setup():
         for i in range(_num_NANOG):
 
             # random location on grid
-            location = np.array([r.random() * _size[0], r.random() * _size[1], r.random() * _size[2]])
-            location = np.array([r.random() * _size[0], r.random() * _size[1], 0.0])
+            if _three_D:
+                location = np.array([r.random() * _size[0], r.random() * _size[1], r.random() * _size[2]])
+            else:
+                location = np.array([r.random() * _size[0], r.random() * _size[1], 0.0])
 
-            if _size[0] == 1:
-                location[2] = 0.0
 
             # initially Pluripotent
             state = "Pluripotent"
@@ -144,11 +145,10 @@ def Setup():
         for i in range(_num_GATA6):
 
             # random location on grid
-            location = np.array([r.random() * _size[0], r.random() * _size[1], r.random() * _size[2]])
-            location = np.array([r.random() * _size[0], r.random() * _size[1], 0.0])
-
-            if _size[0] == 1:
-                location[2] = 0.0
+            if _three_D:
+                location = np.array([r.random() * _size[0], r.random() * _size[1], r.random() * _size[2]])
+            else:
+                location = np.array([r.random() * _size[0], r.random() * _size[1], 0.0])
 
             # initially Pluripotent
             state = "Pluripotent"

@@ -1,5 +1,5 @@
 What is the name of the simulation?
-[ Run_90 ]
+[ Run_92 ]
 
 Define where the model will output its images, data, and video. Ex: C:\Python27\Model
 [ C:\Python27\MEGA-ARRAY ]
@@ -72,4 +72,7 @@ Cytoplasm radius
 
 Gradients
 [ [["FGF4", 10]] ]
+
+Three D
+[ True ]
 _______________________________________________________________________________________________________________________

@@ -195,21 +195,30 @@ def handle_collisions_gpu(self):
 
             new_location = location + movement
 
-            if not 0 <= new_location[0] < self.size[0]:
+            if new_location[0] >= self.size[0]:
                 self.cells[i].velocity[0] *= -0.5
-                self.cells[i].location[0] -= movement[0]
+                self.cells[i].location[0] = self.size[0] - 0.001
+            elif new_location[0] < 0:
+                self.cells[i].velocity[0] *= -0.5
+                self.cells[i].location[0] = 0.0
             else:
                 self.cells[i].location[0] = new_location[0]
 
-            if not 0 <= new_location[1] < self.size[1]:
+            if new_location[1] >= self.size[1]:
                 self.cells[i].velocity[1] *= -0.5
-                self.cells[i].location[1] -= movement[1]
+                self.cells[i].location[1] = self.size[1] - 0.001
+            elif new_location[1] < 0:
+                self.cells[i].velocity[1] *= -0.5
+                self.cells[i].location[1] = 0.0
             else:
                 self.cells[i].location[1] = new_location[1]
 
-            if not 0 <= new_location[2] < self.size[2]:
+            if new_location[2] >= self.size[2]:
                 self.cells[i].velocity[2] *= -0.5
-                self.cells[i].location[2] -= movement[2]
+                self.cells[i].location[2] = self.size[2] - 0.001
+            elif new_location[2] < 0:
+                self.cells[i].velocity[2] *= -0.5
+                self.cells[i].location[2] = 0.0
             else:
                 self.cells[i].location[2] = new_location[2]
 

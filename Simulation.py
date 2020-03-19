@@ -21,7 +21,7 @@ class Simulation:
 
     def __init__(self, name, path, end_time, time_step, pluri_div_thresh, diff_div_thresh, pluri_to_diff, size,
                  diff_surround_value, functions, parallel, death_threshold, move_time_step, move_max_time,
-                 spring_constant, friction, energy_kept, neighbor_distance):
+                 spring_constant, friction, energy_kept, neighbor_distance, three_D):
 
         """ Initialization function for the simulation setup.
             name: the simulation name
@@ -37,11 +37,7 @@ class Simulation:
             diff_surround_value: the amount of differentiated cells needed to surround
                 a pluripotent cell inducing its differentiation
             functions: the boolean functions as a string from Model_Setup
-            itrs: the max amount of times optimize will run
-            error: the max error allowed for optimize
             parallel: whether some aspects are run on the gpu
-            max_fgf4: the limit a patch will hold for fgf4
-            bounds: the bounds of the simulation
             spring_constant: strength of spring
             friction: resistance to moving in the environment
             energy_kept: percent of energy left after turning spring energy into kinetic
@@ -65,6 +61,7 @@ class Simulation:
         self.friction = friction
         self.energy_kept = energy_kept
         self.neighbor_distance = neighbor_distance
+        self.three_D = three_D
 
         # counts how many times an image is created for making videos
         self.image_counter = 0
@@ -286,21 +283,30 @@ class Simulation:
 
                     new_location = location + movement
 
-                    if not 0 <= new_location[0] < self.size[0]:
+                    if new_location[0] >= self.size[0]:
                         self.cells[i].velocity[0] *= -0.5
-                        self.cells[i].location[0] -= movement[0]
+                        self.cells[i].location[0] = self.size[0] - 0.001
+                    elif new_location[0] < 0:
+                        self.cells[i].velocity[0] *= -0.5
+                        self.cells[i].location[0] = 0.0
                     else:
                         self.cells[i].location[0] = new_location[0]
 
-                    if not 0 <= new_location[1] < self.size[1]:
+                    if new_location[1] >= self.size[1]:
                         self.cells[i].velocity[1] *= -0.5
-                        self.cells[i].location[1] -= movement[1]
+                        self.cells[i].location[1] = self.size[1] - 0.001
+                    elif new_location[1] < 0:
+                        self.cells[i].velocity[1] *= -0.5
+                        self.cells[i].location[1] = 0.0
                     else:
                         self.cells[i].location[1] = new_location[1]
 
-                    if not 0 <= new_location[2] < self.size[2]:
+                    if new_location[2] >= self.size[2]:
                         self.cells[i].velocity[2] *= -0.5
-                        self.cells[i].location[2] -= movement[2]
+                        self.cells[i].location[2] = self.size[2] - 0.001
+                    elif new_location[2] < 0:
+                        self.cells[i].velocity[2] *= -0.5
+                        self.cells[i].location[2] = 0.0
                     else:
                         self.cells[i].location[2] = new_location[2]
 
@@ -316,10 +322,6 @@ class Simulation:
                 self.check_neighbors()
 
 
-
-
-
-
     def random_movement(self):
         """ has the objects that are in motion
             move in a random way
@@ -332,5 +334,5 @@ class Simulation:
                 # new location of 10 times a random float from -1 to 1
                 self.cells[i].velocity[0] += r.uniform(-1, 1) * 3
                 self.cells[i].velocity[1] += r.uniform(-1, 1) * 3
-
-                # self.cells[i].velocity[2] += r.uniform(-1, 1) * 3
+                if self.three_D:
+                    self.cells[i].velocity[2] += r.uniform(-1, 1) * 3

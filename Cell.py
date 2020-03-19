@@ -48,14 +48,14 @@ class Cell:
         # halve the division timer
         self.division_timer *= 0.5
 
-        self.velocity = np.array([60.0, 60.0, 0.0])
-        velocity = -1 * np.array([60.0, 60.0, 0.0])
-        print(velocity)
+        location = self.location + RandomPointOnSphere() * 3.0
 
-        cell = Cell(self.location, self.motion, velocity, self.mass, self.nuclear_radius, self.cytoplasm_radius, self.booleans,
+        while not 0 <= location[0] < simulation.size[0] or not 0 <= location[1] < simulation.size[1] or not 0 <= location[2] < simulation.size[2]:
+            location = self.location + RandomPointOnSphere() * 3.0
+
+
+        cell = Cell(location, self.motion, self.velocity, self.mass, self.nuclear_radius, self.cytoplasm_radius, self.booleans,
                     self.state, self.diff_timer, self.division_timer, self.death_timer)
-
-
 
         simulation.add_object_to_addition_queue(cell)
 
@@ -203,6 +203,6 @@ def RandomPointOnSphere():
     theta = r.random() * 2 * math.pi
     x = math.cos(theta)
     y = math.sin(theta)
-    z = r.random()
+    # z = r.random()
 
-    return np.array([x, y, z])
+    return np.array([x, y, 0.0])

@@ -5,7 +5,6 @@
 #########################################################
 import Input
 import Output
-import time
 
 
 
@@ -57,7 +56,7 @@ for Simulation in Simulations:
         Simulation.update_cells()
 
         # moves cells in "motion" in a random fashion
-        # Simulation.random_movement()
+        Simulation.random_movement()
 
         # if enough differentiated cells surround a cell then it will increase the differentiation
         Simulation.diff_surround_cells()
@@ -72,8 +71,7 @@ for Simulation in Simulations:
         Simulation.check_neighbors()
 
         # move the cells to a state a equilibrium so that there is minimal overlap
-        # Simulation.handle_collisions()
-        Simulation.movement()
+        Simulation.handle_collisions()
 
         # saves the image file and txt file with all important information
         Output.save_file(Simulation)
