@@ -277,7 +277,7 @@ class Simulation:
                         cell_1.velocity[1] -= overlap[1] * (self.energy_kept * self.spring_constant / cell_1.mass)**0.5
                         cell_1.velocity[2] -= overlap[2] * (self.energy_kept * self.spring_constant / cell_1.mass)**0.5
 
-                        cell_1.velocity[0] -= overlap[0] * (self.energy_kept * self.spring_constant / cell_2.mass)**0.5
+                        cell_2.velocity[0] += overlap[0] * (self.energy_kept * self.spring_constant / cell_2.mass)**0.5
                         cell_2.velocity[1] += overlap[1] * (self.energy_kept * self.spring_constant / cell_2.mass)**0.5
                         cell_2.velocity[2] += overlap[2] * (self.energy_kept * self.spring_constant / cell_2.mass)**0.5
 
@@ -328,6 +328,9 @@ class Simulation:
 
                 # checks neighbors after the cells move for re-evaluation of collisions
                 self.check_neighbors()
+
+        for i in range(len(self.cells)):
+            self.cells[i].velocity = np.array([0.0, 0.0, 0.0], np.float32)
 
 
     def random_movement(self):

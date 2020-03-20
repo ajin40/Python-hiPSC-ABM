@@ -50,13 +50,13 @@ for Simulation in Simulations:
         Simulation.check_neighbors()
 
         # if cells are without a neighbor for too long it will die
-        Simulation.kill_cells()
+        # Simulation.kill_cells()
 
         # updates all of the objects (motion, state, booleans)
         Simulation.update_cells()
 
         # moves cells in "motion" in a random fashion
-        Simulation.random_movement()
+        # Simulation.random_movement()
 
         # if enough differentiated cells surround a cell then it will increase the differentiation
         Simulation.diff_surround_cells()

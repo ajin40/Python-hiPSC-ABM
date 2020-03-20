@@ -1,5 +1,5 @@
 What is the name of the simulation?
-[ Run_93 ]
+[ Run_2 ]
 
 Define where the model will output its images, data, and video. Ex: C:\Python27\Model
 [ C:\Python27\MEGA-ARRAY ]
@@ -14,16 +14,16 @@ What will the difference in time steps be?
 [ 1.0 ]
 
 How many cells will be GATA6 high to begin the simulation?
-[ 250 ]
+[ 0 ]
 
 How many cells will be NANOG high to begin the simulation?
-[ 750 ]
+[ 250 ]
 
 Stochastic FGFR + ERK values?
 [ True ]
 
 What will be the size of the grid? Ex. (x, y, z)
-[ (1000, 1000, 100) ]
+[ (1000, 1000, 1) ]
 
 Define the boolean functions below
 [ "x5", "x1 * x4", "x2", "x5 + 1", "(x3+1) * (x4+1)" ]
@@ -41,28 +41,28 @@ Amount of differentiated cells needed to surround a pluripotent cell and differe
 [ 5 ]
 
 Death threshold
-[ 5 ]
+[ 10 ]
 
 Time step for movement
-[ 1.0 ]
+[ 0.05 ]
 
 Max time for movement
-[ 10.0 ]
+[ 1.0 ]
 
 Spring constant
-[ 0.2 ]
+[ 1.0 ]
 
 Friction
-[ 0.5 ]
+[ 5.0 ]
 
 Energy kept
-[ 0.80 ]
+[ 1.0 ]
 
 Distance that constitutes a neighbor
 [ 36.0 ]
 
 Initial Mass
-[ 6.0 ]
+[ 1.0 ]
 
 Radius
 [ 6.0 ]
@@ -74,5 +74,5 @@ Three D
 [ False ]
 
 Cell density
-[ 0.006 ]
+[ 0.001 ]
 _______________________________________________________________________________________________________________________

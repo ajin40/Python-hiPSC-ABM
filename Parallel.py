@@ -226,6 +226,9 @@ def handle_collisions_gpu(self):
             # assign new velocity
             self.cells[i].velocity = np.array([new_velocity_x, new_velocity_y, new_velocity_z])
 
+    for i in range(len(self.cells)):
+        self.cells[i].velocity = np.array([0.0, 0.0, 0.0], np.float32)
+
 @cuda.jit
 def handle_collisions_cuda(locations, radius, mass, energy, spring, velocities):
     """ this is the function being run in parallel
@@ -254,14 +257,14 @@ def handle_collisions_cuda(locations, radius, mass, energy, spring, velocities):
                     normal_y = 0.0
                     normal_z = 0.0
                 else:
+                    normal_x = displacement_x / mag
                     normal_y = displacement_y / mag
                     normal_z = displacement_z / mag
-                    normal_x = displacement_x / mag
 
                 # find the displacement of the membrane overlap for each cell
                 obj1_displacement_x = radius[i] * normal_x
                 obj1_displacement_y = radius[i] * normal_y
-                obj1_displacement_z = radius[i]* normal_z
+                obj1_displacement_z = radius[i] * normal_z
 
                 obj2_displacement_x = radius[j] * normal_x
                 obj2_displacement_y = radius[j] * normal_y

@@ -13,7 +13,7 @@ of data from the simulation. Including images, CSV, and video
 """
 
 
-def draw_cell_image_xy(self, network, path):
+def draw_cell_image(self, network, path):
     """ Turns the graph into an image at each timestep
     """
     # increases the image counter by 1 each time this is called
@@ -37,7 +37,8 @@ def draw_cell_image_xy(self, network, path):
     for i in range(len(cells)):
         node = cells[i]
         x, y, z = node.location
-        r = node.radius
+        r1 = 0.3 * node.radius
+        r2 = node.radius
 
         # if node.state == "Pluripotent" or node.state == "Differentiated":
         #     if node.booleans[3] == 0 and node.booleans[2] == 1:
@@ -55,7 +56,8 @@ def draw_cell_image_xy(self, network, path):
             col = 'black'
 
         out = "black"
-        draw.ellipse((x - r + 250, y - r + 250, x + r + 250, y + r + 250), outline=out, fill=col)
+        draw.ellipse((x - r1 + 250, y - r1 + 250, x + r1 + 250, y + r1 + 250), outline=out, fill=col)
+        draw.ellipse((x - r2 + 250, y - r2 + 250, x + r2 + 250, y + r2 + 250), outline=out)
 
 
     # loops over all of the bounds and draws lines to represent the grid
@@ -147,5 +149,5 @@ def save_file(self):
     location_to_text(self, n2_path)
 
     # draws the image of the simulation
-    draw_cell_image_xy(self, self.network, base_path + "network_image_xy" + str(int(self.time_counter)))
+    draw_cell_image(self, self.network, base_path + "network_image_" + str(int(self.time_counter)))
 

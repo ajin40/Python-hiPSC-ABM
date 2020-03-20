@@ -48,7 +48,7 @@ class Cell:
         self.division_timer *= 0.5
         self.mass *= 0.5
 
-        location = self.location + RandomPointOnSphere() * 3.0
+        location = self.location + RandomPointOnSphere() * self.radius
 
         while not 0 <= location[0] < simulation.size[0] or not 0 <= location[1] < simulation.size[1] or not 0 <= location[2] < simulation.size[2]:
             location = self.location + RandomPointOnSphere() * 3.0
@@ -59,7 +59,7 @@ class Cell:
         simulation.add_object_to_addition_queue(cell)
 
     def change_size(self, simulation):
-        self.mass *= 1.2
+        self.mass *= 1.0
 
         if simulation.three_D:
             self.radius = ((3/(4 * 3.14159)) / simulation.density) ** (1/3)
