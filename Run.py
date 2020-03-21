@@ -28,17 +28,14 @@ for Simulation in Simulations:
     # Sets up all of the defined gradients with initial concentrations and parameters
     Simulation.initialize_gradients()
 
-    # Check for neighbors surrounding a cell and adds them to the graph
-    Simulation.check_neighbors()
-
-    # Move the cells to a state a equilibrium so that there is minimal overlap
-    Simulation.handle_collisions()
-
     # Save the first image and stats of the simulation. This is before any updates
     Output.save_file(Simulation)
 
     # run simulation until end time
     while Simulation.time_counter <= Simulation.end_time:
+
+        # increase time closer to threshold
+        Simulation.time_counter += Simulation.time_step
 
         # prints the time step and increases the time counter
         Simulation.info()
@@ -75,9 +72,6 @@ for Simulation in Simulations:
 
         # saves the image file and txt file with all important information
         Output.save_file(Simulation)
-
-        # increase time closer to threshold
-        Simulation.time_counter += Simulation.time_step
 
     # turns all images into a video at the end
     Output.image_to_video(Simulation)

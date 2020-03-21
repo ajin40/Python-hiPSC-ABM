@@ -8,7 +8,7 @@ Do you want the simulation to use parallel GPU processing?
 [ True ]
 
 How many total steps will the model run for?
-[ 1.0 ]
+[ 30.0 ]
 
 What will the difference in time steps be?
 [ 1.0 ]
