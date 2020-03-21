@@ -6,6 +6,8 @@
 from PIL import Image, ImageDraw
 import cv2
 import csv
+from scipy.spatial import Voronoi, voronoi_plot_2d
+import numpy as np
 
 """
 This contains all important functions for handling the output
@@ -87,12 +89,13 @@ def image_to_video(self):
     # image list to hold all image objects
     img_array = []
     # loops over all images created
-    for i in range(self.image_counter):
-        img = cv2.imread(base_path + 'network_image' + str(i) + ".png")
+    for i in range(self.image_counter - 1):
+        path = base_path + 'network_image_' + str(i) + ".png"
+        img = cv2.imread(path)
         img_array.append(img)
 
     # output file for the video
-    out = cv2.VideoWriter(base_path + 'network_video.avi', cv2.VideoWriter_fourcc("M", "J", "P", "G"), 1.0, (1500, 1500))
+    out = cv2.VideoWriter(base_path + 'network_video.avi', cv2.VideoWriter_fourcc("M", "J", "P", "G"), 1.0, (640, 480))
 
     # adds image to output file
     for i in range(len(img_array)):
@@ -149,5 +152,20 @@ def save_file(self):
     location_to_text(self, n2_path)
 
     # draws the image of the simulation
-    draw_cell_image(self, self.network, base_path + "network_image_" + str(int(self.time_counter)))
+    # draw_cell_image(self, self.network, base_path + "network_image_" + str(int(self.time_counter)))
 
+    voronoi(self, base_path + "network_image_" + str(int(self.time_counter)))
+    self.image_counter += 1
+
+
+
+def voronoi(self, path):
+
+    points = np.empty((0, 2), int)
+    for i in range(len(self.cells)):
+        points = np.append(points, [self.cells[i].location[:2]], axis=0)
+
+    vor = Voronoi(points)
+    fig = voronoi_plot_2d(vor, show_vertices=False, line_colors='green', line_width=2, line_alpha=0.6, point_size=5)
+
+    fig.savefig(path)
