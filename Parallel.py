@@ -7,10 +7,6 @@ from numba import cuda
 import math
 import numpy as np
 
-"""
-Here are the functions used for parallel gpu processing. If it looks confusing,
-good because it is.
-"""
 
 def initialize_grid_gpu(self):
     """ the parallel form of "initialize_grid"

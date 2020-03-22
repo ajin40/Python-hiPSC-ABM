@@ -7,9 +7,6 @@ import numpy as np
 import math
 import random as r
 
-"""
-The Cell class.
-"""
 
 class Cell:
     """ Every cell object in the simulation

@@ -9,11 +9,6 @@ import csv
 from scipy.spatial import Voronoi, voronoi_plot_2d
 import numpy as np
 
-"""
-This contains all important functions for handling the output
-of data from the simulation. Including images, CSV, and video
-"""
-
 
 def draw_cell_image(self, network, path):
     """ Turns the graph into an image at each timestep

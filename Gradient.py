@@ -7,9 +7,6 @@ import numpy as np
 import random as r
 import Parallel
 
-"""
-The Gradient class.
-"""
 
 class Gradient:
     """ called once holds important information about the

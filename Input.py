@@ -12,12 +12,6 @@ import Gradient
 import Simulation
 
 
-"""
-Input.Setup() takes Setup_files and creates an instance of the Simulation class.
-This instance hold all import important parameters including the gradients
-and cells
-"""
-
 
 def Setup():
     """ Looks at all of the setup files and turns them into

@@ -9,10 +9,6 @@ import platform
 import random as r
 import Parallel
 
-"""
-The simulation class.
-"""
-
 
 class Simulation:
     """ called once holds important information about the
