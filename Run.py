@@ -10,7 +10,7 @@ import Output
 Run this file in order to run the program as a whole. Everything is pretty malleable 
 but there are a few lines of code that should remain to keep the model running;
 however, this isn't set in stone. Important lines are marked with "(base)". I encourage
-the addition, deletion, and editing of the function other than "(base)". I have merely
+the addition, deletion, and editing of the functions other than "(base)". I have merely
 provided an example of functions I put together for my purposes.
 
 Here's what each of the files do:
