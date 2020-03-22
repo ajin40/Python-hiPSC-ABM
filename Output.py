@@ -1,8 +1,3 @@
-#########################################################
-# Name:    Output                                       #
-# Author:  Jack Toppen                                  #
-# Date:    3/17/20                                      #
-#########################################################
 from PIL import Image, ImageDraw
 import cv2
 import csv

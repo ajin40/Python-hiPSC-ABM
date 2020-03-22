@@ -1,33 +1,37 @@
-#########################################################
-# Name:    Input                                        #
-# Author:  Jack Toppen                                  #
-# Date:    3/17/20                                      #
-#########################################################
-import os
-import Cell
 import numpy as np
 import random as r
+import os
 import shutil
+import platform
 import Gradient
 import Simulation
-
+import Cell
 
 
 def Setup():
     """ Looks at all of the setup files and turns them into
         instances of the simulation class
     """
+
+    # which file separator to use
+    if platform.system() == "Windows":
+        # windows
+        sep = "\\"
+    else:
+        # linux/unix
+        sep = "/"
+
     # holds all of the instances of the simulation class
     simulations = []
 
     # opens the directory of the setup files
-    files = os.listdir(os.getcwd() + "/Setup_files")
+    files = os.listdir(os.getcwd() + sep + "Setup_files")
 
     # loops over all of the files in the directory
     for file in files:
 
         # opens the files and turns the lines into a list
-        setup_file = open(os.getcwd() + "/Setup_files/" + file, "r")
+        setup_file = open(os.getcwd() + sep + "Setup_files" + sep + file, "r")
         setup_list = setup_file.readlines()
         parameters = []
 
@@ -64,12 +68,13 @@ def Setup():
         _three_D = eval(parameters[24])
         _density = float(parameters[25])
         _n = int(parameters[26])
+        _sep = sep
 
         # initializes simulation class which holds all information about the simulation
         simulation = Simulation.Simulation(_name, _path, _end_time, _time_step, _pluri_div_thresh, _diff_div_thresh,
                                            _pluri_to_diff, _size, _diff_surround_value, _functions, _parallel,
                                            _death_threshold, _move_time_step, _move_max_time, _spring_constant,
-                                           _friction, _energy_kept, _neighbor_distance, _three_D, _density, _n)
+                                           _friction, _energy_kept, _neighbor_distance, _three_D, _density, _n, _sep)
 
         # checks to see if the simulation name is desired and valid
         check_name(simulation)
@@ -185,21 +190,20 @@ def Setup():
     return simulations
 
 
-def check_name(self):
-    """ Renames the file if need be
+def check_name(simulation):
+    """ Renames the file if another simulation
+        has the same name
     """
     while True:
         try:
-            os.mkdir(self.path + self.sep + self.name)
+            os.mkdir(simulation.path + simulation.sep + simulation.name)
             break
         except OSError:
-            print("Directory already exists")
-            user = input("Would you like to overwrite the existing simulation? (y/n): ")
+            print("Simulation with identical name")
+            user = input("Would you like to overwrite the that simulation? (y/n): ")
             if user == "n":
-                self.name = input("New name: ")
+                simulation.name = input("New name: ")
             if user == "y":
-                try:
-                    os.mkdir(self.path + self.sep + self.name)
-                except OSError:
-                    print("Overwriting directory")
-                    break
+                shutil.rmtree(simulation.path + simulation.sep + simulation.name)
+                os.mkdir(simulation.path + simulation.sep + simulation.name)
+                break

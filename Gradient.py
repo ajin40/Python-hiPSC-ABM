@@ -1,8 +1,3 @@
-#########################################################
-# Name:    Gradient                                     #
-# Author:  Jack Toppen                                  #
-# Date:    3/17/20                                      #
-#########################################################
 import numpy as np
 import random as r
 import Parallel

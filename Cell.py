@@ -1,8 +1,3 @@
-#########################################################
-# Name:    Cell                                         #
-# Author:  Jack Toppen                                  #
-# Date:    3/17/20                                      #
-#########################################################
 import numpy as np
 import math
 import random as r

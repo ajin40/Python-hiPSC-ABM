@@ -1,11 +1,5 @@
-#########################################################
-# Name:    Simulation                                   #
-# Author:  Jack Toppen                                  #
-# Date:    3/17/20                                      #
-#########################################################
 import numpy as np
 import networkx as nx
-import platform
 import random as r
 import Parallel
 
@@ -17,7 +11,7 @@ class Simulation:
 
     def __init__(self, name, path, end_time, time_step, pluri_div_thresh, diff_div_thresh, pluri_to_diff, size,
                  diff_surround_value, functions, parallel, death_threshold, move_time_step, move_max_time,
-                 spring_constant, friction, energy_kept, neighbor_distance, three_D, density, n):
+                 spring_constant, friction, energy_kept, neighbor_distance, three_D, density, n, sep):
 
         """ Initialization function for the simulation setup.
             name: the simulation name
@@ -60,6 +54,7 @@ class Simulation:
         self.three_D = three_D
         self.density = density
         self.n = n
+        self.sep = sep
 
         # counts how many times an image is created for making videos
         self.image_counter = 0
@@ -79,14 +74,6 @@ class Simulation:
         # holds the objects until they are added or removed from the simulation
         self.cells_to_remove = np.array([], dtype=np.object)
         self.cells_to_add = np.array([], dtype=np.object)
-
-        # which file separator to use
-        if platform.system() == "Windows":
-            # windows
-            self.sep = "\\"
-        else:
-            # linux/unix
-            self.sep = "/"
 
 
 

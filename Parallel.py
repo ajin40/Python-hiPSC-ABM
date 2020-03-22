@@ -1,8 +1,3 @@
-#########################################################
-# Name:    Parallel                                     #
-# Author:  Jack Toppen                                  #
-# Date:    3/17/20                                      #
-#########################################################
 from numba import cuda
 import math
 import numpy as np
@@ -12,7 +7,7 @@ def initialize_grid_gpu(self):
     """ the parallel form of "initialize_grid"
     """
     # sets up the correct allocation of threads and blocks
-    threads_per_block = (16, 16, 4)
+    threads_per_block = (10, 10, 10)
     blocks_per_grid_x = math.ceil(self.grid.shape[0] / threads_per_block[0])
     blocks_per_grid_y = math.ceil(self.grid.shape[1] / threads_per_block[1])
     blocks_per_grid_z = math.ceil(self.grid.shape[2] / threads_per_block[2])
@@ -43,7 +38,7 @@ def update_grid_gpu(self):
     """ the parallel form of "update_grid"
     """
     # sets up the correct allocation of threads and blocks
-    threads_per_block = (16, 16, 4)
+    threads_per_block = (10, 10, 10)
     blocks_per_grid_x = math.ceil(self.grid.shape[0] / threads_per_block[0])
     blocks_per_grid_y = math.ceil(self.grid.shape[1] / threads_per_block[1])
     blocks_per_grid_z = math.ceil(self.grid.shape[2] / threads_per_block[2])
@@ -176,15 +171,9 @@ def handle_collisions_gpu(self):
 
         for i in range(len(self.cells)):
             self.cells[i].velocity += output[i]
-        # adds the output velocity to the old velocity
-
-        for i in range(len(self.cells)):
-
-            # multiplies the time step by the velocity and adds that vector to the cell's holder
             v = self.cells[i].velocity
             movement = v * self.move_time_step
             location = self.cells[i].location
-
             new_location = location + movement
 
             if new_location[0] >= self.size[0]:
