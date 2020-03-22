@@ -21,7 +21,7 @@ class Simulation:
 
     def __init__(self, name, path, end_time, time_step, pluri_div_thresh, diff_div_thresh, pluri_to_diff, size,
                  diff_surround_value, functions, parallel, death_threshold, move_time_step, move_max_time,
-                 spring_constant, friction, energy_kept, neighbor_distance, three_D, density):
+                 spring_constant, friction, energy_kept, neighbor_distance, three_D, density, n):
 
         """ Initialization function for the simulation setup.
             name: the simulation name
@@ -63,6 +63,7 @@ class Simulation:
         self.neighbor_distance = neighbor_distance
         self.three_D = three_D
         self.density = density
+        self.n = n
 
         # counts how many times an image is created for making videos
         self.image_counter = 0
@@ -238,6 +239,8 @@ class Simulation:
         if self.parallel:
             Parallel.handle_collisions_gpu(self)
         else:
+            self.check_neighbors()
+
             # the while loop controls the amount of time steps for movement
             time_counter = 0
             while time_counter <= self.move_max_time:

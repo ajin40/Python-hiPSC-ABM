@@ -69,12 +69,13 @@ def Setup():
         _gradients = eval(parameters[23])
         _three_D = eval(parameters[24])
         _density = float(parameters[25])
+        _n = int(parameters[26])
 
         # initializes simulation class which holds all information about the simulation
         simulation = Simulation.Simulation(_name, _path, _end_time, _time_step, _pluri_div_thresh, _diff_div_thresh,
                                            _pluri_to_diff, _size, _diff_surround_value, _functions, _parallel,
                                            _death_threshold, _move_time_step, _move_max_time, _spring_constant,
-                                           _friction, _energy_kept, _neighbor_distance, _three_D, _density)
+                                           _friction, _energy_kept, _neighbor_distance, _three_D, _density, _n)
 
         # checks to see if the simulation name is desired and valid
         check_name(simulation)

@@ -1,5 +1,5 @@
 What is the name of the simulation?
-[ Run_4 ]
+[ Run_5 ]
 
 Define where the model will output its images, data, and video. Ex: C:\Python27\Model
 [ C:\Python27\MEGA-ARRAY ]
@@ -8,7 +8,7 @@ Do you want the simulation to use parallel GPU processing?
 [ True ]
 
 How many total steps will the model run for?
-[ 30.0 ]
+[ 10.0 ]
 
 What will the difference in time steps be?
 [ 1.0 ]
@@ -17,7 +17,7 @@ How many cells will be GATA6 high to begin the simulation?
 [ 0 ]
 
 How many cells will be NANOG high to begin the simulation?
-[ 250 ]
+[ 500 ]
 
 Stochastic FGFR + ERK values?
 [ True ]
@@ -75,4 +75,7 @@ Three D
 
 Cell density
 [ 0.001 ]
+
+N
+[ 2 ]
 _______________________________________________________________________________________________________________________
