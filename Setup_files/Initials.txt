@@ -5,10 +5,10 @@ Define where the model will output its images, data, and video. Ex: C:\Python27\
 [ C:\Python27\MEGA-ARRAY ]
 
 Do you want the simulation to use parallel GPU processing?
-[ False ]
+[ True ]
 
 How many total steps will the model run for?
-[ 10.0 ]
+[ 5.0 ]
 
 What will the difference in time steps be?
 [ 1.0 ]
@@ -44,19 +44,19 @@ Death threshold
 [ 10 ]
 
 Time step for movement
-[ 0.05 ]
+[ 0.1 ]
 
 Max time for movement
 [ 1.0 ]
 
 Spring constant
-[ 1.0 ]
+[ 1.25 ]
 
 Friction
-[ 5.0 ]
+[ 60.0 ]
 
 Energy kept
-[ 1.0 ]
+[ 0.80 ]
 
 Distance that constitutes a neighbor
 [ 36.0 ]

@@ -22,8 +22,6 @@ def draw_cell_image(self, network, path):
     # bounds of the simulation used for drawing patch
     # inherit
     bounds_xy = [[-12, -12], [-12, self.size[1] + 12], [self.size[0] + 12, self.size[1] + 12], [self.size[0] + 12, -12]]
-    bounds_xz = [[-12, -12], [-12, self.size[2] + 12], [self.size[0] + 12, self.size[2] + 12], [self.size[0] + 12, -12]]
-    bounds_yz = [[-12, -12], [-12, self.size[2] + 12], [self.size[1] + 12, self.size[2] + 12], [self.size[1] + 12, -12]]
 
     # loops over all of the cells/nodes and draws a circle with corresponding color
     for i in range(len(cells)):
@@ -142,9 +140,9 @@ def save_file(self):
     location_to_text(self, n2_path)
 
     # draws the image of the simulation
-    # draw_cell_image(self, self.network, base_path + "network_image_" + str(int(self.time_counter)))
+    draw_cell_image(self, self.network, base_path + "network_image_" + str(int(self.time_counter)))
 
-    voronoi(self, base_path + "network_image_" + str(int(self.time_counter)))
+    # voronoi(self, base_path + "network_image_" + str(int(self.time_counter)))
     self.image_counter += 1
 
 
@@ -158,4 +156,4 @@ def voronoi(self, path):
     vor = Voronoi(points)
     fig = voronoi_plot_2d(vor, show_vertices=False, line_colors='green', line_width=2, line_alpha=0.6, point_size=5)
 
-    fig.savefig(path)
+    fig.savefig(path, quality=100)

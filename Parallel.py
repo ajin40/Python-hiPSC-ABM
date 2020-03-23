@@ -1,6 +1,7 @@
 from numba import cuda
 import math
 import numpy as np
+import Output
 
 
 def initialize_grid_gpu(self):
@@ -211,8 +212,9 @@ def handle_collisions_gpu(self):
             # assign new velocity
             self.cells[i].velocity = np.array([new_velocity_x, new_velocity_y, new_velocity_z])
 
-    for i in range(len(self.cells)):
-        self.cells[i].velocity = np.array([0.0, 0.0, 0.0], np.float32)
+        base_path = self.path + self.sep + self.name + self.sep
+        Output.draw_cell_image(self, self.network, base_path + "network_image_" + str(int(self.time_counter)) + "_" + str(round(time_counter, 1)))
+
 
 @cuda.jit
 def handle_collisions_cuda(locations, radius, mass, energy, spring, velocities):

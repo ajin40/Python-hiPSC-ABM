@@ -198,7 +198,7 @@ def check_name(simulation):
         try:
             os.mkdir(simulation.path + simulation.sep + simulation.name)
             break
-        except OSError:
+        except:
             print("Simulation with identical name")
             user = input("Would you like to overwrite the that simulation? (y/n): ")
             if user == "n":

@@ -315,8 +315,8 @@ class Simulation:
                 # checks neighbors after the cells move for re-evaluation of collisions
                 self.check_neighbors()
 
-        for i in range(len(self.cells)):
-            self.cells[i].velocity = np.array([0.0, 0.0, 0.0], np.float32)
+        # for i in range(len(self.cells)):
+        #     self.cells[i].velocity = np.array([0.0, 0.0, 0.0], np.float32)
 
 
     def random_movement(self):
