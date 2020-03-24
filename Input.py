@@ -12,7 +12,6 @@ def Setup():
     """ Looks at all of the setup files and turns them into
         instances of the simulation class
     """
-
     # which file separator to use
     if platform.system() == "Windows":
         # windows

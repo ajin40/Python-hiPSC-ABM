@@ -5,30 +5,24 @@ from scipy.spatial import Voronoi, voronoi_plot_2d
 import numpy as np
 
 
-def draw_cell_image(self, network, path):
+def draw_cell_image(self, path):
     """ Turns the graph into an image at each timestep
     """
     # increases the image counter by 1 each time this is called
     self.image_counter += 1
 
-    # get list of all objects/nodes in the simulation
-    cells = list(network.nodes)
-
     # draws the background of the image
-    image1 = Image.new("RGB", (1500, 1500), color=(130, 130, 130))
-    # image1 = Image.new("RGB", (1500, 1500), color="black")
-    draw = ImageDraw.Draw(image1)
+    image = Image.new("RGB", (1500, 1500), color=(130, 130, 130))
+    draw = ImageDraw.Draw(image)
 
     # bounds of the simulation used for drawing patch
-    # inherit
-    bounds_xy = [[-12, -12], [-12, self.size[1] + 12], [self.size[0] + 12, self.size[1] + 12], [self.size[0] + 12, -12]]
+    bounds = [[-12, -12], [-12, self.size[1] + 12], [self.size[0] + 12, self.size[1] + 12], [self.size[0] + 12, -12]]
 
     # loops over all of the cells/nodes and draws a circle with corresponding color
-    for i in range(len(cells)):
-        node = cells[i]
-        x, y, z = node.location
-        r1 = 0.3 * node.radius
-        r2 = node.radius
+    for i in range(len(self.cells)):
+        x, y, z = self.cells[i].location
+        r2 = self.cells[i].radius
+        r1 = r2 * 0.3
 
         # if node.state == "Pluripotent" or node.state == "Differentiated":
         #     if node.booleans[3] == 0 and node.booleans[2] == 1:
@@ -40,32 +34,29 @@ def draw_cell_image(self, network, path):
         #     else:
         #         col = (60, 0, 255)
 
-        if node.state == "Pluripotent":
-            col = 'white'
+        if self.cells[i].state == "Pluripotent":
+            color = 'white'
         else:
-            col = 'black'
+            color = 'black'
 
-        out = "black"
-        draw.ellipse((x - r1 + 250, y - r1 + 250, x + r1 + 250, y + r1 + 250), outline=out, fill=col)
-        draw.ellipse((x - r2 + 250, y - r2 + 250, x + r2 + 250, y + r2 + 250), outline=out)
+        outline = "black"
 
+        draw.ellipse((x - r1 + 250, y - r1 + 250, x + r1 + 250, y + r1 + 250), outline=outline, fill=color)
+        draw.ellipse((x - r2 + 250, y - r2 + 250, x + r2 + 250, y + r2 + 250), outline=outline)
 
     # loops over all of the bounds and draws lines to represent the grid
-    for i in range(len(bounds_xy)):
-        x, y = bounds_xy[i]
-        if i < len(bounds_xy) - 1:
-            x1, y1 = bounds_xy[i + 1]
+    for i in range(len(bounds)):
+        x, y = bounds[i]
+        if i < len(bounds) - 1:
+            x1, y1 = bounds[i + 1]
         else:
-            x1, y1 = bounds_xy[0]
+            x1, y1 = bounds[0]
         r = 4
         draw.ellipse((x - r + 250, y - r + 250, x + r + 250, y + r + 250), outline='white', fill='white')
         draw.line((x + 250, y + 250, x1 + 250, y1 + 250), fill='white', width=10)
 
     # saves the image as a .png
-    image1.save(path + ".png", 'PNG')
-
-
-
+    image.save(path + ".png", 'PNG')
 
 def image_to_video(self):
     """ Creates a video out of all the png images at
@@ -92,7 +83,6 @@ def image_to_video(self):
 
     # releases the file
     out.release()
-
 
 def location_to_text(self, path):
     """ Outputs a txt file of the cell coordinates and the boolean values
@@ -128,7 +118,6 @@ def location_to_text(self, path):
         object_writer.writerow([x_coord, y_coord, z_coord, x_vel, y_vel, z_vel, motion, mass, radius, fgfr, erk, gata, nanog,
                                 state, diff, div, death])
 
-
 def save_file(self):
     """ Saves the simulation txt files
         and image files
@@ -141,12 +130,10 @@ def save_file(self):
     location_to_text(self, n2_path)
 
     # draws the image of the simulation
-    draw_cell_image(self, self.network, base_path + "network_image_" + str(int(self.time_counter)))
+    draw_cell_image(self, base_path + "network_image_" + str(int(self.time_counter)))
 
     # voronoi(self, base_path + "network_image_" + str(int(self.time_counter)))
     self.image_counter += 1
-
-
 
 def voronoi(self, path):
 

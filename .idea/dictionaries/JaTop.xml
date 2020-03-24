@@ -9,6 +9,7 @@
       <w>ddim</w>
       <w>disp</w>
       <w>fgfr</w>
+      <w>fourcc</w>
       <w>funct</w>
       <w>gata</w>
       <w>intercellular</w>
@@ -25,6 +26,7 @@
       <w>pluripotent</w>
       <w>timestep</w>
       <w>toppen</w>
+      <w>voronoi</w>
     </words>
   </dictionary>
 </component>
