@@ -117,20 +117,14 @@ for Simulation in Simulations:
         # Updates each of the gradients/molecules by adjusting concentrations
         Simulation.update_gradients()
 
-        # Determines if two cells are close enough together to designate a neighbor
-        Simulation.check_neighbors()
-
         # If cells are by themselves for too long, they will be removed from the simulation
         Simulation.kill_cells()
 
-        # Updates cells by adjusting values differentiation and division
-        Simulation.update_cells()
-
-        # Determines if two cells are close enough together to designate a neighbor
-        Simulation.check_neighbors()
-
         # If enough neighbor differentiated cells surround a pluripotent cell, it may cause differentiation
         Simulation.diff_surround_cells()
+
+        # Updates cells by adjusting values differentiation and division
+        Simulation.update_cells()
 
         # Adjusts the mass and radius of the cell
         Simulation.change_size_cells()

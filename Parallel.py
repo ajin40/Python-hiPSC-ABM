@@ -211,6 +211,9 @@ def handle_collisions_gpu(self):
             # assign new velocity
             self.cells[i].velocity = np.array([new_velocity_x, new_velocity_y, new_velocity_z])
 
+    # Determines if two cells are close enough together to designate a neighbor
+    self.check_neighbors()
+
 @cuda.jit
 def handle_collisions_cuda(locations, radius, mass, energy, spring, velocities):
     """ this is the function being run in parallel

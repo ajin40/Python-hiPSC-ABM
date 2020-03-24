@@ -12,7 +12,7 @@ def draw_cell_image(self, path):
     self.image_counter += 1
 
     # draws the background of the image
-    image = Image.new("RGB", (1500, 1500), color=(130, 130, 130))
+    image = Image.new("RGB", (4500, 4500), color=(130, 130, 130))
     draw = ImageDraw.Draw(image)
 
     # bounds of the simulation used for drawing patch
@@ -40,9 +40,11 @@ def draw_cell_image(self, path):
             color = 'black'
 
         outline = "black"
+        inner = (3*(x - r2 + 250), 3*(y - r2 + 250), 3*(x + r2 + 250), 3*(y + r2 + 250))
+        outer = (3*(x - r1 + 250), 3*(y - r1 + 250), 3*(x + r1 + 250), 3*(y + r1 + 250))
 
-        draw.ellipse((x - r1 + 250, y - r1 + 250, x + r1 + 250, y + r1 + 250), outline=outline, fill=color)
-        draw.ellipse((x - r2 + 250, y - r2 + 250, x + r2 + 250, y + r2 + 250), outline=outline)
+        draw.ellipse(outer, outline=outline, fill=color)
+        draw.ellipse(inner, outline=outline)
 
     # loops over all of the bounds and draws lines to represent the grid
     for i in range(len(bounds)):
@@ -51,9 +53,12 @@ def draw_cell_image(self, path):
             x1, y1 = bounds[i + 1]
         else:
             x1, y1 = bounds[0]
-        r = 4
-        draw.ellipse((x - r + 250, y - r + 250, x + r + 250, y + r + 250), outline='white', fill='white')
-        draw.line((x + 250, y + 250, x1 + 250, y1 + 250), fill='white', width=10)
+        r = 5
+        corners = (3*(x - r + 250), 3*(y - r + 250), 3*(x + r + 250), 3*(y + r + 250))
+        lines = (3*(x + 250), 3*(y + 250), 3*(x1 + 250), 3*(y1 + 250))
+
+        draw.ellipse(corners, outline='white', fill='white')
+        draw.line(lines, fill='white', width=30)
 
     # saves the image as a .png
     image.save(path + ".png", 'PNG')
@@ -126,7 +131,7 @@ def save_file(self):
     base_path = self.path + self.sep + self.name + self.sep
 
     # saves the txt file with all the key information
-    n2_path = base_path + "network_values" + str(int(self.time_counter)) + ".csv"
+    n2_path = base_path + "network_values_" + str(int(self.time_counter)) + ".csv"
     location_to_text(self, n2_path)
 
     # draws the image of the simulation

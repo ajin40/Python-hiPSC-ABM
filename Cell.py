@@ -178,7 +178,6 @@ class Cell:
         # if the FGF4 amount for the location is greater than 0, set the fgf4_bool value to be 1 for the functions
         if simulation.gradients[0].grid[array_x][array_y][array_z] > 0:
             fgf4_bool = 1
-
         else:
             fgf4_bool = 0
 
