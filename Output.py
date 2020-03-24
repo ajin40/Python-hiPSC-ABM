@@ -5,148 +5,130 @@ from scipy.spatial import Voronoi, voronoi_plot_2d
 import numpy as np
 
 
-def draw_cell_image(self, path):
+def draw_image(simulation):
     """ Turns the graph into an image at each timestep
     """
     # increases the image counter by 1 each time this is called
-    self.image_counter += 1
+    simulation.image_counter += 1
 
     # draws the background of the image
-    image = Image.new("RGB", (4500, 4500), color=(130, 130, 130))
-    draw = ImageDraw.Draw(image)
+    background = Image.new("RGB", (4500, 4500), color=(130, 130, 130))
+    image = ImageDraw.Draw(background)
 
-    # bounds of the simulation used for drawing patch
-    bounds = [[-12, -12], [-12, self.size[1] + 12], [self.size[0] + 12, self.size[1] + 12], [self.size[0] + 12, -12]]
+    # bounds of the simulation used for drawing lines
+    bounds = np.array([[0, 0],[0, simulation.size[1]],[simulation.size[0],simulation.size[1]],[simulation.size[0], 0]])
 
-    # loops over all of the cells/nodes and draws a circle with corresponding color
-    for i in range(len(self.cells)):
-        x, y, z = self.cells[i].location
-        r2 = self.cells[i].radius
-        r1 = r2 * 0.3
+    # loops over all of the cells and draws the nucleus and radius
+    for i in range(len(simulation.cells)):
+        x, y, z = 3 * simulation.cells[i].location
+        membrane = 3 * simulation.cells[i].radius
+        nucleus = membrane * 0.3
+        center = 3 * 250
 
-        # if node.state == "Pluripotent" or node.state == "Differentiated":
-        #     if node.booleans[3] == 0 and node.booleans[2] == 1:
-        #         col = (255, 0, 0)
-        #     elif node.booleans[3] == 1 and node.booleans[2] == 0:
-        #         col = (17, 235, 24)
-        #     elif node.booleans[3] == 1 and node.booleans[2] == 1:
-        #         col = (245, 213, 7)
-        #     else:
-        #         col = (60, 0, 255)
-
-        if self.cells[i].state == "Pluripotent":
+        if simulation.cells[i].state == "Pluripotent":
             color = 'white'
         else:
             color = 'black'
 
-        outline = "black"
-        inner = (3*(x - r2 + 250), 3*(y - r2 + 250), 3*(x + r2 + 250), 3*(y + r2 + 250))
-        outer = (3*(x - r1 + 250), 3*(y - r1 + 250), 3*(x + r1 + 250), 3*(y + r1 + 250))
+        membrane_circle = (x - membrane + center, y - membrane + center, x + membrane + center, y + membrane + center)
+        nucleus_circle = (x - nucleus + center, y - nucleus + center, x + nucleus + center, y + nucleus + center)
 
-        draw.ellipse(outer, outline=outline, fill=color)
-        draw.ellipse(inner, outline=outline)
+        image.ellipse(membrane_circle, outline="black")
+        image.ellipse(nucleus_circle, outline="black", fill=color)
 
     # loops over all of the bounds and draws lines to represent the grid
     for i in range(len(bounds)):
-        x, y = bounds[i]
-        if i < len(bounds) - 1:
-            x1, y1 = bounds[i + 1]
-        else:
-            x1, y1 = bounds[0]
-        r = 5
-        corners = (3*(x - r + 250), 3*(y - r + 250), 3*(x + r + 250), 3*(y + r + 250))
-        lines = (3*(x + 250), 3*(y + 250), 3*(x1 + 250), 3*(y1 + 250))
+        center = 3 * 250
+        x0, y0 = 3 * bounds[i]
+        radius = 3 * 5
+        width = 3 * 10
 
-        draw.ellipse(corners, outline='white', fill='white')
-        draw.line(lines, fill='white', width=30)
+        if i < len(bounds) - 1:
+            x1, y1 = 3 * bounds[i + 1]
+        else:
+            x1, y1 = 3 * bounds[0]
+
+        corners = (x0 - radius + center, y0 - radius + center, x0 + radius + center, y0 + radius + center)
+        lines = (x0 + center, y0 + center, x1 + center, y1 + center)
+
+        image.ellipse(corners, outline='white', fill='white')
+        image.line(lines, fill='white', width=width)
 
     # saves the image as a .png
-    image.save(path + ".png", 'PNG')
+    background.save(simulation.path + "network_image_" + str(int(simulation.time_counter)) + ".png", 'PNG')
 
-def image_to_video(self):
+def image_to_video(simulation):
     """ Creates a video out of all the png images at
         the end of the simulation
     """
-    # gets base path
-    base_path = self.path + self.sep + self.name + self.sep
+    # creates a base video file to save to
+    video_path = simulation.path + 'network_video.avi'
+    out = cv2.VideoWriter(video_path, cv2.VideoWriter_fourcc("M","J","P","G"), 1.0, (4500, 4500))
 
-    # image list to hold all image objects
-    img_array = []
-    # loops over all images created
-    for i in range(self.image_counter - 1):
-        path = base_path + 'network_image_' + str(i) + ".png"
-        img = cv2.imread(path)
-        img_array.append(img)
-
-    # output file for the video
-    # out = cv2.VideoWriter(base_path + 'network_video.avi', cv2.VideoWriter_fourcc("M", "J", "P", "G"), 1.0, (640, 480))
-    out = cv2.VideoWriter(base_path + 'network_video.avi', cv2.VideoWriter_fourcc("M", "J", "P", "G"), 1.0, (1500, 1500))
-
-    # adds image to output file
-    for i in range(len(img_array)):
-        out.write(img_array[i])
+    # loops over all images and writes them to the base video file
+    for i in range(simulation.image_counter):
+        path = simulation.path + 'network_image_' + str(i) + ".png"
+        image = cv2.imread(path)
+        out.write(image)
 
     # releases the file
     out.release()
 
-def location_to_text(self, path):
-    """ Outputs a txt file of the cell coordinates and the boolean values
+def create_csv(simulation):
+    """ Outputs a .csv file of important Cell
+        instance variables from each cell
     """
-    # opens file
-    new_file = open(path, "w")
+    # opens .csv file
+    new_file = open(simulation.path + "network_values_" + str(int(simulation.time_counter)) + ".csv", "w")
+    csv_write = csv.writer(new_file)
+    csv_write.writerow(['X_position', 'Y_position', 'Z_position', 'X_velocity', 'Y_velocity', 'Z_velocity', 'Motion',
+                        'Mass', 'Radius', 'FGFR', 'ERK', 'GATA6', 'NANOG', 'State', 'Differentiation_counter',
+                        'Division_counter', 'Death_counter'])
 
-    # initializes csv file
-    object_writer = csv.writer(new_file)
-    object_writer.writerow(['x_coord', 'y_coord', 'z_coord', 'x_vel', 'y_vel', 'z_vel', 'Motion', 'Mass', 'Radius',
-                            'FGFR', 'ERK', 'GATA6', 'NANOG', 'State', 'Diff_Timer', 'Div_Timer', 'Death_Timer'])
+    # each row is a different cell
+    for i in range(len(simulation.cells)):
+        x_pos = round(simulation.cells[i].location[0], 1)
+        y_pos = round(simulation.cells[i].location[1], 1)
+        z_pos = round(simulation.cells[i].location[2], 1)
+        x_vel = round(simulation.cells[i].velocity[0], 1)
+        y_vel = round(simulation.cells[i].velocity[1], 1)
+        z_vel = round(simulation.cells[i].velocity[2], 1)
+        motion = simulation.cells[i].motion
+        mass = simulation.cells[i].mass
+        radius = simulation.cells[i].radius
+        fgfr = simulation.cells[i].booleans[0]
+        erk = simulation.cells[i].booleans[1]
+        gata = simulation.cells[i].booleans[2]
+        nanog = simulation.cells[i].booleans[3]
+        state = simulation.cells[i].state
+        diff = round(simulation.cells[i].diff_counter, 1)
+        div = round(simulation.cells[i].div_counter, 1)
+        death = round(simulation.cells[i].death_counter, 1)
 
-    # writes for each cell. Lists the last four boolean values
-    for i in range(len(self.cells)):
-        x_coord = str(round(self.cells[i].location[0], 1))
-        y_coord = str(round(self.cells[i].location[1], 1))
-        z_coord = str(round(self.cells[i].location[2], 1))
-        x_vel = str(round(self.cells[i].velocity[0], 1))
-        y_vel = str(round(self.cells[i].velocity[1], 1))
-        z_vel = str(round(self.cells[i].velocity[2], 1))
-        motion = str(self.cells[i].motion)
-        mass = str(self.cells[i].mass)
-        radius = str(self.cells[i].radius)
-        fgfr = str(self.cells[i].booleans[0])
-        erk = str(self.cells[i].booleans[1])
-        gata = str(self.cells[i].booleans[2])
-        nanog = str(self.cells[i].booleans[3])
-        state = str(self.cells[i].state)
-        diff = str(round(self.cells[i].diff_counter, 1))
-        div = str(round(self.cells[i].div_counter, 1))
-        death = str(round(self.cells[i].death_counter, 1))
+        # writes the row for the cell
+        csv_write.writerow([x_pos, y_pos, z_pos, x_vel, y_vel, z_vel, motion, mass, radius, fgfr, erk, gata, nanog,
+                            state, diff, div, death])
 
-        object_writer.writerow([x_coord, y_coord, z_coord, x_vel, y_vel, z_vel, motion, mass, radius, fgfr, erk, gata, nanog,
-                                state, diff, div, death])
-
-def save_file(self):
+def save_file(simulation):
     """ Saves the simulation txt files
         and image files
     """
-    # get the base path
-    base_path = self.path + self.sep + self.name + self.sep
-
-    # saves the txt file with all the key information
-    n2_path = base_path + "network_values_" + str(int(self.time_counter)) + ".csv"
-    location_to_text(self, n2_path)
+    # saves the .csv file with all the key information for each cell
+    create_csv(simulation)
 
     # draws the image of the simulation
-    draw_cell_image(self, base_path + "network_image_" + str(int(self.time_counter)))
+    draw_image(simulation)
 
-    # voronoi(self, base_path + "network_image_" + str(int(self.time_counter)))
-    self.image_counter += 1
+    # voronoi(simulation)
 
-def voronoi(self, path):
+def voronoi(simulation, path):
 
     points = np.empty((0, 2), int)
-    for i in range(len(self.cells)):
-        points = np.append(points, [self.cells[i].location[:2]], axis=0)
+
+    for i in range(len(simulation.cells)):
+        points = np.append(points, [simulation.cells[i].location[:2]], axis=0)
 
     vor = Voronoi(points)
     fig = voronoi_plot_2d(vor, show_vertices=False, line_colors='green', line_width=2, line_alpha=0.6, point_size=5)
 
-    fig.savefig(path, quality=100)
+    fig.savefig(path + "network_voronoi_" + str(int(simulation.time_counter)), quality=100)

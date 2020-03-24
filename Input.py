@@ -40,8 +40,7 @@ def Setup():
                 parameters.append(setup_list[i][2:-3])
 
         # organizes all of the parameters and converts them from strings to their desired type
-        _name = str(parameters[0])
-        _path = str(parameters[1])
+        _path = str(parameters[1]) + sep + str(parameters[0]) + sep
         _parallel = eval(parameters[2])
         _end_time = float(parameters[3])
         _time_step = float(parameters[4])
@@ -66,20 +65,18 @@ def Setup():
         _three_D = eval(parameters[23])
         _density = float(parameters[24])
         _n = int(parameters[25])
-        _sep = sep
 
         # initializes simulation class which holds all information about the simulation
-        simulation = Simulation.Simulation(_name, _path, _end_time, _time_step, _pluri_div_thresh, _diff_div_thresh,
+        simulation = Simulation.Simulation(_path, _end_time, _time_step, _pluri_div_thresh, _diff_div_thresh,
                                            _pluri_to_diff, _size, _diff_surround_value, _functions, _parallel,
                                            _death_threshold, _move_time_step, _move_max_time, _spring_constant,
-                                           _friction, _energy_kept, _neighbor_distance, _three_D, _density, _n, _sep)
+                                           _friction, _energy_kept, _neighbor_distance, _three_D, _density, _n)
 
         # checks to see if the simulation name is desired and valid
         check_name(simulation)
 
         # copies the setup file to the new directory for each instance of simulation
-        shutil.copy(os.getcwd() + "/Setup_files/" + file, simulation.path + simulation.sep + simulation.name +
-                    simulation.sep)
+        shutil.copy(os.getcwd() + "/Setup_files/" + file, simulation.path)
 
         # loops over the gradients and adds them to the simulation
         for i in range(len(_gradients)):
@@ -188,14 +185,16 @@ def check_name(simulation):
     """
     while True:
         try:
-            os.mkdir(simulation.path + simulation.sep + simulation.name)
+            os.mkdir(simulation.path)
             break
         except:
             print("Simulation with identical name")
             user = input("Would you like to overwrite the that simulation? (y/n): ")
             if user == "n":
-                simulation.name = input("New name: ")
+                location = simulation.path.rfind("\\", 0, -2)
+                new_path = simulation.path[:location]
+                simulation.path = new_path + "\\" + input("New name: ") + "\\"
             if user == "y":
-                shutil.rmtree(simulation.path + simulation.sep + simulation.name)
-                os.mkdir(simulation.path + simulation.sep + simulation.name)
+                shutil.rmtree(simulation.path)
+                os.mkdir(simulation.path)
                 break

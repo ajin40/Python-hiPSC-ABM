@@ -9,9 +9,9 @@ class Simulation:
         simulation
     """
 
-    def __init__(self, name, path, end_time, time_step, pluri_div_thresh, diff_div_thresh, pluri_to_diff, size,
+    def __init__(self, path, end_time, time_step, pluri_div_thresh, diff_div_thresh, pluri_to_diff, size,
                  diff_surround_value, functions, parallel, death_threshold, move_time_step, move_max_time,
-                 spring_constant, friction, energy_kept, neighbor_distance, three_D, density, n, sep):
+                 spring_constant, friction, energy_kept, neighbor_distance, three_D, density, n):
 
         """ Initialization function for the simulation setup.
             name: the simulation name
@@ -33,7 +33,6 @@ class Simulation:
             energy_kept: percent of energy left after turning spring energy into kinetic
             neighbor_distance: how close cells are to be neighbors
         """
-        self.name = name
         self.path = path
         self.end_time = end_time
         self.time_step = time_step
@@ -54,7 +53,6 @@ class Simulation:
         self.three_D = three_D
         self.density = density
         self.n = n
-        self.sep = sep
 
         # counts how many times an image is created for making videos
         self.image_counter = 0

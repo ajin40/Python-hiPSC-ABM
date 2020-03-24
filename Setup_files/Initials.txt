@@ -1,5 +1,5 @@
 What is the name of the simulation?
-[ Run_14 ]
+[ Run_15 ]
 
 Define where the model will output its images, data, and video. Ex: C:\Python27\Model
 [ C:\Python27\MEGA-ARRAY ]
@@ -8,7 +8,7 @@ Do you want the simulation to use parallel GPU processing?
 [ True ]
 
 How many total steps will the model run for?
-[ 60.0 ]
+[ 2.0 ]
 
 What will the difference in time steps be?
 [ 1.0 ]
