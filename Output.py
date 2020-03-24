@@ -83,7 +83,8 @@ def image_to_video(self):
         img_array.append(img)
 
     # output file for the video
-    out = cv2.VideoWriter(base_path + 'network_video.avi', cv2.VideoWriter_fourcc("M", "J", "P", "G"), 1.0, (640, 480))
+    # out = cv2.VideoWriter(base_path + 'network_video.avi', cv2.VideoWriter_fourcc("M", "J", "P", "G"), 1.0, (640, 480))
+    out = cv2.VideoWriter(base_path + 'network_video.avi', cv2.VideoWriter_fourcc("M", "J", "P", "G"), 1.0, (1500, 1500))
 
     # adds image to output file
     for i in range(len(img_array)):
@@ -120,9 +121,9 @@ def location_to_text(self, path):
         gata = str(self.cells[i].booleans[2])
         nanog = str(self.cells[i].booleans[3])
         state = str(self.cells[i].state)
-        diff = str(round(self.cells[i].diff_timer, 1))
-        div = str(round(self.cells[i].division_timer, 1))
-        death = str(round(self.cells[i].death_timer, 1))
+        diff = str(round(self.cells[i].diff_counter, 1))
+        div = str(round(self.cells[i].div_counter, 1))
+        death = str(round(self.cells[i].death_counter, 1))
 
         object_writer.writerow([x_coord, y_coord, z_coord, x_vel, y_vel, z_vel, motion, mass, radius, fgfr, erk, gata, nanog,
                                 state, diff, div, death])

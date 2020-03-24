@@ -1,7 +1,6 @@
 from numba import cuda
 import math
 import numpy as np
-import Output
 
 
 def initialize_grid_gpu(self):
@@ -120,7 +119,7 @@ def check_neighbors_cuda(locations, edges, distance):
         for j in range(locations.shape[0]):
 
             # if the distance between the cells is less than or equal to the neighbor distance
-            if ((locations[i][0] - locations[j][0])**2 + (locations[i][1] - locations[j][1])**2 + (locations[i][2] - locations[j][2])**2) ** 0.5 <= distance[0]:
+            if magnitude(locations[i], locations[j]) <= distance[0]:
                 # no edge for the cell and itself. "1" denotes an edge
                 if i != j:
                     edges[i][j] = 1
@@ -212,10 +211,6 @@ def handle_collisions_gpu(self):
             # assign new velocity
             self.cells[i].velocity = np.array([new_velocity_x, new_velocity_y, new_velocity_z])
 
-        base_path = self.path + self.sep + self.name + self.sep
-        Output.draw_cell_image(self, self.network, base_path + "network_image_" + str(int(self.time_counter)) + "_" + str(round(time_counter, 1)))
-
-
 @cuda.jit
 def handle_collisions_cuda(locations, radius, mass, energy, spring, velocities):
     """ this is the function being run in parallel
@@ -233,7 +228,7 @@ def handle_collisions_cuda(locations, radius, mass, energy, spring, velocities):
             displacement_x = locations[i][0] - locations[j][0]
             displacement_y = locations[i][1] - locations[j][1]
             displacement_z = locations[i][2] - locations[j][2]
-            mag = (displacement_x ** 2 + displacement_y ** 2 + displacement_z ** 2) ** 0.5
+            mag = magnitude(locations[i], locations[j])
 
             # if the cells are overlapping then proceed
             if mag <= radius[i] + radius[j]:
@@ -269,3 +264,13 @@ def handle_collisions_cuda(locations, radius, mass, energy, spring, velocities):
                 velocities[j][0] += overlap_x * (energy[0] * spring[0] / mass[j]) ** 0.5
                 velocities[j][1] += overlap_y * (energy[0] * spring[0] / mass[j]) ** 0.5
                 velocities[j][2] += overlap_z * (energy[0] * spring[0] / mass[j]) ** 0.5
+
+@cuda.jit(device=True)
+def magnitude(location_one, location_two):
+    displacement_x = location_one[0] - location_two[0]
+    displacement_y = location_one[1] - location_two[1]
+    displacement_z = location_one[2] - location_two[2]
+
+    mag = (displacement_x ** 2 + displacement_y ** 2 + displacement_z ** 2) ** 0.5
+
+    return mag

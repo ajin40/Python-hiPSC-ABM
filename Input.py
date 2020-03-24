@@ -55,7 +55,7 @@ def Setup():
         _diff_div_thresh = float(parameters[11])
         _pluri_to_diff = float(parameters[12])
         _diff_surround_value = int(parameters[13])
-        _death_threshold = int(parameters[14])
+        _death_threshold = float(parameters[14])
         _move_time_step = float(parameters[15])
         _move_max_time = float(parameters[16])
         _spring_constant = float(parameters[17])
@@ -63,11 +63,10 @@ def Setup():
         _energy_kept = float(parameters[19])
         _neighbor_distance = float(parameters[20])
         _mass = float(parameters[21])
-        _radius = float(parameters[22])
-        _gradients = eval(parameters[23])
-        _three_D = eval(parameters[24])
-        _density = float(parameters[25])
-        _n = int(parameters[26])
+        _gradients = eval(parameters[22])
+        _three_D = eval(parameters[23])
+        _density = float(parameters[24])
+        _n = int(parameters[25])
         _sep = sep
 
         # initializes simulation class which holds all information about the simulation

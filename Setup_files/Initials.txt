@@ -1,5 +1,5 @@
 What is the name of the simulation?
-[ Run_3 ]
+[ Run_4 ]
 
 Define where the model will output its images, data, and video. Ex: C:\Python27\Model
 [ C:\Python27\MEGA-ARRAY ]
@@ -64,15 +64,15 @@ Distance that constitutes a neighbor. More distance more neighbors
 Initial mass of the cells used with density to calculate radius
 [ 1.0 ]
 
-Gradients
+List the Gradients as a 2D array
 [ [["FGF4", 10]] ]
 
-Three D
+Is the model 3D?
 [ False ]
 
-Cell density
+Density of the cell used for radius
 [ 0.001 ]
 
-N
+Number of boolean states 0, 1, 2,...
 [ 2 ]
 _______________________________________________________________________________________________________________________

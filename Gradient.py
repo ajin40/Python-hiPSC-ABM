@@ -15,7 +15,7 @@ class Gradient:
         """
         self.name = name
         self.size = size
-        self.max_concentration = max
+        self.max = max
         self.parallel = parallel
 
         # create a grid of zeros with defined size

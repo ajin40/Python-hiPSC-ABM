@@ -121,7 +121,7 @@ for Simulation in Simulations:
         Simulation.check_neighbors()
 
         # If cells are by themselves for too long, they will be removed from the simulation
-        # Simulation.kill_cells()
+        Simulation.kill_cells()
 
         # Updates cells by adjusting values differentiation and division
         Simulation.update_cells()
@@ -139,13 +139,13 @@ for Simulation in Simulations:
         Simulation.update_cell_queue()
 
         # Allows the cells in motion to move in a random fashion
-        # Simulation.random_movement()
+        Simulation.random_movement()
 
         # Moves the cells to a state of equilibrium so that there is minimal overlap
         Simulation.handle_collisions()
 
         # Saves a 2D image and a .csv file containing key information from each cell    (base)
-        # Output.save_file(Simulation)
+        Output.save_file(Simulation)
 
         # Increases the time counter for the while loop    (base)
         Simulation.time_counter += Simulation.time_step
