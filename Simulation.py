@@ -167,7 +167,7 @@ class Simulation:
         self.cells_to_remove = np.array([], dtype=np.object)
         self.cells_to_add = np.array([], dtype=np.object)
 
-    def add_object_to_addition_queue(self, cell):
+    def add_cell_to_addition_queue(self, cell):
         """ Will add an object to the simulation object queue
             which will be added to the simulation at the end of
             the update phase.
@@ -175,7 +175,7 @@ class Simulation:
         # adds object to array
         self.cells_to_add = np.append(self.cells_to_add, cell)
 
-    def add_object_to_removal_queue(self, cell):
+    def add_cell_to_removal_queue(self, cell):
         """ Will add an object to the simulation object queue
             which will be removed from the simulation at the end of
             the update phase.

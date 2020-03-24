@@ -37,35 +37,32 @@ Length of time steps required for a differentiated cell to divide
 Length of time steps required for a pluripotent cell to differentiate
 [ 36.0 ]
 
-Amount of differentiated cells needed to surround a pluripotent cell and differentiate it
+Amount of differentiated cells needed to surround a pluripotent cell to differentiate it
 [ 5 ]
 
-Death threshold
-[ 10 ]
+Length of time steps required for a lonely cell to die
+[ 10.0 ]
 
-Time step for movement
+Time step for handling collisions, smaller time step...less error
 [ 0.1 ]
 
-Max time for movement
+Max time for handling collisions, if more is needed given certain velocities
 [ 1.0 ]
 
-Spring constant
+The spring constant values used to represent the cytoplasm
 [ 1.25 ]
 
-Friction
+The friction acting on the cells as they move. Prevents infinite movement
 [ 60.0 ]
 
-Energy kept
+Percent of energy that goes from spring to kinetic as a decimal
 [ 0.80 ]
 
-Distance that constitutes a neighbor
+Distance that constitutes a neighbor. More distance more neighbors
 [ 36.0 ]
 
-Initial Mass
+Initial mass of the cells used with density to calculate radius
 [ 1.0 ]
-
-Radius
-[ 6.0 ]
 
 Gradients
 [ [["FGF4", 10]] ]

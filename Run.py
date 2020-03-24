@@ -126,6 +126,9 @@ for Simulation in Simulations:
         # Updates cells by adjusting values differentiation and division
         Simulation.update_cells()
 
+        # Determines if two cells are close enough together to designate a neighbor
+        Simulation.check_neighbors()
+
         # If enough neighbor differentiated cells surround a pluripotent cell, it may cause differentiation
         Simulation.diff_surround_cells()
 

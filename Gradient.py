@@ -7,7 +7,7 @@ class Gradient:
     """ called once holds important information about the
         simulation
     """
-    def __init__(self, name, size, max_concentration, parallel):
+    def __init__(self, name, size, max, parallel):
         """ name: where the cell is located on the grid "[x,y]"
             size: the size of the grid
             max_concentration: the maximum amount of molecule on a patch of the grid
@@ -15,7 +15,7 @@ class Gradient:
         """
         self.name = name
         self.size = size
-        self.max_concentration = max_concentration
+        self.max_concentration = max
         self.parallel = parallel
 
         # create a grid of zeros with defined size
@@ -37,7 +37,7 @@ class Gradient:
             for i in range(self.size[0]):
                 for j in range(self.size[1]):
                     for k in range(self.size[2]):
-                        self.grid[i][j][k] = r.randint(0, self.max_concentration)
+                        self.grid[i][j][k] = r.randint(0, self.max)
 
     def update_grid(self):
         """ degrades every patch in the grid a uniform amount

@@ -117,9 +117,6 @@ def Setup():
             else:
                 booleans = np.array([0, 0, 0, 1])
 
-            # initial radius
-            radius = _radius
-
             # gives random initial differentiation timer
             diff_timer = _pluri_to_diff * r.random() * 0.5
 
@@ -132,7 +129,7 @@ def Setup():
             velocity = np.array([0.0, 0.0, 0.0], np.float32)
 
             # creates instance of Cell class
-            sim_obj = Cell.Cell(location, motion, velocity, mass, radius, booleans, state, diff_timer,
+            sim_obj = Cell.Cell(location, motion, velocity, mass, booleans, state, diff_timer,
                                 division_timer, death_timer)
 
             # adds object to simulation instance
@@ -162,9 +159,6 @@ def Setup():
             else:
                 booleans = np.array([0, 0, 1, 0])
 
-            # initial radius
-            radius = _radius
-
             # gives random initial differentiation timer
             diff_timer = _pluri_to_diff * r.random() * 0.5
 
@@ -177,7 +171,7 @@ def Setup():
             velocity = np.array([0.0, 0.0, 0.0], np.float32)
 
             # creates instance of Cell class
-            sim_obj = Cell.Cell(location, motion, velocity, mass, radius, booleans, state, diff_timer,
+            sim_obj = Cell.Cell(location, motion, velocity, mass, booleans, state, diff_timer,
                                 division_timer, death_timer)
 
             # adds object to simulation instance
