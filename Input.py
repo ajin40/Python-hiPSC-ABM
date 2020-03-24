@@ -54,12 +54,14 @@ def Setup():
         _three_D = eval(parameters[23])
         _density = float(parameters[24])
         _n = int(parameters[25])
+        _quality = int(parameters[26])
 
         # initializes simulation class which holds all information about the simulation
         simulation = Simulation.Simulation(_path, _end_time, _time_step, _pluri_div_thresh, _diff_div_thresh,
                                            _pluri_to_diff, _size, _diff_surround_value, _functions, _parallel,
                                            _death_threshold, _move_time_step, _move_max_time, _spring_constant,
-                                           _friction, _energy_kept, _neighbor_distance, _three_D, _density, _n)
+                                           _friction, _energy_kept, _neighbor_distance, _three_D, _density, _n,
+                                           _quality)
 
         # copies the setup file to the new directory of the simulation
         shutil.copy(setup_path + "\\" + file, simulation.path)

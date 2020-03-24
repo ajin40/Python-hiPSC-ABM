@@ -124,7 +124,6 @@ def check_neighbors_cuda(locations, edges, distance):
                 if i != j:
                     edges[i][j] = 1
 
-
 def handle_collisions_gpu(self):
     """ the parallel form of "handle_collisions"
     """
