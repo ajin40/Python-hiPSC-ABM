@@ -78,7 +78,7 @@ def Setup():
         for i in range(_num_NANOG):
 
             location = np.array([r.random() * _size[0], r.random() * _size[1], r.random() * _size[2]])
-            if _three_D:
+            if not _three_D:
                 location[2] = 0.0
             state = "Pluripotent"
             motion = True
@@ -87,22 +87,23 @@ def Setup():
                 booleans = np.array([r.randint(0, 1), r.randint(0, 1), 0, 1])
             else:
                 booleans = np.array([0, 0, 0, 1])
-            diff_timer = _pluri_to_diff * r.random() * 0.5
-            division_timer = _pluri_div_thresh * r.random()
-            death_timer = _death_threshold * r.random()
+            diff_counter = _pluri_to_diff * r.random() * 0.5
+            division_counter = _pluri_div_thresh * r.random()
+            death_counter = _death_threshold * r.random() * 0.5
             velocity = np.array([0.0, 0.0, 0.0], np.float32)
 
             # creates instance of Cell class
-            sim_obj = Cell.Cell(location, motion, velocity, mass, booleans, state, diff_timer, division_timer, death_timer)
+            cell_obj = Cell.Cell(location, motion, velocity, mass, booleans, state, diff_counter, division_counter,
+                                 death_counter)
 
             # adds object to simulation instance
-            simulation.add_cell(sim_obj)
+            simulation.add_cell(cell_obj)
 
         # loops over all GATA6_high cells and creates a stem cell object for each one with given parameters
         for i in range(_num_GATA6):
 
             location = np.array([r.random() * _size[0], r.random() * _size[1], r.random() * _size[2]])
-            if _three_D:
+            if not _three_D:
                 location[2] = 0.0
             state = "Pluripotent"
             motion = True
@@ -111,16 +112,17 @@ def Setup():
                 booleans = np.array([r.randint(0, 1), r.randint(0, 1), 1, 0])
             else:
                 booleans = np.array([0, 0, 1, 0])
-            diff_timer = _pluri_to_diff * r.random() * 0.5
-            division_timer = _pluri_div_thresh * r.random()
-            death_timer = _death_threshold * r.random()
+            diff_counter = _pluri_to_diff * r.random() * 0.5
+            division_counter = _pluri_div_thresh * r.random()
+            death_counter = _death_threshold * r.random() * 0.5
             velocity = np.array([0.0, 0.0, 0.0], np.float32)
 
             # creates instance of Cell class
-            sim_obj = Cell.Cell(location, motion, velocity, mass, booleans, state, diff_timer, division_timer, death_timer)
+            cell_obj = Cell.Cell(location, motion, velocity, mass, booleans, state, diff_counter, division_counter,
+                                 death_counter)
 
             # adds object to simulation instance
-            simulation.add_cell(sim_obj)
+            simulation.add_cell(cell_obj)
 
         # adds simulation to the list
         simulations.append(simulation)

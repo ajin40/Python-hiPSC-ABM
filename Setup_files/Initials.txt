@@ -1,5 +1,5 @@
 What is the name of the simulation?
-[ Run_15 ]
+[ Run_2 ]
 
 Define where the model will output its images, data, and video. Ex: C:\Python27\Model
 [ C:\Python27\MEGA-ARRAY\ ]
@@ -8,7 +8,7 @@ Do you want the simulation to use parallel GPU processing?
 [ True ]
 
 How many total steps will the model run for?
-[ 2.0 ]
+[ 60.0 ]
 
 What will the difference in time steps be?
 [ 1.0 ]
@@ -41,7 +41,7 @@ Amount of differentiated cells needed to surround a pluripotent cell to differen
 [ 5 ]
 
 Length of time steps required for a lonely cell to die
-[ 10.0 ]
+[ 15.0 ]
 
 Time step for handling collisions, smaller time step...less error
 [ 0.01 ]
@@ -59,7 +59,7 @@ Percent of energy that goes from spring to kinetic as a decimal
 [ 0.80 ]
 
 Distance that constitutes a neighbor. More distance more neighbors (36.0)
-[ 24.0 ]
+[ 18.0 ]
 
 Initial mass of the cells used with density to calculate radius
 [ 1.0 ]
