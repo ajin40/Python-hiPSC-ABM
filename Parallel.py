@@ -135,80 +135,53 @@ def handle_collisions_gpu(self):
 
         # arrays that hold the cell locations, radii, and masses
         location_array = np.empty((0, 3), int)
+        velocities_array = np.empty((0, 3), int)
         radius_array = np.array([])
         mass_array = np.array([])
 
         # arrays that hold the energy and spring values
         energy_kept = np.array([self.energy_kept])
         spring_constant = np.array([self.spring_constant])
-
-        # array to hold the new cell velocities
-        velocities_array = np.zeros((len(self.cells), 3))
+        time_step = np.array([self.move_time_step])
+        friction = np.array([self.friction])
 
         # loops over all over the cells and puts their locations into a holder array
         for i in range(len(self.cells)):
             location_array = np.append(location_array, np.array([self.cells[i].location]), axis=0)
+            velocities_array = np.append(velocities_array, np.array([self.cells[i].velocity]), axis=0)
             radius_array = np.append(radius_array, np.array([self.cells[i].radius]), axis=0)
             mass_array = np.append(mass_array, np.array([self.cells[i].mass]), axis=0)
 
         # turns the arrays into a form able to send to the gpu
         location_array = cuda.to_device(location_array)
+        velocities_array = cuda.to_device(velocities_array)
         radius_array = cuda.to_device(radius_array)
         mass_array = cuda.to_device(mass_array)
         energy_kept = cuda.to_device(energy_kept)
         spring_constant = cuda.to_device(spring_constant)
-        velocities_array = cuda.to_device(velocities_array)
+        time_step = cuda.to_device(time_step)
+        grid_size = cuda.to_device(self.size)
+        friction = cuda.to_device(friction)
 
         # sets up the correct allocation of threads and blocks
         threads_per_block = 32
         blocks_per_grid = math.ceil(location_array.size / threads_per_block)
+
         handle_collisions_cuda[blocks_per_grid, threads_per_block](location_array, radius_array,
                                                                    mass_array, energy_kept, spring_constant,
                                                                    velocities_array)
+
+        update_locations_cuda[blocks_per_grid, threads_per_block](location_array, velocities_array, time_step,
+                                                                  grid_size, friction)
+
         # returns the array
-        output = velocities_array.copy_to_host()
+        new_velocities = velocities_array.copy_to_host()
+        new_locations = location_array.copy_to_host()
 
+        # updates the velocities
         for i in range(len(self.cells)):
-            self.cells[i].velocity += output[i]
-            v = self.cells[i].velocity
-            movement = v * self.move_time_step
-            location = self.cells[i].location
-            new_location = location + movement
-
-            if new_location[0] >= self.size[0]:
-                self.cells[i].velocity[0] *= -0.5
-                self.cells[i].location[0] = self.size[0] - 0.001
-            elif new_location[0] < 0:
-                self.cells[i].velocity[0] *= -0.5
-                self.cells[i].location[0] = 0.0
-            else:
-                self.cells[i].location[0] = new_location[0]
-
-            if new_location[1] >= self.size[1]:
-                self.cells[i].velocity[1] *= -0.5
-                self.cells[i].location[1] = self.size[1] - 0.001
-            elif new_location[1] < 0:
-                self.cells[i].velocity[1] *= -0.5
-                self.cells[i].location[1] = 0.0
-            else:
-                self.cells[i].location[1] = new_location[1]
-
-            if new_location[2] >= self.size[2]:
-                self.cells[i].velocity[2] *= -0.5
-                self.cells[i].location[2] = self.size[2] - 0.001
-            elif new_location[2] < 0:
-                self.cells[i].velocity[2] *= -0.5
-                self.cells[i].location[2] = 0.0
-            else:
-                self.cells[i].location[2] = new_location[2]
-
-            # subtracts the work from the kinetic energy and recalculates a new velocity
-            new_velocity_x = np.sign(v[0]) * max(v[0] ** 2 - 2 * self.friction * abs(movement[0]), 0.0) ** 0.5
-            new_velocity_y = np.sign(v[1]) * max(v[1] ** 2 - 2 * self.friction * abs(movement[1]), 0.0) ** 0.5
-            new_velocity_z = np.sign(v[2]) * max(v[2] ** 2 - 2 * self.friction * abs(movement[2]), 0.0) ** 0.5
-
-            # assign new velocity
-            self.cells[i].velocity = np.array([new_velocity_x, new_velocity_y, new_velocity_z])
+            self.cells[i].velocity = new_velocities[i]
+            self.cells[i].location = new_locations[i]
 
     # Determines if two cells are close enough together to designate a neighbor
     self.check_neighbors()
@@ -266,6 +239,57 @@ def handle_collisions_cuda(locations, radius, mass, energy, spring, velocities):
                 velocities[j][0] += overlap_x * (energy[0] * spring[0] / mass[j]) ** 0.5
                 velocities[j][1] += overlap_y * (energy[0] * spring[0] / mass[j]) ** 0.5
                 velocities[j][2] += overlap_z * (energy[0] * spring[0] / mass[j]) ** 0.5
+
+@cuda.jit
+def update_locations_cuda(locations, velocities, time_step, grid_size, friction):
+    """ this is the function being run in parallel
+    """
+    # i provides the location on the array as it runs
+    i = cuda.grid(1)
+
+    # checks to see that position is in the array
+    if i < locations.shape[0]:
+        v = velocities[i]
+        movement_x = v[0] * time_step[0]
+        movement_y = v[1] * time_step[0]
+        movement_z = v[2] * time_step[0]
+
+        new_location_x = locations[i][0] + movement_x
+        new_location_y = locations[i][1] + movement_y
+        new_location_z = locations[i][2] + movement_z
+
+        if new_location_x >= grid_size[0]:
+            velocities[i][0] *= -0.5
+            locations[i][0] = grid_size[0] - 0.001
+        elif new_location_x < 0:
+            velocities[i][0] *= -0.5
+            locations[i][0] = 0.0
+        else:
+            locations[i][0] = new_location_x
+
+        if new_location_y >= grid_size[1]:
+            velocities[i][1] *= -0.5
+            locations[i][1] = grid_size[1] - 0.001
+        elif new_location_y < 0:
+            velocities[i][1] *= -0.5
+            locations[i][1] = 0.0
+        else:
+            locations[i][1] = new_location_y
+
+        if new_location_z >= grid_size[2]:
+            velocities[i][2] *= -0.5
+            locations[i][2] = grid_size[2] - 0.001
+        elif new_location_z < 0:
+            velocities[i][2] *= -0.5
+            locations[i][2] = 0.0
+        else:
+            locations[i][2] = new_location_z
+
+        # subtracts the work from the kinetic energy and recalculates a new velocity
+        velocities[i][0] = math.copysign(1.0, velocities[i][0]) * max(velocities[i][0] ** 2 - 2 * friction[0] * abs(movement_x), 0.0) ** 0.5
+        velocities[i][1] = math.copysign(1.0, velocities[i][1]) * max(velocities[i][1] ** 2 - 2 * friction[0] * abs(movement_y), 0.0) ** 0.5
+        velocities[i][2] = math.copysign(1.0, velocities[i][2]) * max(velocities[i][2] ** 2 - 2 * friction[0] * abs(movement_z), 0.0) ** 0.5
+
 
 @cuda.jit(device=True)
 def magnitude(location_one, location_two):

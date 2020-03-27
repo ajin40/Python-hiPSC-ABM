@@ -162,6 +162,8 @@ class Simulation:
         for i in range(len(self.cells_to_add)):
             self.add_cell(self.cells_to_add[i])
 
+            self.handle_collisions()
+
         # clear the arrays
         self.cells_to_remove = np.array([], dtype=np.object)
         self.cells_to_add = np.array([], dtype=np.object)
@@ -328,7 +330,7 @@ class Simulation:
             # finds the objects in motion
             if self.cells[i].motion:
                 # new location of 10 times a random float from -1 to 1
-                self.cells[i].velocity[0] += r.uniform(-1, 1) * 3
-                self.cells[i].velocity[1] += r.uniform(-1, 1) * 3
+                self.cells[i].velocity[0] += r.uniform(-1, 1) * 5
+                self.cells[i].velocity[1] += r.uniform(-1, 1) * 5
                 if self.three_D:
-                    self.cells[i].velocity[2] += r.uniform(-1, 1) * 3
+                    self.cells[i].velocity[2] += r.uniform(-1, 1) * 5
