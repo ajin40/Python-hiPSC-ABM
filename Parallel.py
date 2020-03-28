@@ -129,43 +129,44 @@ def handle_collisions_gpu(self):
     """
     # the while loop controls the amount of time steps for movement
     time_counter = 0
+
+    # arrays that hold the energy and spring values
+    energy_kept = np.array([self.energy_kept])
+    spring_constant = np.array([self.spring_constant])
+    time_step = np.array([self.move_time_step])
+    friction = np.array([self.friction])
+
+    # arrays that hold the cell locations, radii, and masses
+    location_array = np.empty((0, 3), int)
+    velocities_array = np.empty((0, 3), int)
+    radius_array = np.array([])
+    mass_array = np.array([])
+
+    # loops over all over the cells and puts their locations into a holder array
+    for i in range(len(self.cells)):
+        location_array = np.append(location_array, np.array([self.cells[i].location]), axis=0)
+        velocities_array = np.append(velocities_array, np.array([self.cells[i].velocity]), axis=0)
+        radius_array = np.append(radius_array, np.array([self.cells[i].radius]), axis=0)
+        mass_array = np.append(mass_array, np.array([self.cells[i].mass]), axis=0)
+
+    # turns the arrays into a form able to send to the gpu
+    location_array = cuda.to_device(location_array)
+    velocities_array = cuda.to_device(velocities_array)
+    radius_array = cuda.to_device(radius_array)
+    mass_array = cuda.to_device(mass_array)
+    energy_kept = cuda.to_device(energy_kept)
+    spring_constant = cuda.to_device(spring_constant)
+    time_step = cuda.to_device(time_step)
+    grid_size = cuda.to_device(self.size)
+    friction = cuda.to_device(friction)
+
+    # sets up the correct allocation of threads and blocks
+    threads_per_block = 24
+    blocks_per_grid = math.ceil(location_array.size / threads_per_block)
+
     while time_counter <= self.move_max_time:
         # smaller the time step, less error from missing collisions
         time_counter += self.move_time_step
-
-        # arrays that hold the cell locations, radii, and masses
-        location_array = np.empty((0, 3), int)
-        velocities_array = np.empty((0, 3), int)
-        radius_array = np.array([])
-        mass_array = np.array([])
-
-        # arrays that hold the energy and spring values
-        energy_kept = np.array([self.energy_kept])
-        spring_constant = np.array([self.spring_constant])
-        time_step = np.array([self.move_time_step])
-        friction = np.array([self.friction])
-
-        # loops over all over the cells and puts their locations into a holder array
-        for i in range(len(self.cells)):
-            location_array = np.append(location_array, np.array([self.cells[i].location]), axis=0)
-            velocities_array = np.append(velocities_array, np.array([self.cells[i].velocity]), axis=0)
-            radius_array = np.append(radius_array, np.array([self.cells[i].radius]), axis=0)
-            mass_array = np.append(mass_array, np.array([self.cells[i].mass]), axis=0)
-
-        # turns the arrays into a form able to send to the gpu
-        location_array = cuda.to_device(location_array)
-        velocities_array = cuda.to_device(velocities_array)
-        radius_array = cuda.to_device(radius_array)
-        mass_array = cuda.to_device(mass_array)
-        energy_kept = cuda.to_device(energy_kept)
-        spring_constant = cuda.to_device(spring_constant)
-        time_step = cuda.to_device(time_step)
-        grid_size = cuda.to_device(self.size)
-        friction = cuda.to_device(friction)
-
-        # sets up the correct allocation of threads and blocks
-        threads_per_block = 32
-        blocks_per_grid = math.ceil(location_array.size / threads_per_block)
 
         handle_collisions_cuda[blocks_per_grid, threads_per_block](location_array, radius_array,
                                                                    mass_array, energy_kept, spring_constant,
@@ -174,17 +175,15 @@ def handle_collisions_gpu(self):
         update_locations_cuda[blocks_per_grid, threads_per_block](location_array, velocities_array, time_step,
                                                                   grid_size, friction)
 
-        # returns the array
-        new_velocities = velocities_array.copy_to_host()
-        new_locations = location_array.copy_to_host()
+    # returns the array
+    new_velocities = velocities_array.copy_to_host()
+    new_locations = location_array.copy_to_host()
 
-        # updates the velocities
-        for i in range(len(self.cells)):
-            self.cells[i].velocity = new_velocities[i]
-            self.cells[i].location = new_locations[i]
+    # updates the velocities
+    for i in range(len(self.cells)):
+        self.cells[i].velocity = new_velocities[i]
+        self.cells[i].location = new_locations[i]
 
-    # Determines if two cells are close enough together to designate a neighbor
-    self.check_neighbors()
 
 @cuda.jit
 def handle_collisions_cuda(locations, radius, mass, energy, spring, velocities):

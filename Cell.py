@@ -101,7 +101,7 @@ class Cell:
         self.state = "Differentiated"
         self.booleans[2] = 1
         self.booleans[3] = 0
-        self.motion = False
+        self.motion = True
 
     def kill_cell(self, simulation):
         """ if the cell is without neighbors,

@@ -2,6 +2,7 @@ import Input
 import Output
 import time
 
+
 """
 Run this file in order to run the program as a whole. Everything is pretty malleable 
 but there are a few lines of code that should remain to keep the model running;
@@ -133,10 +134,13 @@ for Simulation in Simulations:
         Simulation.update_cell_queue()
 
         # Allows the cells in motion to move in a random fashion
-        # Simulation.random_movement()
+        Simulation.random_movement()
 
         # Moves the cells to a state of equilibrium so that there is minimal overlap
         Simulation.handle_collisions()
+
+        # checks for neighboring cells
+        Simulation.check_neighbors()
 
         # Saves a 2D image and a .csv file containing key information from each cell    (base)
         Output.save_file(Simulation)

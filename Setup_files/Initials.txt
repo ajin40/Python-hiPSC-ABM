@@ -1,5 +1,5 @@
 What is the name of the simulation?
-[ Run_22 ]
+[ Run_26 ]
 
 Define where the model will output its images, data, and video. Ex: C:\Python27\Model
 [ C:\Python27\MEGA-ARRAY\ ]
@@ -44,7 +44,7 @@ Length of time steps required for a lonely cell to die
 [ 24.0 ]
 
 Time step for handling collisions, smaller time step...less error (0.01)
-[ 0.1 ]
+[ 0.2 ]
 
 Max time for handling collisions, more may be needed given certain velocities (1.0)
 [ 1.0 ]
@@ -77,5 +77,5 @@ Number of boolean states 0, 1, 2,...
 [ 2 ]
 
 Image quality (1-5...) 3 is recommended
-[ 2 ]
+[ 3 ]
 _______________________________________________________________________________________________________________________
