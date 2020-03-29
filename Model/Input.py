@@ -2,9 +2,9 @@ import numpy as np
 import random as r
 import os
 import shutil
-import Gradient
-import Simulation
-import Cell
+from Model import Gradient
+from Model import Simulation
+from Model import Cell
 
 
 def Setup():
@@ -71,10 +71,10 @@ def Setup():
         for i in range(len(_gradients)):
 
             # initializes the gradient class
-            gradient_obj = Gradient.Gradient(_gradients[i][0], _size, int(_gradients[i][1]), _parallel)
+            new_gradient = Gradient.Gradient(_gradients[i][0], _size, int(_gradients[i][1]), _parallel)
 
             # adds the gradient object
-            simulation.add_gradient(gradient_obj)
+            simulation.gradients = np.append(simulation.gradients, new_gradient)
 
 
         # loops over all NANOG_high cells and creates a stem cell object for each one with given parameters

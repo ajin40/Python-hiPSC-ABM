@@ -1,8 +1,10 @@
 import numpy as np
 import networkx as nx
 import random as r
-import Parallel
-import time
+
+
+from Model import Parallel
+
 
 class Simulation:
     """ called once holds important information about the
@@ -124,11 +126,6 @@ class Simulation:
         for i in range(len(self.cells)):
             self.cells[i].change_size(self)
 
-    def add_gradient(self, grid):
-        """ adds a gradient object to the simulation instance
-        """
-        self.gradients = np.append(self.gradients, grid)
-
     def add_cell(self, cell):
         """ Adds the specified object to the array
             and the graph
@@ -174,22 +171,6 @@ class Simulation:
         # clear the arrays
         self.cells_to_remove = np.array([], dtype=np.object)
         self.cells_to_add = np.array([], dtype=np.object)
-
-    def add_cell_to_addition_queue(self, cell):
-        """ Will add an object to the simulation object queue
-            which will be added to the simulation at the end of
-            the update phase.
-        """
-        # adds object to array
-        self.cells_to_add = np.append(self.cells_to_add, cell)
-
-    def add_cell_to_removal_queue(self, cell):
-        """ Will add an object to the simulation object queue
-            which will be removed from the simulation at the end of
-            the update phase.
-        """
-        # adds object to array
-        self.cells_to_remove = np.append(self.cells_to_remove, cell)
 
     def check_neighbors(self):
         """ checks all of the distances between cells
