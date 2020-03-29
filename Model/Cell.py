@@ -37,14 +37,14 @@ class Cell:
         """
         # halves the division counter and mass
         self.div_counter *= 0.5
-        self.mass *= 0.5
+        self.mass *= 1.0
 
         # places the new cell on the surface on the old cell
         location = self.location + RandomPointOnSphere(simulation) * self.radius
 
         # makes sure the new cell's location is on the grid
         while not 0 <= location[0] < simulation.size[0] or not 0 <= location[1] < simulation.size[1] or not 0 <= location[2] < simulation.size[2]:
-            location = self.location + RandomPointOnSphere(simulation)
+            location = self.location + RandomPointOnSphere(simulation) * self.radius
 
         # creates a new Cell object
         cell = Cell(location, self.motion, self.velocity, self.mass, self.booleans, self.state, self.diff_counter,
@@ -62,13 +62,13 @@ class Cell:
             simulates growth
         """
         # increases mass
-        self.mass *= 1.05
+        self.mass *= 1.00
 
         # sets radius depending on if 2D or 3D based on area or volume
         if simulation.three_D:
-            self.radius = (3/(4 * 3.14159) / simulation.density) ** (1/3)
+            self.radius = ((3 * self.mass)/(4 * 3.14159) / simulation.density) ** (1/3)
         else:
-            self.radius = ((1 / 3.14159) / simulation.density) ** 0.5
+            self.radius = (((1 * self.mass) / 3.14159) / simulation.density) ** 0.5
 
     def boolean_function(self, fgf4_bool, simulation):
         """ updates the boolean values of the cell
@@ -199,6 +199,7 @@ class Cell:
             # if the differentiation counter is greater than the threshold, differentiate
             if self.diff_counter >= simulation.pluri_to_diff:
                 self.differentiate()
+
 
 def RandomPointOnSphere(simulation):
     """ Computes a random point on a sphere

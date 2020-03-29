@@ -3,7 +3,6 @@ import cv2
 import csv
 from scipy.spatial import Voronoi, voronoi_plot_2d
 import numpy as np
-import time
 
 def draw_image(simulation):
     """ Turns the graph into an image at each timestep
@@ -14,7 +13,7 @@ def draw_image(simulation):
     image_size = (image_quality * 1500, image_quality * 1500)
 
     # draws the background of the image
-    background = Image.new("RGB", image_size, color=(130, 130, 130))
+    background = Image.new("RGB", image_size, color=(255, 255, 255))
     image = ImageDraw.Draw(background)
 
     # bounds of the simulation used for drawing lines
@@ -28,15 +27,15 @@ def draw_image(simulation):
         center = image_quality * 250
 
         if simulation.cells[i].state == "Pluripotent":
-            color = 'white'
+            color = 'green'
         else:
-            color = 'black'
+            color = 'red'
 
         membrane_circle = (x - membrane + center, y - membrane + center, x + membrane + center, y + membrane + center)
-        nucleus_circle = (x - nucleus + center, y - nucleus + center, x + nucleus + center, y + nucleus + center)
+        # nucleus_circle = (x - nucleus + center, y - nucleus + center, x + nucleus + center, y + nucleus + center)
 
-        image.ellipse(membrane_circle, outline="black")
-        image.ellipse(nucleus_circle, outline="black", fill=color)
+        image.ellipse(membrane_circle, outline="black", fill=color)
+        # image.ellipse(nucleus_circle, outline="black", fill=color)
 
     # loops over all of the bounds and draws lines to represent the grid
     for i in range(len(bounds)):
@@ -53,8 +52,9 @@ def draw_image(simulation):
         corners = (x0 - radius + center, y0 - radius + center, x0 + radius + center, y0 + radius + center)
         lines = (x0 + center, y0 + center, x1 + center, y1 + center)
 
-        image.ellipse(corners, outline='white', fill='white')
-        image.line(lines, fill='white', width=width)
+        color = 'black'
+        image.ellipse(corners, outline=color, fill=color)
+        image.line(lines, fill=color, width=width)
 
     # saves the image as a .png
     background.save(simulation.path + "network_image_" + str(int(simulation.time_counter)) + ".png", 'PNG')

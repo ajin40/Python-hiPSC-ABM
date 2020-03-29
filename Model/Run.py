@@ -1,6 +1,7 @@
 import Input
 import Output
 
+
 """
 Run this file in order to run the program as a whole. Everything is pretty malleable 
 but there are a few lines of code that should remain to keep the model running;
@@ -128,7 +129,7 @@ for Simulation in Simulations:
         # Adjusts the mass and radius of the cell
         Simulation.change_size_cells()
 
-        # Adds/removes objects at once to/from the simulation
+        # Adds/removes objects at once to/from the simulation includes handling collisions when cells are added
         Simulation.update_cell_queue()
 
         # Allows the cells in motion to move in a random fashion
