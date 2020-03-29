@@ -1,6 +1,6 @@
 import numpy as np
 import random as r
-import Parallel
+from Model import Parallel
 
 
 class Gradient:

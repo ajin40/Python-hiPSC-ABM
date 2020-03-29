@@ -55,7 +55,7 @@ class Cell:
         cell.change_size(simulation)
 
         # adds the cell to the simulation
-        simulation.add_cell_to_addition_queue(cell)
+        simulation.cells_to_add = np.append(simulation.cells_to_add, cell)
 
     def change_size(self, simulation):
         """ Increases the mass of the cell
@@ -114,7 +114,7 @@ class Cell:
 
         # removes cell if it meets the parameters
         if self.death_counter >= simulation.death_threshold:
-            simulation.add_cell_to_removal_queue(self)
+            simulation.cells_to_remove = np.append(simulation.cells_to_remove, self)
 
     def diff_surround(self, simulation):
         """ calls the object function that determines if

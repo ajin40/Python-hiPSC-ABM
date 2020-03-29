@@ -1,5 +1,5 @@
-import Input
-import Output
+from Model import Input
+from Model import Output
 
 
 """

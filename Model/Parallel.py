@@ -3,24 +3,24 @@ import math
 import numpy as np
 
 
-def initialize_grid_gpu(self):
+def initialize_grid_gpu(simulation):
     """ the parallel form of "initialize_grid"
     """
     # sets up the correct allocation of threads and blocks
     threads_per_block = (10, 10, 10)
-    blocks_per_grid_x = math.ceil(self.grid.shape[0] / threads_per_block[0])
-    blocks_per_grid_y = math.ceil(self.grid.shape[1] / threads_per_block[1])
-    blocks_per_grid_z = math.ceil(self.grid.shape[2] / threads_per_block[2])
+    blocks_per_grid_x = math.ceil(simulation.grid.shape[0] / threads_per_block[0])
+    blocks_per_grid_y = math.ceil(simulation.grid.shape[1] / threads_per_block[1])
+    blocks_per_grid_z = math.ceil(simulation.grid.shape[2] / threads_per_block[2])
     blocks_per_grid = (blocks_per_grid_x, blocks_per_grid_y, blocks_per_grid_z)
 
     # turns the grid into a form able to send to the gpu
-    cuda_grid = cuda.to_device(self.grid)
+    cuda_grid = cuda.to_device(simulation.grid)
 
     # calls the cuda function
     initialize_grid_cuda[blocks_per_grid, threads_per_block](cuda_grid)
 
     # returns the grid and reassigns the new grid
-    self.grid = cuda_grid.copy_to_host()
+    simulation.grid = cuda_grid.copy_to_host()
 
 @cuda.jit
 def initialize_grid_cuda(grid_array):
@@ -34,24 +34,24 @@ def initialize_grid_cuda(grid_array):
         grid_array[a][b][c] += 5.0
 
 
-def update_grid_gpu(self):
+def update_grid_gpu(simulation):
     """ the parallel form of "update_grid"
     """
     # sets up the correct allocation of threads and blocks
     threads_per_block = (10, 10, 10)
-    blocks_per_grid_x = math.ceil(self.grid.shape[0] / threads_per_block[0])
-    blocks_per_grid_y = math.ceil(self.grid.shape[1] / threads_per_block[1])
-    blocks_per_grid_z = math.ceil(self.grid.shape[2] / threads_per_block[2])
+    blocks_per_grid_x = math.ceil(simulation.grid.shape[0] / threads_per_block[0])
+    blocks_per_grid_y = math.ceil(simulation.grid.shape[1] / threads_per_block[1])
+    blocks_per_grid_z = math.ceil(simulation.grid.shape[2] / threads_per_block[2])
     blocks_per_grid = (blocks_per_grid_x, blocks_per_grid_y, blocks_per_grid_z)
 
     # turns the grid into a form able to send to the gpu
-    cuda_grid = cuda.to_device(self.grid)
+    cuda_grid = cuda.to_device(simulation.grid)
 
     # calls the cuda function
     update_grid_cuda[blocks_per_grid, threads_per_block](cuda_grid)
 
     # returns the grid and reassigns the new grid
-    self.grid = cuda_grid.copy_to_host()
+    simulation.grid = cuda_grid.copy_to_host()
 
 @cuda.jit
 def update_grid_cuda(grid_array):
@@ -64,21 +64,21 @@ def update_grid_cuda(grid_array):
     if a < grid_array.shape[0] and b < grid_array.shape[1] and c < grid_array.shape[2] and grid_array[a][b][c] > 0:
         grid_array[a][b][c] -= 1.0
 
-def check_neighbors_gpu(self):
+def check_neighbors_gpu(simulation):
     """ the parallel form of "check_neighbors"
     """
     # arrays that will hold the cell locations and the output of edges
     location_array = np.empty((0, 3), int)
-    edges_array = np.zeros((len(self.cells), len(self.cells)))
+    edges_array = np.zeros((len(simulation.cells), len(simulation.cells)))
 
     # loops over all over the cells and puts their locations into a holder array
-    for i in range(len(self.cells)):
-        location_array = np.append(location_array, np.array([self.cells[i].location]), axis=0)
+    for i in range(len(simulation.cells)):
+        location_array = np.append(location_array, np.array([simulation.cells[i].location]), axis=0)
 
     # turns the arrays into a form able to send to the gpu
     location_array_cuda = cuda.to_device(location_array)
     edges_array_cuda = cuda.to_device(edges_array)
-    distance_cuda = cuda.to_device(self.neighbor_distance)
+    distance_cuda = cuda.to_device(simulation.neighbor_distance)
 
     # sets up the correct allocation of threads and blocks
     threads_per_block = 32
@@ -97,12 +97,12 @@ def check_neighbors_gpu(self):
     edges = np.argwhere(output == 1)
 
     # re-adds the cells as nodes
-    for i in range(len(self.cells)):
-        self.network.add_node(self.cells[i])
+    for i in range(len(simulation.cells)):
+        simulation.network.add_node(simulation.cells[i])
 
     # forms an edge between cells that are close enough
     for i in range(len(edges)):
-        self.network.add_edge(self.cells[edges[i][0]], self.cells[edges[i][1]])
+        simulation.network.add_edge(simulation.cells[edges[i][0]], simulation.cells[edges[i][1]])
 
 @cuda.jit
 def check_neighbors_cuda(locations, edges, distance):
@@ -123,17 +123,17 @@ def check_neighbors_cuda(locations, edges, distance):
                 if i != j:
                     edges[i][j] = 1
 
-def handle_collisions_gpu(self):
+def handle_collisions_gpu(simulation):
     """ the parallel form of "handle_collisions"
     """
     # the while loop controls the amount of time steps for movement
     time_counter = 0
 
     # arrays that hold the energy and spring values
-    energy_kept = np.array([self.energy_kept])
-    spring_constant = np.array([self.spring_constant])
-    time_step = np.array([self.move_time_step])
-    friction = np.array([self.friction])
+    energy_kept = np.array([simulation.energy_kept])
+    spring_constant = np.array([simulation.spring_constant])
+    time_step = np.array([simulation.move_time_step])
+    friction = np.array([simulation.friction])
 
     # arrays that hold the cell locations, radii, and masses
     location_array = np.empty((0, 3), int)
@@ -142,11 +142,11 @@ def handle_collisions_gpu(self):
     mass_array = np.array([])
 
     # loops over all over the cells and puts their locations into a holder array
-    for i in range(len(self.cells)):
-        location_array = np.append(location_array, np.array([self.cells[i].location]), axis=0)
-        velocities_array = np.append(velocities_array, np.array([self.cells[i].velocity]), axis=0)
-        radius_array = np.append(radius_array, np.array([self.cells[i].radius]), axis=0)
-        mass_array = np.append(mass_array, np.array([self.cells[i].mass]), axis=0)
+    for i in range(len(simulation.cells)):
+        location_array = np.append(location_array, np.array([simulation.cells[i].location]), axis=0)
+        velocities_array = np.append(velocities_array, np.array([simulation.cells[i].velocity]), axis=0)
+        radius_array = np.append(radius_array, np.array([simulation.cells[i].radius]), axis=0)
+        mass_array = np.append(mass_array, np.array([simulation.cells[i].mass]), axis=0)
 
     # turns the arrays into a form able to send to the gpu
     location_array = cuda.to_device(location_array)
@@ -156,16 +156,16 @@ def handle_collisions_gpu(self):
     energy_kept = cuda.to_device(energy_kept)
     spring_constant = cuda.to_device(spring_constant)
     time_step = cuda.to_device(time_step)
-    grid_size = cuda.to_device(self.size)
+    grid_size = cuda.to_device(simulation.size)
     friction = cuda.to_device(friction)
 
     # sets up the correct allocation of threads and blocks
     threads_per_block = 36
     blocks_per_grid = math.ceil(location_array.size / threads_per_block)
 
-    while time_counter <= self.move_max_time:
+    while time_counter <= simulation.move_max_time:
         # smaller the time step, less error from missing collisions
-        time_counter += self.move_time_step
+        time_counter += simulation.move_time_step
 
         handle_collisions_cuda[blocks_per_grid, threads_per_block](location_array, radius_array,
                                                                    mass_array, energy_kept, spring_constant,
@@ -179,9 +179,9 @@ def handle_collisions_gpu(self):
     new_locations = location_array.copy_to_host()
 
     # updates the velocities
-    for i in range(len(self.cells)):
-        self.cells[i].velocity = new_velocities[i]
-        self.cells[i].location = new_locations[i]
+    for i in range(len(simulation.cells)):
+        simulation.cells[i].velocity = new_velocities[i]
+        simulation.cells[i].location = new_locations[i]
 
 @cuda.jit
 def handle_collisions_cuda(locations, radius, mass, energy, spring, velocities):
