@@ -1,0 +1,84 @@
+What is the name of the simulation?
+[ Run_28 ]
+
+Define where the model will output its images, data, and video. Ex: C:\Python27\Model
+[ C:\Python27\MEGA-ARRAY\ ]
+
+Do you want the simulation to use parallel GPU processing?
+[ True ]
+
+How many total steps will the model run for?
+[ 60.0 ]
+
+What will the difference in time steps be?
+[ 1.0 ]
+
+How many cells will be GATA6 high to begin the simulation?
+[ 0 ]
+
+How many cells will be NANOG high to begin the simulation?
+[ 500 ]
+
+Stochastic FGFR + ERK values?
+[ True ]
+
+What will be the size of the grid? Ex. (x, y, z)
+[ (1000, 1000, 1) ]
+
+Define the boolean functions below
+[ "x5", "x1 * x4", "x2", "x5 + 1", "(x3+1) * (x4+1)" ]
+
+Length of time steps required for a pluripotent cell to divide
+[ 24.0 ]
+
+Length of time steps required for a differentiated cell to divide
+[ 24.0 ]
+
+Length of time steps required for a pluripotent cell to differentiate
+[ 48.0 ]
+
+Amount of differentiated cells needed to surround a pluripotent cell to differentiate it
+[ 5 ]
+
+Length of time steps required for a lonely cell to die
+[ 36.0 ]
+
+Time step for handling collisions, smaller time step...less error (0.01)
+[ 0.1 ]
+
+Max time for handling collisions, more may be needed given certain velocities (1.0)
+[ 1.0 ]
+
+The spring constant values used to represent the cytoplasm
+[ 1.25 ]
+
+The friction acting on the cells as they move. Prevents infinite movement (60.0)
+[ 90.0 ]
+
+Percent of energy that goes from spring to kinetic as a decimal
+[ 0.80 ]
+
+Distance that constitutes a neighbor. More distance more neighbors (36.0)
+[ 36.0 ]
+
+Initial mass of the cells used with density to calculate radius
+[ 1.0 ]
+
+List the Gradients as a 2D array
+[ [["FGF4", 10]] ]
+
+Is the model 3D?
+[ False ]
+
+Density of the cell used for radius (0.001)
+[ 0.01 ]
+
+Number of boolean states 0, 1, 2,...
+[ 2 ]
+
+Image quality (1-5...) 3 is recommended
+[ 4 ]
+
+How many cells are added/removed to the simulation at a time?
+[ 4 ]
+_______________________________________________________________________________________________________________________
