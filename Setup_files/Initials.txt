@@ -1,5 +1,5 @@
 What is the name of the simulation?
-[ Run_26 ]
+[ Run_28 ]
 
 Define where the model will output its images, data, and video. Ex: C:\Python27\Model
 [ C:\Python27\MEGA-ARRAY\ ]
@@ -35,16 +35,16 @@ Length of time steps required for a differentiated cell to divide
 [ 24.0 ]
 
 Length of time steps required for a pluripotent cell to differentiate
-[ 36.0 ]
+[ 48.0 ]
 
 Amount of differentiated cells needed to surround a pluripotent cell to differentiate it
 [ 5 ]
 
 Length of time steps required for a lonely cell to die
-[ 24.0 ]
+[ 36.0 ]
 
 Time step for handling collisions, smaller time step...less error (0.01)
-[ 0.2 ]
+[ 0.1 ]
 
 Max time for handling collisions, more may be needed given certain velocities (1.0)
 [ 1.0 ]
@@ -77,5 +77,8 @@ Number of boolean states 0, 1, 2,...
 [ 2 ]
 
 Image quality (1-5...) 3 is recommended
+[ 4 ]
+
+How many cells are added/removed to the simulation at a time?
 [ 3 ]
 _______________________________________________________________________________________________________________________

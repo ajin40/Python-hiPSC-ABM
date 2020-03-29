@@ -1,6 +1,5 @@
 import Input
 import Output
-import time
 
 
 """
@@ -130,7 +129,7 @@ for Simulation in Simulations:
         # Adjusts the mass and radius of the cell
         Simulation.change_size_cells()
 
-        # Adds/removes objects at once to/from the simulation
+        # Adds/removes objects at once to/from the simulation includes handling collisions when cells are added
         Simulation.update_cell_queue()
 
         # Allows the cells in motion to move in a random fashion
@@ -138,9 +137,6 @@ for Simulation in Simulations:
 
         # Moves the cells to a state of equilibrium so that there is minimal overlap
         Simulation.handle_collisions()
-
-        # checks for neighboring cells
-        Simulation.check_neighbors()
 
         # Saves a 2D image and a .csv file containing key information from each cell    (base)
         Output.save_file(Simulation)

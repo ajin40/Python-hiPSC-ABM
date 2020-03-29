@@ -55,13 +55,14 @@ def Setup():
         _density = float(parameters[24])
         _n = int(parameters[25])
         _quality = int(parameters[26])
+        _group = int(parameters[27])
 
         # initializes simulation class which holds all information about the simulation
         simulation = Simulation.Simulation(_path, _end_time, _time_step, _pluri_div_thresh, _diff_div_thresh,
                                            _pluri_to_diff, _size, _diff_surround_value, _functions, _parallel,
                                            _death_threshold, _move_time_step, _move_max_time, _spring_constant,
                                            _friction, _energy_kept, _neighbor_distance, _three_D, _density, _n,
-                                           _quality)
+                                           _quality, _group)
 
         # copies the setup file to the new directory of the simulation
         shutil.copy(setup_path + "\\" + file, simulation.path)
@@ -89,9 +90,9 @@ def Setup():
                 booleans = np.array([r.randint(0, 1), r.randint(0, 1), 0, 1])
             else:
                 booleans = np.array([0, 0, 0, 1])
-            diff_counter = _pluri_to_diff * r.random() * 0.5
+            diff_counter = _pluri_to_diff * r.random()
             division_counter = _pluri_div_thresh * r.random()
-            death_counter = _death_threshold * r.random() * 0.5
+            death_counter = _death_threshold * r.random()
             velocity = np.array([0.0, 0.0, 0.0], np.float32)
 
             # creates instance of Cell class
@@ -114,9 +115,9 @@ def Setup():
                 booleans = np.array([r.randint(0, 1), r.randint(0, 1), 1, 0])
             else:
                 booleans = np.array([0, 0, 1, 0])
-            diff_counter = _pluri_to_diff * r.random() * 0.5
+            diff_counter = _pluri_to_diff * r.random()
             division_counter = _pluri_div_thresh * r.random()
-            death_counter = _death_threshold * r.random() * 0.5
+            death_counter = _death_threshold * r.random()
             velocity = np.array([0.0, 0.0, 0.0], np.float32)
 
             # creates instance of Cell class

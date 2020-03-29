@@ -64,7 +64,6 @@ def update_grid_cuda(grid_array):
     if a < grid_array.shape[0] and b < grid_array.shape[1] and c < grid_array.shape[2] and grid_array[a][b][c] > 0:
         grid_array[a][b][c] -= 1.0
 
-
 def check_neighbors_gpu(self):
     """ the parallel form of "check_neighbors"
     """
@@ -161,7 +160,7 @@ def handle_collisions_gpu(self):
     friction = cuda.to_device(friction)
 
     # sets up the correct allocation of threads and blocks
-    threads_per_block = 24
+    threads_per_block = 36
     blocks_per_grid = math.ceil(location_array.size / threads_per_block)
 
     while time_counter <= self.move_max_time:
@@ -183,7 +182,6 @@ def handle_collisions_gpu(self):
     for i in range(len(self.cells)):
         self.cells[i].velocity = new_velocities[i]
         self.cells[i].location = new_locations[i]
-
 
 @cuda.jit
 def handle_collisions_cuda(locations, radius, mass, energy, spring, velocities):

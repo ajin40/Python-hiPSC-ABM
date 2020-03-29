@@ -2,7 +2,7 @@ import numpy as np
 import networkx as nx
 import random as r
 import Parallel
-
+import time
 
 class Simulation:
     """ called once holds important information about the
@@ -11,7 +11,8 @@ class Simulation:
 
     def __init__(self, path, end_time, time_step, pluri_div_thresh, diff_div_thresh, pluri_to_diff, size,
                  diff_surround_value, functions, parallel, death_threshold, move_time_step, move_max_time,
-                 spring_constant, friction, energy_kept, neighbor_distance, three_D, density, n, quality):
+                 spring_constant, friction, energy_kept, neighbor_distance, three_D, density, n, quality,
+                 group):
 
         """ Initialization function for the simulation setup.
             name: the simulation name
@@ -54,6 +55,7 @@ class Simulation:
         self.density = density
         self.n = n
         self.quality = quality
+        self.group = group
 
         # counts how many times an image is created for making videos
         self.image_counter = 0
@@ -73,7 +75,6 @@ class Simulation:
         # holds the objects until they are added or removed from the simulation
         self.cells_to_remove = np.array([], dtype=np.object)
         self.cells_to_add = np.array([], dtype=np.object)
-
 
 
     def info(self):
@@ -158,11 +159,17 @@ class Simulation:
         for i in range(len(self.cells_to_remove)):
             self.remove_cell(self.cells_to_remove[i])
 
+            # can't add all the cells together or you get a mess
+            if i + 1 % self.group == 0:
+                self.handle_collisions()
+
         # loops over all objects to add
         for i in range(len(self.cells_to_add)):
             self.add_cell(self.cells_to_add[i])
 
-            self.handle_collisions()
+            # can't add all the cells together or you get a mess
+            if i + 1 % self.group == 0:
+                self.handle_collisions()
 
         # clear the arrays
         self.cells_to_remove = np.array([], dtype=np.object)
@@ -222,6 +229,9 @@ class Simulation:
         # tries to run the parallel version of the function
         if self.parallel:
             Parallel.handle_collisions_gpu(self)
+
+            # checks for neighboring cells
+            self.check_neighbors()
         else:
             self.check_neighbors()
 
