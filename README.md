@@ -1,12 +1,24 @@
 # Stem Cell Patterning Python
 #### Agent-based model of pluripotent colonies patterning through differentiation.
 
+Check out our lab!
 
 Website: [https://kemp.gatech.edu](https://kemp.gatech.edu)
 
 GitHub: [https://github.com/kemplab](https://github.com/kemplab)
 
 ##
+
+### Steps to get started...
+#### Download a copy:
+```
+git clone https://github.com/JackToppen/stem-cell-patterning_Python.git
+```
+#### Customize initial parameters:
+Look for the "Setup_files" directory. This should contain "Example.txt", which is a template for
+the initial parameters of each simulation. You can put multiple templates in the "Setup_files" to
+run series of simulations one after another.
+
 
 #### Here's what each of the files do:
 
