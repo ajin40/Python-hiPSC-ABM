@@ -1,8 +1,5 @@
 import numpy as np
 import networkx as nx
-import random as r
-
-
 from Model import Parallel
 
 
@@ -13,8 +10,8 @@ class Simulation:
 
     def __init__(self, path, end_time, time_step, pluri_div_thresh, diff_div_thresh, pluri_to_diff, size,
                  diff_surround_value, functions, parallel, death_threshold, move_time_step, move_max_time,
-                 spring_constant, friction, energy_kept, neighbor_distance, three_D, density, n, quality,
-                 group):
+                 spring_constant, friction, energy_kept, neighbor_distance, density, n, quality,
+                 group, speed):
 
         """ Initialization function for the simulation setup.
             name: the simulation name
@@ -35,6 +32,11 @@ class Simulation:
             friction: resistance to moving in the environment
             energy_kept: percent of energy left after turning spring energy into kinetic
             neighbor_distance: how close cells are to be neighbors
+            density: the density of a cell
+            n: the number of boolean states (0, 1, 2,...)
+            quality: the quality of the images in pixel dimensions times 1500
+            group: how many cells are removed or added at a time
+            speed: magnitude of random movement speed
         """
         self.path = path
         self.end_time = end_time
@@ -53,11 +55,11 @@ class Simulation:
         self.friction = friction
         self.energy_kept = energy_kept
         self.neighbor_distance = neighbor_distance
-        self.three_D = three_D
         self.density = density
         self.n = n
         self.quality = quality
         self.group = group
+        self.speed = speed
 
         # counts how many times an image is created for making videos
         self.image_counter = 0
@@ -126,6 +128,13 @@ class Simulation:
         for i in range(len(self.cells)):
             self.cells[i].change_size(self)
 
+    def randomly_move_cells(self):
+        """ has the objects that are in motion
+            move in a random way
+        """
+        for i in range(len(self.cells)):
+            self.cells[i].randomly_move(self)
+
     def add_cell(self, cell):
         """ Adds the specified object to the array
             and the graph
@@ -157,7 +166,9 @@ class Simulation:
             self.remove_cell(self.cells_to_remove[i])
 
             # can't add all the cells together or you get a mess
-            if i + 1 % self.group == 0:
+
+            if (i + 1) % self.group == 0:
+
                 self.handle_collisions()
 
         # loops over all objects to add
@@ -165,14 +176,14 @@ class Simulation:
             self.add_cell(self.cells_to_add[i])
 
             # can't add all the cells together or you get a mess
-            if i + 1 % self.group == 0:
+            if (i + 1) % self.group == 0:
                 self.handle_collisions()
 
         # clear the arrays
         self.cells_to_remove = np.array([], dtype=np.object)
         self.cells_to_add = np.array([], dtype=np.object)
 
-    # old version about 50X slower
+    # old version about 50-100X slower
     # def check_neighbors(self):
     #     """ checks all of the distances between cells
     #         if it is less than a set value create a
@@ -221,12 +232,12 @@ class Simulation:
             x = int(self.size[0] / distance + 3)
             y = int(self.size[1] / distance + 3)
             z = int(self.size[2] / distance + 3)
-            array = np.empty((x, y, z), dtype=object)
+            blocks = np.empty((x, y, z), dtype=object)
 
             for i in range(x):
                 for j in range(y):
                     for k in range(z):
-                        array[i][j][k] = np.array([])
+                        blocks[i][j][k] = np.array([])
 
             for i in range(len(self.cells)):
 
@@ -237,8 +248,8 @@ class Simulation:
                 location_y = int(self.cells[i].location[1] / distance) + 1
                 location_z = int(self.cells[i].location[2] / distance) + 1
 
-                array[location_x][location_y][location_z] = np.append(array[location_x][location_y][location_z], self.cells[i])
-
+                current_block = blocks[location_x][location_y][location_z]
+                blocks[location_x][location_y][location_z] = np.append(current_block, self.cells[i])
 
             # loops over all objects
             for h in range(len(self.cells)):
@@ -249,11 +260,11 @@ class Simulation:
                 for i in range(-1, 2):
                     for j in range(-1, 2):
                         for k in range(-1, 2):
-                            thing = array[location_x + i][location_y + j][location_z + k]
-                            for l in range(len(thing)):
-                                if thing[l] != self.cells[h]:
-                                    if np.linalg.norm(thing[l].location - self.cells[h].location) <= distance:
-                                        self.network.add_edge(self.cells[h], thing[l])
+                            cells_in_block = blocks[location_x + i][location_y + j][location_z + k]
+                            for l in range(len(cells_in_block)):
+                                if cells_in_block[l] != self.cells[h]:
+                                    if np.linalg.norm(cells_in_block[l].location - self.cells[h].location) <= distance:
+                                        self.network.add_edge(self.cells[h], cells_in_block[l])
 
     def handle_collisions(self):
         """ Move the cells in small increments and manages
@@ -263,14 +274,13 @@ class Simulation:
         if self.parallel:
             Parallel.handle_collisions_gpu(self)
 
-            # checks for neighboring cells
-            self.check_neighbors()
         else:
             self.check_neighbors()
 
             # the while loop controls the amount of time steps for movement
             time_counter = 0
             while time_counter <= self.move_max_time:
+
                 # smaller the time step, less error from missing collisions
                 time_counter += self.move_time_step
 
@@ -358,22 +368,3 @@ class Simulation:
 
                 # checks neighbors after the cells move for re-evaluation of collisions
                 self.check_neighbors()
-
-        # for i in range(len(self.cells)):
-        #     self.cells[i].velocity = np.array([0.0, 0.0, 0.0], np.float32)
-
-
-    def random_movement(self):
-        """ has the objects that are in motion
-            move in a random way
-        """
-
-        # loops over all cells
-        for i in range(len(self.cells)):
-            # finds the objects in motion
-            if self.cells[i].motion:
-                # new location of 10 times a random float from -1 to 1
-                self.cells[i].velocity[0] += r.uniform(-1, 1) * 5
-                self.cells[i].velocity[1] += r.uniform(-1, 1) * 5
-                if self.three_D:
-                    self.cells[i].velocity[2] += r.uniform(-1, 1) * 5

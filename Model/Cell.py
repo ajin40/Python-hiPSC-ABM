@@ -65,10 +65,26 @@ class Cell:
         self.mass *= 1.00
 
         # sets radius depending on if 2D or 3D based on area or volume
-        if simulation.three_D:
+        if simulation.size[2] != 1:
             self.radius = ((3 * self.mass)/(4 * 3.14159) / simulation.density) ** (1/3)
         else:
             self.radius = (((1 * self.mass) / 3.14159) / simulation.density) ** 0.5
+
+    def randomly_move(self, simulation):
+        """ has the object that is in motion
+            move in a random way
+        """
+        # finds the objects in motion
+        if self.motion:
+            # gets random angle on the cell
+            theta = r.random() * 2 * math.pi
+
+            # new location of 10 times a random float from -1 to 1
+            self.velocity[0] += math.cos(theta) * simulation.speed
+            self.velocity[1] += math.sin(theta) * simulation.speed
+
+            if simulation.size[2] != 1:
+                self.velocity[2] += r.random(-1, 1) * simulation.speed
 
     def boolean_function(self, fgf4_bool, simulation):
         """ updates the boolean values of the cell
@@ -211,7 +227,7 @@ def RandomPointOnSphere(simulation):
     # gets x,y,z off theta and whether 2D or 3D
     x = math.cos(theta)
     y = math.sin(theta)
-    if simulation.three_D:
+    if simulation.size[2] != 1:
         z = r.random()
     else:
         z = 0.0
