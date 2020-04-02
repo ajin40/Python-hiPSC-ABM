@@ -142,8 +142,8 @@ def check_name(path, name):
             os.mkdir(path + name)
             break
         except:
-            print("Simulation with identical name")
-            user = input("Would you like to overwrite the that simulation? (y/n): ")
+            print("Simulation with identical name: " + str(name))
+            user = input("Would you like to overwrite that simulation? (y/n): ")
             if user == "n":
                 name = input("New name: ")
             if user == "y":
