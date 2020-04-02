@@ -5,7 +5,7 @@ Define where the model will output its images, data, and video. Ex: C:\Python27\
 [ C:\Python27\MEGA-ARRAY\ ]
 
 Do you want the simulation to use parallel GPU processing?
-[ True ]
+[ False ]
 
 How many total steps will the model run for?
 [ 60.0 ]
@@ -17,7 +17,7 @@ How many cells will be GATA6 high to begin the simulation?
 [ 0 ]
 
 How many cells will be NANOG high to begin the simulation?
-[ 500 ]
+[ 10000 ]
 
 Stochastic FGFR + ERK values?
 [ True ]
@@ -44,7 +44,7 @@ Length of time steps required for a lonely cell to die
 [ 36.0 ]
 
 Time step for handling collisions, smaller time step...less error (0.01)
-[ 0.1 ]
+[ 1.0 ]
 
 Max time for handling collisions, more may be needed given certain velocities (1.0)
 [ 1.0 ]
@@ -59,7 +59,7 @@ Percent of energy that goes from spring to kinetic as a decimal
 [ 0.80 ]
 
 Distance that constitutes a neighbor. More distance more neighbors (36.0)
-[ 36.0 ]
+[ 20.0 ]
 
 Initial mass of the cells used with density to calculate radius
 [ 1.0 ]
@@ -80,5 +80,5 @@ Image quality (1-5...) 3 is recommended
 [ 4 ]
 
 How many cells are added/removed to the simulation at a time?
-[ 4 ]
+[ 100 ]
 _______________________________________________________________________________________________________________________

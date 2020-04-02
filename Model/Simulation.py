@@ -172,6 +172,39 @@ class Simulation:
         self.cells_to_remove = np.array([], dtype=np.object)
         self.cells_to_add = np.array([], dtype=np.object)
 
+    # old version about 50X slower
+    # def check_neighbors(self):
+    #     """ checks all of the distances between cells
+    #         if it is less than a set value create a
+    #         connection between two cells.
+    #     """
+    #     # clears the current graph to prevent existing edges remaining
+    #     self.network.clear()
+    #
+    #     # tries to run the parallel version of the function
+    #     if self.parallel:
+    #         Parallel.check_neighbors_gpu(self)
+    #     else:
+    #         # loops over all objects
+    #         for i in range(len(self.cells)):
+    #
+    #             # adds all of the cells to the simulation
+    #             self.network.add_node(self.cells[i])
+    #
+    #             # loops over all objects not check already
+    #             for j in range(i + 1, len(self.cells)):
+    #
+    #                 # get the distance between cells
+    #                 dist_vec = self.cells[i].location - self.cells[j].location
+    #
+    #                 # get the magnitude of the distance vector
+    #                 dist = np.linalg.norm(dist_vec)
+    #
+    #                 # if the cells are close enough, add an edge between them
+    #                 if dist <= self.neighbor_distance:
+    #                     self.network.add_edge(self.cells[i], self.cells[j])
+
+
     def check_neighbors(self):
         """ checks all of the distances between cells
             if it is less than a set value create a
@@ -184,24 +217,43 @@ class Simulation:
         if self.parallel:
             Parallel.check_neighbors_gpu(self)
         else:
-            # loops over all objects
+            distance = self.neighbor_distance
+            x = int(self.size[0] / distance + 3)
+            y = int(self.size[1] / distance + 3)
+            z = int(self.size[2] / distance + 3)
+            array = np.empty((x, y, z), dtype=object)
+
+            for i in range(x):
+                for j in range(y):
+                    for k in range(z):
+                        array[i][j][k] = np.array([])
+
             for i in range(len(self.cells)):
 
                 # adds all of the cells to the simulation
                 self.network.add_node(self.cells[i])
 
-                # loops over all objects not check already
-                for j in range(i + 1, len(self.cells)):
+                location_x = int(self.cells[i].location[0] / distance) + 1
+                location_y = int(self.cells[i].location[1] / distance) + 1
+                location_z = int(self.cells[i].location[2] / distance) + 1
 
-                    # get the distance between cells
-                    dist_vec = self.cells[i].location - self.cells[j].location
+                array[location_x][location_y][location_z] = np.append(array[location_x][location_y][location_z], self.cells[i])
 
-                    # get the magnitude of the distance vector
-                    dist = np.linalg.norm(dist_vec)
 
-                    # if the cells are close enough, add an edge between them
-                    if dist <= self.neighbor_distance:
-                        self.network.add_edge(self.cells[i], self.cells[j])
+            # loops over all objects
+            for h in range(len(self.cells)):
+                location_x = int(self.cells[h].location[0] / distance) + 1
+                location_y = int(self.cells[h].location[1] / distance) + 1
+                location_z = int(self.cells[h].location[2] / distance) + 1
+
+                for i in range(-1, 2):
+                    for j in range(-1, 2):
+                        for k in range(-1, 2):
+                            thing = array[location_x + i][location_y + j][location_z + k]
+                            for l in range(len(thing)):
+                                if thing[l] != self.cells[h]:
+                                    if np.linalg.norm(thing[l].location - self.cells[h].location) <= distance:
+                                        self.network.add_edge(self.cells[h], thing[l])
 
     def handle_collisions(self):
         """ Move the cells in small increments and manages
