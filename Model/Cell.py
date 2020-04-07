@@ -64,10 +64,36 @@ class Cell:
         self.mass *= 1.00
 
         # sets radius depending on if 2D or 3D based on area or volume
-        if simulation.three_D:
+        if simulation.size[2] != 1:
             self.radius = ((3 * self.mass)/(4 * 3.14159) / simulation.density) ** (1/3)
         else:
             self.radius = (((1 * self.mass) / 3.14159) / simulation.density) ** 0.5
+
+    def randomly_move(self, simulation):
+        """ has the object that is in motion
+            move in a random way
+        """
+        # finds the objects in motion
+        if self.motion:
+            # gets random angle on the cell
+            theta = r.random() * 2 * math.pi
+
+            # gets x,y,z off theta and whether 2D or 3D
+            if simulation.size[2] == 1:
+                # 2D
+                x = math.cos(theta)
+                y = math.sin(theta)
+                return simulation.speed * np.array([x, y, 0.0])
+
+            else:
+                # 3D
+                phi = r.random() * 2 * math.pi
+                radius = math.sin(phi)
+
+                x = radius * math.cos(theta)
+                y = radius * math.sin(theta)
+                z = math.cos(phi)
+                return simulation.speed * np.array([x, y, z])
 
     def boolean_function(self, fgf4_bool, simulation):
         """ updates the boolean variables of the cell
@@ -110,6 +136,8 @@ class Cell:
         neighbors = list(simulation.network.neighbors(self))
         if len(neighbors) < 1:
             self.death_counter += 1
+        else:
+            self.death_counter = 0
 
         # removes cell if it meets the parameters
         if self.death_counter >= simulation.death_threshold:
@@ -170,7 +198,7 @@ class Cell:
 
         # if a certain spot of the grid is less than the max FGF4 it can hold and the cell is NANOG high increase the
         # FGF4 by 1
-        if simulation.gradients[0].grid[array_x][array_y][array_z] < simulation.gradients[0].max \
+        if simulation.gradients[0].grid[array_x][array_y][array_z] < simulation.gradients[0].maximum \
                 and self.booleans[3] == 1:
             simulation.gradients[0].grid[array_x][array_y][array_z] += 1
 
@@ -208,11 +236,21 @@ def RandomPointOnSphere(simulation):
     theta = r.random() * 2 * math.pi
 
     # gets x,y,z off theta and whether 2D or 3D
-    x = math.cos(theta)
-    y = math.sin(theta)
-    if simulation.three_D:
-        z = r.random()
+    if simulation.size[2] == 1:
+        # 2D
+        x = math.cos(theta)
+        y = math.sin(theta)
+        return np.array([x, y, 0.0])
+
     else:
-        z = 0.0
-    # returns random point
-    return np.array([x, y, z])
+        # 3D spherical coordinates
+        phi = r.random() * 2 * math.pi
+        radius = math.sin(phi)
+
+        x = radius * math.cos(theta)
+        y = radius * math.sin(theta)
+        z = math.cos(phi)
+        return np.array([x, y, z])
+
+
+
