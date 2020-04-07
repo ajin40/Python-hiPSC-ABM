@@ -4,6 +4,7 @@ import csv
 from scipy.spatial import Voronoi, voronoi_plot_2d
 import numpy as np
 
+
 def draw_image(simulation):
     """ Turns the graph into an image at each timestep
     """

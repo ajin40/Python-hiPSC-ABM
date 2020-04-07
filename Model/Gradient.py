@@ -1,20 +1,21 @@
 import numpy as np
 import random as r
+
 from Model import Parallel
 
 
 class Gradient:
     """ Initialization called once. Class holds information about each gradient for each simulation
     """
-    def __init__(self, name, size, max, parallel):
-        """ name: where the cell is located on the grid "[x,y]"
+    def __init__(self, name, size, maximum, parallel):
+        """ name: the name of the gradient
             size: the size of the grid
             max_concentration: the maximum amount of molecule on a patch of the grid
             parallel: if parts of the simulation will be run in parallel
         """
         self.name = name
         self.size = size
-        self.max = max
+        self.maximum = maximum
         self.parallel = parallel
 
         # create a grid of zeros with defined size
@@ -36,7 +37,7 @@ class Gradient:
             for i in range(self.size[0]):
                 for j in range(self.size[1]):
                     for k in range(self.size[2]):
-                        self.grid[i][j][k] = r.randint(0, self.max)
+                        self.grid[i][j][k] = r.randint(0, self.maximum)
 
     def update_grid(self):
         """ degrades every patch in the grid a uniform amount (-1)

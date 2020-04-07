@@ -15,7 +15,7 @@ for Simulation in Simulations:
     # This will run the simulation until the end time is reached    (base)
     while Simulation.time_counter <= Simulation.end_time:
 
-        # Prints important information corresponding to the simulation as it runs
+        # Prints number of cells, timestep, amount of cells being removed and added
         Simulation.info()
 
         # Updates each of the gradients/molecules by adjusting concentrations
@@ -30,7 +30,7 @@ for Simulation in Simulations:
         # Updates cells by adjusting trackers for differentiation and division
         Simulation.update_cells()
 
-        # Adjusts the mass and radius of the cell
+        # Represents growth as mass increase and recalculates radii based on mass increases
         Simulation.change_size_cells()
 
         # Adds/removes objects at once to/from the simulation includes handling collisions when cells are added
@@ -46,7 +46,6 @@ for Simulation in Simulations:
         Simulation.check_neighbors()
 
         # Saves a 2D image and a .csv file containing key simulation information for each cell     (base)
-
         Output.save_file(Simulation)
 
         # Increases the time counter for the while loop    (base)

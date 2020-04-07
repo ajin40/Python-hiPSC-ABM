@@ -1,5 +1,6 @@
 import numpy as np
 import networkx as nx
+
 from Model import Parallel
 
 
@@ -228,39 +229,46 @@ class Simulation:
         if self.parallel:
             Parallel.check_neighbors_gpu(self)
         else:
+            # divides the grid into a series of blocks
             distance = self.neighbor_distance
             x = int(self.size[0] / distance + 3)
             y = int(self.size[1] / distance + 3)
             z = int(self.size[2] / distance + 3)
             blocks = np.empty((x, y, z), dtype=object)
 
+            # gives each block a array as a cell holder
             for i in range(x):
                 for j in range(y):
                     for k in range(z):
                         blocks[i][j][k] = np.array([])
 
+            # assigns each cell to a block
             for i in range(len(self.cells)):
-
                 # adds all of the cells to the simulation
                 self.network.add_node(self.cells[i])
 
+                # offset blocks by 1 to help when searching over blocks
                 location_x = int(self.cells[i].location[0] / distance) + 1
                 location_y = int(self.cells[i].location[1] / distance) + 1
                 location_z = int(self.cells[i].location[2] / distance) + 1
 
+                # adds the cell to a given block
                 current_block = blocks[location_x][location_y][location_z]
                 blocks[location_x][location_y][location_z] = np.append(current_block, self.cells[i])
 
-            # loops over all objects
+            # loops over all cells and gets block location
             for h in range(len(self.cells)):
                 location_x = int(self.cells[h].location[0] / distance) + 1
                 location_y = int(self.cells[h].location[1] / distance) + 1
                 location_z = int(self.cells[h].location[2] / distance) + 1
 
+                # looks at the blocks surrounding a given block that houses the cell
                 for i in range(-1, 2):
                     for j in range(-1, 2):
                         for k in range(-1, 2):
                             cells_in_block = blocks[location_x + i][location_y + j][location_z + k]
+
+                            # looks at the cells in a block and decides if they are neighbors
                             for l in range(len(cells_in_block)):
                                 if cells_in_block[l] != self.cells[h]:
                                     if np.linalg.norm(cells_in_block[l].location - self.cells[h].location) <= distance:
