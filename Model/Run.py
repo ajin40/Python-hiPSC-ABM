@@ -9,7 +9,7 @@ Simulations = Input.Setup()
 # Runs the simulations in succession    (base)
 for Simulation in Simulations:
 
-    # Adds the initial concentration amounts to the grid for each gradient/molecule    (base)
+    # Adds the initial concentration amounts to the grid for each diffusing extracellular molecule    (base)
     Simulation.initialize_gradients()
 
     # This will run the simulation until the end time is reached    (base)
@@ -27,7 +27,7 @@ for Simulation in Simulations:
         # If enough neighbor differentiated cells surround a pluripotent cell, it may cause differentiation
         Simulation.diff_surround_cells()
 
-        # Updates cells by adjusting values differentiation and division
+        # Updates cells by adjusting trackers for differentiation and division
         Simulation.update_cells()
 
         # Adjusts the mass and radius of the cell
@@ -39,13 +39,14 @@ for Simulation in Simulations:
         # Allows the cells in motion to move in a random fashion
         Simulation.randomly_move_cells()
 
-        # Moves the cells to a state of equilibrium so that there is minimal overlap
+        # Moves the cells to a state of physical equilibrium so that there is minimal overlap between cells
         Simulation.handle_collisions()
 
         # Checks for neighboring cells
         Simulation.check_neighbors()
 
-        # Saves a 2D image and a .csv file containing key information from each cell    (base)
+        # Saves a 2D image and a .csv file containing key simulation information for each cell     (base)
+
         Output.save_file(Simulation)
 
         # Increases the time counter for the while loop    (base)

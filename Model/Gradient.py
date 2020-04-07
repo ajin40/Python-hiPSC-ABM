@@ -4,8 +4,7 @@ from Model import Parallel
 
 
 class Gradient:
-    """ called once holds important information about the
-        simulation
+    """ Initialization called once. Class holds information about each gradient for each simulation
     """
     def __init__(self, name, size, max, parallel):
         """ name: where the cell is located on the grid "[x,y]"
@@ -23,7 +22,7 @@ class Gradient:
 
 
     def initialize_grid(self):
-        """ sets up the grid with initial concentrations of molecule
+        """ sets up the grid with initial concentrations of extracellular molecule
         """
         # currently this is setting the grid up with the same concentration everywhere until I implement the random
         # function for Numba/Cuda
@@ -32,7 +31,7 @@ class Gradient:
         if self.parallel:
             Parallel.initialize_grid_gpu(self)
 
-        # otherwise it'll loop over the entire volume of the grid
+        # otherwise it will loop over the entire volume of the grid
         else:
             for i in range(self.size[0]):
                 for j in range(self.size[1]):
@@ -40,14 +39,14 @@ class Gradient:
                         self.grid[i][j][k] = r.randint(0, self.max)
 
     def update_grid(self):
-        """ degrades every patch in the grid a uniform amount
+        """ degrades every patch in the grid a uniform amount (-1)
         """
 
         # if this will run parallel
         if self.parallel:
             Parallel.update_grid_gpu(self)
 
-        # otherwise it'll loop over the entire volume of the grid
+        # otherwise it will loop over the entire volume of the grid
         else:
             for i in range(self.size[0]):
                 for j in range(self.size[1]):

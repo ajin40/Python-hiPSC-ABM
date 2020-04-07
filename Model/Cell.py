@@ -4,15 +4,14 @@ import random as r
 
 
 class Cell:
-    """ Every cell object in the simulation
-        will have this class
+    """ Class for each cell in the simulation
     """
     def __init__(self, location, motion, velocity, mass, booleans, state, diff_counter, div_counter, death_counter):
         """ location: where the cell is located on the grid "[x,y,z]"
-            motion: whether the cell is in moving or not "True or False"
-            velocity: the speed as a vector of the cell
+            motion: whether the cell is moving or not "True or False"
+            velocity: the velocity as a vector of the cell
             mass: the mass of the entire cell
-            booleans: array of boolean values for each boolean function
+            booleans: array of boolean values for each variable in the boolean network
             state: whether the cell is pluripotent or differentiated
             diff_counter: holds the number of steps until the cell differentiates
             div_counter: holds the number of steps until the cell divides
@@ -43,7 +42,7 @@ class Cell:
         location = self.location + RandomPointOnSphere(simulation) * self.radius
 
         # makes sure the new cell's location is on the grid
-        while not 0 <= location[0] < simulation.size[0] or not 0 <= location[1] < simulation.size[1] or not 0 <= location[2] < simulation.size[2]:
+        while not (0 <= location[0] < simulation.size[0]) or not (0 <= location[1] < simulation.size[1]) or not (0 <= location[2] < simulation.size[2]):
             location = self.location + RandomPointOnSphere(simulation) * self.radius
 
         # creates a new Cell object
@@ -87,7 +86,7 @@ class Cell:
                 self.velocity[2] += r.random(-1, 1) * simulation.speed
 
     def boolean_function(self, fgf4_bool, simulation):
-        """ updates the boolean values of the cell
+        """ updates the boolean variables of the cell
         """
         function_list = simulation.functions
 
@@ -137,7 +136,7 @@ class Cell:
             a cell will differentiate based on the cells
             that surround it
         """
-        # checks to see if they are Pluripotent and GATA6 low
+        # checks to see if cell is Pluripotent and GATA6 low
         if self.state == "Pluripotent" and self.booleans[2] == 0:
 
             # finds neighbors of a cell
@@ -218,8 +217,8 @@ class Cell:
 
 
 def RandomPointOnSphere(simulation):
-    """ Computes a random point on a sphere
-        Returns - a point on a unit sphere [x,y,z] at the origin
+    """ Computes a random point on a unit sphere centered at the origin
+        Returns - point [x,y,z]
     """
     # gets random angle on the cell
     theta = r.random() * 2 * math.pi
