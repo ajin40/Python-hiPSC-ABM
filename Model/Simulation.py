@@ -5,38 +5,38 @@ from Model import Parallel
 
 
 class Simulation:
-    """ called once holds important information about the
-        simulation
+    """ Initialization called once for each simulation. Class holds all information about each simulation as a whole
     """
 
     def __init__(self, path, end_time, time_step, pluri_div_thresh, diff_div_thresh, pluri_to_diff, size,
                  diff_surround_value, functions, parallel, death_threshold, move_time_step, move_max_time,
-                 spring_constant, friction, energy_kept, neighbor_distance, density, n, quality,
-                 group, speed):
+                 spring_constant, friction, energy_kept, neighbor_distance, density, num_states, quality,
+                 group, speed, max_radius):
 
         """ Initialization function for the simulation setup.
-            name: the simulation name
             path: the path to save the simulation information to
-            start_time: the start time for the simulation
             end_time: the end time for the simulation
             time_step: the time step to increment the simulation by
             pluri_div_thresh: threshold for pluripotent cells to divide
             diff_div_thresh:  threshold for differentiated cells to divide
             pluri_to_diff: threshold for pluripotent cells to differentiate
             size: the size of the grid (dimension, rows, columns)
-            spring_max: represents the max distance for spring and other interactions
             diff_surround_value: the amount of differentiated cells needed to surround
                 a pluripotent cell inducing its differentiation
-            functions: the boolean functions as a string from Model_Setup
-            parallel: whether some aspects are run on the gpu
-            spring_constant: strength of spring
-            friction: resistance to moving in the environment
-            energy_kept: percent of energy left after turning spring energy into kinetic
-            neighbor_distance: how close cells are to be neighbors
+            functions: the finite dynamical system functions as a string from Model_Setup
+            parallel: true / false which determines whether some tasks are run on the GPU
+            death_threshold: the value at which a cell dies
+            move_time_step: the time value in which the cells are moved incrementally
+            move_max_time: the max time for movement allow enough time for cells to reach equilibrium
+            spring_constant: spring constant for modeling interactions between cells with spring energy
+            friction: friction constant for modeling loss of energy
+            energy_kept: percent of energy (as a decimal) left after turning spring energy into kinetic
+            neighbor_distance: how close cells need to be in order to be considered 'neighbors'
             density: the density of a cell
-            n: the number of boolean states (0, 1, 2,...)
-            quality: the quality of the images in pixel dimensions times 1500
-            group: how many cells are removed or added at a time
+            num_states: the number of states for the finite dynamical system (positive integer).
+                Currently 2 because the system is a Boolean network
+            quality: the 'quality" of the images as pixel dimensions times 1500
+            group: how many cells are removed or added at once per time step
             speed: magnitude of random movement speed
         """
         self.path = path
@@ -57,10 +57,11 @@ class Simulation:
         self.energy_kept = energy_kept
         self.neighbor_distance = neighbor_distance
         self.density = density
-        self.n = n
+        self.num_states = num_states
         self.quality = quality
         self.group = group
         self.speed = speed
+        self.max_radius = max_radius
 
         # counts how many times an image is created for making videos
         self.image_counter = 0
@@ -90,21 +91,19 @@ class Simulation:
         print("Number of objects: " + str(len(self.cells)))
 
     def initialize_gradients(self):
-        """ adds initial concentrations to each gradient grid
+        """ see Cell.py for definition
         """
         for i in range(len(self.gradients)):
             self.gradients[i].initialize_grid()
 
     def update_gradients(self):
-        """ currently degrades the concentrations of molecules
-            in the grids
+        """ see Cell.py for definition
         """
         for i in range(len(self.gradients)):
             self.gradients[i].update_grid()
 
     def update_cells(self):
-        """ updates each cell by allowing them to divide
-            and differentiate among other things
+        """ see Cell.py for definition
         """
         for i in range(len(self.cells)):
             self.cells[i].update_cell(self)
@@ -116,29 +115,26 @@ class Simulation:
             self.cells[i].kill_cell(self)
 
     def diff_surround_cells(self):
-        """ increases the differentiation counter if enough
-            differentiated cells surround a pluripotent cell
+        """ see Cell.py for definition
         """
         for i in range(len(self.cells)):
             self.cells[i].diff_surround(self)
 
     def change_size_cells(self):
-        """ updates the cell's radius and mass based on
-            the division counter
+        """ see Cell.py for definition
         """
         for i in range(len(self.cells)):
             self.cells[i].change_size(self)
 
     def randomly_move_cells(self):
-        """ has the objects that are in motion
-            move in a random way
+        """ see Cell.py for definition
         """
         for i in range(len(self.cells)):
             self.cells[i].randomly_move(self)
 
     def add_cell(self, cell):
         """ Adds the specified object to the array
-            and the graph
+            and the neighbor graph
         """
         # adds it to the array
         self.cells = np.append(self.cells, cell)
@@ -148,7 +144,7 @@ class Simulation:
 
     def remove_cell(self, cell):
         """ Removes the specified object from the array
-            and the graph
+            and the neighbor graph
         """
         # removes it from the array
         self.cells = self.cells[self.cells != cell]
@@ -157,19 +153,21 @@ class Simulation:
         self.network.remove_node(cell)
 
     def update_cell_queue(self):
-        """ Updates the object add and remove queue
+        """ Updates the queues for adding and removing cell objects
         """
-        print("Adding " + str(len(self.cells_to_add)) + " objects...")
-        print("Removing " + str(len(self.cells_to_remove)) + " objects...")
+        print("Adding " + str(len(self.cells_to_add)) + " cell objects...")
+        print("Removing " + str(len(self.cells_to_remove)) + " cell objects...")
 
         # loops over all objects to remove
         for i in range(len(self.cells_to_remove)):
             self.remove_cell(self.cells_to_remove[i])
 
-            # can't add all the cells together or you get a mess
-
+            # Cannot add all of the new cell objects, otherwise several cells are likely to be added
+            #   in close proximity to each other at later time steps. Such object addition, coupled
+            #   with handling collisions, make give rise to sudden changes in overall positions of
+            #   cells within the simulation. Instead, collisions are handled after 'group' number
+            #   of cell objects are added.
             if (i + 1) % self.group == 0:
-
                 self.handle_collisions()
 
         # loops over all objects to add
@@ -184,26 +182,27 @@ class Simulation:
         self.cells_to_remove = np.array([], dtype=np.object)
         self.cells_to_add = np.array([], dtype=np.object)
 
-    # old version about 50-100X slower
+    # Before 4/2/20 the following was used. Now the function below is the currently implementation
+
     # def check_neighbors(self):
     #     """ checks all of the distances between cells
-    #         if it is less than a set value create a
+    #         if it is less than a fixed value create a
     #         connection between two cells.
     #     """
-    #     # clears the current graph to prevent existing edges remaining
+    #     # clears the current graph to prevent existing edges from remaining
     #     self.network.clear()
     #
-    #     # tries to run the parallel version of the function
+    #     # tries to run the parallel version of this function
     #     if self.parallel:
     #         Parallel.check_neighbors_gpu(self)
     #     else:
-    #         # loops over all objects
+    #         # loops over all cell objects
     #         for i in range(len(self.cells)):
     #
     #             # adds all of the cells to the simulation
     #             self.network.add_node(self.cells[i])
     #
-    #             # loops over all objects not check already
+    #             # loops over all objects not checked already
     #             for j in range(i + 1, len(self.cells)):
     #
     #                 # get the distance between cells
@@ -219,48 +218,44 @@ class Simulation:
 
     def check_neighbors(self):
         """ checks all of the distances between cells
-            if it is less than a set value create a
+            if it is less than a fixed value create a
             connection between two cells.
         """
-        # clears the current graph to prevent existing edges remaining
+        # clears the current graph to prevent existing edges from remaining
         self.network.clear()
 
-        # tries to run the parallel version of the function
+        # tries to run the parallel version of this function
         if self.parallel:
             Parallel.check_neighbors_gpu(self)
         else:
-            # divides the grid into a series of blocks
+            # divides the environment into blocks
             distance = self.neighbor_distance
             x = int(self.size[0] / distance + 3)
             y = int(self.size[1] / distance + 3)
             z = int(self.size[2] / distance + 3)
             blocks = np.empty((x, y, z), dtype=object)
 
-            # gives each block a array as a cell holder
+            # gives each block an array as a cell holder
             for i in range(x):
                 for j in range(y):
                     for k in range(z):
                         blocks[i][j][k] = np.array([])
 
-            # assigns each cell to a block
-            for i in range(len(self.cells)):
-                # adds all of the cells to the simulation
-                self.network.add_node(self.cells[i])
-
-                # offset blocks by 1 to help when searching over blocks
-                location_x = int(self.cells[i].location[0] / distance) + 1
-                location_y = int(self.cells[i].location[1] / distance) + 1
-                location_z = int(self.cells[i].location[2] / distance) + 1
-
-                # adds the cell to a given block
-                current_block = blocks[location_x][location_y][location_z]
-                blocks[location_x][location_y][location_z] = np.append(current_block, self.cells[i])
-
+            # assigns each cell to a block by rounding its coordinates up to the nearest integer
             # loops over all cells and gets block location
             for h in range(len(self.cells)):
+
+                # adds all of the cells to the simulation
+                self.network.add_node(self.cells[h])
+
+                # offset blocks by 1 to help when searching over blocks
                 location_x = int(self.cells[h].location[0] / distance) + 1
                 location_y = int(self.cells[h].location[1] / distance) + 1
                 location_z = int(self.cells[h].location[2] / distance) + 1
+
+                # adds the cell to a given block
+                current_block = blocks[location_x][location_y][location_z]
+                blocks[location_x][location_y][location_z] = np.append(current_block, self.cells[h])
 
                 # looks at the blocks surrounding a given block that houses the cell
                 for i in range(-1, 2):
@@ -275,7 +270,7 @@ class Simulation:
                                         self.network.add_edge(self.cells[h], cells_in_block[l])
 
     def handle_collisions(self):
-        """ Move the cells in small increments and manages
+        """ Moves the cells in small increments and manages
             any collisions that will arise
         """
         # tries to run the parallel version of the function
@@ -289,13 +284,13 @@ class Simulation:
             time_counter = 0
             while time_counter <= self.move_max_time:
 
-                # smaller the time step, less error from missing collisions
+                # smaller the time step in relation to the maximum move time, less error from missing collisions
                 time_counter += self.move_time_step
 
                 # gets all of the neighbor connections
                 edges = list(self.network.edges())
 
-                # loops over the connections as these cells are close together
+                # loops over the neighbor connections as these cells are close together
                 for i in range(len(edges)):
                     cell_1 = edges[i][0]
                     cell_2 = edges[i][1]
@@ -318,53 +313,44 @@ class Simulation:
                         else:
                             displacement_normal = displacement_vec / mag
 
-                        overlap = (displacement_vec - (total_radii * displacement_normal)) / 2
+                        overlap = ((total_radii * displacement_normal) - displacement_vec) / 2
 
                         # converts the spring energy into kinetic energy in opposing directions
-                        cell_1.velocity[0] -= overlap[0] * (self.energy_kept * self.spring_constant / cell_1.mass)**0.5
-                        cell_1.velocity[1] -= overlap[1] * (self.energy_kept * self.spring_constant / cell_1.mass)**0.5
-                        cell_1.velocity[2] -= overlap[2] * (self.energy_kept * self.spring_constant / cell_1.mass)**0.5
+                        cell_1.velocity[0] += overlap[0] * (self.energy_kept * self.spring_constant / cell_1.mass)**0.5
+                        cell_1.velocity[1] += overlap[1] * (self.energy_kept * self.spring_constant / cell_1.mass)**0.5
+                        cell_1.velocity[2] += overlap[2] * (self.energy_kept * self.spring_constant / cell_1.mass)**0.5
 
-                        cell_2.velocity[0] += overlap[0] * (self.energy_kept * self.spring_constant / cell_2.mass)**0.5
-                        cell_2.velocity[1] += overlap[1] * (self.energy_kept * self.spring_constant / cell_2.mass)**0.5
-                        cell_2.velocity[2] += overlap[2] * (self.energy_kept * self.spring_constant / cell_2.mass)**0.5
+                        cell_2.velocity[0] -= overlap[0] * (self.energy_kept * self.spring_constant / cell_2.mass)**0.5
+                        cell_2.velocity[1] -= overlap[1] * (self.energy_kept * self.spring_constant / cell_2.mass)**0.5
+                        cell_2.velocity[2] -= overlap[2] * (self.energy_kept * self.spring_constant / cell_2.mass)**0.5
 
+                # now re-loops over cells to move them and reduce work energy from kinetic energy
                 for i in range(len(self.cells)):
 
-                    # multiplies the time step by the velocity and adds that vector to the cell's holder
-                    v = self.cells[i].velocity
+                    # multiplies the time step by the velocity and adds that vector to the cell's location
+                    movement = self.cells[i].velocity * self.move_time_step
 
-                    movement = v * self.move_time_step
+                    # create a prior location holder
                     location = self.cells[i].location
 
+                    # set the possible new location
                     new_location = location + movement
 
-                    if new_location[0] >= self.size[0]:
-                        self.cells[i].velocity[0] *= -0.5
-                        self.cells[i].location[0] = self.size[0] - 0.001
-                    elif new_location[0] < 0:
-                        self.cells[i].velocity[0] *= -0.5
-                        self.cells[i].location[0] = 0.0
-                    else:
-                        self.cells[i].location[0] = new_location[0]
+                    # loops over all directions of space
+                    for j in range(0, 3):
 
-                    if new_location[1] >= self.size[1]:
-                        self.cells[i].velocity[1] *= -0.5
-                        self.cells[i].location[1] = self.size[1] - 0.001
-                    elif new_location[1] < 0:
-                        self.cells[i].velocity[1] *= -0.5
-                        self.cells[i].location[1] = 0.0
-                    else:
-                        self.cells[i].location[1] = new_location[1]
+                        # check if new location is in environment space if not simulation a collision with the bounds
+                        if new_location[j] >= self.size[j]:
+                            self.cells[i].velocity[j] *= -0.5
+                            self.cells[i].location[j] = self.size[j] - 0.001
+                        elif new_location[j] < 0:
+                            self.cells[i].velocity[j] *= -0.5
+                            self.cells[i].location[j] = 0.0
+                        else:
+                            self.cells[i].location[j] = new_location[j]
 
-                    if new_location[2] >= self.size[2]:
-                        self.cells[i].velocity[2] *= -0.5
-                        self.cells[i].location[2] = self.size[2] - 0.001
-                    elif new_location[2] < 0:
-                        self.cells[i].velocity[2] *= -0.5
-                        self.cells[i].location[2] = 0.0
-                    else:
-                        self.cells[i].location[2] = new_location[2]
+                    # give variable the velocity for ease of writing
+                    v = self.cells[i].velocity
 
                     # subtracts the work from the kinetic energy and recalculates a new velocity
                     new_velocity_x = np.sign(v[0]) * max(v[0] ** 2 - 2 * self.friction * abs(movement[0]), 0.0) ** 0.5

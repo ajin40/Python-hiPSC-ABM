@@ -39,6 +39,7 @@ class Gradient:
                     for k in range(self.size[2]):
                         self.grid[i][j][k] = r.randint(0, self.maximum)
 
+
     def update_grid(self):
         """ degrades every patch in the grid a uniform amount (-1)
         """
