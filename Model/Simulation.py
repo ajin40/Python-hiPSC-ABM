@@ -11,7 +11,7 @@ class Simulation:
     def __init__(self, path, end_time, time_step, pluri_div_thresh, diff_div_thresh, pluri_to_diff, size,
                  diff_surround_value, functions, parallel, death_threshold, move_time_step, move_max_time,
                  spring_constant, friction, energy_kept, neighbor_distance, density, num_states, quality,
-                 group, speed):
+                 group, speed, max_radius):
 
         """ Initialization function for the simulation setup.
             path: the path to save the simulation information to
@@ -61,6 +61,7 @@ class Simulation:
         self.quality = quality
         self.group = group
         self.speed = speed
+        self.max_radius = max_radius
 
         # counts how many times an image is created for making videos
         self.image_counter = 0
@@ -90,21 +91,19 @@ class Simulation:
         print("Number of objects: " + str(len(self.cells)))
 
     def initialize_gradients(self):
-        """ adds initial concentrations of the extracellular molecules to each gradient grid
+        """ see Cell.py for definition
         """
         for i in range(len(self.gradients)):
             self.gradients[i].initialize_grid()
 
     def update_gradients(self):
-        """ updates the concentrations in the gradient grids
-            currently degrades these concentrations
+        """ see Cell.py for definition
         """
         for i in range(len(self.gradients)):
             self.gradients[i].update_grid()
 
     def update_cells(self):
-        """ updates each cell by allowing them to divide
-            and differentiate among other things
+        """ see Cell.py for definition
         """
         for i in range(len(self.cells)):
             self.cells[i].update_cell(self)
@@ -116,22 +115,19 @@ class Simulation:
             self.cells[i].kill_cell(self)
 
     def diff_surround_cells(self):
-        """ increases the differentiation counter if enough
-            differentiated cells surround a pluripotent cell
+        """ see Cell.py for definition
         """
         for i in range(len(self.cells)):
             self.cells[i].diff_surround(self)
 
     def change_size_cells(self):
-        """ updates the cell's radius and mass.
-            eventually, this will be based on the division counter
+        """ see Cell.py for definition
         """
         for i in range(len(self.cells)):
             self.cells[i].change_size(self)
 
     def randomly_move_cells(self):
-        """ has the cell objects that are in motion
-            move in a random direction
+        """ see Cell.py for definition
         """
         for i in range(len(self.cells)):
             self.cells[i].randomly_move(self)
@@ -186,7 +182,8 @@ class Simulation:
         self.cells_to_remove = np.array([], dtype=np.object)
         self.cells_to_add = np.array([], dtype=np.object)
 
-    # old version about 50-100X slower
+    # Before 4/2/20 the following was used. Now the function below is the currently implementation
+
     # def check_neighbors(self):
     #     """ checks all of the distances between cells
     #         if it is less than a fixed value create a
@@ -231,7 +228,7 @@ class Simulation:
         if self.parallel:
             Parallel.check_neighbors_gpu(self)
         else:
-            # divides the grid into a series of blocks
+            # divides the environment into blocks
             distance = self.neighbor_distance
             x = int(self.size[0] / distance + 3)
             y = int(self.size[1] / distance + 3)
