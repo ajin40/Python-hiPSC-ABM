@@ -3,6 +3,7 @@ import math
 import numpy as np
 
 
+
 def initialize_grid_gpu(simulation):
     """ the parallel form of "initialize_grid"
     """
@@ -16,20 +17,21 @@ def initialize_grid_gpu(simulation):
     # turns the grid into a form able to send to the gpu
     cuda_grid = cuda.to_device(simulation.grid)
 
-    # calls the cuda function
+    # calls the cuda function, gives the correct allocation and sends the grid
     initialize_grid_cuda[blocks_per_grid, threads_per_block](cuda_grid)
 
-    # returns the grid and reassigns the new grid
+    # returns the grid from the cuda function and updates the simulation instance variable
     simulation.grid = cuda_grid.copy_to_host()
 
 @cuda.jit
 def initialize_grid_cuda(grid_array):
     """ this is the function being run in parallel
     """
-    # a and b provide the location on the array as it runs
+    # a, b, and c provide the location on the array as this parallel function runs
+    # the "3" tells cuda to return all three positions
     a, b, c = cuda.grid(3)
 
-    # checks that the location is within the array
+    # checks that the location of the current thread is within the array and updates the value
     if a < grid_array.shape[0] and b < grid_array.shape[1] and c < grid_array.shape[2]:
         grid_array[a][b][c] += 5.0
 
@@ -47,35 +49,38 @@ def update_grid_gpu(simulation):
     # turns the grid into a form able to send to the gpu
     cuda_grid = cuda.to_device(simulation.grid)
 
-    # calls the cuda function
-    update_grid_cuda[blocks_per_grid, threads_per_block](cuda_grid)
+    # calls the cuda function, gives the correct allocation and sends the grid
+    initialize_grid_cuda[blocks_per_grid, threads_per_block](cuda_grid)
 
-    # returns the grid and reassigns the new grid
+    # returns the grid from the cuda function and updates the simulation instance variable
     simulation.grid = cuda_grid.copy_to_host()
 
 @cuda.jit
 def update_grid_cuda(grid_array):
     """ this is the function being run in parallel
     """
-    # a and b provide the location on the array as it runs
+    # a, b, and c provide the location on the array as this parallel function runs
+    # the "3" tells cuda to return all three positions
     a, b, c = cuda.grid(3)
 
-    # checks that the location is within the array and that the concentration is larger than zero
+    # checks that the location of the current thread is within the array and updates the value
     if a < grid_array.shape[0] and b < grid_array.shape[1] and c < grid_array.shape[2] and grid_array[a][b][c] > 0:
         grid_array[a][b][c] -= 1.0
+
 
 def check_neighbors_gpu(simulation):
     """ the parallel form of "check_neighbors"
     """
-    # arrays that will hold the cell locations and the output of edges
-    location_array = np.empty((0, 3), int)
-    edges_array = np.zeros((len(simulation.cells), len(simulation.cells)))
-
     # loops over all over the cells and puts their locations into a holder array
+    location_array = np.empty((0, 3), int)
+
     for i in range(len(simulation.cells)):
         location_array = np.append(location_array, np.array([simulation.cells[i].location]), axis=0)
 
-    # turns the arrays into a form able to send to the gpu
+    # an array to represent the connections between cells
+    edges_array = np.zeros((len(simulation.cells), len(simulation.cells)))
+
+    # turns the arrays and value into a form able to send to the gpu
     location_array_cuda = cuda.to_device(location_array)
     edges_array_cuda = cuda.to_device(edges_array)
     distance_cuda = cuda.to_device(simulation.neighbor_distance)
@@ -87,20 +92,21 @@ def check_neighbors_gpu(simulation):
     # calls the cuda function
     check_neighbors_cuda[blocks_per_grid, threads_per_block](location_array_cuda, edges_array_cuda, distance_cuda)
 
-    # returns the array
+    # returns the array back from the gpu
     output = edges_array_cuda.copy_to_host()
 
-    # turns the array into an upper triangular matrix as we don't need to double count edges
+    # turns the array into an upper triangular matrix the code will create duplicate edges and this corrects that
     output = np.triu(output)
 
-    # gives pairs where there should be a connection
+    # looks for 1's designating edges gives back an array with indices in simulation.cells locating the cell
+    # example [[15 392] [732 4] [923 284]]
     edges = np.argwhere(output == 1)
 
     # re-adds the cells as nodes
     for i in range(len(simulation.cells)):
         simulation.network.add_node(simulation.cells[i])
 
-    # forms an edge between cells that are close enough
+    # forms an edge between cells based on the results from edges
     for i in range(len(edges)):
         simulation.network.add_edge(simulation.cells[edges[i][0]], simulation.cells[edges[i][1]])
 
@@ -123,17 +129,12 @@ def check_neighbors_cuda(locations, edges, distance):
                 if i != j:
                     edges[i][j] = 1
 
+
 def handle_collisions_gpu(simulation):
     """ the parallel form of "handle_collisions"
     """
     # the while loop controls the amount of time steps for movement
     time_counter = 0
-
-    # arrays that hold the energy and spring values
-    energy_kept = np.array([simulation.energy_kept])
-    spring_constant = np.array([simulation.spring_constant])
-    time_step = np.array([simulation.move_time_step])
-    friction = np.array([simulation.friction])
 
     # arrays that hold the cell locations, radii, and masses
     location_array = np.empty((0, 3), int)
@@ -153,11 +154,11 @@ def handle_collisions_gpu(simulation):
     velocities_array = cuda.to_device(velocities_array)
     radius_array = cuda.to_device(radius_array)
     mass_array = cuda.to_device(mass_array)
-    energy_kept = cuda.to_device(energy_kept)
-    spring_constant = cuda.to_device(spring_constant)
-    time_step = cuda.to_device(time_step)
+    energy_kept = cuda.to_device(simulation.energy_kept)
+    spring_constant = cuda.to_device(simulation.spring_constant)
+    time_step = cuda.to_device(simulation.time_step)
     grid_size = cuda.to_device(simulation.size)
-    friction = cuda.to_device(friction)
+    friction = cuda.to_device(simulation.friction)
 
     # sets up the correct allocation of threads and blocks
     threads_per_block = 36
@@ -167,9 +168,8 @@ def handle_collisions_gpu(simulation):
         # smaller the time step, less error from missing collisions
         time_counter += simulation.move_time_step
 
-        handle_collisions_cuda[blocks_per_grid, threads_per_block](location_array, radius_array,
-                                                                   mass_array, energy_kept, spring_constant,
-                                                                   velocities_array)
+        handle_collisions_cuda[blocks_per_grid, threads_per_block](location_array, radius_array, mass_array,
+                                                                   energy_kept, spring_constant, velocities_array)
 
         update_locations_cuda[blocks_per_grid, threads_per_block](location_array, velocities_array, time_step,
                                                                   grid_size, friction)
@@ -196,104 +196,71 @@ def handle_collisions_cuda(locations, radius, mass, energy, spring, velocities):
         # loops over all cells
         for j in range(locations.shape[0]):
 
-            # gets the distance between the cells
-            displacement_x = locations[i][0] - locations[j][0]
-            displacement_y = locations[i][1] - locations[j][1]
-            displacement_z = locations[i][2] - locations[j][2]
+            # gets the magnitude of the vector between the cell locations
             mag = magnitude(locations[i], locations[j])
 
             # if the cells are overlapping then proceed
             if mag <= radius[i] + radius[j]:
 
-                # gets a normal vector of the vector between the centers of both cells
-                if mag == 0.0:
-                    normal_x = 0.0
-                    normal_y = 0.0
-                    normal_z = 0.0
-                else:
-                    normal_x = displacement_x / mag
-                    normal_y = displacement_y / mag
-                    normal_z = displacement_z / mag
+                # loops over all directions
+                for k in range(0, 3):
 
-                # find the displacement of the membrane overlap for each cell
-                obj1_displacement_x = radius[i] * normal_x
-                obj1_displacement_y = radius[i] * normal_y
-                obj1_displacement_z = radius[i] * normal_z
+                    # gets the distance between the cells for x, y, and z
+                    displacement = locations[i][k] - locations[j][k]
 
-                obj2_displacement_x = radius[j] * normal_x
-                obj2_displacement_y = radius[j] * normal_y
-                obj2_displacement_z = radius[j] * normal_z
+                    # gets a normal vector of the vector between the centers of both cells
+                    if mag == 0.0:
+                        normal = 0.0
 
-                overlap_x = (displacement_x - (obj1_displacement_x + obj2_displacement_x)) / 2
-                overlap_y = (displacement_y - (obj1_displacement_y + obj2_displacement_y)) / 2
-                overlap_z = (displacement_z - (obj1_displacement_z + obj2_displacement_z)) / 2
+                    else:
+                        normal = displacement / mag
 
-                # converts the spring energy into kinetic energy in opposing directions
-                velocities[i][0] -= overlap_x * (energy[0] * spring[0] / mass[i]) ** 0.5
-                velocities[i][1] -= overlap_y * (energy[0] * spring[0] / mass[i]) ** 0.5
-                velocities[i][2] -= overlap_z * (energy[0] * spring[0] / mass[i]) ** 0.5
+                    # find the displacement of the membrane overlap for each cell
+                    obj1_displacement = radius[i] * normal
+                    obj2_displacement = radius[j] * normal
 
-                velocities[j][0] += overlap_x * (energy[0] * spring[0] / mass[j]) ** 0.5
-                velocities[j][1] += overlap_y * (energy[0] * spring[0] / mass[j]) ** 0.5
-                velocities[j][2] += overlap_z * (energy[0] * spring[0] / mass[j]) ** 0.5
+                    # find the overlap vector
+                    overlap = ((obj1_displacement + obj2_displacement) - displacement) / 2
+
+                    # converts the spring energy into kinetic energy in opposing directions
+                    velocities[i][k] += overlap * (energy[0] * spring[0] / mass[i]) ** 0.5
+                    velocities[j][k] -= overlap * (energy[0] * spring[0] / mass[j]) ** 0.5
 
 @cuda.jit
 def update_locations_cuda(locations, velocities, time_step, grid_size, friction):
     """ this is the function being run in parallel
     """
-    # i provides the location on the array as it runs
-    i = cuda.grid(1)
+    # a provides the location on the array as it runs
+    a = cuda.grid(1)
 
     # checks to see that position is in the array
-    if i < locations.shape[0]:
-        v = velocities[i]
-        movement_x = v[0] * time_step[0]
-        movement_y = v[1] * time_step[0]
-        movement_z = v[2] * time_step[0]
+    if a < locations.shape[0]:
+        v = velocities[a]
 
-        new_location_x = locations[i][0] + movement_x
-        new_location_y = locations[i][1] + movement_y
-        new_location_z = locations[i][2] + movement_z
+        # loops over all directions of space
+        for i in range(0, 3):
+            movement = v[i] * time_step[i]
+            new_location = locations[a][i] + movement
 
-        if new_location_x >= grid_size[0]:
-            velocities[i][0] *= -0.5
-            locations[i][0] = grid_size[0] - 0.001
-        elif new_location_x < 0:
-            velocities[i][0] *= -0.5
-            locations[i][0] = 0.0
-        else:
-            locations[i][0] = new_location_x
+            # check if new location is in environment space if not simulation a collision with the bounds
+            if new_location >= grid_size[i]:
+                velocities[a][i] *= -0.5
+                locations[a][i] = grid_size[i] - 0.001
+            elif new_location < 0:
+                velocities[a][i] *= -0.5
+                locations[a][i] = 0.0
+            else:
+                locations[a][i] = new_location
 
-        if new_location_y >= grid_size[1]:
-            velocities[i][1] *= -0.5
-            locations[i][1] = grid_size[1] - 0.001
-        elif new_location_y < 0:
-            velocities[i][1] *= -0.5
-            locations[i][1] = 0.0
-        else:
-            locations[i][1] = new_location_y
-
-        if new_location_z >= grid_size[2]:
-            velocities[i][2] *= -0.5
-            locations[i][2] = grid_size[2] - 0.001
-        elif new_location_z < 0:
-            velocities[i][2] *= -0.5
-            locations[i][2] = 0.0
-        else:
-            locations[i][2] = new_location_z
-
-        # subtracts the work from the kinetic energy and recalculates a new velocity
-        velocities[i][0] = math.copysign(1.0, velocities[i][0]) * max(velocities[i][0] ** 2 - 2 * friction[0] * abs(movement_x), 0.0) ** 0.5
-        velocities[i][1] = math.copysign(1.0, velocities[i][1]) * max(velocities[i][1] ** 2 - 2 * friction[0] * abs(movement_y), 0.0) ** 0.5
-        velocities[i][2] = math.copysign(1.0, velocities[i][2]) * max(velocities[i][2] ** 2 - 2 * friction[0] * abs(movement_z), 0.0) ** 0.5
+            # subtracts the work from the kinetic energy and recalculates a new velocity
+            sign = math.copysign(1.0, velocities[a][i])
+            velocities[a][i] = sign * max(velocities[a][i] ** 2 - 2 * friction[i] * abs(movement), 0.0) ** 0.5
 
 
 @cuda.jit(device=True)
 def magnitude(location_one, location_two):
-    displacement_x = location_one[0] - location_two[0]
-    displacement_y = location_one[1] - location_two[1]
-    displacement_z = location_one[2] - location_two[2]
+    total = 0
+    for i in range(0, 3):
+        total += (location_one[i] - location_two[i]) ** 2
 
-    mag = (displacement_x ** 2 + displacement_y ** 2 + displacement_z ** 2) ** 0.5
-
-    return mag
+    return total ** 0.5

@@ -69,6 +69,10 @@ class Cell:
         else:
             self.radius = (((1 * self.mass) / 3.14159) / simulation.density) ** 0.5
 
+        # set radius if cell is too big
+        if self.radius > simulation.max_radius:
+            self.radius = simulation.max_radius
+
     def randomly_move(self, simulation):
         """ has the object that is in motion
             move in a random way

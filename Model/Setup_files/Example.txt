@@ -2,7 +2,7 @@ What is the name of the simulation?
 [ Run_30 ]
 
 Do you want the simulation to use parallel GPU processing?
-[ False ]
+[ True ]
 
 How many total steps will the model run for?
 [ 60.0 ]
@@ -78,4 +78,7 @@ How many cells are added/removed to the simulation at once, per time step?
 
 How fast will the cells move when moving randomly?
 [ 5 ]
+
+What is the maximum radius of the cells?
+[ 6.0 ]
 _______________________________________________________________________________________________________________________
