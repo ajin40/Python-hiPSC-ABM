@@ -166,7 +166,7 @@ class Simulation:
         for i in range(len(self.cells_to_remove)):
             self.remove_cell(self.cells_to_remove[i])
 
-            # Cannot add all the new cell objects, otherwise several cells are likely to be added
+            # Cannot add all of the new cell objects, otherwise several cells are likely to be added
             #   in close proximity to each other at later time steps. Such object addition, coupled
             #   with handling collisions, make give rise to sudden changes in overall positions of
             #   cells within the simulation. Instead, collisions are handled after 'group' number
@@ -321,16 +321,16 @@ class Simulation:
                         else:
                             displacement_normal = displacement_vec / mag
 
-                        overlap = (displacement_vec - (total_radii * displacement_normal)) / 2
+                        overlap = ((total_radii * displacement_normal) - displacement_vec) / 2
 
                         # converts the spring energy into kinetic energy in opposing directions
-                        cell_1.velocity[0] -= overlap[0] * (self.energy_kept * self.spring_constant / cell_1.mass)**0.5
-                        cell_1.velocity[1] -= overlap[1] * (self.energy_kept * self.spring_constant / cell_1.mass)**0.5
-                        cell_1.velocity[2] -= overlap[2] * (self.energy_kept * self.spring_constant / cell_1.mass)**0.5
+                        cell_1.velocity[0] += overlap[0] * (self.energy_kept * self.spring_constant / cell_1.mass)**0.5
+                        cell_1.velocity[1] += overlap[1] * (self.energy_kept * self.spring_constant / cell_1.mass)**0.5
+                        cell_1.velocity[2] += overlap[2] * (self.energy_kept * self.spring_constant / cell_1.mass)**0.5
 
-                        cell_2.velocity[0] += overlap[0] * (self.energy_kept * self.spring_constant / cell_2.mass)**0.5
-                        cell_2.velocity[1] += overlap[1] * (self.energy_kept * self.spring_constant / cell_2.mass)**0.5
-                        cell_2.velocity[2] += overlap[2] * (self.energy_kept * self.spring_constant / cell_2.mass)**0.5
+                        cell_2.velocity[0] -= overlap[0] * (self.energy_kept * self.spring_constant / cell_2.mass)**0.5
+                        cell_2.velocity[1] -= overlap[1] * (self.energy_kept * self.spring_constant / cell_2.mass)**0.5
+                        cell_2.velocity[2] -= overlap[2] * (self.energy_kept * self.spring_constant / cell_2.mass)**0.5
 
                 for i in range(len(self.cells)):
 
