@@ -22,7 +22,7 @@ Stochastic FGFR + ERK values?
 What will be the size of the grid? Ex. (x, y, z) if 2D set z = 1
 [ (1000, 1000, 1) ]
 
-Define the boolean functions below
+Define the finite dynamical system functions below. 
 [ "x5", "x1 * x4", "x2", "x5 + 1", "(x3+1) * (x4+1)" ]
 
 Length of time steps required for a pluripotent cell to divide
@@ -67,13 +67,13 @@ List the Gradients as a 2D array
 Density of the cell used for radius (0.001)
 [ 0.01 ]
 
-Number of boolean states 0, 1, 2,...
+Number of states within the finite dynamical system (0, 1, 2,...). Currently 2 because the system is a Boolean network.
 [ 2 ]
 
 Image quality (1-5...) 3 is recommended
 [ 3 ]
 
-How many cells are added/removed to the simulation at a time?
+How many cells are added/removed to the simulation at once, per time step?
 [ 1 ]
 
 How fast will the cells move when moving randomly?
