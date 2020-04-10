@@ -88,11 +88,11 @@ class Cell:
             else:
                 # 3D
                 phi = r.random() * 2 * math.pi
-                radius = math.sin(phi)
+                radius = math.cos(phi)
 
                 x = radius * math.cos(theta)
                 y = radius * math.sin(theta)
-                z = math.cos(phi)
+                z = math.sin(phi)
                 return simulation.speed * np.array([x, y, z])
 
     def boolean_function(self, fgf4_bool, simulation):
@@ -108,11 +108,11 @@ class Cell:
         x5 = self.booleans[3]
 
         # evaluate the functions by turning them from strings to math equations
-        new_1 = eval(function_list[0]) % simulation.n
-        new_2 = eval(function_list[1]) % simulation.n
-        new_3 = eval(function_list[2]) % simulation.n
-        new_4 = eval(function_list[3]) % simulation.n
-        new_5 = eval(function_list[4]) % simulation.n
+        new_1 = eval(function_list[0]) % simulation.num_states
+        new_2 = eval(function_list[1]) % simulation.num_states
+        new_3 = eval(function_list[2]) % simulation.num_states
+        new_4 = eval(function_list[3]) % simulation.num_states
+        new_5 = eval(function_list[4]) % simulation.num_states
 
         # updates self.booleans with the new boolean values
         self.booleans = np.array([new_2, new_3, new_4, new_5])
