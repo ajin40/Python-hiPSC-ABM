@@ -83,7 +83,7 @@ class Cell:
             theta = r.random() * 2 * math.pi
 
             # gets x,y,z off theta and whether 2D or 3D
-            if simulation.size[2] == 1:
+            if simulation.size[2] == 0:
                 # 2D
                 x = math.cos(theta)
                 y = math.sin(theta)
@@ -240,7 +240,7 @@ def RandomPointOnSphere(simulation):
     theta = r.random() * 2 * math.pi
 
     # gets x,y,z off theta and whether 2D or 3D
-    if simulation.size[2] == 1:
+    if simulation.size[2] == 0:
         # 2D
         x = math.cos(theta)
         y = math.sin(theta)

@@ -20,7 +20,7 @@ Stochastic FGFR + ERK values?
 [ True ]
 
 What will be the size of the grid? Ex. (x, y, z) if 2D set z = 1
-[ (1000, 1000, 1) ]
+[ (1000, 1000, 0) ]
 
 Define the finite dynamical system functions below. 
 [ "x5", "x1 * x4", "x2", "x5 + 1", "(x3+1) * (x4+1)" ]

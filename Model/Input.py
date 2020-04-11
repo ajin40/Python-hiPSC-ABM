@@ -97,12 +97,8 @@ def Setup():
         # loops over all cells and creates a stem cell object for each one with given parameters
         for i in range(_num_NANOG + _num_GATA6):
 
-            # gives random 2D location in environment
-            location = np.array([r.random() * _size[0], r.random() * _size[1], 0.0])
-
-            # if 3D add a random z location
-            if _size[2] != 1:
-                location[2] = r.random() * _size[2]
+            # gives random location in environment
+            location = np.array([r.random() * _size[0], r.random() * _size[1], r.random() * _size[2]])
 
             # start the cells as Pluripotent, moving, and preset mass
             state = "Pluripotent"
