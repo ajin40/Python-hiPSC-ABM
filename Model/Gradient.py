@@ -1,57 +1,62 @@
 import numpy as np
 import random as r
 
-from Model import Parallel
 
 
 class Gradient:
     """ Initialization called once. Class holds information about each gradient for each simulation
     """
-    def __init__(self, name, size, maximum, parallel):
-        """ name: the name of the gradient
-            size: the size of the grid
-            max_concentration: the maximum amount of molecule on a patch of the grid
-            parallel: if parts of the simulation will be run in parallel
+    def __init__(self, size, dx, dy, dz, diffuse_const, avg_initial):
+        """ size: dimensions of the environment space
+            dx: x direction step size
+            dy: y direction step size
+            dz: z direction step size
+            diffuse_const: diffusion constant
+            avg_initial: the average initial value for each concentration point
         """
-        self.name = name
         self.size = size
-        self.maximum = maximum
-        self.parallel = parallel
+        self.dx = dx
+        self.dy = dy
+        self.dz = dz
+        self.diffuse_const = diffuse_const
+        self.avg_initial = avg_initial
 
-        # create a grid of zeros with defined size
-        self.grid = np.zeros(self.size)
+        # find derivatives of the step size
+        self.dx2 = dx ** 2
+        self.dy2 = dy ** 2
+        self.dz2 = dz ** 2
+
+        # calculate the time step size
+        self.dt = (self.dx2 * self.dy2 * self.dz2) / (2 * diffuse_const * (self.dx2 + self.dy2 + self.dz2))
+
+        # the points at which the diffusion values are calculated
+        self.diffuse_values = np.zeros((size[0] // dx, size[1] // dy, size[2] // dz))
 
 
-    def initialize_grid(self):
-        """ sets up the grid with initial concentrations of extracellular molecule
+    def initialize_diffusion(self):
+        """ Set up the environment space with a series
+            of concentration values
         """
-        # currently this is setting the grid up with the same concentration everywhere until I implement the random
-        # function for Numba/Cuda
-
-        # if this will run parallel
-        if self.parallel:
-            Parallel.initialize_grid_gpu(self)
-
-        # otherwise it will loop over the entire volume of the grid
-        else:
-            for i in range(self.size[0]):
-                for j in range(self.size[1]):
-                    for k in range(self.size[2]):
-                        self.grid[i][j][k] = r.randint(0, self.maximum)
+        for i in range(len(self.diffuse_values[0])):
+            for j in range(len(self.diffuse_values[1])):
+                for k in range(len(self.diffuse_values[2])):
+                    self.diffuse_values = r.random() * self.avg_initial
 
 
-    def update_grid(self):
-        """ degrades every patch in the grid a uniform amount (-1)
+    def update_diffusion(self, simulation):
+        """ Updates the environment space by "smoothing"
+            the concentrations of the space
         """
+        time_steps = simulation.time_step // self.dt
 
-        # if this will run parallel
-        if self.parallel:
-            Parallel.update_grid_gpu(self)
+        a = self.diffuse_values
 
-        # otherwise it will loop over the entire volume of the grid
-        else:
-            for i in range(self.size[0]):
-                for j in range(self.size[1]):
-                    for k in range(self.size[2]):
-                        if self.grid[i][j][k] >= 1:
-                            self.grid[i][j][k] += -1
+        for i in range(time_steps):
+            x = (a[2:][1:-1][1:-1] - 2 * a[1:-1][1:-1][1:-1] + a[:-2][1:-1][1:-1]) / self.dx2
+            y = (a[1:-1][2:][1:-1] - 2 * a[1:-1][1:-1][1:-1] + a[1:-1][:-2][1:-1]) / self.dy2
+            z = (a[1:-1][1:-1][2:] - 2 * a[1:-1][1:-1][1:-1] + a[1:-1][1:-1][:-2]) / self.dz2
+
+            self.diffuse_values[1:-1][1:-1][1:-1] = a[1:-1][1:-1][1:-1] + self.diffuse_const * self.dt * (x + y + z)
+
+
+

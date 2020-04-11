@@ -2,7 +2,7 @@ What is the name of the simulation?
 [ Run_30 ]
 
 Do you want the simulation to use parallel GPU processing?
-[ True ]
+[ False ]
 
 How many total steps will the model run for?
 [ 60.0 ]
