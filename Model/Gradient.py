@@ -21,12 +21,12 @@ class Gradient:
         self.diffuse_const = diffuse_const
         self.avg_initial = avg_initial
 
-        # find derivatives of the step size
+        # squaring the approximation of the differential
         self.dx2 = dx ** 2
         self.dy2 = dy ** 2
         self.dz2 = dz ** 2
 
-        # calculate the time step size
+        # calculate the max time step size
         self.dt = (self.dx2 * self.dy2 * self.dz2) / (2 * diffuse_const * (self.dx2 + self.dy2 + self.dz2))
 
         # the points at which the diffusion values are calculated
