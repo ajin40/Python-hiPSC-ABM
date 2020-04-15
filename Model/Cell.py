@@ -69,6 +69,10 @@ class Cell:
         else:
             self.radius = (((1 * self.mass) / 3.14159) / simulation.density) ** 0.5
 
+        # set radius if cell is too big
+        if self.radius > simulation.max_radius:
+            self.radius = simulation.max_radius
+
     def randomly_move(self, simulation):
         """ has the object that is in motion
             move in a random way
@@ -79,7 +83,7 @@ class Cell:
             theta = r.random() * 2 * math.pi
 
             # gets x,y,z off theta and whether 2D or 3D
-            if simulation.size[2] == 1:
+            if simulation.size[2] == 0:
                 # 2D
                 x = math.cos(theta)
                 y = math.sin(theta)
@@ -236,7 +240,7 @@ def RandomPointOnSphere(simulation):
     theta = r.random() * 2 * math.pi
 
     # gets x,y,z off theta and whether 2D or 3D
-    if simulation.size[2] == 1:
+    if simulation.size[2] == 0:
         # 2D
         x = math.cos(theta)
         y = math.sin(theta)

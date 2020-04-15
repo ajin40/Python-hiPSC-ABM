@@ -20,7 +20,7 @@ Stochastic FGFR + ERK values?
 [ True ]
 
 What will be the size of the grid? Ex. (x, y, z) if 2D set z = 1
-[ (1000, 1000, 1) ]
+[ (1000, 1000, 0) ]
 
 Define the finite dynamical system functions below. 
 [ "x5", "x1 * x4", "x2", "x5 + 1", "(x3+1) * (x4+1)" ]
@@ -78,4 +78,7 @@ How many cells are added/removed to the simulation at once, per time step?
 
 How fast will the cells move when moving randomly?
 [ 5 ]
+
+What is the maximum radius of the cells?
+[ 6.0 ]
 _______________________________________________________________________________________________________________________
