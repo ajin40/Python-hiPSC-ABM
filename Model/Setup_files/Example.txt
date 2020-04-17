@@ -81,4 +81,19 @@ How fast will the cells move when moving randomly?
 
 What is the maximum radius of the cells?
 [ 6.0 ]
+
+dx
+[ 0.1 ]
+
+dy
+[ 0.1 ]
+
+dz
+[ 0.1 ]
+
+Diffusion constant
+[ 4 ]
+
+Average initial concentration per step
+[ 4 ]
 _______________________________________________________________________________________________________________________

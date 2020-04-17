@@ -10,7 +10,7 @@ Simulations = Input.Setup()
 for Simulation in Simulations:
 
     # Adds the initial concentration amounts to the grid for each diffusing extracellular molecule    (base)
-    Simulation.initialize_gradients()
+    Simulation.initialize_diffusion()
 
     # This will run the simulation until the end time is reached    (base)
     while Simulation.time_counter <= Simulation.end_time:
@@ -19,7 +19,7 @@ for Simulation in Simulations:
         Simulation.info()
 
         # Updates each of the gradients/molecules by adjusting concentrations
-        Simulation.update_gradients()
+        Simulation.update_diffusion()
 
         # If cells are by themselves for too long, they will be removed from the simulation
         Simulation.kill_cells()
