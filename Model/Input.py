@@ -4,7 +4,7 @@ import os
 import shutil
 import platform
 
-from Model import Gradient
+from Model import Extracellular
 from Model import Simulation
 from Model import Cell
 
@@ -35,43 +35,50 @@ def Setup():
 
     # loops over all of the files in the director and turns the file lines into a list
     for file in files:
-        setup_file = open(input_path + separator + file, "r")
-        setup_list = setup_file.readlines()
-        parameters = []
+        parameters_file = open(input_path + separator + file, "r")
+        parameters = parameters_file.readlines()
 
-        # looks at every third line, the ones with parameters
-        for i in range(1, len(setup_list), 3):
-            parameters.append(setup_list[i][2:-3])
+        # looks at certain lines of the template file and converts them from strings to their desired type
+        # general parameters
+        _path = check_name(output_path, parameters[8][3:-4], separator)
+        _parallel = eval(parameters[11][2:-3])
+        _size = eval(parameters[14][2:-3])
+        _resolution = eval(parameters[17][2:-3])
+        _num_GATA6 = int(parameters[20][2:-3])
+        _num_NANOG = int(parameters[23][2:-3])
+        _functions = eval(parameters[26][2:-3])
+        _num_states = int(parameters[29][2:-3])
 
-        # organizes all of the parameters and converts them from strings to their desired type
-        _path = check_name(output_path, parameters[0], separator)
-        _parallel = eval(parameters[1])
-        _end_time = float(parameters[2])
-        _time_step = float(parameters[3])
-        _num_GATA6 = int(parameters[4])
-        _num_NANOG = int(parameters[5])
-        _stochastic = bool(parameters[6])
-        _size = eval(parameters[7])
-        _functions = eval(parameters[8])
-        _pluri_div_thresh = float(parameters[9])
-        _diff_div_thresh = float(parameters[10])
-        _pluri_to_diff = float(parameters[11])
-        _diff_surround_value = int(parameters[12])
-        _death_threshold = float(parameters[13])
-        _move_time_step = float(parameters[14])
-        _move_max_time = float(parameters[15])
-        _spring_constant = float(parameters[16])
-        _friction = float(parameters[17])
-        _energy_kept = float(parameters[18])
-        _neighbor_distance = float(parameters[19])
-        _mass = float(parameters[20])
-        _gradients = eval(parameters[21])
-        _density = float(parameters[22])
-        _num_states = int(parameters[23])
-        _quality = int(parameters[24])
-        _group = int(parameters[25])
-        _speed = int(parameters[26])
-        _max_radius = float(parameters[27])
+        # timing
+        _end_time = float(parameters[35][2:-3])
+        _time_step = float(parameters[38][2:-3])
+        _pluri_div_thresh = float(parameters[41][2:-3])
+        _diff_div_thresh = float(parameters[44][2:-3])
+        _pluri_to_diff = float(parameters[47][2:-3])
+        _death_threshold = float(parameters[50][2:-3])
+
+        # intercellular
+        _neighbor_distance = float(parameters[56][2:-3])
+
+        # extracellular
+        _extracellular = eval(parameters[63][2:-3])
+
+        # collision handling
+        _move_max_time = float(parameters[69][2:-3])
+        _move_time_step = float(parameters[72][2:-3])
+        _spring_constant = float(parameters[75][2:-3])
+        _friction = float(parameters[78][2:-3])
+        _energy_kept = float(parameters[81][2:-3])
+        _mass = float(parameters[84][2:-3])
+        _density = float(parameters[87][2:-3])
+
+        # miscellaneous/experimental
+        _diff_surround_value = int(parameters[93][2:-3])
+        _quality = eval(parameters[96][2:-3])
+        _group = int(parameters[99][2:-3])
+        _speed = float(parameters[102][2:-3])
+        _max_radius = float(parameters[105][2:-3])
+        _stochastic = bool(parameters[108][2:-3])
 
         # initializes simulation class which holds all information about the simulation
         simulation = Simulation.Simulation(_path, _end_time, _time_step, _pluri_div_thresh, _diff_div_thresh,
@@ -83,15 +90,15 @@ def Setup():
         # copies the setup file to the new directory of the simulation
         shutil.copy(input_path + separator + file, simulation.path)
 
-
         # loops over the gradients and adds them to the simulation
-        for i in range(len(_gradients)):
+        for i in range(len(_extracellular)):
 
-            # initializes the gradient class
-            new_gradient = Gradient.Gradient(_gradients[i][0], _size, int(_gradients[i][1]), _parallel)
+            # initializes the extracellular class
+            new_extracellular = Extracellular.Extracellular(_size, _resolution, _extracellular[i][0],
+                                                            _extracellular[i][1], _extracellular[i][2], _parallel)
 
-            # adds the gradient object
-            simulation.gradients = np.append(simulation.gradients, new_gradient)
+            # adds the Extracellular object
+            simulation.extracellular = np.append(simulation.extracellular, new_extracellular)
 
 
         # loops over all cells and creates a stem cell object for each one with given parameters
@@ -152,7 +159,7 @@ def check_name(path, name, separator):
 
         # prompt to either rename or overwrite
         except:
-            print("Simulation with identical name: " + str(name))
+            print("Simulation with identical name: " + name)
             user = input("Would you like to overwrite that simulation? (y/n): ")
             if user == "n":
                 name = input("New name: ")

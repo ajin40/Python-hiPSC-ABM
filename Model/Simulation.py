@@ -72,8 +72,8 @@ class Simulation:
         # array to hold all of the cell objects
         self.cells = np.array([], dtype=np.object)
 
-        # array to hold all of the gradient objects
-        self.gradients = np.array([], dtype=np.object)
+        # array to hold all of the Extracellular objects
+        self.extracellular = np.array([], dtype=np.object)
 
         # graph representing all the cells and their connections to other cells
         self.network = nx.Graph()
@@ -90,17 +90,17 @@ class Simulation:
         print("Time: " + str(self.time_counter))
         print("Number of objects: " + str(len(self.cells)))
 
-    def initialize_gradients(self):
+    def initialize_diffusion(self):
         """ see Cell.py for definition
         """
-        for i in range(len(self.gradients)):
-            self.gradients[i].initialize_grid()
+        for i in range(len(self.extracellular)):
+            self.extracellular[i].initialize()
 
-    def update_gradients(self):
+    def update_diffusion(self):
         """ see Cell.py for definition
         """
-        for i in range(len(self.gradients)):
-            self.gradients[i].update_grid()
+        for i in range(len(self.extracellular)):
+            self.extracellular[i].update(self)
 
     def update_cells(self):
         """ see Cell.py for definition
@@ -342,7 +342,7 @@ class Simulation:
                         # check if new location is in environment space if not simulation a collision with the bounds
                         if new_location[j] >= self.size[j]:
                             self.cells[i].velocity[j] *= -0.5
-                            self.cells[i].location[j] = self.size[j] - 0.001
+                            self.cells[i].location[j] = self.size[j] - 0.000001 * self.size[j]
                         elif new_location[j] < 0:
                             self.cells[i].velocity[j] *= -0.5
                             self.cells[i].location[j] = 0.0

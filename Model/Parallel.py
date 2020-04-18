@@ -245,7 +245,7 @@ def update_locations_cuda(locations, velocities, time_step, grid_size, friction)
             # check if new location is in environment space if not simulation a collision with the bounds
             if new_location >= grid_size[i]:
                 velocities[a][i] *= -0.5
-                locations[a][i] = grid_size[i] - 0.001
+                locations[a][i] = grid_size[i] - 0.000001 * grid_size[i]
             elif new_location < 0:
                 velocities[a][i] *= -0.5
                 locations[a][i] = 0.0
