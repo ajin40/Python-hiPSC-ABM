@@ -74,7 +74,7 @@ def Setup():
 
         # miscellaneous/experimental
         _diff_surround_value = int(parameters[93][2:-3])
-        _quality = int(parameters[96][2:-3])
+        _quality = eval(parameters[96][2:-3])
         _group = int(parameters[99][2:-3])
         _speed = float(parameters[102][2:-3])
         _max_radius = float(parameters[105][2:-3])

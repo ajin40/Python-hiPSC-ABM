@@ -1,7 +1,6 @@
 from PIL import Image, ImageDraw
 import cv2
 import csv
-from scipy.spatial import Voronoi, voronoi_plot_2d
 import numpy as np
 
 
@@ -10,55 +9,59 @@ def draw_image(simulation):
     """
     # increases the image counter by 1 each time this is called
     simulation.image_counter += 1
-    image_quality = simulation.quality
-    image_size = (image_quality * 1500, image_quality * 1500)
+
+    # get the dilation of the image for the correctly sizing the image
+    dilation_x = simulation.quality[0] / simulation.size[0]
+    dilation_y = simulation.quality[1] / simulation.size[1]
 
     # draws the background of the image
-    background = Image.new("RGB", image_size, color=(255, 255, 255))
-    image = ImageDraw.Draw(background)
+    base = Image.new("RGB", simulation.quality[0:2], color=(255, 255, 255))
+    image = ImageDraw.Draw(base)
 
     # bounds of the simulation used for drawing lines
     bounds = np.array([[0, 0],[0, simulation.size[1]],[simulation.size[0],simulation.size[1]],[simulation.size[0], 0]])
 
     # loops over all of the cells and draws the nucleus and radius
     for i in range(len(simulation.cells)):
-        x, y, z = image_quality * simulation.cells[i].location
-        membrane = image_quality * simulation.cells[i].radius
-        nucleus = membrane * 0.3
-        center = image_quality * 250
+        # get location in 2D
+        x = dilation_x * simulation.cells[i].location[0]
+        y = dilation_y * simulation.cells[i].location[1]
 
+        # gets membrane sizing
+        membrane_x = dilation_x * simulation.cells[i].radius
+        membrane_y = dilation_y * simulation.cells[i].radius
+
+        # coloring of the cells
         if simulation.cells[i].state == "Pluripotent":
             color = 'green'
         else:
             color = 'red'
 
-        membrane_circle = (x - membrane + center, y - membrane + center, x + membrane + center, y + membrane + center)
-        # nucleus_circle = (x - nucleus + center, y - nucleus + center, x + nucleus + center, y + nucleus + center)
-
+        # draw the circle representing the cell
+        membrane_circle = (x - membrane_x, y - membrane_y, x + membrane_x, y + membrane_y)
         image.ellipse(membrane_circle, outline="black", fill=color)
-        # image.ellipse(nucleus_circle, outline="black", fill=color)
 
     # loops over all of the bounds and draws lines to represent the grid
     for i in range(len(bounds)):
-        center = image_quality * 250
-        x0, y0 = image_quality * bounds[i]
-        radius = image_quality * 5
-        width = image_quality * 10
+        # get the bound sizing
+        x0 = dilation_x * bounds[i][0]
+        y0 = dilation_y * bounds[i][1]
 
+        # get the bounds as lines
         if i < len(bounds) - 1:
-            x1, y1 = image_quality * bounds[i + 1]
+            x1 = dilation_x * bounds[i + 1][0]
+            y1 = dilation_y * bounds[i + 1][1]
         else:
-            x1, y1 = image_quality * bounds[0]
+            x1 = dilation_x * bounds[0][0]
+            y1 = dilation_y * bounds[0][1]
 
-        corners = (x0 - radius + center, y0 - radius + center, x0 + radius + center, y0 + radius + center)
-        lines = (x0 + center, y0 + center, x1 + center, y1 + center)
-
+        # draw the lines
+        lines = (x0, y0, x1, y1)
         color = 'black'
-        image.ellipse(corners, outline=color, fill=color)
-        image.line(lines, fill=color, width=width)
+        image.line(lines, fill=color, width=10)
 
     # saves the image as a .png
-    background.save(simulation.path + "network_image_" + str(int(simulation.time_counter)) + ".png", 'PNG')
+    base.save(simulation.path + "network_image_" + str(int(simulation.time_counter)) + ".png", 'PNG')
 
 def image_to_video(simulation):
     """ Creates a video out of all the png images at
@@ -124,17 +127,3 @@ def save_file(simulation):
 
     # draws the image of the simulation
     draw_image(simulation)
-
-    # voronoi(simulation)
-
-def voronoi(simulation, path):
-
-    points = np.empty((0, 2), int)
-
-    for i in range(len(simulation.cells)):
-        points = np.append(points, [simulation.cells[i].location[:2]], axis=0)
-
-    vor = Voronoi(points)
-    fig = voronoi_plot_2d(vor, show_vertices=False, line_colors='green', line_width=2, line_alpha=0.6, point_size=5)
-
-    fig.savefig(path + "network_voronoi_" + str(int(simulation.time_counter)), quality=100)

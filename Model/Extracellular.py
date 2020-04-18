@@ -25,6 +25,16 @@ class Extracellular:
         self.maximum = maximum
         self.parallel = parallel
 
+        # prevents any division by zero errors
+        if self.dx == 0:
+            self.dx = 1
+
+        if self.dy == 0:
+            self.dy = 1
+
+        if self.dz == 0:
+            self.dz = 1
+
         # squaring the approximation of the differential
         self.dx2 = self.dx ** 2
         self.dy2 = self.dy ** 2
@@ -34,21 +44,9 @@ class Extracellular:
         self.dt = (self.dx2 * self.dy2 * self.dz2) / (2 * diffuse_const * (self.dx2 + self.dy2 + self.dz2))
 
         # the points at which the diffusion values are calculated
-        if self.dx == 0:
-            x_steps = 1
-        else:
-            x_steps = int(self.size[0] / self.dx) + 1
-
-        if self.dy == 0:
-            y_steps = 1
-        else:
-            y_steps = int(self.size[1] / self.dy) + 1
-
-        if self.dz == 0:
-            z_steps = 1
-        else:
-            z_steps = int(self.size[2] / self.dz) + 1
-
+        x_steps = int(self.size[0] / self.dx) + 1
+        y_steps = int(self.size[1] / self.dy) + 1
+        z_steps = int(self.size[2] / self.dz) + 1
         self.diffuse_values = np.zeros((x_steps, y_steps, z_steps))
 
     def initialize(self):

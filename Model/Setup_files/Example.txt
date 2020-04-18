@@ -15,7 +15,7 @@ What is size of the space that the cells reside? Ex. (x, y, z)
 [ (1000.0, 1000.0, 0.0) ]
 
 What is resolution of the space? Ex. (dx, dy, dz)
-[ (1.0, 1.0, 1.0) ]
+[ (1.0, 1.0, 0.0) ]
 
 How many cells will be GATA6 high to begin the simulation? Ex. 247
 [ 0 ]
@@ -93,8 +93,8 @@ Miscellaneous/Experimental
 Amount of differentiated cells needed to surround a pluripotent cell to possibly differentiate it. Ex. 5
 [ 5 ]
 
-Image quality (1-5...) 3 is recommended. Ex. 3
-[ 3 ]
+Image resolution in pixels. Currently 2D only. Ex. (1000, 1000, 0)
+[ (500, 500, 0) ]
 
 How many cells are added/removed to the simulation at once, per time step? Ex. 5
 [ 1 ]
