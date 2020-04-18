@@ -72,6 +72,7 @@ def Setup():
         _dz = float(parameters[91][2:-3])
         _diffuse_const = float(parameters[94][2:-3])
         _avg_initial = float(parameters[97][2:-3])
+        _maximum = float(parameters[100][2:-3])
 
         # initializes simulation class which holds all information about the simulation
         simulation = Simulation.Simulation(_path, _end_time, _time_step, _pluri_div_thresh, _diff_div_thresh,
@@ -87,7 +88,8 @@ def Setup():
         for i in range(len(_gradients)):
 
             # initializes the extracellular class
-            new_extracellular = Extracellular.Extracellular(_size, _dx, _dy, _dz, _diffuse_const, _avg_initial, _parallel)
+            new_extracellular = Extracellular.Extracellular(_size, _dx, _dy, _dz, _diffuse_const, _avg_initial,
+                                                            _maximum, _parallel)
 
             # adds the Extracellular object
             simulation.extracellular = np.append(simulation.extracellular, new_extracellular)

@@ -100,7 +100,7 @@ class Simulation:
         """ see Cell.py for definition
         """
         for i in range(len(self.extracellular)):
-            self.extracellular[i].update()
+            self.extracellular[i].update(self)
 
     def update_cells(self):
         """ see Cell.py for definition

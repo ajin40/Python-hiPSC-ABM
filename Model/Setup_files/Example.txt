@@ -83,17 +83,20 @@ What is the maximum radius of the cells?
 [ 6.0 ]
 
 dx
-[ 0.1 ]
+[ 1.0 ]
 
 dy
-[ 0.1 ]
+[ 1.0 ]
 
 dz
-[ 0.1 ]
+[ 1.0 ]
 
 Diffusion constant
 [ 4 ]
 
 Average initial concentration per step
 [ 4 ]
+
+Maximum concentration on a step
+[ 5 ]
 _______________________________________________________________________________________________________________________

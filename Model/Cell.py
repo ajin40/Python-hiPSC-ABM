@@ -194,20 +194,27 @@ class Cell:
             else:
                 self.div_counter += 1
 
-        # coverts position on grid into an integer for array location
-        array_x = int(math.floor(self.location[0]))
-        array_y = int(math.floor(self.location[1]))
-        array_z = int(math.floor(self.location[2]))
+        # coverts position in space into an integer for array location
+        x_step = simulation.extracellular[0].dx
+        y_step = simulation.extracellular[0].dy
+        z_step = simulation.extracellular[0].dz
 
+        half_index_x = self.location[0] // (x_step / 2)
+        half_index_y = self.location[1] // (y_step / 2)
+        half_index_z = self.location[2] // (z_step / 2)
+
+        index_x = math.ceil(half_index_x / 2)
+        index_y = math.ceil(half_index_y / 2)
+        index_z = math.ceil(half_index_z / 2)
 
         # if a certain spot of the grid is less than the max FGF4 it can hold and the cell is NANOG high increase the
         # FGF4 by 1
-        if simulation.gradients[0].grid[array_x][array_y][array_z] < simulation.gradients[0].maximum \
+        if simulation.extracellular[0].diffuse_values[index_x][index_y][index_z] < simulation.extracellular[0].maximum \
                 and self.booleans[3] == 1:
-            simulation.gradients[0].grid[array_x][array_y][array_z] += 1
+            simulation.extracellular[0].diffuse_values[index_x][index_y][index_z] += 1
 
         # if the FGF4 amount for the location is greater than 0, set the fgf4_bool value to be 1 for the functions
-        if simulation.gradients[0].grid[array_x][array_y][array_z] > 0:
+        if simulation.extracellular[0].diffuse_values[index_x][index_y][index_z] > 0:
             fgf4_bool = 1
         else:
             fgf4_bool = 0
@@ -221,8 +228,8 @@ class Cell:
         # if the temporary FGFR value is 0 and the FGF4 value is 1 decrease the amount of FGF4 by 1
         # this simulates FGFR using FGF4
 
-        if tempFGFR == 0 and fgf4 == 1 and simulation.gradients[0].grid[array_x][array_y][array_z] >= 1:
-            simulation.gradients[0].grid[array_x][array_y][array_z] -= 1
+        if tempFGFR == 0 and fgf4 == 1 and simulation.extracellular[0].diffuse_values[index_x][index_y][index_z] >= 1:
+            simulation.extracellular[0].diffuse_values[index_x][index_y][index_z] -= 1
 
         # if the cell is GATA6 high and Pluripotent increase the differentiation counter by 1
         if self.booleans[2] == 1 and self.state == "Pluripotent":
