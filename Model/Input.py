@@ -39,40 +39,46 @@ def Setup():
         parameters = parameters_file.readlines()
 
         # looks at certain lines of the template file and converts them from strings to their desired type
-        _path = check_name(output_path, parameters[1][2:-3], separator)
-        _parallel = eval(parameters[4][2:-3])
-        _end_time = float(parameters[7][2:-3])
-        _time_step = float(parameters[10][2:-3])
-        _num_GATA6 = int(parameters[13][2:-3])
-        _num_NANOG = int(parameters[16][2:-3])
-        _stochastic = bool(parameters[19][2:-3])
-        _size = eval(parameters[22][2:-3])
-        _functions = eval(parameters[25][2:-3])
-        _pluri_div_thresh = float(parameters[28][2:-3])
-        _diff_div_thresh = float(parameters[31][2:-3])
-        _pluri_to_diff = float(parameters[34][2:-3])
-        _diff_surround_value = int(parameters[37][2:-3])
-        _death_threshold = float(parameters[40][2:-3])
-        _move_time_step = float(parameters[43][2:-3])
-        _move_max_time = float(parameters[46][2:-3])
-        _spring_constant = float(parameters[49][2:-3])
-        _friction = float(parameters[52][2:-3])
-        _energy_kept = float(parameters[55][2:-3])
-        _neighbor_distance = float(parameters[58][2:-3])
-        _mass = float(parameters[61][2:-3])
-        _gradients = eval(parameters[64][2:-3])
-        _density = float(parameters[67][2:-3])
-        _num_states = int(parameters[70][2:-3])
-        _quality = int(parameters[73][2:-3])
-        _group = int(parameters[76][2:-3])
-        _speed = int(parameters[79][2:-3])
-        _max_radius = float(parameters[82][2:-3])
-        _dx = float(parameters[85][2:-3])
-        _dy = float(parameters[88][2:-3])
-        _dz = float(parameters[91][2:-3])
-        _diffuse_const = float(parameters[94][2:-3])
-        _avg_initial = float(parameters[97][2:-3])
-        _maximum = float(parameters[100][2:-3])
+        # general parameters
+        _path = check_name(output_path, parameters[8][3:-4], separator)
+        _parallel = eval(parameters[11][2:-3])
+        _size = eval(parameters[14][2:-3])
+        _resolution = eval(parameters[17][2:-3])
+        _num_GATA6 = int(parameters[20][2:-3])
+        _num_NANOG = int(parameters[23][2:-3])
+        _functions = eval(parameters[26][2:-3])
+        _num_states = int(parameters[29][2:-3])
+
+        # timing
+        _end_time = float(parameters[35][2:-3])
+        _time_step = float(parameters[38][2:-3])
+        _pluri_div_thresh = float(parameters[41][2:-3])
+        _diff_div_thresh = float(parameters[44][2:-3])
+        _pluri_to_diff = float(parameters[47][2:-3])
+        _death_threshold = float(parameters[50][2:-3])
+
+        # intercellular
+        _neighbor_distance = float(parameters[56][2:-3])
+
+        # extracellular
+        _extracellular = eval(parameters[63][2:-3])
+
+        # collision handling
+        _move_max_time = float(parameters[69][2:-3])
+        _move_time_step = float(parameters[72][2:-3])
+        _spring_constant = float(parameters[75][2:-3])
+        _friction = float(parameters[78][2:-3])
+        _energy_kept = float(parameters[81][2:-3])
+        _mass = float(parameters[84][2:-3])
+        _density = float(parameters[87][2:-3])
+
+        # miscellaneous/experimental
+        _diff_surround_value = int(parameters[93][2:-3])
+        _quality = int(parameters[96][2:-3])
+        _group = int(parameters[99][2:-3])
+        _speed = float(parameters[102][2:-3])
+        _max_radius = float(parameters[105][2:-3])
+        _stochastic = bool(parameters[108][2:-3])
 
         # initializes simulation class which holds all information about the simulation
         simulation = Simulation.Simulation(_path, _end_time, _time_step, _pluri_div_thresh, _diff_div_thresh,
@@ -85,11 +91,11 @@ def Setup():
         shutil.copy(input_path + separator + file, simulation.path)
 
         # loops over the gradients and adds them to the simulation
-        for i in range(len(_gradients)):
+        for i in range(len(_extracellular)):
 
             # initializes the extracellular class
-            new_extracellular = Extracellular.Extracellular(_size, _dx, _dy, _dz, _diffuse_const, _avg_initial,
-                                                            _maximum, _parallel)
+            new_extracellular = Extracellular.Extracellular(_size, _resolution, _extracellular[i][0],
+                                                            _extracellular[i][1], _extracellular[i][2], _parallel)
 
             # adds the Extracellular object
             simulation.extracellular = np.append(simulation.extracellular, new_extracellular)
@@ -153,7 +159,7 @@ def check_name(path, name, separator):
 
         # prompt to either rename or overwrite
         except:
-            print("Simulation with identical name: " + str(name))
+            print("Simulation with identical name: " + name)
             user = input("Would you like to overwrite that simulation? (y/n): ")
             if user == "n":
                 name = input("New name: ")

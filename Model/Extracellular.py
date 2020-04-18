@@ -6,7 +6,7 @@ import random as r
 class Extracellular:
     """ Initialization called once. Class holds information about each gradient for each simulation
     """
-    def __init__(self, size, dx, dy, dz, diffuse_const, avg_initial, maximum, parallel):
+    def __init__(self, size, resolution, diffuse_const, avg_initial, maximum, parallel):
         """ size: dimensions of the environment space
             dx: x direction step size
             dy: y direction step size
@@ -17,37 +17,37 @@ class Extracellular:
             parallel: whether gpu processing is being used
         """
         self.size = size
-        self.dx = dx
-        self.dy = dy
-        self.dz = dz
+        self.dx = resolution[0]
+        self.dy = resolution[1]
+        self.dz = resolution[2]
         self.diffuse_const = diffuse_const
         self.avg_initial = avg_initial
         self.maximum = maximum
         self.parallel = parallel
 
         # squaring the approximation of the differential
-        self.dx2 = dx ** 2
-        self.dy2 = dy ** 2
-        self.dz2 = dz ** 2
+        self.dx2 = self.dx ** 2
+        self.dy2 = self.dy ** 2
+        self.dz2 = self.dz ** 2
 
         # calculate the max time step size
         self.dt = (self.dx2 * self.dy2 * self.dz2) / (2 * diffuse_const * (self.dx2 + self.dy2 + self.dz2))
 
         # the points at which the diffusion values are calculated
-        if dx == 0:
+        if self.dx == 0:
             x_steps = 1
         else:
-            x_steps = int(self.size[0] / dx) + 1
+            x_steps = int(self.size[0] / self.dx) + 1
 
-        if dy == 0:
+        if self.dy == 0:
             y_steps = 1
         else:
-            y_steps = int(self.size[1] / dy) + 1
+            y_steps = int(self.size[1] / self.dy) + 1
 
-        if dz == 0:
+        if self.dz == 0:
             z_steps = 1
         else:
-            z_steps = int(self.size[2] / dz) + 1
+            z_steps = int(self.size[2] / self.dz) + 1
 
         self.diffuse_values = np.zeros((x_steps, y_steps, z_steps))
 
