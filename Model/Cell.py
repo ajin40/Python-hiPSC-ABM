@@ -42,7 +42,11 @@ class Cell:
         location = self.location + RandomPointOnSphere(simulation) * self.radius
 
         # makes sure the new cell's location is on the grid
-        while not (0 <= location[0] < simulation.size[0]) or not (0 <= location[1] < simulation.size[1]) or not (0 <= location[2] < simulation.size[2]):
+        condition_x = 0 <= location[0] <= simulation.size[0]
+        condition_y = 0 <= location[1] <= simulation.size[1]
+        condition_z = 0 <= location[2] <= simulation.size[2]
+
+        while not condition_x or not condition_y or not condition_z:
             location = self.location + RandomPointOnSphere(simulation) * self.radius
 
         # creates a new Cell object
@@ -262,6 +266,3 @@ def RandomPointOnSphere(simulation):
         y = radius * math.sin(theta)
         z = math.sin(phi)
         return np.array([x, y, z])
-
-
-

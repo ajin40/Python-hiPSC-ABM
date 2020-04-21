@@ -342,7 +342,7 @@ class Simulation:
                         # check if new location is in environment space if not simulation a collision with the bounds
                         if new_location[j] >= self.size[j]:
                             self.cells[i].velocity[j] *= -0.5
-                            self.cells[i].location[j] = self.size[j] - 0.000001 * self.size[j]
+                            self.cells[i].location[j] = self.size[j]
                         elif new_location[j] < 0:
                             self.cells[i].velocity[j] *= -0.5
                             self.cells[i].location[j] = 0.0
