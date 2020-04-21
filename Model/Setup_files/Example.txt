@@ -94,10 +94,10 @@ Amount of differentiated cells needed to surround a pluripotent cell to possibly
 [ 5 ]
 
 Image resolution in pixels. Currently 2D only. Ex. (1000, 1000, 0)
-[ (500, 500, 0) ]
+[ (2000, 2000, 0) ]
 
 How many cells are added/removed to the simulation at once, per time step? Ex. 5
-[ 1 ]
+[ 5 ]
 
 How fast will the cells move when moving randomly? Ex. 5.0
 [ 5.0 ]
