@@ -4,9 +4,9 @@ import os
 import shutil
 import platform
 
-from Model import Extracellular
-from Model import Simulation
-from Model import Cell
+import Extracellular
+import Simulation
+import Cell
 
 
 def Setup():

@@ -1,7 +1,7 @@
 import numpy as np
 import networkx as nx
 
-from Model import Parallel
+import Parallel
 
 
 class Simulation:
