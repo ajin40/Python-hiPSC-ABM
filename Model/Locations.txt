@@ -1,5 +1,5 @@
 Path where input files are:
-C:\Anaconda\stem-cell-patterning_Python\Model\
+C:\Anaconda\stem-cell-patterning_Python\Model\Setup_files\
 
 Path where output files go:
 C:\Python27\MEGA-ARRAY\
