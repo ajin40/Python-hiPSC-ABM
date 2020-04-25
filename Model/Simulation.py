@@ -3,7 +3,6 @@ import networkx as nx
 
 import Parallel
 
-
 class Simulation:
     """ Initialization called once for each simulation. Class holds all information about each simulation as a whole
     """
