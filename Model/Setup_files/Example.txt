@@ -33,7 +33,7 @@ Number of states within the finite dynamical system. Currently 2 because the sys
 Timing
 -----------------------------------------------------------------------------------------------------------------------
 How many total steps will the model run for? Ex. 30.0
-[ 60.0 ]
+[ 5.0 ]
 
 What will the difference in time steps be? Ex. 1.0
 [ 1.0 ]
@@ -93,8 +93,8 @@ Miscellaneous/Experimental
 Amount of differentiated cells needed to surround a pluripotent cell to possibly differentiate it. Ex. 5
 [ 5 ]
 
-Image resolution in pixels. Currently 2D only. Ex. (1000, 1000, 0)
-[ (2000, 2000, 0) ]
+Image resolution in pixels. Currently 2D only. Ex. (1000, 1000)
+[ (2000, 2000) ]
 
 How many cells are added/removed to the simulation at once, per time step? Ex. 5
 [ 5 ]
@@ -108,4 +108,6 @@ What is the maximum radius of the cells? Ex. 6.0
 Stochastic FGFR + ERK values? Ex. True
 [ True ]
 
+Slicing the z direction into a collection a 2D images spaced evenly apart. How many total slices?
+[ 1 ]
 -----------------------------------------------------------------------------------------------------------------------
