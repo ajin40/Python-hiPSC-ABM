@@ -25,7 +25,8 @@ def draw_image(simulation):
     bounds = np.array([corner_1, corner_2, corner_3, corner_4])
 
     # starting z value for slice location
-    slice_level = 0
+    lower_slice = 0
+    upper_slice = thickness
 
     for i in range(simulation.slices):
 
@@ -57,9 +58,21 @@ def draw_image(simulation):
             location = simulation.cells[j].location
             radius = simulation.cells[j].radius
 
+            # determine the radius based on the lower bound of the slice
+            x_radius_lower = dilation_x * max(radius ** 2 - (location[2] - lower_slice) ** 2, 0.0) ** 0.5
+            y_radius_lower = dilation_y * max(radius ** 2 - (location[2] - lower_slice) ** 2, 0.0) ** 0.5
 
-            x_radius = dilation_x * max(radius ** 2 - (location[2] - slice_level) ** 2, 0.0) ** 0.5
-            y_radius = dilation_y * max(radius ** 2 - (location[2] - slice_level) ** 2, 0.0) ** 0.5
+            # determine the radius based on the upper bound of the slice
+            x_radius_upper = dilation_x * max(radius ** 2 - (location[2] - upper_slice) ** 2, 0.0) ** 0.5
+            y_radius_upper = dilation_y * max(radius ** 2 - (location[2] - upper_slice) ** 2, 0.0) ** 0.5
+
+            # check to see which slice will produce the largest radius
+            if x_radius_lower >= x_radius_upper:
+                x_radius = x_radius_lower
+                y_radius = y_radius_lower
+            else:
+                x_radius = x_radius_upper
+                y_radius = y_radius_upper
 
             # get location in 2D with image size dilation
             x = dilation_x * location[0]
@@ -80,7 +93,8 @@ def draw_image(simulation):
         base.save(simulation.path + image_name, 'PNG')
 
         # moves to the next slice location
-        slice_level += thickness
+        lower_slice += thickness
+        upper_slice += thickness
 
 
 def image_to_video(simulation):
