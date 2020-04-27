@@ -10,7 +10,7 @@ class Simulation:
     def __init__(self, path, end_time, time_step, pluri_div_thresh, diff_div_thresh, pluri_to_diff, size,
                  diff_surround_value, functions, parallel, death_threshold, move_time_step, move_max_time,
                  spring_constant, friction, energy_kept, neighbor_distance, density, num_states, quality,
-                 group, speed, max_radius):
+                 group, speed, max_radius, slices):
 
         """ Initialization function for the simulation setup.
             path: the path to save the simulation information to
@@ -61,6 +61,7 @@ class Simulation:
         self.group = group
         self.speed = speed
         self.max_radius = max_radius
+        self.slices = slices
 
         # counts how many times an image is created for making videos
         self.image_counter = 0

@@ -79,13 +79,14 @@ def Setup():
         _speed = float(parameters[102][2:-3])
         _max_radius = float(parameters[105][2:-3])
         _stochastic = bool(parameters[108][2:-3])
+        _slices = int(parameters[111][2:-3])
 
         # initializes simulation class which holds all information about the simulation
         simulation = Simulation.Simulation(_path, _end_time, _time_step, _pluri_div_thresh, _diff_div_thresh,
                                            _pluri_to_diff, _size, _diff_surround_value, _functions, _parallel,
                                            _death_threshold, _move_time_step, _move_max_time, _spring_constant,
                                            _friction, _energy_kept, _neighbor_distance, _density, _num_states,
-                                           _quality, _group, _speed, _max_radius)
+                                           _quality, _group, _speed, _max_radius, _slices)
 
         # copies the setup file to the new directory of the simulation
         shutil.copy(input_path + separator + file, simulation.path)
