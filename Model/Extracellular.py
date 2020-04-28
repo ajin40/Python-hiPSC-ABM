@@ -2,7 +2,6 @@ import numpy as np
 import random as r
 
 
-
 class Extracellular:
     """ Initialization called once. Class holds information about each gradient for each simulation
     """

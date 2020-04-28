@@ -6,7 +6,8 @@ import random as r
 class Cell:
     """ Class for each cell in the simulation
     """
-    def __init__(self, location, motion, velocity, mass, booleans, state, diff_counter, div_counter, death_counter):
+    def __init__(self, location, motion, velocity, mass, booleans, state, diff_counter, div_counter, death_counter,
+                 force, youngs_mod, poisson):
         """ location: where the cell is located on the grid "[x,y,z]"
             motion: whether the cell is moving or not "True or False"
             velocity: the velocity as a vector of the cell
@@ -26,6 +27,11 @@ class Cell:
         self.diff_counter = diff_counter
         self.div_counter = div_counter
         self.death_counter = death_counter
+
+        self.force = force
+        self.youngs_mod = youngs_mod
+        self.poisson = poisson
+
 
         # radius of cell is currently determined based on mass and density held as a float
         self.radius = 0.0
@@ -175,7 +181,7 @@ class Cell:
         """
         # if other cells are differentiated around a cell it will stop moving
         if self.state == "Differentiated":
-            neighbors = list(simulation.network.neighbors(self))
+            neighbors = list(simulation.neighbor_graph.neighbors(self))
             for i in range(len(neighbors)):
                 if neighbors[i].state == "Differentiated":
                     self.motion = False
@@ -183,7 +189,7 @@ class Cell:
 
         # if other cells are also pluripotent, gata6 low, and nanog high they will stop moving
         if self.booleans[3] == 1 and self.booleans[2] == 0 and self.state == "Pluripotent":
-            neighbors = list(simulation.network.neighbors(self))
+            neighbors = list(simulation.neighbor_graph.neighbors(self))
             for j in range(len(neighbors)):
                 if neighbors[j].booleans[3] == 1 and neighbors[j].booleans[2] == 0 and neighbors[j].state == "Pluripotent":
                     self.motion = False

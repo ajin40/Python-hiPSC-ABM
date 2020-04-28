@@ -110,4 +110,7 @@ Stochastic FGFR + ERK values? Ex. True
 
 Slicing the z direction into a collection a 2D images spaced evenly apart. How many total slices?
 [ 2 ]
+
+JKR work of adhesion value
+[ 0.000107 ]
 -----------------------------------------------------------------------------------------------------------------------

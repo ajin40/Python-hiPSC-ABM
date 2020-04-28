@@ -10,7 +10,7 @@ class Simulation:
     def __init__(self, path, end_time, time_step, pluri_div_thresh, diff_div_thresh, pluri_to_diff, size,
                  diff_surround_value, functions, parallel, death_threshold, move_time_step, move_max_time,
                  spring_constant, friction, energy_kept, neighbor_distance, density, num_states, quality,
-                 group, speed, max_radius, slices):
+                 group, speed, max_radius, slices, adhesion_const):
 
         """ Initialization function for the simulation setup.
             path: the path to save the simulation information to
@@ -62,6 +62,7 @@ class Simulation:
         self.speed = speed
         self.max_radius = max_radius
         self.slices = slices
+        self.adhesion_const = adhesion_const
 
         # counts how many times an image is created for making videos
         self.image_counter = 0
@@ -69,14 +70,17 @@ class Simulation:
         # keeps a running count of the time
         self.time_counter = 0.0
 
-        # array to hold all of the cell objects
+        # array to hold all of the Cell objects
         self.cells = np.array([], dtype=np.object)
 
         # array to hold all of the Extracellular objects
         self.extracellular = np.array([], dtype=np.object)
 
-        # graph representing all the cells and their connections to other cells
-        self.network = nx.Graph()
+        # graph representing cells and neighbors
+        self.neighbor_graph = nx.Graph()
+
+        # graph representing the presence of JKR adhesion bonds between cells
+        self.jkr_graph = nx.Graph()
 
         # holds the objects until they are added or removed from the simulation
         self.cells_to_remove = np.array([], dtype=np.object)
@@ -140,7 +144,7 @@ class Simulation:
         self.cells = np.append(self.cells, cell)
 
         # adds it to the graph
-        self.network.add_node(cell)
+        self.neighbor_graph.add_node(cell)
 
     def remove_cell(self, cell):
         """ Removes the specified object from the array
@@ -150,7 +154,7 @@ class Simulation:
         self.cells = self.cells[self.cells != cell]
 
         # removes it from the graph
-        self.network.remove_node(cell)
+        self.neighbor_graph.remove_node(cell)
 
     def update_cell_queue(self):
         """ Updates the queues for adding and removing cell objects
@@ -167,54 +171,20 @@ class Simulation:
             #   with handling collisions, make give rise to sudden changes in overall positions of
             #   cells within the simulation. Instead, collisions are handled after 'group' number
             #   of cell objects are added.
-            if (i + 1) % self.group == 0:
-                self.handle_collisions()
+            # if (i + 1) % self.group == 0:
+            #     self.handle_forces()
 
         # loops over all objects to add
         for i in range(len(self.cells_to_add)):
             self.add_cell(self.cells_to_add[i])
 
             # can't add all the cells together or you get a mess
-            if (i + 1) % self.group == 0:
-                self.handle_collisions()
+            # if (i + 1) % self.group == 0:
+            #     self.handle_forces()
 
         # clear the arrays
         self.cells_to_remove = np.array([], dtype=np.object)
         self.cells_to_add = np.array([], dtype=np.object)
-
-    # Before 4/2/20 the following was used. Now the function below is the currently implementation
-
-    # def check_neighbors(self):
-    #     """ checks all of the distances between cells
-    #         if it is less than a fixed value create a
-    #         connection between two cells.
-    #     """
-    #     # clears the current graph to prevent existing edges from remaining
-    #     self.network.clear()
-    #
-    #     # tries to run the parallel version of this function
-    #     if self.parallel:
-    #         Parallel.check_neighbors_gpu(self)
-    #     else:
-    #         # loops over all cell objects
-    #         for i in range(len(self.cells)):
-    #
-    #             # adds all of the cells to the simulation
-    #             self.network.add_node(self.cells[i])
-    #
-    #             # loops over all objects not checked already
-    #             for j in range(i + 1, len(self.cells)):
-    #
-    #                 # get the distance between cells
-    #                 dist_vec = self.cells[i].location - self.cells[j].location
-    #
-    #                 # get the magnitude of the distance vector
-    #                 dist = np.linalg.norm(dist_vec)
-    #
-    #                 # if the cells are close enough, add an edge between them
-    #                 if dist <= self.neighbor_distance:
-    #                     self.network.add_edge(self.cells[i], self.cells[j])
-
 
     def check_neighbors(self):
         """ checks all of the distances between cells
@@ -222,7 +192,7 @@ class Simulation:
             connection between two cells.
         """
         # clears the current graph to prevent existing edges from remaining
-        self.network.clear()
+        self.neighbor_graph.clear()
 
         # tries to run the parallel version of this function
         if self.parallel:
@@ -246,7 +216,7 @@ class Simulation:
             for h in range(len(self.cells)):
 
                 # adds all of the cells to the simulation
-                self.network.add_node(self.cells[h])
+                self.neighbor_graph.add_node(self.cells[h])
 
                 # offset blocks by 1 to help when searching over blocks
                 location_x = int(self.cells[h].location[0] / distance) + 1
@@ -267,98 +237,65 @@ class Simulation:
                             for l in range(len(cells_in_block)):
                                 if cells_in_block[l] != self.cells[h]:
                                     if np.linalg.norm(cells_in_block[l].location - self.cells[h].location) <= distance:
-                                        self.network.add_edge(self.cells[h], cells_in_block[l])
+                                        self.neighbor_graph.add_edge(self.cells[h], cells_in_block[l])
 
-    def handle_collisions(self):
-        """ Moves the cells in small increments and manages
-            any collisions that will arise
+    def adhesion_and_repulsion(self):
+        """ goes through all of the cells and applies any forces arising
+            from adhesion or repulsion between the cells
         """
-        # tries to run the parallel version of the function
-        if self.parallel:
-            Parallel.handle_collisions_gpu(self)
+        # list of the neighbors as these will only be the cells in physical contact
+        edges = list(self.neighbor_graph.edges())
 
-        else:
-            self.check_neighbors()
+        # loops over the pairs of neighbors
+        for i in range(len(edges)):
+            # assigns the nodes of each edge to a variable
+            cell_1 = edges[i][0]
+            cell_2 = edges[i][1]
 
-            # the while loop controls the amount of time steps for movement
-            time_counter = 0
-            while time_counter <= self.move_max_time:
+            # hold the vector between the centers of the cells and the magnitude of this vector
+            disp_vector = cell_1.location - cell_2.location
+            magnitude = np.linalg.norm(disp_vector)
 
-                # smaller the time step in relation to the maximum move time, less error from missing collisions
-                time_counter += self.move_time_step
+            # get the total overlap of the cells used later in calculations
+            overlap = cell_1.radius + cell_2.radius - magnitude
 
-                # gets all of the neighbor connections
-                edges = list(self.network.edges())
+            # gets two values used for the Hertzian contact and JKR adhesion
+            e_hat = (((1 - cell_1.poisson ** 2) / cell_1.youngs_mod) + (
+                        (1 - cell_2.poisson ** 2) / cell_2.youngs_mod)) ** -1
+            r_hat = ((1 / cell_1.radius) + (1 / cell_2.radius)) ** -1
 
-                # loops over the neighbor connections as these cells are close together
-                for i in range(len(edges)):
-                    cell_1 = edges[i][0]
-                    cell_2 = edges[i][1]
+            # used to calculate the max adhesive distance after an adhesion has been already formed
+            overlap_ = (((3.14159 * self.adhesion_const) / e_hat) ** 2 / 3) * (r_hat ** 1 / 3)
 
-                    # vector between the center of each cell for the edge
-                    displacement_vec = cell_1.location - cell_2.location
+            # used to see if the adhesive bond once formed has broken
+            overlap_condition = overlap / overlap_ > -0.360562
 
-                    # addition of total cell radius
-                    cell_1_total_radius = cell_1.radius
-                    cell_2_total_radius = cell_2.radius
-                    total_radii = cell_1_total_radius + cell_2_total_radius
+            if overlap >= 0 or (overlap_condition and self.jkr_graph.has_edge(cell_1, cell_2)):
+                # JKR adhesion
+                # we nondimensionalize the overlap to allow for the use of a polynomial approximation
+                d = overlap / ((((3.14159 * self.adhesion_const) / e_hat) ** 2 / 3) * (r_hat ** 1 / 3))
 
-                    # checks to see if the cells are overlapping
-                    if np.linalg.norm(displacement_vec) < total_radii:
+                # plug the value of d into the nondimensionalized equation for adhesion force
+                f = (-0.0204 * d ** 3) + (0.4942 * d ** 2) + (1.0801 * d) - 1.324
 
-                        # find the displacement of the membrane overlap for each cell
-                        mag = np.linalg.norm(displacement_vec)
-                        if mag == 0.0:
-                            displacement_normal = np.array([0.0, 0.0, 0.0])
-                        else:
-                            displacement_normal = displacement_vec / mag
+                # convert from the nondimensionalization to find the adhesive force
+                adhesive = f * 3.14159 * self.adhesion_const * r_hat
 
-                        overlap = ((total_radii * displacement_normal) - displacement_vec) / 2
+                # adds the adhesive force as a vector in opposite directions to each cell's force holder
+                cell_1.force += adhesive * disp_vector
+                cell_2.force -= adhesive * disp_vector
 
-                        # converts the spring energy into kinetic energy in opposing directions
-                        cell_1.velocity[0] += overlap[0] * (self.energy_kept * self.spring_constant / cell_1.mass)**0.5
-                        cell_1.velocity[1] += overlap[1] * (self.energy_kept * self.spring_constant / cell_1.mass)**0.5
-                        cell_1.velocity[2] += overlap[2] * (self.energy_kept * self.spring_constant / cell_1.mass)**0.5
+                if overlap >= 0:
+                    # if the cells touch or overlap there is an adhesive bond formed
+                    self.jkr_graph.add_edge(cell_1, cell_2)
 
-                        cell_2.velocity[0] -= overlap[0] * (self.energy_kept * self.spring_constant / cell_2.mass)**0.5
-                        cell_2.velocity[1] -= overlap[1] * (self.energy_kept * self.spring_constant / cell_2.mass)**0.5
-                        cell_2.velocity[2] -= overlap[2] * (self.energy_kept * self.spring_constant / cell_2.mass)**0.5
+                    # Hertzian contact for repulsion
+                    # finds the repulsive force scalar
+                    repulsive = (4 / 3) * e_hat * (r_hat ** 0.5) * (overlap ** 1.5)
 
-                # now re-loops over cells to move them and reduce work energy from kinetic energy
-                for i in range(len(self.cells)):
+                    # adds the repulsive force as a vector in opposite directions to each cell's force holder
+                    cell_1.force += repulsive * disp_vector
+                    cell_2.force -= repulsive * disp_vector
 
-                    # multiplies the time step by the velocity and adds that vector to the cell's location
-                    movement = self.cells[i].velocity * self.move_time_step
-
-                    # create a prior location holder
-                    location = self.cells[i].location
-
-                    # set the possible new location
-                    new_location = location + movement
-
-                    # loops over all directions of space
-                    for j in range(0, 3):
-
-                        # check if new location is in environment space if not simulation a collision with the bounds
-                        if new_location[j] >= self.size[j]:
-                            self.cells[i].velocity[j] *= -0.5
-                            self.cells[i].location[j] = self.size[j]
-                        elif new_location[j] < 0:
-                            self.cells[i].velocity[j] *= -0.5
-                            self.cells[i].location[j] = 0.0
-                        else:
-                            self.cells[i].location[j] = new_location[j]
-
-                    # give variable the velocity for ease of writing
-                    v = self.cells[i].velocity
-
-                    # subtracts the work from the kinetic energy and recalculates a new velocity
-                    new_velocity_x = np.sign(v[0]) * max(v[0] ** 2 - 2 * self.friction * abs(movement[0]), 0.0) ** 0.5
-                    new_velocity_y = np.sign(v[1]) * max(v[1] ** 2 - 2 * self.friction * abs(movement[1]), 0.0) ** 0.5
-                    new_velocity_z = np.sign(v[2]) * max(v[2] ** 2 - 2 * self.friction * abs(movement[2]), 0.0) ** 0.5
-
-                    # assign new velocity
-                    self.cells[i].velocity = np.array([new_velocity_x, new_velocity_y, new_velocity_z])
-
-                # checks neighbors after the cells move for re-evaluation of collisions
-                self.check_neighbors()
+            elif not overlap_condition:
+                self.jkr_graph.remove_edge(cell_1, cell_2)
