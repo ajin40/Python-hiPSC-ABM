@@ -6,8 +6,7 @@ import random as r
 class Cell:
     """ Class for each cell in the simulation
     """
-    def __init__(self, location, motion, velocity, mass, booleans, state, diff_counter, div_counter, death_counter,
-                 force, youngs_mod, poisson):
+    def __init__(self, location, motion, velocity, mass, booleans, state, diff_counter, div_counter, death_counter):
         """ location: where the cell is located on the grid "[x,y,z]"
             motion: whether the cell is moving or not "True or False"
             velocity: the velocity as a vector of the cell
@@ -28,10 +27,14 @@ class Cell:
         self.div_counter = div_counter
         self.death_counter = death_counter
 
-        self.force = force
-        self.youngs_mod = youngs_mod
-        self.poisson = poisson
+        # Youngs modulus 1 KPa
+        self.youngs_mod = 1
 
+        # Poisson's ratio
+        self.poisson = 0.33333
+
+        # starts the cell off with a zero force vector
+        self.force = np.array([0.0, 0.0, 0.0])
 
         # radius of cell is currently determined based on mass and density held as a float
         self.radius = 0.0

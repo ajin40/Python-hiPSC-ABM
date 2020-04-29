@@ -1,5 +1,6 @@
 import numpy as np
 import networkx as nx
+from scipy.sparse.linalg import cg
 
 import Parallel
 
@@ -10,7 +11,7 @@ class Simulation:
     def __init__(self, path, end_time, time_step, pluri_div_thresh, diff_div_thresh, pluri_to_diff, size,
                  diff_surround_value, functions, parallel, death_threshold, move_time_step, move_max_time,
                  spring_constant, friction, energy_kept, neighbor_distance, density, num_states, quality,
-                 group, speed, max_radius, slices, adhesion_const):
+                 group, speed, max_radius, slices, adhesion_const, cell_fric_perp, cell_fric_para, substrate_fric):
 
         """ Initialization function for the simulation setup.
             path: the path to save the simulation information to
@@ -63,6 +64,9 @@ class Simulation:
         self.max_radius = max_radius
         self.slices = slices
         self.adhesion_const = adhesion_const
+        self.cell_fric_perp = cell_fric_perp
+        self.cell_fric_para = cell_fric_para
+        self.substrate_fric = substrate_fric
 
         # counts how many times an image is created for making videos
         self.image_counter = 0
@@ -299,3 +303,55 @@ class Simulation:
 
             elif not overlap_condition:
                 self.jkr_graph.remove_edge(cell_1, cell_2)
+
+    def solve_velocities(self):
+        # size of the corresponding array based on the number of the cells times the three directions
+        array_length = len(self.cells) * 3
+
+        # create a zero matrix used to solve for velocities
+        a = np.zeros((array_length, array_length))
+
+        # an array used to hold the forces acting on all cells
+        b = np.zeros(array_length)
+
+        # load the force values into the b array
+        for i in range(len(self.cells)):
+            b[3 * i] = self.cells[i].force[0]
+            b[3 * i + 1] = self.cells[i].force[1]
+            b[3 * i + 2] = self.cells[i].force[2]
+
+        for i in range(len(self.cells)):
+            substrate = self.substrate_fric * np.identity(3)
+
+            a[3*i:3*(i+1)][3*i:3*(i+1)] += substrate
+
+            for j in range(len(self.cells[i + 1:])):
+                location_1 = self.cells[i].location
+                location_2 = self.cells[j].location
+
+                distance_vec = location_1 - location_2
+                distance_norm = distance_vec / np.linalg.norm(distance_vec)
+
+                # find the friction matrix for
+                gamma_perp = self.cell_fric_perp * np.outer(distance_norm, distance_norm)
+                gamma_para = self.cell_fric_para * (np.identity(3) - np.outer(distance_norm, distance_norm))
+
+                # yum
+                matrix = gamma_perp + gamma_para
+
+                a[3*i:3*(i+1)][3*j:3*(j+1)] += matrix
+
+
+        solution, extra = cg(a, b)
+
+        for i in range(len(solution)):
+            self.cells[i].velocity = solution[3 * i: 3 * (i+1)]
+
+
+
+
+
+
+
+
+
