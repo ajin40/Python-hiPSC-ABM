@@ -44,7 +44,7 @@ for Simulation in Simulations:
         # Moves the cells to a state of physical equilibrium so that there is minimal overlap between cells
         Simulation.adhesion_and_repulsion()
 
-        # Simulation.solve_velocities()
+        Simulation.solve_velocities()
 
         # Saves a 2D image and a .csv file containing key simulation information for each cell     (base)
         Output.save_file(Simulation)

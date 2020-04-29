@@ -256,7 +256,7 @@ class Simulation:
         """
         # list of the neighbors as these will only be the cells in physical contact
         edges = list(self.neighbor_graph.edges())
-        print(len(edges))
+
         # loops over the pairs of neighbors
         for i in range(len(edges)):
             # assigns the nodes of each edge to a variable
@@ -343,43 +343,55 @@ class Simulation:
             a[3 * i + 1][3 * i + 2] += substrate[1][2]
             a[3 * i + 2][3 * i + 2] += substrate[2][2]
 
-            for j in range(len(self.cells[i + 1:])):
-                location_1 = self.cells[i].location
-                location_2 = self.cells[j].location
+            for j in range(len(self.cells)):
+                if self.jkr_graph.has_edge(self.cells[i], self.cells[j]):
 
-                distance_vec = location_1 - location_2
-                distance_norm = distance_vec / np.linalg.norm(distance_vec)
+                    location_1 = self.cells[i].location
+                    location_2 = self.cells[j].location
 
-                # find the friction matrix for
-                gamma_perp = self.cell_fric_perp * np.outer(distance_norm, distance_norm)
-                gamma_para = self.cell_fric_para * (np.identity(3) - np.outer(distance_norm, distance_norm))
+                    distance_vec = location_1 - location_2
+                    magnitude = np.linalg.norm(distance_vec)
+                    if magnitude == 0:
+                        distance_norm = np.array([0.0, 0.0, 0.0])
+                    else:
+                        distance_norm = distance_vec / np.linalg.norm(distance_vec)
 
-                # yum
-                matrix = gamma_perp + gamma_para
+                    # find the friction matrix for
+                    gamma_perp = self.cell_fric_perp * np.outer(distance_norm, distance_norm)
+                    gamma_para = self.cell_fric_para * (np.identity(3) - np.outer(distance_norm, distance_norm))
 
-                a[3 * i][3 * i] += matrix[0][0]
-                a[3 * i + 1][3 * i] += matrix[1][0]
-                a[3 * i + 2][3 * i] += matrix[2][0]
+                    # yum
+                    matrix = gamma_perp + gamma_para
 
-                a[3 * i][3 * i + 1] += matrix[0][1]
-                a[3 * i + 1][3 * i + 1] += matrix[1][1]
-                a[3 * i + 2][3 * i + 1] += matrix[2][1]
+                    if i == j:
+                        a[3 * i][3 * j] += matrix[0][0]
+                        a[3 * i + 1][3 * j] += matrix[1][0]
+                        a[3 * i + 2][3 * j] += matrix[2][0]
 
-                a[3 * i][3 * i + 2] += matrix[0][2]
-                a[3 * i + 1][3 * i + 2] += matrix[1][2]
-                a[3 * i + 2][3 * i + 2] += matrix[2][2]
+                        a[3 * i][3 * j + 1] += matrix[0][1]
+                        a[3 * i + 1][3 * j + 1] += matrix[1][1]
+                        a[3 * i + 2][3 * j + 1] += matrix[2][1]
 
+                        a[3 * i][3 * j + 2] += matrix[0][2]
+                        a[3 * i + 1][3 * j + 2] += matrix[1][2]
+                        a[3 * i + 2][3 * j + 2] += matrix[2][2]
+
+                    else:
+                        a[3 * i][3 * j] -= matrix[0][0]
+                        a[3 * i + 1][3 * j] -= matrix[1][0]
+                        a[3 * i + 2][3 * j] -= matrix[2][0]
+
+                        a[3 * i][3 * j + 1] -= matrix[0][1]
+                        a[3 * i + 1][3 * j + 1] -= matrix[1][1]
+                        a[3 * i + 2][3 * j + 1] -= matrix[2][1]
+
+                        a[3 * i][3 * j + 2] -= matrix[0][2]
+                        a[3 * i + 1][3 * j + 2] -= matrix[1][2]
+                        a[3 * i + 2][3 * j + 2] -= matrix[2][2]
 
         solution, extra = cg(a, b)
 
+        print(solution)
+
         for i in range(len(self.cells)):
             self.cells[i].velocity = solution[3 * i: 3 * (i+1)]
-
-
-
-
-
-
-
-
-
