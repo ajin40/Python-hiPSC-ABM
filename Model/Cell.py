@@ -77,7 +77,7 @@ class Cell:
         self.mass *= 1.00
 
         # sets radius depending on if 2D or 3D based on area or volume
-        if simulation.size[2] != 1:
+        if simulation.size[2] != 0:
             self.radius = ((3 * self.mass)/(4 * 3.14159) / simulation.density) ** (1/3)
         else:
             self.radius = (((1 * self.mass) / 3.14159) / simulation.density) ** 0.5

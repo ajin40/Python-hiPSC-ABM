@@ -147,8 +147,12 @@ class Simulation:
         # adds it to the array
         self.cells = np.append(self.cells, cell)
 
-        # adds it to the graph
+        # adds it to the neighbor graph
         self.neighbor_graph.add_node(cell)
+
+        # adds it to the adhesion graph
+        self.jkr_graph.add_node(cell)
+
 
     def remove_cell(self, cell):
         """ Removes the specified object from the array
@@ -157,8 +161,11 @@ class Simulation:
         # removes it from the array
         self.cells = self.cells[self.cells != cell]
 
-        # removes it from the graph
+        # removes it from the neighbor graph
         self.neighbor_graph.remove_node(cell)
+
+        # removes it from the adhesion graph
+        self.jkr_graph.remove_node(cell)
 
     def update_cell_queue(self):
         """ Updates the queues for adding and removing cell objects
@@ -249,7 +256,7 @@ class Simulation:
         """
         # list of the neighbors as these will only be the cells in physical contact
         edges = list(self.neighbor_graph.edges())
-
+        print(len(edges))
         # loops over the pairs of neighbors
         for i in range(len(edges)):
             # assigns the nodes of each edge to a variable
@@ -303,6 +310,7 @@ class Simulation:
 
             elif not overlap_condition and self.jkr_graph.has_edge(cell_1, cell_2):
                 self.jkr_graph.remove_edge(cell_1, cell_2)
+
 
     def solve_velocities(self):
         # size of the corresponding array based on the number of the cells times the three directions

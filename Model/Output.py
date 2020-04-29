@@ -123,18 +123,21 @@ def create_csv(simulation):
     # opens .csv file
     new_file = open(simulation.path + "network_values_" + str(int(simulation.time_counter)) + ".csv", "w")
     csv_write = csv.writer(new_file)
-    csv_write.writerow(['X_position', 'Y_position', 'Z_position', 'X_velocity', 'Y_velocity', 'Z_velocity', 'Motion',
-                        'Mass', 'Radius', 'FGFR', 'ERK', 'GATA6', 'NANOG', 'State', 'Differentiation_counter',
-                        'Division_counter', 'Death_counter'])
+    csv_write.writerow(['X_position', 'Y_position', 'Z_position', 'X_velocity', 'Y_velocity', 'Z_velocity', 'X_force',
+                        'Y_force', 'Z_force', 'Motion', 'Mass', 'Radius', 'FGFR', 'ERK', 'GATA6', 'NANOG', 'State',
+                        'Differentiation_counter', 'Division_counter', 'Death_counter'])
 
     # each row is a different cell
     for i in range(len(simulation.cells)):
-        x_pos = round(simulation.cells[i].location[0], 1)
-        y_pos = round(simulation.cells[i].location[1], 1)
-        z_pos = round(simulation.cells[i].location[2], 1)
-        x_vel = round(simulation.cells[i].velocity[0], 1)
-        y_vel = round(simulation.cells[i].velocity[1], 1)
-        z_vel = round(simulation.cells[i].velocity[2], 1)
+        x_pos = round(simulation.cells[i].location[0], 10)
+        y_pos = round(simulation.cells[i].location[1], 10)
+        z_pos = round(simulation.cells[i].location[2], 10)
+        x_vel = round(simulation.cells[i].velocity[0], 10)
+        y_vel = round(simulation.cells[i].velocity[1], 10)
+        z_vel = round(simulation.cells[i].velocity[2], 10)
+        x_force = round(simulation.cells[i].force[0], 10)
+        y_force = round(simulation.cells[i].force[1], 10)
+        z_force = round(simulation.cells[i].force[2], 10)
         motion = simulation.cells[i].motion
         mass = simulation.cells[i].mass
         radius = simulation.cells[i].radius
@@ -148,8 +151,8 @@ def create_csv(simulation):
         death = round(simulation.cells[i].death_counter, 1)
 
         # writes the row for the cell
-        csv_write.writerow([x_pos, y_pos, z_pos, x_vel, y_vel, z_vel, motion, mass, radius, fgfr, erk, gata, nanog,
-                            state, diff, div, death])
+        csv_write.writerow([x_pos, y_pos, z_pos, x_vel, y_vel, z_vel, x_force, y_force, z_force, motion, mass, radius,
+                            fgfr, erk, gata, nanog, state, diff, div, death])
 
 def save_file(simulation):
     """ Saves the simulation txt files

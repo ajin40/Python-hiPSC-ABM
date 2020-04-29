@@ -38,13 +38,13 @@ for Simulation in Simulations:
         # Allows the cells in motion to move in a random fashion
         Simulation.randomly_move_cells()
 
+        # Checks for neighboring cells
+        Simulation.check_neighbors()
+
         # Moves the cells to a state of physical equilibrium so that there is minimal overlap between cells
         Simulation.adhesion_and_repulsion()
 
-        Simulation.solve_velocities()
-
-        # Checks for neighboring cells
-        Simulation.check_neighbors()
+        # Simulation.solve_velocities()
 
         # Saves a 2D image and a .csv file containing key simulation information for each cell     (base)
         Output.save_file(Simulation)
