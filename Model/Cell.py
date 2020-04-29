@@ -7,7 +7,7 @@ class Cell:
     """ Class for each cell in the simulation
     """
     def __init__(self, location, motion, velocity, mass, booleans, state, diff_counter, div_counter, death_counter):
-        """ location: where the cell is located on the grid "[x,y,z]"
+        """ location: where the cell is located in the space "[x,y,z]"
             motion: whether the cell is moving or not "True or False"
             velocity: the velocity as a vector of the cell
             mass: the mass of the entire cell
@@ -85,32 +85,6 @@ class Cell:
         # set radius if cell is too big
         if self.radius > simulation.max_radius:
             self.radius = simulation.max_radius
-
-    def randomly_move(self, simulation):
-        """ has the object that is in motion
-            move in a random way
-        """
-        # finds the objects in motion
-        if self.motion:
-            # gets random angle on the cell
-            theta = r.random() * 2 * math.pi
-
-            # gets x,y,z off theta and whether 2D or 3D
-            if simulation.size[2] == 0:
-                # 2D
-                x = math.cos(theta)
-                y = math.sin(theta)
-                return simulation.speed * np.array([x, y, 0.0])
-
-            else:
-                # 3D
-                phi = r.random() * 2 * math.pi
-                radius = math.cos(phi)
-
-                x = radius * math.cos(theta)
-                y = radius * math.sin(theta)
-                z = math.sin(phi)
-                return simulation.speed * np.array([x, y, z])
 
     def boolean_function(self, fgf4_bool, simulation):
         """ updates the boolean variables of the cell

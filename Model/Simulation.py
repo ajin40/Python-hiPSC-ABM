@@ -8,65 +8,58 @@ class Simulation:
     """ Initialization called once for each simulation. Class holds all information about each simulation as a whole
     """
 
-    def __init__(self, path, end_time, time_step, pluri_div_thresh, diff_div_thresh, pluri_to_diff, size,
-                 diff_surround_value, functions, parallel, death_threshold, move_time_step, move_max_time,
-                 spring_constant, friction, energy_kept, neighbor_distance, density, num_states, quality,
-                 group, speed, max_radius, slices, adhesion_const, cell_fric_perp, cell_fric_para, substrate_fric):
-
-        """ Initialization function for the simulation setup.
-            path: the path to save the simulation information to
-            end_time: the end time for the simulation
-            time_step: the time step to increment the simulation by
-            pluri_div_thresh: threshold for pluripotent cells to divide
-            diff_div_thresh:  threshold for differentiated cells to divide
-            pluri_to_diff: threshold for pluripotent cells to differentiate
-            size: the size of the grid (dimension, rows, columns)
-            diff_surround_value: the amount of differentiated cells needed to surround
-                a pluripotent cell inducing its differentiation
-            functions: the finite dynamical system functions as a string from Model_Setup
+    def __init__(self, path, parallel, size, resolution, num_states, functions, neighbor_distance, time_step, end_time,
+                 move_time_step, pluri_div_thresh, pluri_to_diff, diff_div_thresh, diff_surround, death_thresh,
+                 adhesion_const, cell_fric_perp, cell_fric_para, substrate_fric, density, group, slices, image_quality):
+        """ path: the path to save the simulation information to
             parallel: true / false which determines whether some tasks are run on the GPU
-            death_threshold: the value at which a cell dies
-            move_time_step: the time value in which the cells are moved incrementally
-            move_max_time: the max time for movement allow enough time for cells to reach equilibrium
-            spring_constant: spring constant for modeling interactions between cells with spring energy
-            friction: friction constant for modeling loss of energy
-            energy_kept: percent of energy (as a decimal) left after turning spring energy into kinetic
-            neighbor_distance: how close cells need to be in order to be considered 'neighbors'
-            density: the density of a cell
+            size: the size of the space (x, y, z)
+            resolution: the spatial resolution of the space
             num_states: the number of states for the finite dynamical system (positive integer).
                 Currently 2 because the system is a Boolean network
-            quality: the 'quality" of the images as pixel dimensions times 1500
+            functions: the finite dynamical system functions as a string from the template file
+            neighbor_distance: how close cells need to be in order to be considered 'neighbors'
+            time_step: the time step to increment the simulation by
+            end_time: the end time for the simulation
+            move_time_step: the time value in which the cells are moved incrementally
+            pluri_div_thresh: threshold for pluripotent cells to divide
+            pluri_to_diff: threshold for pluripotent cells to differentiate
+            diff_div_thresh:  threshold for differentiated cells to divide
+            diff_surround: the amount of differentiated cells needed to surround
+                a pluripotent cell inducing its differentiation
+            death_thresh: the value at which a cell dies
+            adhesion_const: JKR work of adhesion
+            cell_fric_perp: the perpendicular constant of friction between cells
+            cell_fric_para: the parallel constant of friction between cells
+            substrate_fric: the friction of a cell against the substrate aka the space
+            density: the density of a cell
             group: how many cells are removed or added at once per time step
-            speed: magnitude of random movement speed
+            slices: the amount of slices taken in the z direction
+            image_quality: the dimensions of the output images in pixels
         """
         self.path = path
-        self.end_time = end_time
-        self.time_step = time_step
-        self.pluri_div_thresh = pluri_div_thresh
-        self.diff_div_thresh = diff_div_thresh
-        self.pluri_to_diff = pluri_to_diff
-        self.size = size
-        self.diff_surround_value = diff_surround_value
-        self.functions = functions
         self.parallel = parallel
-        self.death_threshold = death_threshold
-        self.move_time_step = move_time_step
-        self.move_max_time = move_max_time
-        self.spring_constant = spring_constant
-        self.friction = friction
-        self.energy_kept = energy_kept
-        self.neighbor_distance = neighbor_distance
-        self.density = density
+        self.size = size
+        self.resolution = resolution
         self.num_states = num_states
-        self.quality = quality
-        self.group = group
-        self.speed = speed
-        self.max_radius = max_radius
-        self.slices = slices
+        self.functions = functions
+        self.neighbor_distance = neighbor_distance
+        self.time_step = time_step
+        self.end_time = end_time
+        self.move_time_step = move_time_step
+        self.pluri_div_thresh = pluri_div_thresh
+        self.pluri_to_diff = pluri_to_diff
+        self.diff_div_thresh = diff_div_thresh
+        self.diff_surround = diff_surround
+        self.death_thresh = death_thresh
         self.adhesion_const = adhesion_const
         self.cell_fric_perp = cell_fric_perp
         self.cell_fric_para = cell_fric_para
         self.substrate_fric = substrate_fric
+        self.density = density
+        self.group = group
+        self.slices = slices
+        self.image_quality = image_quality
 
         # counts how many times an image is created for making videos
         self.image_counter = 0
@@ -90,7 +83,6 @@ class Simulation:
         self.cells_to_remove = np.array([], dtype=np.object)
         self.cells_to_add = np.array([], dtype=np.object)
 
-
     def info(self):
         """ prints information about the simulation as it
             runs. May include more information later
@@ -99,52 +91,46 @@ class Simulation:
         print("Number of objects: " + str(len(self.cells)))
 
     def initialize_diffusion(self):
-        """ see Cell.py for definition
+        """ see Extracellular.py for description
         """
         for i in range(len(self.extracellular)):
             self.extracellular[i].initialize()
 
     def update_diffusion(self):
-        """ see Cell.py for definition
+        """ see Extracellular.py for description
         """
         for i in range(len(self.extracellular)):
             self.extracellular[i].update(self)
 
     def update_cells(self):
-        """ see Cell.py for definition
+        """ see Cell.py for description
         """
         for i in range(len(self.cells)):
             self.cells[i].update_cell(self)
 
     def kill_cells(self):
-        """ kills the cells that are alone for too long
+        """ see Cell.py for description
         """
         for i in range(len(self.cells)):
             self.cells[i].kill_cell(self)
 
     def diff_surround_cells(self):
-        """ see Cell.py for definition
+        """ see Cell.py for description
         """
         for i in range(len(self.cells)):
             self.cells[i].diff_surround(self)
 
     def change_size_cells(self):
-        """ see Cell.py for definition
+        """ see Cell.py for description
         """
         for i in range(len(self.cells)):
             self.cells[i].change_size(self)
 
-    def randomly_move_cells(self):
-        """ see Cell.py for definition
-        """
-        for i in range(len(self.cells)):
-            self.cells[i].randomly_move(self)
-
     def add_cell(self, cell):
-        """ Adds the specified object to the array
-            and the neighbor graph
+        """ Adds the cell to both the neighbor graph
+            and the JKR adhesion graph
         """
-        # adds it to the array
+        # adds it to the array holding the cell objects
         self.cells = np.append(self.cells, cell)
 
         # adds it to the neighbor graph
@@ -153,12 +139,11 @@ class Simulation:
         # adds it to the adhesion graph
         self.jkr_graph.add_node(cell)
 
-
     def remove_cell(self, cell):
-        """ Removes the specified object from the array
-            and the neighbor graph
+        """ Adds the cell to both the neighbor graph
+            and the JKR adhesion graph
         """
-        # removes it from the array
+        # removes it from the array holding the cell objects
         self.cells = self.cells[self.cells != cell]
 
         # removes it from the neighbor graph
@@ -250,7 +235,24 @@ class Simulation:
                                     if np.linalg.norm(cells_in_block[l].location - self.cells[h].location) <= distance:
                                         self.neighbor_graph.add_edge(self.cells[h], cells_in_block[l])
 
-    def adhesion_and_repulsion(self):
+    def handle_movement(self):
+        """ alksjdjklfasdkljfjkla
+        """
+        # holds the current value of the time until it surpasses the simulation time step value
+        time_holder = 0.0
+
+        # loops over the following movement functions until time is surpassed
+        while time_holder < self.time_step:
+            # increases the time based on the desired time step
+            time_holder += self.move_time_step
+
+            # calculate the forces acting on each cell
+            self.get_forces()
+
+            # solve for the velocity of each cell based on the cumulative force acting on it
+            self.apply_forces()
+
+    def get_forces(self):
         """ goes through all of the cells and applies any forces arising
             from adhesion or repulsion between the cells
         """
@@ -311,8 +313,7 @@ class Simulation:
             elif not overlap_condition and self.jkr_graph.has_edge(cell_1, cell_2):
                 self.jkr_graph.remove_edge(cell_1, cell_2)
 
-
-    def solve_velocities(self):
+    def apply_forces(self):
         # size of the corresponding array based on the number of the cells times the three directions
         array_length = len(self.cells) * 3
 
@@ -395,3 +396,6 @@ class Simulation:
 
         for i in range(len(self.cells)):
             self.cells[i].velocity = solution[3 * i: 3 * (i+1)]
+
+        for i in range(len(self.cells)):
+            self.cells[i].location += self.move_time_step * self.cells[i].velocity
