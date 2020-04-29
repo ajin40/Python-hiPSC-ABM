@@ -39,7 +39,9 @@ for Simulation in Simulations:
         Simulation.randomly_move_cells()
 
         # Moves the cells to a state of physical equilibrium so that there is minimal overlap between cells
-        Simulation.handle_collisions()
+        Simulation.adhesion_and_repulsion()
+
+        Simulation.solve_velocities()
 
         # Checks for neighboring cells
         Simulation.check_neighbors()

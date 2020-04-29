@@ -301,7 +301,7 @@ class Simulation:
                     cell_1.force += repulsive * disp_vector
                     cell_2.force -= repulsive * disp_vector
 
-            elif not overlap_condition:
+            elif not overlap_condition and self.jkr_graph.has_edge(cell_1, cell_2):
                 self.jkr_graph.remove_edge(cell_1, cell_2)
 
     def solve_velocities(self):
@@ -323,7 +323,17 @@ class Simulation:
         for i in range(len(self.cells)):
             substrate = self.substrate_fric * np.identity(3)
 
-            a[3*i:3*(i+1)][3*i:3*(i+1)] += substrate
+            a[3 * i][3 * i] += substrate[0][0]
+            a[3 * i + 1][3 * i] += substrate[1][0]
+            a[3 * i + 2][3 * i] += substrate[2][0]
+
+            a[3 * i][3 * i + 1] += substrate[0][1]
+            a[3 * i + 1][3 * i + 1] += substrate[1][1]
+            a[3 * i + 2][3 * i + 1] += substrate[2][1]
+
+            a[3 * i][3 * i + 2] += substrate[0][2]
+            a[3 * i + 1][3 * i + 2] += substrate[1][2]
+            a[3 * i + 2][3 * i + 2] += substrate[2][2]
 
             for j in range(len(self.cells[i + 1:])):
                 location_1 = self.cells[i].location
@@ -339,12 +349,22 @@ class Simulation:
                 # yum
                 matrix = gamma_perp + gamma_para
 
-                a[3*i:3*(i+1)][3*j:3*(j+1)] += matrix
+                a[3 * i][3 * i] += matrix[0][0]
+                a[3 * i + 1][3 * i] += matrix[1][0]
+                a[3 * i + 2][3 * i] += matrix[2][0]
+
+                a[3 * i][3 * i + 1] += matrix[0][1]
+                a[3 * i + 1][3 * i + 1] += matrix[1][1]
+                a[3 * i + 2][3 * i + 1] += matrix[2][1]
+
+                a[3 * i][3 * i + 2] += matrix[0][2]
+                a[3 * i + 1][3 * i + 2] += matrix[1][2]
+                a[3 * i + 2][3 * i + 2] += matrix[2][2]
 
 
         solution, extra = cg(a, b)
 
-        for i in range(len(solution)):
+        for i in range(len(self.cells)):
             self.cells[i].velocity = solution[3 * i: 3 * (i+1)]
 
 

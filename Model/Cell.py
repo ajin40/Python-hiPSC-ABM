@@ -150,7 +150,7 @@ class Cell:
             increase the counter for death or kill it
         """
         # looks at the neighbors
-        neighbors = list(simulation.network.neighbors(self))
+        neighbors = list(simulation.neighbor_graph.neighbors(self))
         if len(neighbors) < 1:
             self.death_counter += 1
         else:
@@ -169,7 +169,7 @@ class Cell:
         if self.state == "Pluripotent" and self.booleans[2] == 0:
 
             # finds neighbors of a cell
-            neighbors = list(simulation.network.neighbors(self))
+            neighbors = list(simulation.neighbor_graph.neighbors(self))
 
             # counts neighbors
             num_neighbors = len(neighbors)
