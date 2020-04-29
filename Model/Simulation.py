@@ -253,7 +253,7 @@ class Simulation:
             self.apply_forces()
 
     def get_forces(self):
-        """ goes through all of the cells and applies any forces arising
+        """ goes through all of the cells and quantifies any forces arising
             from adhesion or repulsion between the cells
         """
         # list of the neighbors as these will only be the cells in physical contact
@@ -310,14 +310,19 @@ class Simulation:
                     cell_1.force += repulsive * disp_vector
                     cell_2.force -= repulsive * disp_vector
 
+            # remove the adhesion bond if the overlap condition isn't met
             elif not overlap_condition and self.jkr_graph.has_edge(cell_1, cell_2):
                 self.jkr_graph.remove_edge(cell_1, cell_2)
 
     def apply_forces(self):
-        # size of the corresponding array based on the number of the cells times the three directions
+        """ Loads the forces and the friction values into a modified Langevin
+            equation. Then solves it via the conjugate gradient method with an
+            implementation from scipy. Full explanation is in the documentation
+        """
+        # size of the corresponding array based on the number of the cells times the three dimensions
         array_length = len(self.cells) * 3
 
-        # create a zero matrix used to solve for velocities
+        # create a zero matrix used in the conjugate gradient algorithm
         a = np.zeros((array_length, array_length))
 
         # an array used to hold the forces acting on all cells
@@ -329,9 +334,12 @@ class Simulation:
             b[3 * i + 1] = self.cells[i].force[1]
             b[3 * i + 2] = self.cells[i].force[2]
 
+        # loop over all cells to add the substrate friction values
         for i in range(len(self.cells)):
+            # create a diagonal matrix for the substrate matrix
             substrate = self.substrate_fric * np.identity(3)
 
+            # load these values into the matrix for each cell
             a[3 * i][3 * i] += substrate[0][0]
             a[3 * i + 1][3 * i] += substrate[1][0]
             a[3 * i + 2][3 * i] += substrate[2][0]
@@ -344,12 +352,16 @@ class Simulation:
             a[3 * i + 1][3 * i + 2] += substrate[1][2]
             a[3 * i + 2][3 * i + 2] += substrate[2][2]
 
+            # look at all other cells and if there are forces between them incorporate that into the matrix
             for j in range(len(self.cells)):
+                # check to see if there are forces between the cells
                 if self.jkr_graph.has_edge(self.cells[i], self.cells[j]):
 
+                    # get the locations
                     location_1 = self.cells[i].location
                     location_2 = self.cells[j].location
 
+                    # calculate the normal vector
                     distance_vec = location_1 - location_2
                     magnitude = np.linalg.norm(distance_vec)
                     if magnitude == 0:
@@ -357,45 +369,46 @@ class Simulation:
                     else:
                         distance_norm = distance_vec / np.linalg.norm(distance_vec)
 
-                    # find the friction matrix for
+                    # find the friction matrix for both parallel and perpendicular friction
                     gamma_perp = self.cell_fric_perp * np.outer(distance_norm, distance_norm)
                     gamma_para = self.cell_fric_para * (np.identity(3) - np.outer(distance_norm, distance_norm))
+                    gamma_total = gamma_perp + gamma_para
 
-                    # yum
-                    matrix = gamma_perp + gamma_para
-
+                    # implementing the cell to cell friction of the modified Langevin equation
                     if i == j:
-                        a[3 * i][3 * j] += matrix[0][0]
-                        a[3 * i + 1][3 * j] += matrix[1][0]
-                        a[3 * i + 2][3 * j] += matrix[2][0]
+                        a[3 * i][3 * j] += gamma_total[0][0]
+                        a[3 * i + 1][3 * j] += gamma_total[1][0]
+                        a[3 * i + 2][3 * j] += gamma_total[2][0]
 
-                        a[3 * i][3 * j + 1] += matrix[0][1]
-                        a[3 * i + 1][3 * j + 1] += matrix[1][1]
-                        a[3 * i + 2][3 * j + 1] += matrix[2][1]
+                        a[3 * i][3 * j + 1] += gamma_total[0][1]
+                        a[3 * i + 1][3 * j + 1] += gamma_total[1][1]
+                        a[3 * i + 2][3 * j + 1] += gamma_total[2][1]
 
-                        a[3 * i][3 * j + 2] += matrix[0][2]
-                        a[3 * i + 1][3 * j + 2] += matrix[1][2]
-                        a[3 * i + 2][3 * j + 2] += matrix[2][2]
+                        a[3 * i][3 * j + 2] += gamma_total[0][2]
+                        a[3 * i + 1][3 * j + 2] += gamma_total[1][2]
+                        a[3 * i + 2][3 * j + 2] += gamma_total[2][2]
 
+                    # implementing the cell to cell friction of the modified Langevin equation
                     else:
-                        a[3 * i][3 * j] -= matrix[0][0]
-                        a[3 * i + 1][3 * j] -= matrix[1][0]
-                        a[3 * i + 2][3 * j] -= matrix[2][0]
+                        a[3 * i][3 * j] -= gamma_total[0][0]
+                        a[3 * i + 1][3 * j] -= gamma_total[1][0]
+                        a[3 * i + 2][3 * j] -= gamma_total[2][0]
 
-                        a[3 * i][3 * j + 1] -= matrix[0][1]
-                        a[3 * i + 1][3 * j + 1] -= matrix[1][1]
-                        a[3 * i + 2][3 * j + 1] -= matrix[2][1]
+                        a[3 * i][3 * j + 1] -= gamma_total[0][1]
+                        a[3 * i + 1][3 * j + 1] -= gamma_total[1][1]
+                        a[3 * i + 2][3 * j + 1] -= gamma_total[2][1]
 
-                        a[3 * i][3 * j + 2] -= matrix[0][2]
-                        a[3 * i + 1][3 * j + 2] -= matrix[1][2]
-                        a[3 * i + 2][3 * j + 2] -= matrix[2][2]
+                        a[3 * i][3 * j + 2] -= gamma_total[0][2]
+                        a[3 * i + 1][3 * j + 2] -= gamma_total[1][2]
+                        a[3 * i + 2][3 * j + 2] -= gamma_total[2][2]
 
-        solution, extra = cg(a, b)
+        # use the conjugate gradient algorithm from scipy
+        output = cg(a, b)
 
-        print(solution)
+        # outputs a tuple of size two but the first value is the solution
+        solution = output[0]
 
+        # update the velocity and location of the cell
         for i in range(len(self.cells)):
             self.cells[i].velocity = solution[3 * i: 3 * (i+1)]
-
-        for i in range(len(self.cells)):
             self.cells[i].location += self.move_time_step * self.cells[i].velocity

@@ -55,7 +55,7 @@ def Setup():
         _pluri_div_thresh = float(parameters[41][2:-3])
         _diff_div_thresh = float(parameters[44][2:-3])
         _pluri_to_diff = float(parameters[47][2:-3])
-        _death_threshold = float(parameters[50][2:-3])
+        _death_thresh = float(parameters[50][2:-3])
 
         # intercellular
         _neighbor_distance = float(parameters[56][2:-3])
@@ -64,20 +64,15 @@ def Setup():
         _extracellular = eval(parameters[63][2:-3])
 
         # collision handling
-        _move_max_time = float(parameters[69][2:-3])
         _move_time_step = float(parameters[72][2:-3])
-        _spring_constant = float(parameters[75][2:-3])
-        _friction = float(parameters[78][2:-3])
-        _energy_kept = float(parameters[81][2:-3])
+
         _mass = float(parameters[84][2:-3])
         _density = float(parameters[87][2:-3])
 
         # miscellaneous/experimental
-        _diff_surround_value = int(parameters[93][2:-3])
-        _quality = eval(parameters[96][2:-3])
+        _diff_surround = int(parameters[93][2:-3])
+        _image_quality = eval(parameters[96][2:-3])
         _group = int(parameters[99][2:-3])
-        _speed = float(parameters[102][2:-3])
-        _max_radius = float(parameters[105][2:-3])
         _stochastic = bool(parameters[108][2:-3])
         _slices = int(parameters[111][2:-3])
         _adhesion_const = float(parameters[114][2:-3])
@@ -86,12 +81,11 @@ def Setup():
         _substrate_fric = float(parameters[123][2:-3])
 
         # initializes simulation class which holds all information about the simulation
-        simulation = Simulation.Simulation(_path, _end_time, _time_step, _pluri_div_thresh, _diff_div_thresh,
-                                           _pluri_to_diff, _size, _diff_surround_value, _functions, _parallel,
-                                           _death_threshold, _move_time_step, _move_max_time, _spring_constant,
-                                           _friction, _energy_kept, _neighbor_distance, _density, _num_states,
-                                           _quality, _group, _speed, _max_radius, _slices, _adhesion_const,
-                                           _cell_fric_perp, _cell_fric_para, _substrate_fric)
+        simulation = Simulation.Simulation(_path, _parallel, _size, _resolution, _num_states, _functions,
+                                           _neighbor_distance, _time_step, _end_time, _move_time_step,
+                                           _pluri_div_thresh, _pluri_to_diff, _diff_div_thresh, _diff_surround,
+                                           _death_thresh, _adhesion_const, _cell_fric_perp, _cell_fric_para,
+                                           _substrate_fric, _density, _group, _slices, _image_quality)
 
         # copies the setup file to the new directory of the simulation
         shutil.copy(input_path + separator + file, simulation.path)
@@ -133,7 +127,7 @@ def Setup():
             # randomize the starting counters for differentiation, division, and death
             diff_counter = _pluri_to_diff * r.random()
             division_counter = _pluri_div_thresh * r.random()
-            death_counter = _death_threshold * r.random()
+            death_counter = _death_thresh * r.random()
 
             # start with no velocity vector will be updated as the cell is in motion
             velocity = np.array([0.0, 0.0, 0.0], np.float32)

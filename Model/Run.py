@@ -35,9 +35,6 @@ for Simulation in Simulations:
         # Adds/removes objects at once to/from the simulation includes handling collisions when cells are added
         Simulation.update_cell_queue()
 
-        # Allows the cells in motion to move in a random fashion
-        Simulation.randomly_move_cells()
-
         # Checks for neighboring cells
         Simulation.check_neighbors()
 

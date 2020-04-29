@@ -82,9 +82,6 @@ class Cell:
         else:
             self.radius = (((1 * self.mass) / 3.14159) / simulation.density) ** 0.5
 
-        # set radius if cell is too big
-        if self.radius > simulation.max_radius:
-            self.radius = simulation.max_radius
 
     def boolean_function(self, fgf4_bool, simulation):
         """ updates the boolean variables of the cell
@@ -131,7 +128,7 @@ class Cell:
             self.death_counter = 0
 
         # removes cell if it meets the parameters
-        if self.death_counter >= simulation.death_threshold:
+        if self.death_counter >= simulation.death_thresh:
             simulation.cells_to_remove = np.append(simulation.cells_to_remove, self)
 
     def diff_surround(self, simulation):
@@ -149,7 +146,7 @@ class Cell:
             num_neighbors = len(neighbors)
 
             # if there are enough cells surrounding the cell the differentiation timer will increase
-            if num_neighbors >= simulation.diff_surround_value:
+            if num_neighbors >= simulation.diff_surround:
                 self.diff_counter += 1
 
     def update_cell(self, simulation):

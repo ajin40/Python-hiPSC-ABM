@@ -14,8 +14,8 @@ def draw_image(simulation):
     thickness = simulation.size[2] / simulation.slices
 
     # get the dilation of the image for the correctly sizing the image
-    dilation_x = simulation.quality[0] / simulation.size[0]
-    dilation_y = simulation.quality[1] / simulation.size[1]
+    dilation_x = simulation.image_quality[0] / simulation.size[0]
+    dilation_y = simulation.image_quality[1] / simulation.size[1]
 
     # bounds of the simulation used for drawing lines
     corner_1 = [0, 0]
@@ -31,7 +31,7 @@ def draw_image(simulation):
     for i in range(simulation.slices):
 
         # draws the background of the image
-        base = Image.new("RGB", simulation.quality[0:2], color=(255, 255, 255))
+        base = Image.new("RGB", simulation.image_quality[0:2], color=(255, 255, 255))
         image = ImageDraw.Draw(base)
 
         # loops over all of the bounds and draws lines to represent the grid
@@ -101,7 +101,7 @@ def image_to_video(simulation):
     """ Creates a video out of all the png images at
         the end of the simulation
     """
-    image_quality = simulation.quality
+    image_quality = simulation.image_quality
 
     # creates a base video file to save to
     video_path = simulation.path + 'network_video.avi'
