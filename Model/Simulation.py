@@ -268,6 +268,7 @@ class Simulation:
             # hold the vector between the centers of the cells and the magnitude of this vector
             disp_vector = cell_1.location - cell_2.location
             magnitude = np.linalg.norm(disp_vector)
+            normal = disp_vector / magnitude
 
             # get the total overlap of the cells used later in calculations
             overlap = cell_1.radius + cell_2.radius - magnitude
@@ -278,7 +279,7 @@ class Simulation:
             r_hat = ((1 / cell_1.radius) + (1 / cell_2.radius)) ** -1
 
             # used to calculate the max adhesive distance after an adhesion has been already formed
-            overlap_ = (((3.14159 * self.adhesion_const) / e_hat) ** 2 / 3) * (r_hat ** 1 / 3)
+            overlap_ = (((3.14159 * self.adhesion_const) / e_hat) ** (2 / 3)) * (r_hat ** (1 / 3))
 
             # used to see if the adhesive bond once formed has broken
             overlap_condition = overlap / overlap_ > -0.360562
@@ -286,7 +287,7 @@ class Simulation:
             if overlap >= 0 or (overlap_condition and self.jkr_graph.has_edge(cell_1, cell_2)):
                 # JKR adhesion
                 # we nondimensionalize the overlap to allow for the use of a polynomial approximation
-                d = overlap / ((((3.14159 * self.adhesion_const) / e_hat) ** 2 / 3) * (r_hat ** 1 / 3))
+                d = overlap / overlap_
 
                 # plug the value of d into the nondimensionalized equation for adhesion force
                 f = (-0.0204 * d ** 3) + (0.4942 * d ** 2) + (1.0801 * d) - 1.324
@@ -295,8 +296,9 @@ class Simulation:
                 adhesive = f * 3.14159 * self.adhesion_const * r_hat
 
                 # adds the adhesive force as a vector in opposite directions to each cell's force holder
-                cell_1.force += adhesive * disp_vector
-                cell_2.force -= adhesive * disp_vector
+                cell_1.force += adhesive * normal
+                cell_2.force -= adhesive * normal
+
 
                 if overlap >= 0:
                     # if the cells touch or overlap there is an adhesive bond formed
@@ -307,8 +309,8 @@ class Simulation:
                     repulsive = (4 / 3) * e_hat * (r_hat ** 0.5) * (overlap ** 1.5)
 
                     # adds the repulsive force as a vector in opposite directions to each cell's force holder
-                    cell_1.force += repulsive * disp_vector
-                    cell_2.force -= repulsive * disp_vector
+                    cell_1.force += repulsive * normal
+                    cell_2.force -= repulsive * normal
 
             # remove the adhesion bond if the overlap condition isn't met
             elif not overlap_condition and self.jkr_graph.has_edge(cell_1, cell_2):
@@ -403,7 +405,7 @@ class Simulation:
                         a[3 * i + 2][3 * j + 2] -= gamma_total[2][2]
 
         # use the conjugate gradient algorithm from scipy
-        output = cg(a, b)
+        output = cg(a, b, tol=1e-16)
 
         # outputs a tuple of size two but the first value is the solution
         solution = output[0]
@@ -411,4 +413,4 @@ class Simulation:
         # update the velocity and location of the cell
         for i in range(len(self.cells)):
             self.cells[i].velocity = solution[3 * i: 3 * (i+1)]
-            self.cells[i].location += self.move_time_step * self.cells[i].velocity
+            self.cells[i].location += self.move_time_step * self.cells[i].velocity * 3600

@@ -115,11 +115,11 @@ JKR work of adhesion value
 [ 0.000107 ]
 
 cell-cell perpendicular friction
-[ 10000000 ]
+[ 0.01 ]
 
 cell-cell parallel friction
-[ 10000000 ]
+[ 0.01 ]
 
 cell substrate friction
-[ 10000000000000 ]
+[ 0.01 ]
 -----------------------------------------------------------------------------------------------------------------------

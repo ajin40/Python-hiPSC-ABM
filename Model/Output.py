@@ -129,15 +129,15 @@ def create_csv(simulation):
 
     # each row is a different cell
     for i in range(len(simulation.cells)):
-        x_pos = round(simulation.cells[i].location[0], 10)
-        y_pos = round(simulation.cells[i].location[1], 10)
-        z_pos = round(simulation.cells[i].location[2], 10)
-        x_vel = round(simulation.cells[i].velocity[0], 10)
-        y_vel = round(simulation.cells[i].velocity[1], 10)
-        z_vel = round(simulation.cells[i].velocity[2], 10)
-        x_force = round(simulation.cells[i].force[0], 10)
-        y_force = round(simulation.cells[i].force[1], 10)
-        z_force = round(simulation.cells[i].force[2], 10)
+        x_pos = round(simulation.cells[i].location[0], 14)
+        y_pos = round(simulation.cells[i].location[1], 14)
+        z_pos = round(simulation.cells[i].location[2], 14)
+        x_vel = round(simulation.cells[i].velocity[0], 14)
+        y_vel = round(simulation.cells[i].velocity[1], 14)
+        z_vel = round(simulation.cells[i].velocity[2], 14)
+        x_force = round(simulation.cells[i].force[0], 14)
+        y_force = round(simulation.cells[i].force[1], 14)
+        z_force = round(simulation.cells[i].force[2], 14)
         motion = simulation.cells[i].motion
         mass = simulation.cells[i].mass
         radius = simulation.cells[i].radius
