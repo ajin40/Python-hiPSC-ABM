@@ -9,7 +9,7 @@ Lab website: [https://kemp.gatech.edu](https://kemp.gatech.edu)
 
 ##
 ![Picture2](https://user-images.githubusercontent.com/57497258/80270182-8f35f980-867b-11ea-80c4-b954540a8fcd.jpg)
-
+Experimental immunofluorescence results from Eunbi Park
 
 ### Download and Libraries:
 Use "Clone or download" to either open the model in GitHub Desktop or download as a ZIP.
@@ -64,6 +64,5 @@ Contact Jack Toppen (jtoppen3 at gatech.edu)... or not that's ok too.
 
 ##
 
-![Picture1](https://user-images.githubusercontent.com/57497258/80270120-1171ee00-867b-11ea-93a4-0de185f7043b.jpg)
 
 
