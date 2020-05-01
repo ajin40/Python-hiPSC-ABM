@@ -70,7 +70,7 @@ Max time for handling collisions, more may be needed given certain velocities. E
 [ 0.1 ]
 
 Time step for handling collisions, smaller time step...less error. Ex. 0.01
-[ 1.0 ]
+[ 0.1 ]
 
 The spring constant values used to represent the cytoplasm and membrane. Ex. 1.34
 [ 1.25 ]
@@ -96,8 +96,8 @@ Amount of differentiated cells needed to surround a pluripotent cell to possibly
 Image resolution in pixels. Currently 2D only. Ex. (1000, 1000)
 [ (2000, 2000) ]
 
-How many cells are added/removed to the simulation at once, per time step? Type FALSE if all at once. Ex. 5
-[ 100 ]
+How many cells are added/removed to the simulation at once, per time step? Type 0 if all at once. Ex. 5
+[ 0 ]
 
 How fast will the cells move when moving randomly? Ex. 5.0
 [ 5.0 ]

@@ -167,7 +167,7 @@ class Simulation:
             #   with handling collisions, make give rise to sudden changes in overall positions of
             #   cells within the simulation. Instead, collisions are handled after 'group' number
             #   of cell objects are added.
-            if isinstance(self.group, int):
+            if self.group != 0:
                 if (i + 1) % self.group == 0:
                     self.handle_movement()
 
@@ -176,7 +176,7 @@ class Simulation:
             self.add_cell(self.cells_to_add[i])
 
             # can't add all the cells together or you get a mess
-            if isinstance(self.group, int):
+            if self.group != 0:
                 if (i + 1) % self.group == 0:
                     self.handle_movement()
 
@@ -327,13 +327,11 @@ class Simulation:
             # stokes law for velocity based on force and fluid viscosity
             stokes_friction = 6 * 3.14159 * 5 * 1000 * self.cells[i].radius
 
-            # arbitrary value for cell-to-cell friction
-            cell_friction = 10
-
             # update the velocity of the cell based on the solution
-            self.cells[i].velocity = self.cells[i].force / (stokes_friction + cell_friction)
+            self.cells[i].velocity = self.cells[i].force / stokes_friction
 
             # multiplies the time step by the velocity and adds that vector to the cell's location
+            # convert from seconds to hours
             movement = self.cells[i].velocity * self.move_time_step * 3600
 
             # create a prior location holder
