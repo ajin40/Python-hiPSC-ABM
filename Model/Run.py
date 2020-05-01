@@ -1,6 +1,7 @@
 import Input
 import Output
 
+import time
 
 # Creates a list of simulation instances each corresponding to the setup file    (base)
 Simulations = Input.Setup()

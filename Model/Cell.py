@@ -27,8 +27,8 @@ class Cell:
         self.div_counter = div_counter
         self.death_counter = death_counter
 
-        # Youngs modulus 1 KPa
-        self.youngs_mod = 1
+        # Youngs modulus 4000 Pa
+        self.youngs_mod = 600
 
         # Poisson's ratio
         self.poisson = 0.33333
@@ -58,6 +58,11 @@ class Cell:
         while not condition_x or not condition_y or not condition_z:
             location = self.location + RandomPointOnSphere(simulation) * self.radius
 
+            # makes sure the new cell's location is on the grid
+            condition_x = 0 <= location[0] <= simulation.size[0]
+            condition_y = 0 <= location[1] <= simulation.size[1]
+            condition_z = 0 <= location[2] <= simulation.size[2]
+
         # creates a new Cell object
         cell = Cell(location, self.motion, self.velocity, self.mass, self.booleans, self.state, self.diff_counter,
                     self.div_counter, self.death_counter)
@@ -81,7 +86,6 @@ class Cell:
             self.radius = ((3 * self.mass)/(4 * 3.14159) / simulation.density) ** (1/3)
         else:
             self.radius = (((1 * self.mass) / 3.14159) / simulation.density) ** 0.5
-
 
     def boolean_function(self, fgf4_bool, simulation):
         """ updates the boolean variables of the cell
@@ -122,7 +126,7 @@ class Cell:
         """
         # looks at the neighbors
         neighbors = list(simulation.neighbor_graph.neighbors(self))
-        if len(neighbors) < 1:
+        if len(neighbors) < 2:
             self.death_counter += 1
         else:
             self.death_counter = 0

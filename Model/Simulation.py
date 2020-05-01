@@ -167,16 +167,18 @@ class Simulation:
             #   with handling collisions, make give rise to sudden changes in overall positions of
             #   cells within the simulation. Instead, collisions are handled after 'group' number
             #   of cell objects are added.
-            # if (i + 1) % self.group == 0:
-            #     self.handle_forces()
+            if isinstance(self.group, int):
+                if (i + 1) % self.group == 0:
+                    self.handle_movement()
 
         # loops over all objects to add
         for i in range(len(self.cells_to_add)):
             self.add_cell(self.cells_to_add[i])
 
             # can't add all the cells together or you get a mess
-            # if (i + 1) % self.group == 0:
-            #     self.handle_forces()
+            if isinstance(self.group, int):
+                if (i + 1) % self.group == 0:
+                    self.handle_movement()
 
         # clear the arrays
         self.cells_to_remove = np.array([], dtype=np.object)
@@ -243,16 +245,20 @@ class Simulation:
 
         # loops over the following movement functions until time is surpassed
         while time_holder < self.time_step:
+            # recheck for new neighbors
+            self.check_neighbors()
+
             # increases the time based on the desired time step
             time_holder += self.move_time_step
 
+            for i in range(len(self.cells)):
+                self.cells[i].velocity = np.array([0.0, 0.0, 0.0])
+                self.cells[i].force = np.array([0.0, 0.0, 0.0])
+
             # calculate the forces acting on each cell
-            self.get_forces()
+            self.force_to_movement()
 
-            # solve for the velocity of each cell based on the cumulative force acting on it
-            self.apply_forces()
-
-    def get_forces(self):
+    def force_to_movement(self):
         """ goes through all of the cells and quantifies any forces arising
             from adhesion or repulsion between the cells
         """
@@ -268,149 +274,81 @@ class Simulation:
             # hold the vector between the centers of the cells and the magnitude of this vector
             disp_vector = cell_1.location - cell_2.location
             magnitude = np.linalg.norm(disp_vector)
-            normal = disp_vector / magnitude
+            if magnitude == 0:
+                normal = np.array([0.0, 0.0, 0.0])
+            else:
+                normal = disp_vector / np.linalg.norm(disp_vector)
 
             # get the total overlap of the cells used later in calculations
             overlap = cell_1.radius + cell_2.radius - magnitude
 
-            # gets two values used for the Hertzian contact and JKR adhesion
+            # indicate that an adhesive bond has formed between the cells
+            if overlap >= 0:
+                self.jkr_graph.add_edge(cell_1, cell_2)
+
+            # gets two values used for JKR
             e_hat = (((1 - cell_1.poisson ** 2) / cell_1.youngs_mod) + (
                         (1 - cell_2.poisson ** 2) / cell_2.youngs_mod)) ** -1
             r_hat = ((1 / cell_1.radius) + (1 / cell_2.radius)) ** -1
 
-            # used to calculate the max adhesive distance after an adhesion has been already formed
+            # used to calculate the max adhesive distance after bond has been already formed
             overlap_ = (((3.14159 * self.adhesion_const) / e_hat) ** (2 / 3)) * (r_hat ** (1 / 3))
 
+            # get the nondimensionalized overlap, used for later calculations and checks
+            # also for the use of a polynomial approximation of the force
+            d = overlap / overlap_
+
             # used to see if the adhesive bond once formed has broken
-            overlap_condition = overlap / overlap_ > -0.360562
+            overlap_condition = d > -0.360562
 
-            if overlap >= 0 or (overlap_condition and self.jkr_graph.has_edge(cell_1, cell_2)):
-                # JKR adhesion
-                # we nondimensionalize the overlap to allow for the use of a polynomial approximation
-                d = overlap / overlap_
+            # bond condition use to see if bond exists
+            bond_condition = self.jkr_graph.has_edge(cell_1, cell_2)
 
-                # plug the value of d into the nondimensionalized equation for adhesion force
+            # check to see if the cells will have a force interaction
+            if overlap_condition and bond_condition:
+
+                # plug the value of d into the nondimensionalized equation for the JKR force
                 f = (-0.0204 * d ** 3) + (0.4942 * d ** 2) + (1.0801 * d) - 1.324
 
                 # convert from the nondimensionalization to find the adhesive force
-                adhesive = f * 3.14159 * self.adhesion_const * r_hat
+                jkr_force = f * 3.14159 * self.adhesion_const * r_hat
 
                 # adds the adhesive force as a vector in opposite directions to each cell's force holder
-                cell_1.force += adhesive * normal
-                cell_2.force -= adhesive * normal
+                cell_1.force += jkr_force * normal
+                cell_2.force -= jkr_force * normal
 
-
-                if overlap >= 0:
-                    # if the cells touch or overlap there is an adhesive bond formed
-                    self.jkr_graph.add_edge(cell_1, cell_2)
-
-                    # Hertzian contact for repulsion
-                    # finds the repulsive force scalar
-                    repulsive = (4 / 3) * e_hat * (r_hat ** 0.5) * (overlap ** 1.5)
-
-                    # adds the repulsive force as a vector in opposite directions to each cell's force holder
-                    cell_1.force += repulsive * normal
-                    cell_2.force -= repulsive * normal
-
-            # remove the adhesion bond if the overlap condition isn't met
-            elif not overlap_condition and self.jkr_graph.has_edge(cell_1, cell_2):
+            # remove the edge if the it fails to meet the criteria for distance, JKR simulating that
+            # the bond is broken
+            elif bond_condition:
                 self.jkr_graph.remove_edge(cell_1, cell_2)
 
-    def apply_forces(self):
-        """ Loads the forces and the friction values into a modified Langevin
-            equation. Then solves it via the conjugate gradient method with an
-            implementation from scipy. Full explanation is in the documentation
-        """
-        # size of the corresponding array based on the number of the cells times the three dimensions
-        array_length = len(self.cells) * 3
-
-        # create a zero matrix used in the conjugate gradient algorithm
-        a = np.zeros((array_length, array_length))
-
-        # an array used to hold the forces acting on all cells
-        b = np.zeros(array_length)
-
-        # load the force values into the b array
+        # now re-loops over cells to move them and reduce work energy from kinetic energy
         for i in range(len(self.cells)):
-            b[3 * i] = self.cells[i].force[0]
-            b[3 * i + 1] = self.cells[i].force[1]
-            b[3 * i + 2] = self.cells[i].force[2]
+            # stokes law for velocity based on force and fluid viscosity
+            stokes_friction = 6 * 3.14159 * 5 * 1000 * self.cells[i].radius
 
-        # loop over all cells to add the substrate friction values
-        for i in range(len(self.cells)):
-            # create a diagonal matrix for the substrate matrix
-            substrate = self.substrate_fric * np.identity(3)
+            # arbitrary value for cell-to-cell friction
+            cell_friction = 10
 
-            # load these values into the matrix for each cell
-            a[3 * i][3 * i] += substrate[0][0]
-            a[3 * i + 1][3 * i] += substrate[1][0]
-            a[3 * i + 2][3 * i] += substrate[2][0]
+            # update the velocity of the cell based on the solution
+            self.cells[i].velocity = self.cells[i].force / (stokes_friction + cell_friction)
 
-            a[3 * i][3 * i + 1] += substrate[0][1]
-            a[3 * i + 1][3 * i + 1] += substrate[1][1]
-            a[3 * i + 2][3 * i + 1] += substrate[2][1]
+            # multiplies the time step by the velocity and adds that vector to the cell's location
+            movement = self.cells[i].velocity * self.move_time_step * 3600
 
-            a[3 * i][3 * i + 2] += substrate[0][2]
-            a[3 * i + 1][3 * i + 2] += substrate[1][2]
-            a[3 * i + 2][3 * i + 2] += substrate[2][2]
+            # create a prior location holder
+            location = self.cells[i].location
 
-            # look at all other cells and if there are forces between them incorporate that into the matrix
-            for j in range(len(self.cells)):
-                # check to see if there are forces between the cells
-                if self.jkr_graph.has_edge(self.cells[i], self.cells[j]):
+            # set the possible new location
+            new_location = location + movement
 
-                    # get the locations
-                    location_1 = self.cells[i].location
-                    location_2 = self.cells[j].location
+            # loops over all directions of space
+            for j in range(0, 3):
 
-                    # calculate the normal vector
-                    distance_vec = location_1 - location_2
-                    magnitude = np.linalg.norm(distance_vec)
-                    if magnitude == 0:
-                        distance_norm = np.array([0.0, 0.0, 0.0])
-                    else:
-                        distance_norm = distance_vec / np.linalg.norm(distance_vec)
-
-                    # find the friction matrix for both parallel and perpendicular friction
-                    gamma_perp = self.cell_fric_perp * np.outer(distance_norm, distance_norm)
-                    gamma_para = self.cell_fric_para * (np.identity(3) - np.outer(distance_norm, distance_norm))
-                    gamma_total = gamma_perp + gamma_para
-
-                    # implementing the cell to cell friction of the modified Langevin equation
-                    if i == j:
-                        a[3 * i][3 * j] += gamma_total[0][0]
-                        a[3 * i + 1][3 * j] += gamma_total[1][0]
-                        a[3 * i + 2][3 * j] += gamma_total[2][0]
-
-                        a[3 * i][3 * j + 1] += gamma_total[0][1]
-                        a[3 * i + 1][3 * j + 1] += gamma_total[1][1]
-                        a[3 * i + 2][3 * j + 1] += gamma_total[2][1]
-
-                        a[3 * i][3 * j + 2] += gamma_total[0][2]
-                        a[3 * i + 1][3 * j + 2] += gamma_total[1][2]
-                        a[3 * i + 2][3 * j + 2] += gamma_total[2][2]
-
-                    # implementing the cell to cell friction of the modified Langevin equation
-                    else:
-                        a[3 * i][3 * j] -= gamma_total[0][0]
-                        a[3 * i + 1][3 * j] -= gamma_total[1][0]
-                        a[3 * i + 2][3 * j] -= gamma_total[2][0]
-
-                        a[3 * i][3 * j + 1] -= gamma_total[0][1]
-                        a[3 * i + 1][3 * j + 1] -= gamma_total[1][1]
-                        a[3 * i + 2][3 * j + 1] -= gamma_total[2][1]
-
-                        a[3 * i][3 * j + 2] -= gamma_total[0][2]
-                        a[3 * i + 1][3 * j + 2] -= gamma_total[1][2]
-                        a[3 * i + 2][3 * j + 2] -= gamma_total[2][2]
-
-        # use the conjugate gradient algorithm from scipy
-        output = cg(a, b, tol=1e-16)
-
-        # outputs a tuple of size two but the first value is the solution
-        solution = output[0]
-
-        # update the velocity and location of the cell
-        for i in range(len(self.cells)):
-            self.cells[i].velocity = solution[3 * i: 3 * (i+1)]
-            self.cells[i].location += self.move_time_step * self.cells[i].velocity * 3600
+                # check if new location is in environment space if not simulation a collision with the bounds
+                if new_location[j] > self.size[j]:
+                    self.cells[i].location[j] = self.size[j]
+                elif new_location[j] < 0:
+                    self.cells[i].location[j] = 0.0
+                else:
+                    self.cells[i].location[j] = new_location[j]
