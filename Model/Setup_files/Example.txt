@@ -6,16 +6,16 @@ This is the template for running a simulation. Good luck!
 General Parameters
 -----------------------------------------------------------------------------------------------------------------------
 What is the name of the simulation? Ex. "Run_30"
-[ "Run_32" ]
+[ "Run_33" ]
 
 Do you want the simulation to use parallel GPU processing? Ex. True
 [ False ]
 
-What is size of the space that the cells reside? In meters (m). Ex. (x, y, z)
+What is size of the space that the cells reside? In meters. Ex. (x, y, z)
 [ (0.001, 0.001, 0.0) ]
 
 What is resolution of the space? Ex. (dx, dy, dz)
-[ (1.0, 1.0, 0.0) ]
+[ (1.0, 1.0, 1.0) ]
 
 How many cells will be GATA6 high to begin the simulation? Ex. 247
 [ 0 ]
@@ -41,11 +41,11 @@ What will the difference in time steps be? Ex. 1.0
 Length of time steps required for a pluripotent cell to divide. Ex. 24.0
 [ 12.0 ]
 
-Length of time steps required for a differentiated cell to divide. Ex. 24.0
-[ 12.0 ]
-
 Length of time steps required for a pluripotent cell to differentiate. Ex. 36.0
 [ 36.0 ]
+
+Length of time steps required for a differentiated cell to divide. Ex. 24.0
+[ 12.0 ]
 
 Length of time steps required for a lonely cell to die. Ex. 36.0
 [ 18.0 ]
@@ -64,28 +64,28 @@ Ex. [Diffusion constant, Average initial concentration per step, Maximum concent
 [ [[4, 4, 5]] ]
 
 -----------------------------------------------------------------------------------------------------------------------
-Collision Handling
+Movement
 -----------------------------------------------------------------------------------------------------------------------
-Max time for handling collisions, more may be needed given certain velocities. Ex. 1.0
-[ 0.1 ]
-
 Time step for handling collisions, smaller time step...less error. Ex. 0.01
 [ 0.1 ]
-
-The spring constant values used to represent the cytoplasm and membrane. Ex. 1.34
-[ 1.25 ]
-
-The friction acting on the cells as they move. Prevents infinite movement. Ex. 60.0
-[ 90.0 ]
-
-Percent of energy that goes from spring to kinetic as a float. Ex. 0.75
-[ 0.80 ]
 
 Initial mass of the cells used with density to calculate radius. Ex. 1.0
 [ 0.0000000000785398 ]
 
-Density of the cell used for radius. Ex. 0.001
+Density of the cell used for radius. Ex. 1.0
 [ 1.0 ]
+
+JKR work of adhesion value
+[ 0.0000107 ]
+
+-----------------------------------------------------------------------------------------------------------------------
+Imaging
+-----------------------------------------------------------------------------------------------------------------------
+Image resolution in pixels. Currently 2D only. Ex. (1000, 1000)
+[ (2000, 2000) ]
+
+Slicing the z direction into a collection a 2D images spaced evenly apart. How many total slices?
+[ 1 ]
 
 -----------------------------------------------------------------------------------------------------------------------
 Miscellaneous/Experimental
@@ -93,33 +93,10 @@ Miscellaneous/Experimental
 Amount of differentiated cells needed to surround a pluripotent cell to possibly differentiate it. Ex. 5
 [ 5 ]
 
-Image resolution in pixels. Currently 2D only. Ex. (1000, 1000)
-[ (2000, 2000) ]
+Stochastic FGFR + ERK values? Ex. True
+[ True ]
 
 How many cells are added/removed to the simulation at once, per time step? Type 0 if all at once. Ex. 5
 [ 0 ]
 
-How fast will the cells move when moving randomly? Ex. 5.0
-[ 5.0 ]
-
-What is the maximum radius of the cells? Ex. 6.0
-[ 6.0 ]
-
-Stochastic FGFR + ERK values? Ex. True
-[ True ]
-
-Slicing the z direction into a collection a 2D images spaced evenly apart. How many total slices?
-[ 1 ]
-
-JKR work of adhesion value
-[ 0.0000107 ]
-
-cell-cell perpendicular friction
-[ 10000000 ]
-
-cell-cell parallel friction
-[ 10000000 ]
-
-cell substrate friction
-[ 10000000 ]
 -----------------------------------------------------------------------------------------------------------------------

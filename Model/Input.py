@@ -53,8 +53,8 @@ def Setup():
         _end_time = float(parameters[35][2:-3])
         _time_step = float(parameters[38][2:-3])
         _pluri_div_thresh = float(parameters[41][2:-3])
-        _diff_div_thresh = float(parameters[44][2:-3])
-        _pluri_to_diff = float(parameters[47][2:-3])
+        _pluri_to_diff = float(parameters[44][2:-3])
+        _diff_div_thresh = float(parameters[47][2:-3])
         _death_thresh = float(parameters[50][2:-3])
 
         # intercellular
@@ -63,29 +63,26 @@ def Setup():
         # extracellular
         _extracellular = eval(parameters[63][2:-3])
 
-        # collision handling
-        _move_time_step = float(parameters[72][2:-3])
+        # movement
+        _move_time_step = float(parameters[69][2:-3])
+        _mass = float(parameters[72][2:-3])
+        _density = float(parameters[75][2:-3])
+        _adhesion_const = float(parameters[78][2:-3])
 
-        _mass = float(parameters[84][2:-3])
-        _density = float(parameters[87][2:-3])
+        # imaging
+        _image_quality = eval(parameters[84][2:-3])
+        _slices = int(parameters[87][2:-3])
 
         # miscellaneous/experimental
         _diff_surround = int(parameters[93][2:-3])
-        _image_quality = eval(parameters[96][2:-3])
+        _stochastic = bool(parameters[96][2:-3])
         _group = int(parameters[99][2:-3])
-        _stochastic = bool(parameters[108][2:-3])
-        _slices = int(parameters[111][2:-3])
-        _adhesion_const = float(parameters[114][2:-3])
-        _cell_fric_perp = float(parameters[117][2:-3])
-        _cell_fric_para = float(parameters[120][2:-3])
-        _substrate_fric = float(parameters[123][2:-3])
 
         # initializes simulation class which holds all information about the simulation
         simulation = Simulation.Simulation(_path, _parallel, _size, _resolution, _num_states, _functions,
                                            _neighbor_distance, _time_step, _end_time, _move_time_step,
                                            _pluri_div_thresh, _pluri_to_diff, _diff_div_thresh, _diff_surround,
-                                           _death_thresh, _adhesion_const, _cell_fric_perp, _cell_fric_para,
-                                           _substrate_fric, _density, _group, _slices, _image_quality)
+                                           _death_thresh, _adhesion_const, _density, _group, _slices, _image_quality)
 
         # copies the setup file to the new directory of the simulation
         shutil.copy(input_path + separator + file, simulation.path)

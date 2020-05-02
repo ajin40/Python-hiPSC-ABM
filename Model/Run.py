@@ -18,7 +18,7 @@ for Simulation in Simulations:
         # Prints number of cells, timestep, amount of cells being removed and added
         Simulation.info()
 
-        # Updates each of the gradients/molecules by adjusting concentrations
+        # Updates each of the gradients/molecules by adjusting concentration
         Simulation.update_diffusion()
 
         # If cells are by themselves for too long, they will be removed from the simulation
@@ -27,7 +27,7 @@ for Simulation in Simulations:
         # If enough neighbor differentiated cells surround a pluripotent cell, it may cause differentiation
         Simulation.diff_surround_cells()
 
-        # Updates cells by adjusting trackers for differentiation and division
+        # Updates cells by adjusting trackers for differentiation and division)
         Simulation.update_cells()
 
         # Represents growth as mass increase and recalculates radii based on mass increases
