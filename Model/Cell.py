@@ -27,11 +27,11 @@ class Cell:
         self.div_counter = div_counter
         self.death_counter = death_counter
 
-        # Youngs modulus 4000 Pa
-        self.youngs_mod = 600
+        # Youngs modulus 1000 Pa
+        self.youngs_mod = 1000
 
         # Poisson's ratio
-        self.poisson = 0.33333
+        self.poisson = 0.5
 
         # starts the cell off with a zero force vector
         self.force = np.array([0.0, 0.0, 0.0])

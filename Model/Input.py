@@ -68,21 +68,23 @@ def Setup():
         _mass = float(parameters[72][2:-3])
         _density = float(parameters[75][2:-3])
         _adhesion_const = float(parameters[78][2:-3])
+        _viscosity = float(parameters[81][2:-3])
 
         # imaging
-        _image_quality = eval(parameters[84][2:-3])
-        _slices = int(parameters[87][2:-3])
+        _image_quality = eval(parameters[87][2:-3])
+        _slices = int(parameters[90][2:-3])
 
         # miscellaneous/experimental
-        _diff_surround = int(parameters[93][2:-3])
-        _stochastic = bool(parameters[96][2:-3])
-        _group = int(parameters[99][2:-3])
+        _diff_surround = int(parameters[96][2:-3])
+        _stochastic = bool(parameters[99][2:-3])
+        _group = int(parameters[102][2:-3])
 
         # initializes simulation class which holds all information about the simulation
         simulation = Simulation.Simulation(_path, _parallel, _size, _resolution, _num_states, _functions,
                                            _neighbor_distance, _time_step, _end_time, _move_time_step,
                                            _pluri_div_thresh, _pluri_to_diff, _diff_div_thresh, _diff_surround,
-                                           _death_thresh, _adhesion_const, _density, _group, _slices, _image_quality)
+                                           _death_thresh, _adhesion_const, _viscosity,  _density, _group, _slices,
+                                           _image_quality)
 
         # copies the setup file to the new directory of the simulation
         shutil.copy(input_path + separator + file, simulation.path)

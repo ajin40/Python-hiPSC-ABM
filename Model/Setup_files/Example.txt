@@ -76,7 +76,10 @@ Density of the cell used for radius. Ex. 1.0
 [ 1.0 ]
 
 JKR work of adhesion value
-[ 0.0000107 ]
+[ 0.000107 ]
+
+Viscosity of the media
+[ 15000 ]
 
 -----------------------------------------------------------------------------------------------------------------------
 Imaging

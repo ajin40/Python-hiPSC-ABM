@@ -9,7 +9,7 @@ class Simulation:
 
     def __init__(self, path, parallel, size, resolution, num_states, functions, neighbor_distance, time_step, end_time,
                  move_time_step, pluri_div_thresh, pluri_to_diff, diff_div_thresh, diff_surround, death_thresh,
-                 adhesion_const, density, group, slices, image_quality):
+                 adhesion_const, viscosity, density, group, slices, image_quality):
 
         """ path: the path to save the simulation information to
             parallel: true / false which determines whether some tasks are run on the GPU
@@ -53,6 +53,7 @@ class Simulation:
         self.diff_surround = diff_surround
         self.death_thresh = death_thresh
         self.adhesion_const = adhesion_const
+        self.viscosity = viscosity
         self.density = density
         self.group = group
         self.slices = slices
@@ -164,18 +165,18 @@ class Simulation:
             #   with handling collisions, make give rise to sudden changes in overall positions of
             #   cells within the simulation. Instead, collisions are handled after 'group' number
             #   of cell objects are added.
-            # if self.group != 0:
-            #     if (i + 1) % self.group == 0:
-            #         self.handle_movement()
+            if self.group != 0:
+                if (i + 1) % self.group == 0:
+                    self.handle_movement()
 
         # loops over all objects to add
         for i in range(len(self.cells_to_add)):
             self.add_cell(self.cells_to_add[i])
 
             # can't add all the cells together or you get a mess
-            # if self.group != 0:
-            #     if (i + 1) % self.group == 0:
-            #         self.handle_movement()
+            if self.group != 0:
+                if (i + 1) % self.group == 0:
+                    self.handle_movement()
 
         # clear the arrays
         self.cells_to_remove = np.array([], dtype=np.object)
@@ -322,7 +323,7 @@ class Simulation:
         # now re-loops over cells to move them and reduce work energy from kinetic energy
         for i in range(len(self.cells)):
             # stokes law for velocity based on force and fluid viscosity
-            stokes_friction = 6 * 3.14159 * 5 * 1000 * self.cells[i].radius
+            stokes_friction = 6 * 3.14159 * self.viscosity * self.cells[i].radius
 
             # update the velocity of the cell based on the solution
             self.cells[i].velocity = self.cells[i].force / stokes_friction
