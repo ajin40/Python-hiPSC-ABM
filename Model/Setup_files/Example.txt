@@ -9,7 +9,7 @@ What is the name of the simulation? Ex. "Run_30"
 [ "Run_33" ]
 
 Do you want the simulation to use parallel GPU processing? Ex. True
-[ False ]
+[ True ]
 
 What is size of the space that the cells reside? In meters. Ex. (x, y, z)
 [ (0.001, 0.001, 0.0) ]

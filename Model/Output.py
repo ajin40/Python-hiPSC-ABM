@@ -105,7 +105,7 @@ def image_to_video(simulation):
 
     # creates a base video file to save to
     video_path = simulation.path + 'network_video.avi'
-    out = cv2.VideoWriter(video_path, cv2.VideoWriter_fourcc("M","J","P","G"), 1.0, image_quality)
+    out = cv2.VideoWriter(video_path, cv2.VideoWriter_fourcc("M", "J", "P", "G"), 1.0, image_quality)
 
     # loops over all images and writes them to the base video file
     for i in range(simulation.image_counter):
@@ -115,6 +115,7 @@ def image_to_video(simulation):
 
     # releases the file
     out.release()
+
 
 def create_csv(simulation):
     """ Outputs a .csv file of important Cell

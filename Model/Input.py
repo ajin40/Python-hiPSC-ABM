@@ -9,7 +9,7 @@ import Simulation
 import Cell
 
 
-def Setup():
+def setup():
     """ Looks at all of the setup files and turns them into
         instances of the simulation class
     """
@@ -97,7 +97,7 @@ def Setup():
                                                             _extracellular[i][1], _extracellular[i][2], _parallel)
 
             # adds the Extracellular object
-            simulation.extracellular = np.append(simulation.extracellular, new_extracellular)
+            simulation.extracellular = np.append(simulation.extracellular, [new_extracellular])
 
 
         # loops over all cells and creates a stem cell object for each one with given parameters
@@ -157,7 +157,7 @@ def check_name(path, name, separator):
             break
 
         # prompt to either rename or overwrite
-        except:
+        except OSError:
             print("Simulation with identical name: " + name)
             user = input("Would you like to overwrite that simulation? (y/n): ")
             if user == "n":

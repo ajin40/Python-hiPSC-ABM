@@ -3,7 +3,6 @@ import math
 import numpy as np
 
 
-
 def initialize_grid_gpu(simulation):
     """ the parallel form of "initialize_grid"
     """
@@ -22,6 +21,7 @@ def initialize_grid_gpu(simulation):
 
     # returns the grid from the cuda function and updates the simulation instance variable
     simulation.grid = cuda_grid.copy_to_host()
+
 
 @cuda.jit
 def initialize_grid_cuda(grid_array):
@@ -54,6 +54,7 @@ def update_grid_gpu(simulation):
 
     # returns the grid from the cuda function and updates the simulation instance variable
     simulation.grid = cuda_grid.copy_to_host()
+
 
 @cuda.jit
 def update_grid_cuda(grid_array):
@@ -103,12 +104,14 @@ def check_neighbors_gpu(simulation):
     edges = np.argwhere(output == 1)
 
     # re-adds the cells as nodes
+
     for i in range(len(simulation.cells)):
-        simulation.network.add_node(simulation.cells[i])
+        simulation.neighbor_graph.add_node(simulation.cells[i])
 
     # forms an edge between cells based on the results from edges
     for i in range(len(edges)):
-        simulation.network.add_edge(simulation.cells[edges[i][0]], simulation.cells[edges[i][1]])
+        simulation.neighbor_graph.add_edge(simulation.cells[edges[i][0]], simulation.cells[edges[i][1]])
+
 
 @cuda.jit
 def check_neighbors_cuda(locations, edges, distance):
@@ -183,6 +186,7 @@ def handle_collisions_gpu(simulation):
         simulation.cells[i].velocity = new_velocities[i]
         simulation.cells[i].location = new_locations[i]
 
+
 @cuda.jit
 def handle_collisions_cuda(locations, radius, mass, energy, spring, velocities):
     """ this is the function being run in parallel
@@ -225,6 +229,7 @@ def handle_collisions_cuda(locations, radius, mass, energy, spring, velocities):
                     # converts the spring energy into kinetic energy in opposing directions
                     velocities[i][k] += overlap * (energy[0] * spring[0] / mass[i]) ** 0.5
                     velocities[j][k] -= overlap * (energy[0] * spring[0] / mass[j]) ** 0.5
+
 
 @cuda.jit
 def update_locations_cuda(locations, velocities, time_step, grid_size, friction):

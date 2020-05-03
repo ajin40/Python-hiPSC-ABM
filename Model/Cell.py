@@ -48,7 +48,7 @@ class Cell:
         self.mass *= 1.0
 
         # places the new cell on the surface on the old cell
-        location = self.location + RandomPointOnSphere(simulation) * self.radius
+        location = self.location + random_point(simulation) * self.radius
 
         # makes sure the new cell's location is on the grid
         condition_x = 0 <= location[0] <= simulation.size[0]
@@ -56,7 +56,7 @@ class Cell:
         condition_z = 0 <= location[2] <= simulation.size[2]
 
         while not condition_x or not condition_y or not condition_z:
-            location = self.location + RandomPointOnSphere(simulation) * self.radius
+            location = self.location + random_point(simulation) * self.radius
 
             # makes sure the new cell's location is on the grid
             condition_x = 0 <= location[0] <= simulation.size[0]
@@ -72,7 +72,7 @@ class Cell:
         cell.change_size(simulation)
 
         # adds the cell to the simulation
-        simulation.cells_to_add = np.append(simulation.cells_to_add, cell)
+        simulation.cells_to_add = np.append(simulation.cells_to_add, [cell])
 
     def change_size(self, simulation):
         """ Increases the mass of the cell
@@ -133,7 +133,7 @@ class Cell:
 
         # removes cell if it meets the parameters
         if self.death_counter >= simulation.death_thresh:
-            simulation.cells_to_remove = np.append(simulation.cells_to_remove, self)
+            simulation.cells_to_remove = np.append(simulation.cells_to_remove, [self])
 
     def diff_surround(self, simulation):
         """ calls the object function that determines if
@@ -227,7 +227,7 @@ class Cell:
                 self.differentiate()
 
 
-def RandomPointOnSphere(simulation):
+def random_point(simulation):
     """ Computes a random point on a unit sphere centered at the origin
         Returns - point [x,y,z]
     """

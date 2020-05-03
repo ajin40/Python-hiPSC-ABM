@@ -3,7 +3,7 @@ import Output
 
 
 # Creates a list of simulation instances each corresponding to the setup file    (base)
-Simulations = Input.Setup()
+Simulations = Input.setup()
 
 # Runs the simulations in succession    (base)
 for Simulation in Simulations:

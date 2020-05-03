@@ -3,4 +3,3 @@ Pillow
 numpy
 networkx
 numba
-scipy
