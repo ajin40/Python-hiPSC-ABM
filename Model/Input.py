@@ -73,18 +73,25 @@ def setup():
         # imaging
         _image_quality = eval(parameters[87][2:-3])
         _slices = int(parameters[90][2:-3])
+        _background_color = eval(parameters[93][2:-3])
+        _bound_color = eval(parameters[96][2:-3])
+        _pluri_cell_color = eval(parameters[99][2:-3])
+        _diff_cell_color = eval(parameters[102][2:-3])
 
         # miscellaneous/experimental
-        _diff_surround = int(parameters[96][2:-3])
-        _stochastic = bool(parameters[99][2:-3])
-        _group = int(parameters[102][2:-3])
+        _diff_surround = int(parameters[108][2:-3])
+        _stochastic = bool(parameters[111][2:-3])
+        _group = int(parameters[114][2:-3])
+        _lonely_cell = int(parameters[117][2:-3])
+        _contact_inhibit = int(parameters[120][2:-3])
 
         # initializes simulation class which holds all information about the simulation
         simulation = Simulation.Simulation(_path, _parallel, _size, _resolution, _num_states, _functions,
                                            _neighbor_distance, _time_step, _end_time, _move_time_step,
                                            _pluri_div_thresh, _pluri_to_diff, _diff_div_thresh, _diff_surround,
                                            _death_thresh, _adhesion_const, _viscosity,  _density, _group, _slices,
-                                           _image_quality)
+                                           _image_quality, _background_color, _bound_color, _pluri_cell_color,
+                                           _diff_cell_color, _lonely_cell, _contact_inhibit)
 
         # copies the setup file to the new directory of the simulation
         shutil.copy(input_path + separator + file, simulation.path)
@@ -95,7 +102,6 @@ def setup():
             # initializes the extracellular class
             new_extracellular = Extracellular.Extracellular(_size, _resolution, _extracellular[i][0],
                                                             _extracellular[i][1], _extracellular[i][2], _parallel)
-
             # adds the Extracellular object
             simulation.extracellular = np.append(simulation.extracellular, [new_extracellular])
 

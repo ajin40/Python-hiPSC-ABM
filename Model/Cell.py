@@ -47,7 +47,6 @@ class Cell:
         self.div_counter *= 0.5
         self.mass *= 1.0
 
-        # places the new cell on the surface on the old cell
         location = self.location + random_point(simulation) * self.radius
 
         # makes sure the new cell's location is on the grid
@@ -126,14 +125,15 @@ class Cell:
         """
         # looks at the neighbors
         neighbors = list(simulation.neighbor_graph.neighbors(self))
-        if len(neighbors) < 2:
+        if len(neighbors) < simulation.lonely_cell:
             self.death_counter += 1
         else:
             self.death_counter = 0
 
         # removes cell if it meets the parameters
-        if self.death_counter >= simulation.death_thresh:
-            simulation.cells_to_remove = np.append(simulation.cells_to_remove, [self])
+        if self.state == "Pluripotent":
+            if self.death_counter >= simulation.death_thresh:
+                simulation.cells_to_remove = np.append(simulation.cells_to_remove, [self])
 
     def diff_surround(self, simulation):
         """ calls the object function that determines if
@@ -175,12 +175,14 @@ class Cell:
 
         # checks to see if the non-moving cell should divide
         if not self.motion:
-            if self.state == "Differentiated" and self.div_counter >= simulation.diff_div_thresh:
-                self.divide(simulation)
-            elif self.state == "Pluripotent" and self.div_counter >= simulation.pluri_div_thresh:
-                self.divide(simulation)
-            else:
-                self.div_counter += 1
+            neighbors = list(simulation.neighbor_graph.neighbors(self))
+            if len(neighbors) < simulation.contact_inhibit:
+                if self.state == "Differentiated" and self.div_counter >= simulation.diff_div_thresh:
+                    self.divide(simulation)
+                elif self.state == "Pluripotent" and self.div_counter >= simulation.pluri_div_thresh:
+                    self.divide(simulation)
+                else:
+                    self.div_counter += 1
 
         # coverts position in space into an integer for array location
         x_step = simulation.extracellular[0].dx

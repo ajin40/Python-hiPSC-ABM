@@ -9,7 +9,8 @@ class Simulation:
 
     def __init__(self, path, parallel, size, resolution, num_states, functions, neighbor_distance, time_step, end_time,
                  move_time_step, pluri_div_thresh, pluri_to_diff, diff_div_thresh, diff_surround, death_thresh,
-                 adhesion_const, viscosity, density, group, slices, image_quality):
+                 adhesion_const, viscosity, density, group, slices, image_quality, background_color, bound_color,
+                 pluri_cell_color, diff_cell_color, lonely_cell, contact_inhibit):
 
         """ path: the path to save the simulation information to
             parallel: true / false which determines whether some tasks are run on the GPU
@@ -29,13 +30,14 @@ class Simulation:
                 a pluripotent cell inducing its differentiation
             death_thresh: the value at which a cell dies
             adhesion_const: JKR work of adhesion
-            cell_fric_perp: the perpendicular constant of friction between cells
-            cell_fric_para: the parallel constant of friction between cells
-            substrate_fric: the friction of a cell against the substrate aka the space
             density: the density of a cell
             group: how many cells are removed or added at once per time step
             slices: the amount of slices taken in the z direction
             image_quality: the dimensions of the output images in pixels
+            background_color: the color of the image background
+            bound_color: the colors of the bounding lines of the image
+            pluri_cell_color: the color of pluripotent cells
+            diff_cell_color: the color of differentiated cells
         """
         self.path = path
         self.parallel = parallel
@@ -58,11 +60,17 @@ class Simulation:
         self.group = group
         self.slices = slices
         self.image_quality = image_quality
+        self.background_color = background_color
+        self.bound_color = bound_color
+        self.pluri_cell_color = pluri_cell_color
+        self.diff_cell_color = diff_cell_color
+        self.lonely_cell = lonely_cell
+        self.contact_inhibit = contact_inhibit
 
         # counts how many times an image is created for making videos
         self.image_counter = 0
 
-        # keeps a running count of the time
+        # keeps a running count of the simulation time
         self.time_counter = 0.0
 
         # array to hold all of the Cell objects
@@ -183,12 +191,13 @@ class Simulation:
         self.cells_to_add = np.array([], dtype=np.object)
 
     def check_neighbors(self):
-        """ checks all of the distances between cells
-            if it is less than a fixed value create a
-            connection between two cells.
+        """ checks all of the distances between cells if it
+            is less than a fixed value create a connection
+            between two cells.
         """
-        # clears the current graph to prevent existing edges from remaining
-        self.neighbor_graph.clear()
+        # removes the edges from the graph. Simply no function from networkx exists to do this
+        edges = list(self.neighbor_graph.edges())
+        self.neighbor_graph.remove_edges_from(edges)
 
         # tries to run the parallel version of this function
         if self.parallel:
@@ -210,10 +219,6 @@ class Simulation:
             # assigns each cell to a block by rounding its coordinates up to the nearest integer
             # loops over all cells and gets block location
             for h in range(len(self.cells)):
-
-                # adds all of the cells to the simulation
-                self.neighbor_graph.add_node(self.cells[h])
-
                 # offset blocks by 1 to help when searching over blocks
                 location_x = int(self.cells[h].location[0] / distance) + 1
                 location_y = int(self.cells[h].location[1] / distance) + 1
@@ -249,6 +254,7 @@ class Simulation:
             # increases the time based on the desired time step
             time_holder += self.move_time_step
 
+            # reset all cell velocities and forces to zero
             for i in range(len(self.cells)):
                 self.cells[i].velocity = np.array([0.0, 0.0, 0.0])
                 self.cells[i].force = np.array([0.0, 0.0, 0.0])

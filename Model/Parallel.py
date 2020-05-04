@@ -103,11 +103,6 @@ def check_neighbors_gpu(simulation):
     # example [[15 392] [732 4] [923 284]]
     edges = np.argwhere(output == 1)
 
-    # re-adds the cells as nodes
-
-    for i in range(len(simulation.cells)):
-        simulation.neighbor_graph.add_node(simulation.cells[i])
-
     # forms an edge between cells based on the results from edges
     for i in range(len(edges)):
         simulation.neighbor_graph.add_edge(simulation.cells[edges[i][0]], simulation.cells[edges[i][1]])

@@ -31,27 +31,8 @@ def draw_image(simulation):
     for i in range(simulation.slices):
 
         # draws the background of the image
-        base = Image.new("RGB", simulation.image_quality[0:2], color=(255, 255, 255))
+        base = Image.new("RGB", simulation.image_quality[0:2], simulation.background_color)
         image = ImageDraw.Draw(base)
-
-        # loops over all of the bounds and draws lines to represent the grid
-        for j in range(len(bounds)):
-            # get the bound sizing
-            x0 = dilation_x * bounds[j][0]
-            y0 = dilation_y * bounds[j][1]
-
-            # get the bounds as lines
-            if j < len(bounds) - 1:
-                x1 = dilation_x * bounds[j + 1][0]
-                y1 = dilation_y * bounds[j + 1][1]
-            else:
-                x1 = dilation_x * bounds[0][0]
-                y1 = dilation_y * bounds[0][1]
-
-            # draw the lines
-            lines = (x0, y0, x1, y1)
-            color = 'black'
-            image.line(lines, fill=color, width=10)
 
         # loops over all of the cells and draws the nucleus and radius
         for j in range(len(simulation.cells)):
@@ -80,13 +61,32 @@ def draw_image(simulation):
 
             # coloring of the cells
             if simulation.cells[j].state == "Pluripotent":
-                color = 'green'
+                color = simulation.pluri_cell_color
             else:
-                color = 'red'
+                color = simulation.diff_cell_color
 
             # draw the circle representing the cell
             membrane_circle = (x - x_radius, y - y_radius, x + x_radius, y + y_radius)
             image.ellipse(membrane_circle, outline="black", fill=color)
+
+        # loops over all of the bounds and draws lines to represent the grid
+        for j in range(len(bounds)):
+            # get the bound sizing
+            x0 = dilation_x * bounds[j][0]
+            y0 = dilation_y * bounds[j][1]
+
+            # get the bounds as lines
+            if j < len(bounds) - 1:
+                x1 = dilation_x * bounds[j + 1][0]
+                y1 = dilation_y * bounds[j + 1][1]
+            else:
+                x1 = dilation_x * bounds[0][0]
+                y1 = dilation_y * bounds[0][1]
+
+            # draw the lines
+            lines = (x0, y0, x1, y1)
+            width = int((simulation.image_quality[0] + simulation.image_quality[0]) / 500)
+            image.line(lines, fill=simulation.bound_color, width=width)
 
         # saves the image as a .png
         image_name = "image_" + str(int(simulation.time_counter)) + "_slice_" + str(int(i)) + ".png"
@@ -115,7 +115,6 @@ def image_to_video(simulation):
 
     # releases the file
     out.release()
-
 
 def create_csv(simulation):
     """ Outputs a .csv file of important Cell
