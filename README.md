@@ -18,7 +18,7 @@ This command will achieve the above too.
 ```
 $ git clone https://github.com/JackToppen/stem-cell-patterning_Python.git
 ```
-The model requires Python 3.6 or later. Install any necessary modules. 
+The model requires Python 3.7. Install any necessary modules. Shown below.
 ```
 $ pip install -r requirements.txt
 ```
@@ -47,6 +47,7 @@ Currently the model only supports NVIDIA CUDA. Though in the future, AMD ROCm to
 
 - Download from NVIDIA directly.
 CUDA Toolkit: [https://developer.nvidia.com/cuda-downloads](https://developer.nvidia.com/cuda-downloads)
+- If you do not have Microsoft Visual Studio, download that prior to the toolkit.
 
 If you are using Anaconda, you can simply use the following.
 ```

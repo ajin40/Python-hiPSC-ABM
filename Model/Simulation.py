@@ -1,5 +1,6 @@
 import numpy as np
 import networkx as nx
+import math
 
 import Parallel
 
@@ -315,7 +316,7 @@ class Simulation:
                 f = (-0.0204 * d ** 3) + (0.4942 * d ** 2) + (1.0801 * d) - 1.324
 
                 # convert from the nondimensionalization to find the adhesive force
-                jkr_force = f * 3.14159 * self.adhesion_const * r_hat
+                jkr_force = f * math.pi * self.adhesion_const * r_hat
 
                 # adds the adhesive force as a vector in opposite directions to each cell's force holder
                 cell_1.force += jkr_force * normal
