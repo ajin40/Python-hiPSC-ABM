@@ -242,7 +242,9 @@ class Simulation:
                                         self.neighbor_graph.add_edge(self.cells[h], cells_in_block[l])
 
     def handle_movement(self):
-        """ alksjdjklfasdkljfjkla
+        """ runs the following functions together for a
+            given time amount. Resets the force and
+            velocity arrays as well.
         """
         # holds the current value of the time until it surpasses the simulation time step value
         time_holder = 0.0
