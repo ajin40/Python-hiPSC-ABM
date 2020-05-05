@@ -20,20 +20,23 @@ for Simulation in Simulations:
         # Updates each of the gradients/molecules by adjusting concentration
         Simulation.update_diffusion()
 
+        # Checks for neighboring cells
+        Simulation.check_neighbors()
+
         # If cells are by themselves for too long, they will be removed from the simulation
         Simulation.kill_cells()
 
         # If enough neighbor differentiated cells surround a pluripotent cell, it may cause differentiation
         Simulation.diff_surround_cells()
 
+        # Applies forces to each cell based on random or Guye movement
+        Simulation.motility_cells()
+
         # Updates cells by adjusting trackers for differentiation and division)
         Simulation.update_cells()
 
         # Adds/removes objects at once to/from the simulation includes handling collisions when cells are added
         Simulation.update_cell_queue()
-
-        # Checks for neighboring cells
-        Simulation.check_neighbors()
 
         # Moves the cells to a state of physical equilibrium so that there is minimal overlap between cells
         Simulation.handle_movement()

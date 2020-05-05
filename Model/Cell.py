@@ -37,6 +37,64 @@ class Cell:
         # starts the cell off with a zero force vector
         self.force = np.array([0.0, 0.0, 0.0])
 
+    def motility(self, simulation):
+        """ applies forces to each cell based on chemotactic
+            or random movement
+        """
+        # continue if the cell is actively moving
+        if self.motion:
+            # continue if conditions are met
+            if self.booleans[2] == 1 and self.state == "Pluripotent":
+                # continue if using Guye et al. movement and if there exists differentiated cells
+                if simulation.guye_move and len(simulation.diff_cells) != 0:
+                    # get starting differentiated cell distance
+                    vector = simulation.diff_cells[0].location - self.location
+                    magnitude = np.linalg.norm(vector)
+
+                    # loop over all other differentiated cells looking for the closest
+                    for i in range(1, len(simulation.diff_cells)):
+                        # get the distance to each of the other cells
+                        next_vector = simulation.diff_cells[i].locationn - self.location
+                        next_magnitude = np.linalg.norm(next_vector)
+
+                        # check to see if the cell is closer than others
+                        if next_magnitude < magnitude:
+                            # reset distance and vector for calculating the unit normal
+                            vector = next_vector
+                            magnitude = next_magnitude
+
+                    # get unit normal and apply force in that direction
+                    normal = vector / magnitude
+                    self.force += normal * simulation.motility_force
+                else:
+                    # if not Guye et al. movement, move randomly
+                    self.force += random_point(simulation) * simulation.motility_force
+
+            else:
+                # if no differentiated cells, move randomly
+                self.force += random_point(simulation) * simulation.motility_force
+
+            # check if cell is differentiated
+            if self.state == "Differentiated":
+                # get nearby cells
+                neighbors = list(simulation.neighbor_graph.neighbors(self))
+
+                # if any nearby cells are differentiated set motion to false
+                for i in range(len(neighbors)):
+                    if neighbors[i].state == "Differentiated":
+                        self.motion = False
+                        break
+
+            # if the cell is pluripotent and meets boolean conditions
+            if self.booleans[3] == 1 and self.booleans[2] == 0 and self.state == "Pluripotent":
+                neighbors = list(simulation.neighbor_graph.neighbors(self))
+                for i in range(len(neighbors)):
+                    # if another cell has similar characteristics set motion to false
+                    if neighbors[i].booleans[3] == 1 and neighbors[i].booleans[2] == 0 and neighbors[i].state == "Pluripotent":
+                        self.motion = False
+                        break
+
+
     def divide(self, simulation):
         """ produces another cell via mitosis
         """
@@ -137,21 +195,6 @@ class Cell:
         """ updates many of the instance variables
             of the cell
         """
-        # if other cells are differentiated around a cell it will stop moving
-        if self.state == "Differentiated":
-            neighbors = list(simulation.neighbor_graph.neighbors(self))
-            for i in range(len(neighbors)):
-                if neighbors[i].state == "Differentiated":
-                    self.motion = False
-                    break
-
-        # if other cells are also pluripotent, gata6 low, and nanog high they will stop moving
-        if self.booleans[3] == 1 and self.booleans[2] == 0 and self.state == "Pluripotent":
-            neighbors = list(simulation.neighbor_graph.neighbors(self))
-            for j in range(len(neighbors)):
-                if neighbors[j].booleans[3] == 1 and neighbors[j].booleans[2] == 0 and neighbors[j].state == "Pluripotent":
-                    self.motion = False
-                    break
 
         # checks to see if the non-moving cell should divide
         if not self.motion:

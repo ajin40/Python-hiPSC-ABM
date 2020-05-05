@@ -6,7 +6,7 @@ This is the template for running a simulation. Good luck!
 General Parameters
 -----------------------------------------------------------------------------------------------------------------------
 What is the name of the simulation? Ex. "Run_30"
-[ "Run_13" ]
+[ "Run_14" ]
 
 Do you want the simulation to use parallel GPU processing? Ex. True
 [ False ]
@@ -18,10 +18,10 @@ What is resolution of the space? Ex. (dx, dy, dz)
 [ (1.0, 1.0, 1.0) ]
 
 How many cells will be GATA6 high to begin the simulation? Ex. 247
-[ 0 ]
+[ 1000 ]
 
 How many cells will be NANOG high to begin the simulation? Ex. 91
-[ 2000 ]
+[ 1000 ]
 
 Define the finite dynamical system functions below. Ex. ("x5", "x4 * x2",...)
 [ ("x5", "x1 * x4 + x1 + x4", "x2", "x5 + 1", "(x3+1) * (x4+1)") ]
@@ -125,4 +125,13 @@ Threshold of cells to denote a cell as lonely or not. If lower than this value, 
 
 Threshold of differentiated cells to denote "contact-inhibition" preventing division. Ex. 4
 [ 8 ]
+
+Look for the nearest differentiated cell and move closer to it? Based on Guye et al. Ex. True
+[ True ]
+
+Radius of search for nearby differentiated neighbors in meters. Ex. 0.000030
+[ 0.000030 ]
+
+Motility force for cells actively moving. Ex.
+[ 0.00000001 ]
 -----------------------------------------------------------------------------------------------------------------------

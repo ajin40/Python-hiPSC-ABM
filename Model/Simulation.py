@@ -12,7 +12,7 @@ class Simulation:
                  end_time, move_time_step, pluri_div_thresh, pluri_to_diff, diff_div_thresh, boolean_thresh,
                  diff_surround, death_thresh, adhesion_const, viscosity, group, slices, image_quality, background_color,
                  bound_color, pluri_gata6_high_color, pluri_nanog_high_color, pluri_both_high_color, diff_color,
-                 lonely_cell, contact_inhibit):
+                 lonely_cell, contact_inhibit, guye_move, guye_distance, motility_force):
 
         """ path: the path to save the simulation information to
             parallel: true / false which determines whether some tasks are run on the GPU
@@ -69,6 +69,9 @@ class Simulation:
         self.diff_color = diff_color
         self.lonely_cell = lonely_cell
         self.contact_inhibit = contact_inhibit
+        self.guye_move = guye_move
+        self.guye_distance = guye_distance
+        self.motility_force = motility_force
 
         # counts how many times an image is created for making videos
         self.image_counter = 0
@@ -88,9 +91,15 @@ class Simulation:
         # graph representing the presence of JKR adhesion bonds between cells
         self.jkr_graph = nx.Graph()
 
+        # graph used to locate nearest differentiated neighbors
+        self.diff_graph = nx.Graph()
+
         # holds the objects until they are added or removed from the simulation
         self.cells_to_remove = np.array([], dtype=np.object)
         self.cells_to_add = np.array([], dtype=np.object)
+
+        # holds all of the differentiated cells
+        self.diff_cells = np.array([], dtype=np.object)
 
     def info(self):
         """ prints information about the simulation as it
@@ -129,6 +138,12 @@ class Simulation:
         for i in range(len(self.cells)):
             self.cells[i].diff_surround(self)
 
+    def motility_cells(self):
+        """ see Cell.py for description
+        """
+        for i in range(len(self.cells)):
+            self.cells[i].motility(self)
+
     def add_cell(self, cell):
         """ Adds the cell to both the neighbor graph
             and the JKR adhesion graph
@@ -142,6 +157,8 @@ class Simulation:
         # adds it to the adhesion graph
         self.jkr_graph.add_node(cell)
 
+        self.diff_graph.add_node(cell)
+
     def remove_cell(self, cell):
         """ Adds the cell to both the neighbor graph
             and the JKR adhesion graph
@@ -154,6 +171,15 @@ class Simulation:
 
         # removes it from the adhesion graph
         self.jkr_graph.remove_node(cell)
+
+        self.diff_graph.remove_node(cell)
+
+    def get_differentiated(self):
+        """ Finds all of the differentiated cells
+        """
+        for i in range(len(self.cells)):
+            if self.cells[i].state == "Differentiated":
+                self.diff_cells = np.append(self.diff_cells, self.cells[i])
 
     def update_cell_queue(self):
         """ Updates the queues for adding and removing cell objects
@@ -200,8 +226,10 @@ class Simulation:
         if self.parallel:
             Parallel.check_neighbors_gpu(self)
         else:
-            # divides the environment into blocks
+
             distance = self.neighbor_distance
+
+            # divides the environment into blocks
             x = int(self.size[0] / distance + 3)
             y = int(self.size[1] / distance + 3)
             z = int(self.size[2] / distance + 3)
@@ -253,13 +281,13 @@ class Simulation:
             # increases the time based on the desired time step
             time_holder += self.move_time_step
 
+            # calculate the forces acting on each cell
+            self.force_to_movement()
+
             # reset all cell velocities and forces to zero
             for i in range(len(self.cells)):
                 self.cells[i].velocity = np.array([0.0, 0.0, 0.0])
                 self.cells[i].force = np.array([0.0, 0.0, 0.0])
-
-            # calculate the forces acting on each cell
-            self.force_to_movement()
 
     def force_to_movement(self):
         """ goes through all of the cells and quantifies any forces arising
