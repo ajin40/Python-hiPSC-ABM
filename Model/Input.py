@@ -87,8 +87,7 @@ def setup():
         _lonely_cell = int(parameters[123][2:-3])
         _contact_inhibit = int(parameters[126][2:-3])
         _guye_move = bool(parameters[129][2:-3])
-        _guye_distance = float(parameters[132][2:-3])
-        _motility_force = float(parameters[135][2:-3])
+        _motility_force = float(parameters[132][2:-3])
 
 
         # initializes simulation class which holds all information about the simulation
@@ -98,7 +97,7 @@ def setup():
                                            _diff_surround, _death_thresh, _adhesion_const, _viscosity, _group, _slices,
                                            _image_quality, _background_color, _bound_color, _pluri_gata6_high_color,
                                            _pluri_nanog_high_color, _pluri_both_high_color, _diff_color, _lonely_cell,
-                                           _contact_inhibit, _guye_move, _guye_distance, _motility_force)
+                                           _contact_inhibit, _guye_move, _motility_force)
 
         # copies the setup file to the new directory of the simulation
         shutil.copy(input_path + separator + file, simulation.path)

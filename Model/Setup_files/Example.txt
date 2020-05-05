@@ -115,13 +115,13 @@ Amount of differentiated cells needed to surround a pluripotent cell to possibly
 [ 5 ]
 
 Stochastic FGFR + ERK values? Ex. True
-[ True ]
+[ False ]
 
 How many cells are added/removed to the simulation at once, per time step? Type 0 if all at once. Ex. 5
 [ 0 ]
 
 Threshold of cells to denote a cell as lonely or not. If lower than this value, increase chance of cell death. Ex. 4
-[ 3 ]
+[ 1 ]
 
 Threshold of differentiated cells to denote "contact-inhibition" preventing division. Ex. 4
 [ 8 ]

@@ -12,7 +12,7 @@ class Simulation:
                  end_time, move_time_step, pluri_div_thresh, pluri_to_diff, diff_div_thresh, boolean_thresh,
                  diff_surround, death_thresh, adhesion_const, viscosity, group, slices, image_quality, background_color,
                  bound_color, pluri_gata6_high_color, pluri_nanog_high_color, pluri_both_high_color, diff_color,
-                 lonely_cell, contact_inhibit, guye_move, guye_distance, motility_force):
+                 lonely_cell, contact_inhibit, guye_move, motility_force):
 
         """ path: the path to save the simulation information to
             parallel: true / false which determines whether some tasks are run on the GPU
@@ -70,7 +70,6 @@ class Simulation:
         self.lonely_cell = lonely_cell
         self.contact_inhibit = contact_inhibit
         self.guye_move = guye_move
-        self.guye_distance = guye_distance
         self.motility_force = motility_force
 
         # counts how many times an image is created for making videos
