@@ -60,14 +60,20 @@ def draw_image(simulation):
             y = dilation_y * location[1]
 
             # coloring of the cells
-            if simulation.cells[j].state == "Pluripotent":
-                color = simulation.pluri_cell_color
+            if simulation.cells[j].state == "Differentiated":
+                color = simulation.diff_color
+            elif simulation.cells[j].booleans[2] == 1 and simulation.cells[j].booleans[3] == 1:
+                color = simulation.pluri_both_high_color
+            elif simulation.cells[j].booleans[2] == 1:
+                color = simulation.pluri_gata6_high_color
+            elif simulation.cells[j].booleans[3] == 1:
+                color = simulation.pluri_nanog_high_color
             else:
-                color = simulation.diff_cell_color
+                color = simulation.pluri_nanog_high_color
 
             # draw the circle representing the cell
             membrane_circle = (x - x_radius, y - y_radius, x + x_radius, y + y_radius)
-            image.ellipse(membrane_circle, outline="black", fill=color)
+            image.ellipse(membrane_circle, fill=color)
 
         # loops over all of the bounds and draws lines to represent the grid
         for j in range(len(bounds)):
@@ -89,7 +95,7 @@ def draw_image(simulation):
             image.line(lines, fill=simulation.bound_color, width=width)
 
         # saves the image as a .png
-        image_name = "image_" + str(int(simulation.time_counter)) + "_slice_" + str(int(i)) + ".png"
+        image_name = "image_" + str(int(simulation.steps_counter)) + "_slice_" + str(int(i)) + ".png"
         base.save(simulation.path + image_name, 'PNG')
 
         # moves to the next slice location
@@ -121,10 +127,10 @@ def create_csv(simulation):
         instance variables from each cell
     """
     # opens .csv file
-    new_file = open(simulation.path + "network_values_" + str(int(simulation.time_counter)) + ".csv", "w")
+    new_file = open(simulation.path + "network_values_" + str(int(simulation.steps_counter)) + ".csv", "w")
     csv_write = csv.writer(new_file)
     csv_write.writerow(['X_position', 'Y_position', 'Z_position', 'X_velocity', 'Y_velocity', 'Z_velocity', 'X_force',
-                        'Y_force', 'Z_force', 'Motion', 'Mass', 'Radius', 'FGFR', 'ERK', 'GATA6', 'NANOG', 'State',
+                        'Y_force', 'Z_force', 'Motion', 'Radius', 'FGFR', 'ERK', 'GATA6', 'NANOG', 'State',
                         'Differentiation_counter', 'Division_counter', 'Death_counter'])
 
     # each row is a different cell
@@ -139,7 +145,6 @@ def create_csv(simulation):
         y_force = round(simulation.cells[i].force[1], 14)
         z_force = round(simulation.cells[i].force[2], 14)
         motion = simulation.cells[i].motion
-        mass = simulation.cells[i].mass
         radius = simulation.cells[i].radius
         fgfr = simulation.cells[i].booleans[0]
         erk = simulation.cells[i].booleans[1]
@@ -151,7 +156,7 @@ def create_csv(simulation):
         death = round(simulation.cells[i].death_counter, 1)
 
         # writes the row for the cell
-        csv_write.writerow([x_pos, y_pos, z_pos, x_vel, y_vel, z_vel, x_force, y_force, z_force, motion, mass, radius,
+        csv_write.writerow([x_pos, y_pos, z_pos, x_vel, y_vel, z_vel, x_force, y_force, z_force, motion, radius,
                             fgfr, erk, gata, nanog, state, diff, div, death])
 
 def save_file(simulation):

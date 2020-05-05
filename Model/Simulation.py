@@ -8,10 +8,11 @@ class Simulation:
     """ Initialization called once for each simulation. Class holds all information about each simulation as a whole
     """
 
-    def __init__(self, path, parallel, size, resolution, num_states, functions, neighbor_distance, time_step, end_time,
-                 move_time_step, pluri_div_thresh, pluri_to_diff, diff_div_thresh, diff_surround, death_thresh,
-                 adhesion_const, viscosity, density, group, slices, image_quality, background_color, bound_color,
-                 pluri_cell_color, diff_cell_color, lonely_cell, contact_inhibit):
+    def __init__(self, path, parallel, size, resolution, num_states, functions, neighbor_distance, time_step_value,
+                 end_time, move_time_step, pluri_div_thresh, pluri_to_diff, diff_div_thresh, boolean_thresh,
+                 diff_surround, death_thresh, adhesion_const, viscosity, group, slices, image_quality, background_color,
+                 bound_color, pluri_gata6_high_color, pluri_nanog_high_color, pluri_both_high_color, diff_color,
+                 lonely_cell, contact_inhibit):
 
         """ path: the path to save the simulation information to
             parallel: true / false which determines whether some tasks are run on the GPU
@@ -31,7 +32,6 @@ class Simulation:
                 a pluripotent cell inducing its differentiation
             death_thresh: the value at which a cell dies
             adhesion_const: JKR work of adhesion
-            density: the density of a cell
             group: how many cells are removed or added at once per time step
             slices: the amount of slices taken in the z direction
             image_quality: the dimensions of the output images in pixels
@@ -47,32 +47,34 @@ class Simulation:
         self.num_states = num_states
         self.functions = functions
         self.neighbor_distance = neighbor_distance
-        self.time_step = time_step
+        self.time_step_value = time_step_value
         self.end_time = end_time
         self.move_time_step = move_time_step
         self.pluri_div_thresh = pluri_div_thresh
         self.pluri_to_diff = pluri_to_diff
         self.diff_div_thresh = diff_div_thresh
+        self.boolean_thresh = boolean_thresh
         self.diff_surround = diff_surround
         self.death_thresh = death_thresh
         self.adhesion_const = adhesion_const
         self.viscosity = viscosity
-        self.density = density
         self.group = group
         self.slices = slices
         self.image_quality = image_quality
         self.background_color = background_color
         self.bound_color = bound_color
-        self.pluri_cell_color = pluri_cell_color
-        self.diff_cell_color = diff_cell_color
+        self.pluri_gata6_high_color = pluri_gata6_high_color
+        self.pluri_nanog_high_color = pluri_nanog_high_color
+        self.pluri_both_high_color = pluri_both_high_color
+        self.diff_color = diff_color
         self.lonely_cell = lonely_cell
         self.contact_inhibit = contact_inhibit
 
         # counts how many times an image is created for making videos
         self.image_counter = 0
 
-        # keeps a running count of the simulation time
-        self.time_counter = 0.0
+        # keeps a running count of the simulation steps
+        self.steps_counter = 0
 
         # array to hold all of the Cell objects
         self.cells = np.array([], dtype=np.object)
@@ -94,7 +96,7 @@ class Simulation:
         """ prints information about the simulation as it
             runs. May include more information later
         """
-        print("Time: " + str(self.time_counter))
+        print("Time: " + str(self.steps_counter))
         print("Number of objects: " + str(len(self.cells)))
 
     def initialize_diffusion(self):
@@ -126,12 +128,6 @@ class Simulation:
         """
         for i in range(len(self.cells)):
             self.cells[i].diff_surround(self)
-
-    def change_size_cells(self):
-        """ see Cell.py for description
-        """
-        for i in range(len(self.cells)):
-            self.cells[i].change_size(self)
 
     def add_cell(self, cell):
         """ Adds the cell to both the neighbor graph
@@ -250,7 +246,7 @@ class Simulation:
         time_holder = 0.0
 
         # loops over the following movement functions until time is surpassed
-        while time_holder < self.time_step:
+        while time_holder < self.time_step_value:
             # recheck for new neighbors
             self.check_neighbors()
 
@@ -299,7 +295,7 @@ class Simulation:
             r_hat = ((1 / cell_1.radius) + (1 / cell_2.radius)) ** -1
 
             # used to calculate the max adhesive distance after bond has been already formed
-            overlap_ = (((3.14159 * self.adhesion_const) / e_hat) ** (2 / 3)) * (r_hat ** (1 / 3))
+            overlap_ = (((math.pi * self.adhesion_const) / e_hat) ** (2 / 3)) * (r_hat ** (1 / 3))
 
             # get the nondimensionalized overlap, used for later calculations and checks
             # also for the use of a polynomial approximation of the force
@@ -332,14 +328,14 @@ class Simulation:
         # now re-loops over cells to move them and reduce work energy from kinetic energy
         for i in range(len(self.cells)):
             # stokes law for velocity based on force and fluid viscosity
-            stokes_friction = 6 * 3.14159 * self.viscosity * self.cells[i].radius
+            stokes_friction = 6 * math.pi * self.viscosity * self.cells[i].radius
 
             # update the velocity of the cell based on the solution
             self.cells[i].velocity = self.cells[i].force / stokes_friction
 
             # multiplies the time step by the velocity and adds that vector to the cell's location
             # convert from seconds to hours
-            movement = self.cells[i].velocity * self.move_time_step * 3600
+            movement = self.cells[i].velocity * self.move_time_step
 
             # create a prior location holder
             location = self.cells[i].location

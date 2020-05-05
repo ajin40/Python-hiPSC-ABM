@@ -6,11 +6,11 @@ import random as r
 class Cell:
     """ Class for each cell in the simulation
     """
-    def __init__(self, location, motion, velocity, mass, booleans, state, diff_counter, div_counter, death_counter):
+    def __init__(self, location, radius, motion, velocity, booleans, state, diff_counter, div_counter, death_counter,
+                 boolean_counter):
         """ location: where the cell is located in the space "[x,y,z]"
             motion: whether the cell is moving or not "True or False"
             velocity: the velocity as a vector of the cell
-            mass: the mass of the entire cell
             booleans: array of boolean values for each variable in the boolean network
             state: whether the cell is pluripotent or differentiated
             diff_counter: holds the number of steps until the cell differentiates
@@ -18,14 +18,15 @@ class Cell:
             death_counter: holds the number of steps until the cell dies
         """
         self.location = location
+        self.radius = radius
         self.motion = motion
         self.velocity = velocity
-        self.mass = mass
         self.booleans = booleans
         self.state = state
         self.diff_counter = diff_counter
         self.div_counter = div_counter
         self.death_counter = death_counter
+        self.boolean_counter = boolean_counter
 
         # Youngs modulus 1000 Pa
         self.youngs_mod = 1000
@@ -36,16 +37,12 @@ class Cell:
         # starts the cell off with a zero force vector
         self.force = np.array([0.0, 0.0, 0.0])
 
-        # radius of cell is currently determined based on mass and density held as a float
-        self.radius = 0.0
-
-
     def divide(self, simulation):
         """ produces another cell via mitosis
         """
         # halves the division counter and mass
         self.div_counter *= 0.5
-        self.mass *= 1.0
+        self.boolean_counter = 0
 
         location = self.location + random_point(simulation) * self.radius
 
@@ -63,28 +60,11 @@ class Cell:
             condition_z = 0 <= location[2] <= simulation.size[2]
 
         # creates a new Cell object
-        cell = Cell(location, self.motion, self.velocity, self.mass, self.booleans, self.state, self.diff_counter,
-                    self.div_counter, self.death_counter)
-
-        # adjusts the radii of both cells as division has caused them to change
-        self.change_size(simulation)
-        cell.change_size(simulation)
+        cell = Cell(location, self.radius, self.motion, self.velocity, self.booleans, self.state, self.diff_counter,
+                    self.div_counter, self.death_counter, self.boolean_counter)
 
         # adds the cell to the simulation
         simulation.cells_to_add = np.append(simulation.cells_to_add, [cell])
-
-    def change_size(self, simulation):
-        """ Increases the mass of the cell
-            simulates growth
-        """
-        # increases mass
-        self.mass *= 1.00
-
-        # sets radius depending on if 2D or 3D based on area or volume
-        if simulation.size[2] != 0:
-            self.radius = ((3 * self.mass)/(4 * 3.14159) / simulation.density) ** (1/3)
-        else:
-            self.radius = (((1 * self.mass) / 3.14159) / simulation.density) ** 0.5
 
     def boolean_function(self, fgf4_bool, simulation):
         """ updates the boolean variables of the cell
@@ -175,14 +155,15 @@ class Cell:
 
         # checks to see if the non-moving cell should divide
         if not self.motion:
-            neighbors = list(simulation.neighbor_graph.neighbors(self))
-            if len(neighbors) < simulation.contact_inhibit:
-                if self.state == "Differentiated" and self.div_counter >= simulation.diff_div_thresh:
+            if self.state == "Differentiated" and self.div_counter >= simulation.diff_div_thresh:
+                neighbors = list(simulation.neighbor_graph.neighbors(self))
+                if len(neighbors) < simulation.contact_inhibit:
                     self.divide(simulation)
-                elif self.state == "Pluripotent" and self.div_counter >= simulation.pluri_div_thresh:
-                    self.divide(simulation)
-                else:
-                    self.div_counter += 1
+
+            elif self.state == "Pluripotent" and self.div_counter >= simulation.pluri_div_thresh:
+                self.divide(simulation)
+            else:
+                self.div_counter += 1
 
         # coverts position in space into an integer for array location
         x_step = simulation.extracellular[0].dx
@@ -213,7 +194,10 @@ class Cell:
         tempFGFR = self.booleans[0]
 
         # run the boolean value through the functions
-        fgf4 = self.boolean_function(fgf4_bool, simulation)
+        if self.boolean_counter % simulation.boolean_thresh == 0:
+            fgf4 = self.boolean_function(fgf4_bool, simulation)
+        else:
+            fgf4 = fgf4_bool
 
         # if the temporary FGFR value is 0 and the FGF4 value is 1 decrease the amount of FGF4 by 1
         # this simulates FGFR using FGF4

@@ -65,12 +65,11 @@ class Extracellular:
                     for k in range(self.diffuse_values.shape[2]):
                         self.diffuse_values[i][j][k] = r.random() * self.avg_initial
 
-
     def update(self, simulation):
         """ Updates the environment space by "smoothing"
             the concentrations of the space
         """
-        time_steps = int(simulation.time_step / self.dt)
+        time_steps = int(simulation.time_step_value / self.dt)
 
         a = self.diffuse_values
 

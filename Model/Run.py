@@ -12,7 +12,7 @@ for Simulation in Simulations:
     Simulation.initialize_diffusion()
 
     # This will run the simulation until the end time is reached    (base)
-    while Simulation.time_counter <= Simulation.end_time:
+    while Simulation.steps_counter <= Simulation.end_time:
 
         # Prints number of cells, timestep, amount of cells being removed and added
         Simulation.info()
@@ -29,9 +29,6 @@ for Simulation in Simulations:
         # Updates cells by adjusting trackers for differentiation and division)
         Simulation.update_cells()
 
-        # Represents growth as mass increase and recalculates radii based on mass increases
-        Simulation.change_size_cells()
-
         # Adds/removes objects at once to/from the simulation includes handling collisions when cells are added
         Simulation.update_cell_queue()
 
@@ -44,8 +41,8 @@ for Simulation in Simulations:
         # Saves a 2D image and a .csv file containing key simulation information for each cell     (base)
         Output.save_file(Simulation)
 
-        # Increases the time counter for the while loop    (base)
-        Simulation.time_counter += Simulation.time_step
+        # Increases the steps counter for the while loop    (base)
+        Simulation.steps_counter += 1
 
     # Turns all of the images into a video    (base)
     Output.image_to_video(Simulation)
