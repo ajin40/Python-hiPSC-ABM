@@ -104,7 +104,7 @@ class Simulation:
         """ prints information about the simulation as it
             runs. May include more information later
         """
-        print("Step: " + str(self.steps_counter))
+        print("Step: " + str(self.current_step))
         print("Number of cells: " + str(len(self.cells)))
 
     def initialize_diffusion(self):

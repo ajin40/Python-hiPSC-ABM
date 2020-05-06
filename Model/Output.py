@@ -95,7 +95,7 @@ def draw_image(simulation):
             image.line(lines, fill=simulation.bound_color, width=width)
 
         # saves the image as a .png
-        image_name = "image_" + str(int(simulation.steps_counter)) + "_slice_" + str(int(i)) + ".png"
+        image_name = "image_" + str(int(simulation.current_step)) + "_slice_" + str(int(i)) + ".png"
         base.save(simulation.path + image_name, 'PNG')
 
         # moves to the next slice location
@@ -127,7 +127,7 @@ def create_csv(simulation):
         instance variables from each cell
     """
     # opens .csv file
-    new_file = open(simulation.path + "network_values_" + str(int(simulation.steps_counter)) + ".csv", "w")
+    new_file = open(simulation.path + "network_values_" + str(int(simulation.current_step)) + ".csv", "w")
     csv_write = csv.writer(new_file)
     csv_write.writerow(['X_position', 'Y_position', 'Z_position', 'X_velocity', 'Y_velocity', 'Z_velocity', 'X_force',
                         'Y_force', 'Z_force', 'Motion', 'Radius', 'FGFR', 'ERK', 'GATA6', 'NANOG', 'State',
