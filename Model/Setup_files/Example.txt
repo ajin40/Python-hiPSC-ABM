@@ -129,9 +129,6 @@ Threshold of differentiated cells to denote "contact-inhibition" preventing divi
 Look for the nearest differentiated cell and move closer to it? Based on Guye et al. Ex. True
 [ True ]
 
-Radius of search for nearby differentiated neighbors in meters. Ex. 0.000030
-[ 0.000030 ]
-
-Motility force for cells actively moving. Ex.
+Motility force for cells actively moving. Ex. 0.00000001
 [ 0.00000001 ]
 -----------------------------------------------------------------------------------------------------------------------
