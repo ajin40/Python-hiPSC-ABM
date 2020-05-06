@@ -9,7 +9,7 @@ class Simulation:
     """
 
     def __init__(self, path, parallel, size, resolution, num_states, functions, neighbor_distance, time_step_value,
-                 end_time, move_time_step, pluri_div_thresh, pluri_to_diff, diff_div_thresh, boolean_thresh,
+                 total_steps, move_time_step, pluri_div_thresh, pluri_to_diff, diff_div_thresh, boolean_thresh,
                  diff_surround, death_thresh, adhesion_const, viscosity, group, slices, image_quality, background_color,
                  bound_color, pluri_gata6_high_color, pluri_nanog_high_color, pluri_both_high_color, diff_color,
                  lonely_cell, contact_inhibit, guye_move, motility_force):
@@ -48,7 +48,7 @@ class Simulation:
         self.functions = functions
         self.neighbor_distance = neighbor_distance
         self.time_step_value = time_step_value
-        self.end_time = end_time
+        self.total_steps = total_steps
         self.move_time_step = move_time_step
         self.pluri_div_thresh = pluri_div_thresh
         self.pluri_to_diff = pluri_to_diff
@@ -76,7 +76,7 @@ class Simulation:
         self.image_counter = 0
 
         # keeps a running count of the simulation steps
-        self.steps_counter = 0
+        self.current_step = 0
 
         # array to hold all of the Cell objects
         self.cells = np.array([], dtype=np.object)
@@ -104,8 +104,8 @@ class Simulation:
         """ prints information about the simulation as it
             runs. May include more information later
         """
-        print("Time: " + str(self.steps_counter))
-        print("Number of objects: " + str(len(self.cells)))
+        print("Step: " + str(self.steps_counter))
+        print("Number of cells: " + str(len(self.cells)))
 
     def initialize_diffusion(self):
         """ see Extracellular.py for description

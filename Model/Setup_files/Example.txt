@@ -6,7 +6,7 @@ This is the template for running a simulation. Good luck!
 General Parameters
 -----------------------------------------------------------------------------------------------------------------------
 What is the name of the simulation? Ex. "Run_30"
-[ "Run_14" ]
+[ "Run_3" ]
 
 Do you want the simulation to use parallel GPU processing? Ex. True
 [ False ]
@@ -42,13 +42,13 @@ How often are the Boolean values for each cell updated? Ex. 10
 [ 10 ]
 
 Number of steps required for a pluripotent cell to divide. Ex. 24
-[ 24 ]
-
-Number of steps required for a pluripotent cell to differentiate. Ex. 36
 [ 36 ]
 
+Number of steps required for a pluripotent cell to differentiate. Ex. 36
+[ 120 ]
+
 Number of steps required for a differentiated cell to divide. Ex. 24
-[ 24 ]
+[ 36 ]
 
 Number of steps required for a lonely cell to die. Ex. 36
 [ 24 ]
@@ -103,7 +103,7 @@ Pluripotent NANOG high or GATA6/NANOG low cell color as RGB. Ex. (0, 153, 0)
 [ (0, 153, 0) ]
 
 Pluripotent GATA6/NANOG high cell color. Ex. (0, 0, 0)
-[ (0, 0, 0) ]
+[ (51, 51, 255) ]
 
 Differentiated cell color as RGB. Ex. (255, 0, 0)
 [ (255, 0, 0) ]
@@ -129,6 +129,6 @@ Threshold of differentiated cells to denote "contact-inhibition" preventing divi
 Look for the nearest differentiated cell and move closer to it? Based on Guye et al. Ex. True
 [ True ]
 
-Motility force for cells actively moving. Ex. 0.00000001
+Motility force for cells actively moving. Ex.
 [ 0.00000001 ]
 -----------------------------------------------------------------------------------------------------------------------

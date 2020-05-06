@@ -50,7 +50,7 @@ def setup():
         _num_states = int(parameters[29][2:-3])
 
         # timing
-        _end_time = int(parameters[35][2:-3])
+        _total_steps = int(parameters[35][2:-3])
         _time_step_value = float(parameters[38][2:-3])
         _boolean_thresh = int(parameters[41][2:-3])
         _pluri_div_thresh = int(parameters[44][2:-3])
@@ -92,7 +92,7 @@ def setup():
 
         # initializes simulation class which holds all information about the simulation
         simulation = Simulation.Simulation(_path, _parallel, _size, _resolution, _num_states, _functions,
-                                           _neighbor_distance, _time_step_value, _end_time, _move_time_step,
+                                           _neighbor_distance, _time_step_value, _total_steps, _move_time_step,
                                            _pluri_div_thresh, _pluri_to_diff, _diff_div_thresh, _boolean_thresh,
                                            _diff_surround, _death_thresh, _adhesion_const, _viscosity, _group, _slices,
                                            _image_quality, _background_color, _bound_color, _pluri_gata6_high_color,
