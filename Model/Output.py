@@ -114,7 +114,7 @@ def image_to_video(simulation):
     out = cv2.VideoWriter(video_path, cv2.VideoWriter_fourcc("M", "J", "P", "G"), 1.0, image_quality)
 
     # loops over all images and writes them to the base video file
-    for i in range(simulation.image_counter):
+    for i in range(1, simulation.image_counter + 1):
         path = simulation.path + "image_" + str(i) + "_slice_0" + ".png"
         image = cv2.imread(path)
         out.write(image)
@@ -127,37 +127,31 @@ def create_csv(simulation):
         instance variables from each cell
     """
     # opens .csv file
-    new_file = open(simulation.path + "network_values_" + str(int(simulation.current_step)) + ".csv", "w")
+    new_file = open(simulation.path + "network_values_" + str(int(simulation.current_step)) + ".csv", "w", newline="")
     csv_write = csv.writer(new_file)
-    csv_write.writerow(['X_position', 'Y_position', 'Z_position', 'X_velocity', 'Y_velocity', 'Z_velocity', 'X_force',
-                        'Y_force', 'Z_force', 'Motion', 'Radius', 'FGFR', 'ERK', 'GATA6', 'NANOG', 'State',
-                        'Differentiation_counter', 'Division_counter', 'Death_counter'])
+    csv_write.writerow(['X_position', 'Y_position', 'Z_position', 'Motion', 'Radius', 'FGFR', 'ERK', 'GATA6', 'NANOG',
+                        'State', 'Differentiation_counter', 'Division_counter', 'Death_counter', 'Boolean_counter'])
 
     # each row is a different cell
     for i in range(len(simulation.cells)):
-        x_pos = round(simulation.cells[i].location[0], 14)
-        y_pos = round(simulation.cells[i].location[1], 14)
-        z_pos = round(simulation.cells[i].location[2], 14)
-        x_vel = round(simulation.cells[i].velocity[0], 14)
-        y_vel = round(simulation.cells[i].velocity[1], 14)
-        z_vel = round(simulation.cells[i].velocity[2], 14)
-        x_force = round(simulation.cells[i].force[0], 14)
-        y_force = round(simulation.cells[i].force[1], 14)
-        z_force = round(simulation.cells[i].force[2], 14)
-        motion = simulation.cells[i].motion
+        location_x = round(simulation.cells[i].location[0], 8)
+        location_y = round(simulation.cells[i].location[1], 8)
+        location_z = round(simulation.cells[i].location[2], 8)
         radius = simulation.cells[i].radius
+        motion = simulation.cells[i].motion
         fgfr = simulation.cells[i].booleans[0]
         erk = simulation.cells[i].booleans[1]
         gata = simulation.cells[i].booleans[2]
         nanog = simulation.cells[i].booleans[3]
         state = simulation.cells[i].state
-        diff = round(simulation.cells[i].diff_counter, 1)
-        div = round(simulation.cells[i].div_counter, 1)
-        death = round(simulation.cells[i].death_counter, 1)
+        diff_counter = simulation.cells[i].diff_counter
+        div_counter = simulation.cells[i].div_counter
+        death_counter = simulation.cells[i].death_counter
+        bool_counter = simulation.cells[i].boolean_counter
 
         # writes the row for the cell
-        csv_write.writerow([x_pos, y_pos, z_pos, x_vel, y_vel, z_vel, x_force, y_force, z_force, motion, radius,
-                            fgfr, erk, gata, nanog, state, diff, div, death])
+        csv_write.writerow([location_x, location_y, location_z, radius, motion, fgfr, erk, gata, nanog, state,
+                            diff_counter, div_counter, death_counter, bool_counter])
 
 def save_file(simulation):
     """ Saves the simulation txt files

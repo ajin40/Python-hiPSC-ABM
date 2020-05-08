@@ -7,7 +7,6 @@ Removing such lines will cause the model to either run incorrectly or not at all
 or delete any functions that are not labeled in this fashion. Add any necessary functions here to
 incorporate them into the model.
 
-
 Input.py and Output.py are standalone files that are not part of any class. Input reads the
 template files and creates an instance of the Simulation class, which holds all created cell
 and extracellular objects. Output will take the Simulation and create images, CSVs, and a
@@ -26,12 +25,9 @@ for simulation in list_of_simulations:
     # Adds the initial concentration amounts to the space for each instance of the extracellular class    (base)
     simulation.initialize_diffusion()
 
-    # Saves a snapshot of the simulation at the given step. This includes images and a CSV file.     (base)
-    Output.image_to_video(simulation)
-
     # This will loop over all steps. The first image and CSV produced are based on starting conditions. The
     # following outputs are representative of one step run by the model.    (base)
-    for step in range(1, simulation.total_steps + 1):
+    for step in range(simulation.beginning_step, simulation.end_step + 1):
 
         # Updates the simulation instance variable to the current step number.    (base)
         simulation.current_step = step

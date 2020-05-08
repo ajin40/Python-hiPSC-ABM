@@ -6,7 +6,7 @@ import random as r
 class Cell:
     """ Class for each cell in the simulation
     """
-    def __init__(self, location, radius, motion, velocity, booleans, state, diff_counter, div_counter, death_counter,
+    def __init__(self, location, radius, motion, booleans, state, diff_counter, div_counter, death_counter,
                  boolean_counter):
         """ location: where the cell is located in the space "[x,y,z]"
             motion: whether the cell is moving or not "True or False"
@@ -20,7 +20,6 @@ class Cell:
         self.location = location
         self.radius = radius
         self.motion = motion
-        self.velocity = velocity
         self.booleans = booleans
         self.state = state
         self.diff_counter = diff_counter
@@ -37,10 +36,16 @@ class Cell:
         # starts the cell off with a zero force vector
         self.force = np.array([0.0, 0.0, 0.0])
 
+        self.velocity = np.array([0.0, 0.0, 0.0])
+
     def motility(self, simulation):
         """ applies forces to each cell based on chemotactic
             or random movement
         """
+        neighbors = list(simulation.neighbor_graph.neighbors(self))
+        if len(neighbors) >= 1:
+            self.motion = False
+
         # continue if the cell is actively moving
         if self.motion:
             # continue if conditions are met
@@ -74,27 +79,6 @@ class Cell:
                 # if no differentiated cells, move randomly
                 self.force += random_point(simulation) * simulation.motility_force
 
-            # check if cell is differentiated
-            if self.state == "Differentiated":
-                # get nearby cells
-                neighbors = list(simulation.neighbor_graph.neighbors(self))
-
-                # if any nearby cells are differentiated set motion to false
-                for i in range(len(neighbors)):
-                    if neighbors[i].state == "Differentiated":
-                        self.motion = False
-                        break
-
-            # if the cell is pluripotent and meets boolean conditions
-            if self.booleans[3] == 1 and self.booleans[2] == 0 and self.state == "Pluripotent":
-                neighbors = list(simulation.neighbor_graph.neighbors(self))
-                for i in range(len(neighbors)):
-                    # if another cell has similar characteristics set motion to false
-                    if neighbors[i].booleans[3] == 1 and neighbors[i].booleans[2] == 0 and neighbors[i].state == "Pluripotent":
-                        self.motion = False
-                        break
-
-
     def divide(self, simulation):
         """ produces another cell via mitosis
         """
@@ -118,8 +102,8 @@ class Cell:
             condition_z = 0 <= location[2] <= simulation.size[2]
 
         # creates a new Cell object
-        cell = Cell(location, self.radius, self.motion, self.velocity, self.booleans, self.state, self.diff_counter,
-                    self.div_counter, self.death_counter, self.boolean_counter)
+        cell = Cell(location, self.radius, self.motion, self.booleans, self.state, self.diff_counter, self.div_counter,
+                    self.death_counter, self.boolean_counter)
 
         # adds the cell to the simulation
         simulation.cells_to_add = np.append(simulation.cells_to_add, [cell])
@@ -208,52 +192,53 @@ class Cell:
             else:
                 self.div_counter += 1
 
-        # coverts position in space into an integer for array location
-        x_step = simulation.extracellular[0].dx
-        y_step = simulation.extracellular[0].dy
-        z_step = simulation.extracellular[0].dz
+        if simulation.current_step >= simulation.dox_step:
+            # coverts position in space into an integer for array location
+            x_step = simulation.extracellular[0].dx
+            y_step = simulation.extracellular[0].dy
+            z_step = simulation.extracellular[0].dz
 
-        half_index_x = self.location[0] // (x_step / 2)
-        half_index_y = self.location[1] // (y_step / 2)
-        half_index_z = self.location[2] // (z_step / 2)
+            half_index_x = self.location[0] // (x_step / 2)
+            half_index_y = self.location[1] // (y_step / 2)
+            half_index_z = self.location[2] // (z_step / 2)
 
-        index_x = math.ceil(half_index_x / 2)
-        index_y = math.ceil(half_index_y / 2)
-        index_z = math.ceil(half_index_z / 2)
+            index_x = math.ceil(half_index_x / 2)
+            index_y = math.ceil(half_index_y / 2)
+            index_z = math.ceil(half_index_z / 2)
 
-        # if a certain spot of the grid is less than the max FGF4 it can hold and the cell is NANOG high increase the
-        # FGF4 by 1
-        if simulation.extracellular[0].diffuse_values[index_x][index_y][index_z] < simulation.extracellular[0].maximum \
-                and self.booleans[3] == 1:
-            simulation.extracellular[0].diffuse_values[index_x][index_y][index_z] += 1
+            # if a certain spot of the grid is less than the max FGF4 it can hold and the cell is NANOG high increase the
+            # FGF4 by 1
+            if simulation.extracellular[0].diffuse_values[index_x][index_y][index_z] < simulation.extracellular[0].maximum \
+                    and self.booleans[3] == 1:
+                simulation.extracellular[0].diffuse_values[index_x][index_y][index_z] += 1
 
-        # if the FGF4 amount for the location is greater than 0, set the fgf4_bool value to be 1 for the functions
-        if simulation.extracellular[0].diffuse_values[index_x][index_y][index_z] > 0:
-            fgf4_bool = 1
-        else:
-            fgf4_bool = 0
+            # if the FGF4 amount for the location is greater than 0, set the fgf4_bool value to be 1 for the functions
+            if simulation.extracellular[0].diffuse_values[index_x][index_y][index_z] > 0:
+                fgf4_bool = 1
+            else:
+                fgf4_bool = 0
 
-        # temporarily hold the FGFR value
-        tempFGFR = self.booleans[0]
+            # temporarily hold the FGFR value
+            tempFGFR = self.booleans[0]
 
-        # run the boolean value through the functions
-        if self.boolean_counter % simulation.boolean_thresh == 0:
-            fgf4 = self.boolean_function(fgf4_bool, simulation)
-        else:
-            fgf4 = fgf4_bool
+            # run the boolean value through the functions
+            if self.boolean_counter % simulation.boolean_thresh == 0:
+                fgf4 = self.boolean_function(fgf4_bool, simulation)
+            else:
+                fgf4 = fgf4_bool
 
-        # if the temporary FGFR value is 0 and the FGF4 value is 1 decrease the amount of FGF4 by 1
-        # this simulates FGFR using FGF4
+            # if the temporary FGFR value is 0 and the FGF4 value is 1 decrease the amount of FGF4 by 1
+            # this simulates FGFR using FGF4
 
-        if tempFGFR == 0 and fgf4 == 1 and simulation.extracellular[0].diffuse_values[index_x][index_y][index_z] >= 1:
-            simulation.extracellular[0].diffuse_values[index_x][index_y][index_z] -= 1
+            if tempFGFR == 0 and fgf4 == 1 and simulation.extracellular[0].diffuse_values[index_x][index_y][index_z] >= 1:
+                simulation.extracellular[0].diffuse_values[index_x][index_y][index_z] -= 1
 
-        # if the cell is GATA6 high and Pluripotent increase the differentiation counter by 1
-        if self.booleans[2] == 1 and self.state == "Pluripotent":
-            self.diff_counter += 1
-            # if the differentiation counter is greater than the threshold, differentiate
-            if self.diff_counter >= simulation.pluri_to_diff:
-                self.differentiate()
+            # if the cell is GATA6 high and Pluripotent increase the differentiation counter by 1
+            if self.booleans[2] == 1 and self.state == "Pluripotent":
+                self.diff_counter += 1
+                # if the differentiation counter is greater than the threshold, differentiate
+                if self.diff_counter >= simulation.pluri_to_diff:
+                    self.differentiate()
 
 
 def random_point(simulation):

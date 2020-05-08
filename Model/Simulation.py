@@ -2,17 +2,15 @@ import numpy as np
 import networkx as nx
 import math
 
-import Parallel
-
 class Simulation:
     """ Initialization called once for each simulation. Class holds all information about each simulation as a whole
     """
 
     def __init__(self, path, parallel, size, resolution, num_states, functions, neighbor_distance, time_step_value,
-                 total_steps, move_time_step, pluri_div_thresh, pluri_to_diff, diff_div_thresh, boolean_thresh,
-                 diff_surround, death_thresh, adhesion_const, viscosity, group, slices, image_quality, background_color,
-                 bound_color, pluri_gata6_high_color, pluri_nanog_high_color, pluri_both_high_color, diff_color,
-                 lonely_cell, contact_inhibit, guye_move, motility_force):
+                 beginning_step, end_step, move_time_step, pluri_div_thresh, pluri_to_diff, diff_div_thresh,
+                 boolean_thresh, diff_surround, death_thresh, adhesion_const, viscosity, group, slices, image_quality,
+                 background_color, bound_color, pluri_gata6_high_color, pluri_nanog_high_color, pluri_both_high_color,
+                 diff_color, lonely_cell, contact_inhibit, guye_move, motility_force, dox_step):
 
         """ path: the path to save the simulation information to
             parallel: true / false which determines whether some tasks are run on the GPU
@@ -48,7 +46,8 @@ class Simulation:
         self.functions = functions
         self.neighbor_distance = neighbor_distance
         self.time_step_value = time_step_value
-        self.total_steps = total_steps
+        self.beginning_step = beginning_step
+        self.end_step = end_step
         self.move_time_step = move_time_step
         self.pluri_div_thresh = pluri_div_thresh
         self.pluri_to_diff = pluri_to_diff
@@ -71,12 +70,13 @@ class Simulation:
         self.contact_inhibit = contact_inhibit
         self.guye_move = guye_move
         self.motility_force = motility_force
+        self.dox_step = dox_step
 
         # counts how many times an image is created for making videos
-        self.image_counter = 0
+        self.image_counter = self.beginning_step
 
         # keeps a running count of the simulation steps
-        self.current_step = 0
+        self.current_step = self.beginning_step
 
         # array to hold all of the Cell objects
         self.cells = np.array([], dtype=np.object)
@@ -223,9 +223,10 @@ class Simulation:
 
         # tries to run the parallel version of this function
         if self.parallel:
+            import Parallel
             Parallel.check_neighbors_gpu(self)
         else:
-
+            # distance threshold between two cells to designate a neighbor
             distance = self.neighbor_distance
 
             # divides the environment into blocks
