@@ -108,7 +108,7 @@ def setup():
 
         # get the path for the output of files based on if this is a continuation or new simulation
         if continue_condition:
-            _path = output_path + _name
+            _path = output_path + _name + separator
         else:
             _path = check_name(output_path, _name, separator)
             shutil.copy(input_path + separator + file, _path)

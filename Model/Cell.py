@@ -129,7 +129,7 @@ class Cell:
         new_nanog = eval(function_list[4]) % simulation.num_states
 
         # updates self.booleans with the new boolean values and returns the new fgf4 value
-        self.booleans = np.array([new_fgf4, new_fgfr, new_erk, new_gata6, new_nanog])
+        self.booleans = np.array([new_fgfr, new_erk, new_gata6, new_nanog])
         return new_fgf4
 
     def differentiate(self):
@@ -226,6 +226,8 @@ class Cell:
                 fgf4 = self.boolean_function(fgf4_bool, simulation)
             else:
                 fgf4 = fgf4_bool
+
+            self.boolean_counter += 1
 
             # if the temporary FGFR value is 0 and the FGF4 value is 1 decrease the amount of FGF4 by 1
             # this simulates FGFR using FGF4

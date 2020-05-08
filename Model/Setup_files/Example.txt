@@ -6,7 +6,7 @@ This is the template for running a simulation. Good luck!
 General Parameters
 -----------------------------------------------------------------------------------------------------------------------
 What is the name of the simulation? Ex. "Run_30"
-[ "Run_3" ]
+[ "Run_4" ]
 
 Do you want the simulation to use parallel GPU processing? Ex. True
 [ False ]
@@ -18,10 +18,10 @@ What is resolution of the space? Ex. (dx, dy, dz)
 [ (1.0, 1.0, 1.0) ]
 
 How many cells will be GATA6 high to begin the simulation? Ex. 247
-[ 0 ]
+[ 500 ]
 
 How many cells will be NANOG high to begin the simulation? Ex. 91
-[ 2000 ]
+[ 500 ]
 
 Define the finite dynamical system functions below. Ex. ("x5", "x4 * x2",...)
 [ ("x5", "x1 * x4 + x1 + x4", "x2", "x5 + 1", "(x3+1) * (x4+1)") ]
@@ -33,23 +33,23 @@ Number of states within the finite dynamical system. Currently 2 because the sys
 Timing
 -----------------------------------------------------------------------------------------------------------------------
 What will the final step number be? Ex. 30
-[ 4 ]
+[ 36 ]
 
 If this simulation is a continuation of a previous simulation, what will be the next step? If this is the first time
 running a simulation, type 1. Ex. 24
-[ 3 ]
+[ 1 ]
 
 How long is each time step in seconds? Ex. 3600
 [ 1800 ]
 
 How often are the Boolean values for each cell updated? Ex. 10
-[ 2 ]
+[ 1 ]
 
 Number of steps required for a pluripotent cell to divide. Ex. 24
 [ 36 ]
 
 Number of steps required for a pluripotent cell to differentiate. Ex. 36
-[ 120 ]
+[ 144 ]
 
 Number of steps required for a differentiated cell to divide. Ex. 24
 [ 72 ]
@@ -137,5 +137,5 @@ Motility force for cells actively moving. Ex. 0.00000001
 [ 0.00000001 ]
 
 At what step is doxycycline added to the simulation? If it is not added, choose a step beyond the end step. Ex. 24
-[ 10 ]
+[ 1 ]
 -----------------------------------------------------------------------------------------------------------------------

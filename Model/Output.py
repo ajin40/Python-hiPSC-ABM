@@ -60,14 +60,17 @@ def draw_image(simulation):
             y = dilation_y * location[1]
 
             # coloring of the cells
-            if simulation.cells[j].state == "Differentiated":
-                color = simulation.diff_color
-            elif simulation.cells[j].booleans[2] == 1 and simulation.cells[j].booleans[3] == 1:
-                color = simulation.pluri_both_high_color
-            elif simulation.cells[j].booleans[2] == 1:
-                color = simulation.pluri_gata6_high_color
-            elif simulation.cells[j].booleans[3] == 1:
-                color = simulation.pluri_nanog_high_color
+            if simulation.current_step >= simulation.dox_step:
+                if simulation.cells[j].state == "Differentiated":
+                    color = simulation.diff_color
+                elif simulation.cells[j].booleans[2] == 1 and simulation.cells[j].booleans[3] == 1:
+                    color = simulation.pluri_both_high_color
+                elif simulation.cells[j].booleans[2] == 1:
+                    color = simulation.pluri_gata6_high_color
+                elif simulation.cells[j].booleans[3] == 1:
+                    color = simulation.pluri_nanog_high_color
+                else:
+                    color = simulation.pluri_nanog_high_color
             else:
                 color = simulation.pluri_nanog_high_color
 
@@ -121,6 +124,7 @@ def image_to_video(simulation):
 
     # releases the file
     out.release()
+    print("Done")
 
 def create_csv(simulation):
     """ Outputs a .csv file of important Cell
