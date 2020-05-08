@@ -6,7 +6,7 @@ This is the template for running a simulation. Good luck!
 General Parameters
 -----------------------------------------------------------------------------------------------------------------------
 What is the name of the simulation? Ex. "Run_30"
-[ "Run_1" ]
+[ "Run_3" ]
 
 Do you want the simulation to use parallel GPU processing? Ex. True
 [ False ]
@@ -33,11 +33,11 @@ Number of states within the finite dynamical system. Currently 2 because the sys
 Timing
 -----------------------------------------------------------------------------------------------------------------------
 What will the final step number be? Ex. 30
-[ 60 ]
+[ 4 ]
 
 If this simulation is a continuation of a previous simulation, what will be the next step? If this is the first time
 running a simulation, type 1. Ex. 24
-[ 1 ]
+[ 3 ]
 
 How long is each time step in seconds? Ex. 3600
 [ 1800 ]

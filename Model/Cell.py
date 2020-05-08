@@ -111,6 +111,7 @@ class Cell:
     def boolean_function(self, fgf4_bool, simulation):
         """ updates the boolean variables of the cell
         """
+        # gets the functions from the simulation
         function_list = simulation.functions
 
         # xn is equal to the value corresponding to its function
@@ -121,16 +122,15 @@ class Cell:
         x5 = self.booleans[3]
 
         # evaluate the functions by turning them from strings to math equations
-        new_1 = eval(function_list[0]) % simulation.num_states
-        new_2 = eval(function_list[1]) % simulation.num_states
-        new_3 = eval(function_list[2]) % simulation.num_states
-        new_4 = eval(function_list[3]) % simulation.num_states
-        new_5 = eval(function_list[4]) % simulation.num_states
+        new_fgf4 = eval(function_list[0]) % simulation.num_states
+        new_fgfr = eval(function_list[1]) % simulation.num_states
+        new_erk = eval(function_list[2]) % simulation.num_states
+        new_gata6 = eval(function_list[3]) % simulation.num_states
+        new_nanog = eval(function_list[4]) % simulation.num_states
 
-        # updates self.booleans with the new boolean values
-        self.booleans = np.array([new_2, new_3, new_4, new_5])
-
-        return new_1
+        # updates self.booleans with the new boolean values and returns the new fgf4 value
+        self.booleans = np.array([new_fgf4, new_fgfr, new_erk, new_gata6, new_nanog])
+        return new_fgf4
 
     def differentiate(self):
         """ differentiates the cell and updates the boolean values
@@ -179,7 +179,6 @@ class Cell:
         """ updates many of the instance variables
             of the cell
         """
-
         # checks to see if the non-moving cell should divide
         if not self.motion:
             if self.state == "Differentiated" and self.div_counter >= simulation.diff_div_thresh:
@@ -192,6 +191,7 @@ class Cell:
             else:
                 self.div_counter += 1
 
+        # activate the following pathway based on if dox has been induced yet
         if simulation.current_step >= simulation.dox_step:
             # coverts position in space into an integer for array location
             x_step = simulation.extracellular[0].dx
@@ -239,7 +239,6 @@ class Cell:
                 # if the differentiation counter is greater than the threshold, differentiate
                 if self.diff_counter >= simulation.pluri_to_diff:
                     self.differentiate()
-
 
 def random_point(simulation):
     """ Computes a random point on a unit sphere centered at the origin

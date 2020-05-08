@@ -37,10 +37,12 @@ def setup():
     input_path = locations_list[1].strip()
     output_path = locations_list[4].strip()
 
+    # location of the template file used for initial parameters
     files = os.listdir(input_path)
 
     # loops over all of the files in the director and turns the file lines into a list
     for file in files:
+        # let user know that all files in the Setup_files directory should be .txt
         if not file.endswith(".txt"):
             print("All files in Setup_files should be template files used for simulation setup.")
 
@@ -101,17 +103,12 @@ def setup():
         _motility_force = float(parameters[136][2:-3])
         _dox_step = int(parameters[139][2:-3])
 
+        # used to identify if this simulation is a continuation of a previous simulation
         continue_condition = _beginning_step != 1
 
+        # get the path for the output of files based on if this is a continuation or new simulation
         if continue_condition:
-            try:
-                _path = output_path + _name + separator
-                shutil.copy(input_path + separator + file, _path)
-            except OSError:
-                print("Previous simulation does not exist. If you do not wish to extend a simulation, change the "
-                      "starting step to 1.")
-                exit()
-
+            _path = output_path + _name
         else:
             _path = check_name(output_path, _name, separator)
             shutil.copy(input_path + separator + file, _path)
@@ -126,7 +123,6 @@ def setup():
                                            _diff_color, _lonely_cell, _contact_inhibit, _guye_move, _motility_force,
                                            _dox_step)
 
-
         # loops over the gradients and adds them to the simulation
         for i in range(len(_extracellular)):
 
@@ -136,41 +132,41 @@ def setup():
             # adds the Extracellular object
             simulation.extracellular = np.append(simulation.extracellular, [new_extracellular])
 
+        # if this is a continuation of previous simulation, we need to look at previous .csv for cell info
         if continue_condition:
+            # gets the previous .csv file by subtracting the beginning step by 1
+            previous_file_name = simulation.path + "network_values_" + str(simulation.beginning_step - 1) + ".csv"
+            previous_file = open(previous_file_name, "r", newline="")
+            csv_rows = list(csv.reader(previous_file))
 
-            previous = open(simulation.path + "network_values_" + str(simulation.beginning_step - 1) + ".csv", "r", newline="")
-            rows = list(csv.reader(previous))
-
-            for row in rows[1:]:
-
-                location = np.array([eval(row[0]), eval(row[1]), eval(row[2])])
+            # loop over all rows in the csv, each line represents a cell
+            for row in csv_rows[1:]:
+                # get the parameters from each row in the csv
+                location_x, location_y, location_z = eval(row[0]), eval(row[1]), eval(row[2])
+                location = np.array([location_x, location_y, location_z])
                 radius = eval(row[3])
                 motion = eval(row[4])
-                booleans = np.array([eval(row[5]), eval(row[6]), eval(row[7]), eval(row[8])])
+                fgfr, erk, gata6, nanog = eval(row[5]), eval(row[6]), eval(row[7]), eval(row[8])
+                booleans = np.array([fgfr, erk, gata6, nanog])
                 state = row[9]
                 diff_counter = eval(row[10])
-                division_counter = eval(row[11])
+                div_counter = eval(row[11])
                 death_counter = eval(row[12])
                 boolean_counter = eval(row[13])
 
-                cell = Cell.Cell(location, radius, motion, booleans, state, diff_counter, division_counter,
+                # create instance of cell class based on the following parameters taken from the last csv
+                cell = Cell.Cell(location, radius, motion, booleans, state, diff_counter, div_counter,
                                  death_counter, boolean_counter)
 
                 # adds object to simulation instance
                 simulation.add_cell(cell)
 
-
+        # if this simulation is not a continuation
         else:
             # loops over all cells and creates a stem cell object for each one with given parameters
             for i in range(_num_NANOG + _num_GATA6):
-
-                # gives random location in environment
-                location = np.array([r.random() * _size[0], r.random() * _size[1], r.random() * _size[2]])
-
-                # start the cells as Pluripotent, moving, and preset mass
-                state = "Pluripotent"
-                motion = True
-                radius = _radius
+                # gives random location in the space
+                _location = np.array([r.random() * _size[0], r.random() * _size[1], r.random() * _size[2]])
 
                 # give the cells starting states for the finite dynamical system
                 if i < _num_NANOG:
@@ -185,14 +181,14 @@ def setup():
                         booleans = np.array([0, 0, 1, 0])
 
                 # randomize the starting counters for differentiation, division, and death
-                diff_counter = r.randint(0, _pluri_to_diff)
-                division_counter = r.randint(0, _pluri_div_thresh)
-                death_counter = r.randint(0, _death_thresh)
-                boolean_counter = r.randint(0, _boolean_thresh)
+                _diff_counter = r.randint(0, _pluri_to_diff)
+                _div_counter = r.randint(0, _pluri_div_thresh)
+                _death_counter = r.randint(0, _death_thresh)
+                _boolean_counter = r.randint(0, _boolean_thresh)
 
                 # creates instance of Cell class
-                cell = Cell.Cell(location, radius, motion, booleans, state, diff_counter, division_counter,
-                                 death_counter, boolean_counter)
+                cell = Cell.Cell(_location, _radius, True, booleans, "Pluripotent", _diff_counter, _div_counter,
+                                 _death_counter, _boolean_counter)
 
                 # adds object to simulation instance
                 simulation.add_cell(cell)
