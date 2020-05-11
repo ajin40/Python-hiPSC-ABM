@@ -1,6 +1,7 @@
 import numpy as np
 import networkx as nx
 import math
+import time
 
 class Simulation:
     """ Initialization called once for each simulation. Class holds all information about each simulation as a whole
@@ -10,7 +11,7 @@ class Simulation:
                  beginning_step, end_step, move_time_step, pluri_div_thresh, pluri_to_diff, diff_div_thresh,
                  boolean_thresh, diff_surround, death_thresh, adhesion_const, viscosity, group, slices, image_quality,
                  background_color, bound_color, pluri_gata6_high_color, pluri_nanog_high_color, pluri_both_high_color,
-                 diff_color, lonely_cell, contact_inhibit, guye_move, motility_force, dox_step):
+                 diff_color, lonely_cell, contact_inhibit, guye_move, motility_force, dox_step, max_radius):
 
         """ path: the path to save the simulation information to
             parallel: true / false which determines whether some tasks are run on the GPU
@@ -71,6 +72,7 @@ class Simulation:
         self.guye_move = guye_move
         self.motility_force = motility_force
         self.dox_step = dox_step
+        self.max_radius = max_radius
 
         # counts how many times an image is created for making videos
         self.image_counter = self.beginning_step
@@ -99,6 +101,12 @@ class Simulation:
 
         # holds all of the differentiated cells
         self.diff_cells = np.array([], dtype=np.object)
+
+        self.min_radius = self.max_radius / 2 ** 0.5
+
+        self.pluri_growth = (self.max_radius - self.min_radius) / self.pluri_div_thresh
+
+        self.diff_growth = (self.max_radius - self.min_radius) / self.diff_div_thresh
 
     def info(self):
         """ prints information about the simulation as it
@@ -223,8 +231,12 @@ class Simulation:
 
         # tries to run the parallel version of this function
         if self.parallel:
+            start = time.time()
             import Parallel
             Parallel.check_neighbors_gpu(self)
+            end = time.time()
+            print(end-start)
+
         else:
             # distance threshold between two cells to designate a neighbor
             distance = self.neighbor_distance
@@ -264,6 +276,7 @@ class Simulation:
                                 if cells_in_block[l] != self.cells[h]:
                                     if np.linalg.norm(cells_in_block[l].location - self.cells[h].location) <= distance:
                                         self.neighbor_graph.add_edge(self.cells[h], cells_in_block[l])
+
 
     def handle_movement(self):
         """ runs the following functions together for a

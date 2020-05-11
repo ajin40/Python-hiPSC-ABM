@@ -102,6 +102,7 @@ def setup():
         _guye_move = bool(parameters[133][2:-3])
         _motility_force = float(parameters[136][2:-3])
         _dox_step = int(parameters[139][2:-3])
+        _max_radius = float(parameters[142][2:-3])
 
         # used to identify if this simulation is a continuation of a previous simulation
         continue_condition = _beginning_step != 1
@@ -121,7 +122,7 @@ def setup():
                                            _group, _slices, _image_quality, _background_color, _bound_color,
                                            _pluri_gata6_high_color, _pluri_nanog_high_color, _pluri_both_high_color,
                                            _diff_color, _lonely_cell, _contact_inhibit, _guye_move, _motility_force,
-                                           _dox_step)
+                                           _dox_step, _max_radius)
 
         # loops over the gradients and adds them to the simulation
         for i in range(len(_extracellular)):
@@ -186,8 +187,10 @@ def setup():
                 _death_counter = r.randint(0, _death_thresh)
                 _boolean_counter = r.randint(0, _boolean_thresh)
 
+                radius = simulation.min_radius + simulation.pluri_growth * _div_counter
+
                 # creates instance of Cell class
-                cell = Cell.Cell(_location, _radius, True, booleans, "Pluripotent", _diff_counter, _div_counter,
+                cell = Cell.Cell(_location, radius, True, booleans, "Pluripotent", _diff_counter, _div_counter,
                                  _death_counter, _boolean_counter)
 
                 # adds object to simulation instance

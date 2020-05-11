@@ -86,7 +86,12 @@ class Cell:
         self.div_counter *= 0.5
         self.boolean_counter = 0
 
-        location = self.location + random_point(simulation) * self.radius
+        point = random_point(simulation) * self.radius
+
+        location = self.location + point
+        self.location -= point
+
+        self.radius = simulation.min_radius
 
         # makes sure the new cell's location is on the grid
         condition_x = 0 <= location[0] <= simulation.size[0]
@@ -179,6 +184,12 @@ class Cell:
         """ updates many of the instance variables
             of the cell
         """
+        if self.radius < simulation.max_radius:
+            if self.state == "Pluripotent":
+                self.radius += simulation.pluri_growth
+            else:
+                self.radius += simulation.diff_growth
+
         # checks to see if the non-moving cell should divide
         if not self.motion:
             if self.state == "Differentiated" and self.div_counter >= simulation.diff_div_thresh:

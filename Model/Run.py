@@ -16,6 +16,7 @@ video based on a collection of the images.
 import Input
 import Output
 
+
 # Creates a list of Simulation instances each corresponding to a template .txt file in Setup_files. Then
 # runs each simulation in succession, allowing for multiple simulations to be run one after another if you
 # were to use a high computing cluster/node.   (base)
