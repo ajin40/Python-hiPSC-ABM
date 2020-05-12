@@ -15,6 +15,7 @@ video based on a collection of the images.
 """
 import Input
 import Output
+import time
 
 
 # Creates a list of Simulation instances each corresponding to a template .txt file in Setup_files. Then
@@ -37,8 +38,10 @@ for simulation in list_of_simulations:
         simulation.info()
 
         # Updates each of the extracellular gradients by adjusting concentrations.
+        start = time.time()
         simulation.update_diffusion()
-
+        end = time.time()
+        print(end-start)
         # Updates the graph containing all edges that represent a cell's neighbors. Each time the cells move this must
         # be run to maintain accuracy of which cells surround a given cell.
         simulation.check_neighbors()

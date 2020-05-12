@@ -1,7 +1,7 @@
 import numpy as np
 import networkx as nx
 import math
-import time
+
 
 class Simulation:
     """ Initialization called once for each simulation. Class holds all information about each simulation as a whole
@@ -119,13 +119,13 @@ class Simulation:
         """ see Extracellular.py for description
         """
         for i in range(len(self.extracellular)):
-            self.extracellular[i].initialize()
+            self.extracellular[i].initialize_gradient()
 
     def update_diffusion(self):
         """ see Extracellular.py for description
         """
         for i in range(len(self.extracellular)):
-            self.extracellular[i].update(self)
+            self.extracellular[i].update_gradient(self)
 
     def update_cells(self):
         """ see Cell.py for description
@@ -231,12 +231,8 @@ class Simulation:
 
         # tries to run the parallel version of this function
         if self.parallel:
-            start = time.time()
             import Parallel
             Parallel.check_neighbors_gpu(self)
-            end = time.time()
-            print(end-start)
-
         else:
             # distance threshold between two cells to designate a neighbor
             distance = self.neighbor_distance

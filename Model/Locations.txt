@@ -1,5 +1,5 @@
 Path where input files are:
-C:\Python38\stem-cell-patterning_Python\Model\Setup_files\
+C:\Python37\Model\Model\Setup_files\
 
 Path where output files go:
-C:\Python38\Model_Outputs\
+C:\Python37\Model_Outputs\

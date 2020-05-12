@@ -48,34 +48,36 @@ class Extracellular:
         z_steps = int(self.size[2] / self.dz) + 1
         self.diffuse_values = np.zeros((x_steps, y_steps, z_steps))
 
-    def initialize(self):
+    def initialize_gradient(self):
         """ Set up the environment space with a series
             of concentration values
         """
-        # if the simulation is in 2D
-        if self.size[2] == 0:
-            for i in range(self.diffuse_values.shape[0]):
-                for j in range(self.diffuse_values.shape[1]):
-                    self.diffuse_values[i][j][0] = r.random() * self.avg_initial
+        # loops over all points in the space representing molecular concentration and gives them a random concentration
+        for i in range(self.diffuse_values.shape[0]):
+            for j in range(self.diffuse_values.shape[1]):
+                for k in range(self.diffuse_values.shape[2]):
+                    self.diffuse_values[i][j][k] = r.random() * self.avg_initial
 
-        # if the simulation is in 3D
-        else:
-            for i in range(self.diffuse_values.shape[0]):
-                for j in range(self.diffuse_values.shape[1]):
-                    for k in range(self.diffuse_values.shape[2]):
-                        self.diffuse_values[i][j][k] = r.random() * self.avg_initial
-
-    def update(self, simulation):
+    def update_gradient(self, simulation):
         """ Updates the environment space by "smoothing"
             the concentrations of the space
         """
-        time_steps = int(simulation.time_step_value / self.dt)
+        # if desired, run the parallel version of this function
+        if self.parallel:
+            import Parallel
+            Parallel.update_gradient_gpu(self, simulation)
+        else:
+            # get the number of times this will be run
+            time_steps = int(simulation.time_step_value / self.dt)
 
-        a = self.diffuse_values
+            # perform the following operations on the diffusion points at each time step
+            for i in range(time_steps):
+                # make the variable name smaller for easier writing
+                a = self.diffuse_values
 
-        for i in range(time_steps):
-            x = (a[2:][1:-1][1:-1] - 2 * a[1:-1][1:-1][1:-1] + a[:-2][1:-1][1:-1]) / self.dx2
-            y = (a[1:-1][2:][1:-1] - 2 * a[1:-1][1:-1][1:-1] + a[1:-1][:-2][1:-1]) / self.dy2
-            z = (a[1:-1][1:-1][2:] - 2 * a[1:-1][1:-1][1:-1] + a[1:-1][1:-1][:-2]) / self.dz2
+                x = (a[2:][1:-1][1:-1] - 2 * a[1:-1][1:-1][1:-1] + a[:-2][1:-1][1:-1]) / self.dx2
+                y = (a[1:-1][2:][1:-1] - 2 * a[1:-1][1:-1][1:-1] + a[1:-1][:-2][1:-1]) / self.dy2
+                z = (a[1:-1][1:-1][2:] - 2 * a[1:-1][1:-1][1:-1] + a[1:-1][1:-1][:-2]) / self.dz2
 
-            self.diffuse_values[1:-1][1:-1][1:-1] = a[1:-1][1:-1][1:-1] + self.diffuse_const * self.dt * (x + y + z)
+                # update the array
+                self.diffuse_values[1:-1][1:-1][1:-1] = a[1:-1][1:-1][1:-1] + self.diffuse_const * self.dt * (x + y + z)
