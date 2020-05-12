@@ -76,7 +76,7 @@ def draw_image(simulation):
 
             # draw the circle representing the cell
             membrane_circle = (x - x_radius, y - y_radius, x + x_radius, y + y_radius)
-            image.ellipse(membrane_circle, fill=color)
+            image.ellipse(membrane_circle, fill=color, outline="black")
 
         # loops over all of the bounds and draws lines to represent the grid
         for j in range(len(bounds)):
@@ -133,7 +133,7 @@ def create_csv(simulation):
     # opens .csv file
     new_file = open(simulation.path + "network_values_" + str(int(simulation.current_step)) + ".csv", "w", newline="")
     csv_write = csv.writer(new_file)
-    csv_write.writerow(['X_position', 'Y_position', 'Z_position', 'Motion', 'Radius', 'FGFR', 'ERK', 'GATA6', 'NANOG',
+    csv_write.writerow(['X_position', 'Y_position', 'Z_position', 'Radius', 'Motion', 'FGFR', 'ERK', 'GATA6', 'NANOG',
                         'State', 'Differentiation_counter', 'Division_counter', 'Death_counter', 'Boolean_counter'])
 
     # each row is a different cell

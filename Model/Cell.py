@@ -1,6 +1,7 @@
 import numpy as np
 import math
 import random as r
+import copy
 
 
 class Cell:
@@ -73,42 +74,26 @@ class Cell:
                     self.force += normal * simulation.motility_force
                 else:
                     # if not Guye et al. movement, move randomly
-                    self.force += random_point(simulation) * simulation.motility_force
-
+                    self.force += random_vector(simulation) * simulation.motility_force
             else:
                 # if no differentiated cells, move randomly
-                self.force += random_point(simulation) * simulation.motility_force
+                self.force += random_vector(simulation) * simulation.motility_force
 
     def divide(self, simulation):
         """ produces another cell via mitosis
         """
-        # halves the division counter and mass
+        # halves the division counter and mass, while reducing the radius to a minimum
         self.div_counter *= 0.5
         self.boolean_counter = 0
-
-        point = random_point(simulation) * self.radius
-
-        location = self.location + point
-        self.location -= point
-
         self.radius = simulation.min_radius
 
-        # makes sure the new cell's location is on the grid
-        condition_x = 0 <= location[0] <= simulation.size[0]
-        condition_y = 0 <= location[1] <= simulation.size[1]
-        condition_z = 0 <= location[2] <= simulation.size[2]
+        # create a deep copy of the object
+        cell = copy.deepcopy(self)
 
-        while not condition_x or not condition_y or not condition_z:
-            location = self.location + random_point(simulation) * self.radius
-
-            # makes sure the new cell's location is on the grid
-            condition_x = 0 <= location[0] <= simulation.size[0]
-            condition_y = 0 <= location[1] <= simulation.size[1]
-            condition_z = 0 <= location[2] <= simulation.size[2]
-
-        # creates a new Cell object
-        cell = Cell(location, self.radius, self.motion, self.booleans, self.state, self.diff_counter, self.div_counter,
-                    self.death_counter, self.boolean_counter)
+        # apply a cell division force moving the cells away from each other
+        force_vector = random_vector(simulation) * simulation.division_force
+        self.force += force_vector
+        cell.force -= force_vector
 
         # adds the cell to the simulation
         simulation.cells_to_add = np.append(simulation.cells_to_add, [cell])
@@ -253,7 +238,7 @@ class Cell:
                 if self.diff_counter >= simulation.pluri_to_diff:
                     self.differentiate()
 
-def random_point(simulation):
+def random_vector(simulation):
     """ Computes a random point on a unit sphere centered at the origin
         Returns - point [x,y,z]
     """

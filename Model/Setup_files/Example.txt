@@ -6,7 +6,7 @@ This is the template for running a simulation. Good luck!
 General Parameters
 -----------------------------------------------------------------------------------------------------------------------
 What is the name of the simulation? Ex. "Run_30"
-[ "Run_10" ]
+[ "Run_1" ]
 
 Do you want the simulation to use parallel GPU processing? Ex. True
 [ False ]
@@ -15,13 +15,13 @@ What is size of the space that the cells reside (in meters). Ex. (x, y, z)
 [ (0.001, 0.001, 0.0) ]
 
 What is resolution of the space? Ex. (dx, dy, dz)
-[ (0.001, 0.001, 0.001) ]
+[ (1.0, 1.0, 1.0) ]
 
 How many cells will be GATA6 high to begin the simulation? Ex. 247
 [ 0 ]
 
 How many cells will be NANOG high to begin the simulation? Ex. 91
-[ 200 ]
+[ 500 ]
 
 Define the finite dynamical system functions below. Ex. ("x5", "x4 * x2",...)
 [ ("x5", "x1 * x4 + x1 + x4", "x2", "x5 + 1", "(x3+1) * (x4+1)") ]
@@ -45,7 +45,7 @@ How long is each time step in seconds? Ex. 3600
 How often are the Boolean values for each cell updated? Ex. 10
 [ 1 ]
 
-Number of steps required for a pluripotent cell to divide. Ex. 24
+Number of steps required for a pluripotent cell to divide. Ex. 36
 [ 36 ]
 
 Number of steps required for a pluripotent cell to differentiate. Ex. 36
@@ -73,7 +73,7 @@ Ex. [Diffusion constant, Average initial concentration per step, Maximum concent
 -----------------------------------------------------------------------------------------------------------------------
 Movement
 -----------------------------------------------------------------------------------------------------------------------
-Time step value for handling collisions in seconds. Should be a smaller than the overall time step value. Ex. 0.01
+Time step value for handling collisions in seconds. Should be a smaller than the overall time step value. Ex. 200
 [ 200 ]
 
 What is the average radius for all cells in meters?
@@ -134,11 +134,14 @@ Look for the nearest differentiated cell and move closer to it? Based on Guye et
 [ True ]
 
 Motility force for cells actively moving. Ex. 0.00000001
-[ 0.00000005 ]
+[ 0.00000004 ]
 
 At what step is doxycycline added to the simulation? If it is not added, choose a step beyond the end step. Ex. 24
 [ 49 ]
 
 Max radius
 [ 0.000005 ]
+
+Force applied to cells when they divide, allowing them to move away from each other
+[ 0.00000002 ]
 -----------------------------------------------------------------------------------------------------------------------

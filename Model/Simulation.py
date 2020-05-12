@@ -11,7 +11,8 @@ class Simulation:
                  beginning_step, end_step, move_time_step, pluri_div_thresh, pluri_to_diff, diff_div_thresh,
                  boolean_thresh, diff_surround, death_thresh, adhesion_const, viscosity, group, slices, image_quality,
                  background_color, bound_color, pluri_gata6_high_color, pluri_nanog_high_color, pluri_both_high_color,
-                 diff_color, lonely_cell, contact_inhibit, guye_move, motility_force, dox_step, max_radius):
+                 diff_color, lonely_cell, contact_inhibit, guye_move, motility_force, dox_step, max_radius,
+                 division_force):
 
         """ path: the path to save the simulation information to
             parallel: true / false which determines whether some tasks are run on the GPU
@@ -73,6 +74,7 @@ class Simulation:
         self.motility_force = motility_force
         self.dox_step = dox_step
         self.max_radius = max_radius
+        self.division_force = division_force
 
         # counts how many times an image is created for making videos
         self.image_counter = self.beginning_step
@@ -293,10 +295,6 @@ class Simulation:
             # calculate the forces acting on each cell
             self.force_to_movement()
 
-            # reset all cell velocities and forces to zero
-            for i in range(len(self.cells)):
-                self.cells[i].velocity = np.array([0.0, 0.0, 0.0])
-                self.cells[i].force = np.array([0.0, 0.0, 0.0])
 
     def force_to_movement(self):
         """ goes through all of the cells and quantifies any forces arising
@@ -364,25 +362,18 @@ class Simulation:
 
         # now re-loops over cells to move them and reduce work energy from kinetic energy
         for i in range(len(self.cells)):
+
             # stokes law for velocity based on force and fluid viscosity
             stokes_friction = 6 * math.pi * self.viscosity * self.cells[i].radius
 
             # update the velocity of the cell based on the solution
             self.cells[i].velocity = self.cells[i].force / stokes_friction
 
-            # multiplies the time step by the velocity and adds that vector to the cell's location
-            # convert from seconds to hours
-            movement = self.cells[i].velocity * self.move_time_step
-
-            # create a prior location holder
-            location = self.cells[i].location
-
             # set the possible new location
-            new_location = location + movement
+            new_location = self.cells[i].location + self.cells[i].velocity * self.move_time_step
 
             # loops over all directions of space
             for j in range(0, 3):
-
                 # check if new location is in environment space if not simulation a collision with the bounds
                 if new_location[j] > self.size[j]:
                     self.cells[i].location[j] = self.size[j]
@@ -390,3 +381,7 @@ class Simulation:
                     self.cells[i].location[j] = 0.0
                 else:
                     self.cells[i].location[j] = new_location[j]
+
+            # reset velocity and force back to zero
+            self.cells[i].velocity = np.array([0.0, 0.0, 0.0])
+            self.cells[i].force = np.array([0.0, 0.0, 0.0])
