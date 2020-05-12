@@ -119,7 +119,7 @@ def setup():
         simulation = Simulation.Simulation(_path, _parallel, _size, _resolution, _num_states, _functions,
                                            _neighbor_distance, _time_step_value, _beginning_step, _total_steps,
                                            _move_time_step, _pluri_div_thresh, _pluri_to_diff, _diff_div_thresh,
-                                           _boolean_thresh, _diff_surround, _death_thresh, _adhesion_const, _viscosity,
+                                           _boolean_thresh, _death_thresh, _diff_surround, _adhesion_const, _viscosity,
                                            _group, _slices, _image_quality, _background_color, _bound_color,
                                            _pluri_gata6_high_color, _pluri_nanog_high_color, _pluri_both_high_color,
                                            _diff_color, _lonely_cell, _contact_inhibit, _guye_move, _motility_force,
@@ -191,7 +191,7 @@ def setup():
                 radius = simulation.min_radius + simulation.pluri_growth * _div_counter
 
                 # creates instance of Cell class
-                cell = Cell.Cell(_location, radius, False, booleans, "Pluripotent", _diff_counter, _div_counter,
+                cell = Cell.Cell(_location, radius, True, booleans, "Pluripotent", _diff_counter, _div_counter,
                                  _death_counter, _boolean_counter)
 
                 # adds object to simulation instance

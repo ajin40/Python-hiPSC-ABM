@@ -113,7 +113,7 @@ def image_to_video(simulation):
     image_quality = simulation.image_quality
 
     # creates a base video file to save to
-    video_path = simulation.path + 'network_video.avi'
+    video_path = simulation.path + 'simulation_video.avi'
     out = cv2.VideoWriter(video_path, cv2.VideoWriter_fourcc("M", "J", "P", "G"), 1.0, image_quality)
 
     # loops over all images and writes them to the base video file
@@ -131,7 +131,7 @@ def create_csv(simulation):
         instance variables from each cell
     """
     # opens .csv file
-    new_file = open(simulation.path + "network_values_" + str(int(simulation.current_step)) + ".csv", "w", newline="")
+    new_file = open(simulation.path + "values_step_" + str(int(simulation.current_step)) + ".csv", "w", newline="")
     csv_write = csv.writer(new_file)
     csv_write.writerow(['X_position', 'Y_position', 'Z_position', 'Radius', 'Motion', 'FGFR', 'ERK', 'GATA6', 'NANOG',
                         'State', 'Differentiation_counter', 'Division_counter', 'Death_counter', 'Boolean_counter'])

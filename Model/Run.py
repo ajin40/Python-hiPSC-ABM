@@ -15,7 +15,6 @@ video based on a collection of the images.
 """
 import Input
 import Output
-import time
 
 
 # Creates a list of Simulation instances each corresponding to a template .txt file in Setup_files. Then

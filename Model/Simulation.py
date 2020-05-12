@@ -9,11 +9,10 @@ class Simulation:
 
     def __init__(self, path, parallel, size, resolution, num_states, functions, neighbor_distance, time_step_value,
                  beginning_step, end_step, move_time_step, pluri_div_thresh, pluri_to_diff, diff_div_thresh,
-                 boolean_thresh, diff_surround, death_thresh, adhesion_const, viscosity, group, slices, image_quality,
+                 boolean_thresh, death_thresh, diff_surround, adhesion_const, viscosity, group, slices, image_quality,
                  background_color, bound_color, pluri_gata6_high_color, pluri_nanog_high_color, pluri_both_high_color,
                  diff_color, lonely_cell, contact_inhibit, guye_move, motility_force, dox_step, max_radius,
                  division_force):
-
         """ path: the path to save the simulation information to
             parallel: true / false which determines whether some tasks are run on the GPU
             size: the size of the space (x, y, z)
@@ -22,23 +21,35 @@ class Simulation:
                 Currently 2 because the system is a Boolean network
             functions: the finite dynamical system functions as a string from the template file
             neighbor_distance: how close cells need to be in order to be considered 'neighbors'
-            time_step: the time step to increment the simulation by
+            time_step_value: how much actual time (in seconds) is the step worth
+            beginning_step: the step the model starts at, used primarily to continue a previous simulation
             end_time: the end time for the simulation
             move_time_step: the time value in which the cells are moved incrementally
             pluri_div_thresh: threshold for pluripotent cells to divide
             pluri_to_diff: threshold for pluripotent cells to differentiate
             diff_div_thresh:  threshold for differentiated cells to divide
+            boolean_thresh: threshold for updating the boolean values
+            death_thresh: the value at which a cell dies
             diff_surround: the amount of differentiated cells needed to surround
                 a pluripotent cell inducing its differentiation
-            death_thresh: the value at which a cell dies
             adhesion_const: JKR work of adhesion
+            viscosity: the viscosity of the space the cells are in
             group: how many cells are removed or added at once per time step
             slices: the amount of slices taken in the z direction
             image_quality: the dimensions of the output images in pixels
             background_color: the color of the image background
             bound_color: the colors of the bounding lines of the image
-            pluri_cell_color: the color of pluripotent cells
-            diff_cell_color: the color of differentiated cells
+            pluri_gata6_high_color: the color of a gata6 high pluripotent cell
+            pluri_nanog_high_color: the color of a nanog high pluripotent cell
+            pluri_both_high_color: the color of a both high pluripotent cell
+            diff_color: the color of a differentiated cell
+            lonely_cell: the number of cells needed for a cell not to be alone
+            contact_inhibit: the number of cells needed to inhibit the division of a differentiated cell
+            guye_move: if pluripotent gata6 high cells search for differentiated cell
+            motility_force: the force a cell exerts to move
+            dox_step: at what step is doxycycline is added to the simulation, inducing the gata6 pathway
+            max_radius: the maximum radius that would be achieved shortly before division
+            division_force: the force applied to the daughter cells when a cell divides
         """
         self.path = path
         self.parallel = parallel
@@ -55,8 +66,8 @@ class Simulation:
         self.pluri_to_diff = pluri_to_diff
         self.diff_div_thresh = diff_div_thresh
         self.boolean_thresh = boolean_thresh
-        self.diff_surround = diff_surround
         self.death_thresh = death_thresh
+        self.diff_surround = diff_surround
         self.adhesion_const = adhesion_const
         self.viscosity = viscosity
         self.group = group
@@ -94,9 +105,6 @@ class Simulation:
         # graph representing the presence of JKR adhesion bonds between cells
         self.jkr_graph = nx.Graph()
 
-        # graph used to locate nearest differentiated neighbors
-        self.diff_graph = nx.Graph()
-
         # holds the objects until they are added or removed from the simulation
         self.cells_to_remove = np.array([], dtype=np.object)
         self.cells_to_add = np.array([], dtype=np.object)
@@ -104,11 +112,21 @@ class Simulation:
         # holds all of the differentiated cells
         self.diff_cells = np.array([], dtype=np.object)
 
+        # the minimum radius after division currently 2D
         self.min_radius = self.max_radius / 2 ** 0.5
 
+        # growth rate based on min/max radius and division thresh for pluripotent cells
         self.pluri_growth = (self.max_radius - self.min_radius) / self.pluri_div_thresh
 
+        # growth rate based on min/max radius and division thresh for pluripotent cells
         self.diff_growth = (self.max_radius - self.min_radius) / self.diff_div_thresh
+
+        # Youngs modulus 1000 Pa
+        self.youngs_mod = 1000
+
+        # Poisson's ratio
+        self.poisson = 0.5
+
 
     def info(self):
         """ prints information about the simulation as it
@@ -153,6 +171,7 @@ class Simulation:
         for i in range(len(self.cells)):
             self.cells[i].motility(self)
 
+
     def add_cell(self, cell):
         """ Adds the cell to both the neighbor graph
             and the JKR adhesion graph
@@ -166,7 +185,6 @@ class Simulation:
         # adds it to the adhesion graph
         self.jkr_graph.add_node(cell)
 
-        self.diff_graph.add_node(cell)
 
     def remove_cell(self, cell):
         """ Adds the cell to both the neighbor graph
@@ -181,14 +199,18 @@ class Simulation:
         # removes it from the adhesion graph
         self.jkr_graph.remove_node(cell)
 
-        self.diff_graph.remove_node(cell)
 
     def get_differentiated(self):
         """ Finds all of the differentiated cells
         """
+        # clears the array
+        self.diff_cells = np.array([], dtype=np.object)
+
+        # replaces the cells
         for i in range(len(self.cells)):
             if self.cells[i].state == "Differentiated":
                 self.diff_cells = np.append(self.diff_cells, self.cells[i])
+
 
     def update_cell_queue(self):
         """ Updates the queues for adding and removing cell objects
@@ -221,6 +243,7 @@ class Simulation:
         # clear the arrays
         self.cells_to_remove = np.array([], dtype=np.object)
         self.cells_to_add = np.array([], dtype=np.object)
+
 
     def check_neighbors(self):
         """ checks all of the distances between cells if it
@@ -325,8 +348,8 @@ class Simulation:
                 self.jkr_graph.add_edge(cell_1, cell_2)
 
             # gets two values used for JKR
-            e_hat = (((1 - cell_1.poisson ** 2) / cell_1.youngs_mod) + (
-                        (1 - cell_2.poisson ** 2) / cell_2.youngs_mod)) ** -1
+            e_hat = (((1 - self.poisson ** 2) / self.youngs_mod) + (
+                        (1 - self.poisson ** 2) / self.youngs_mod)) ** -1
             r_hat = ((1 / cell_1.radius) + (1 / cell_2.radius)) ** -1
 
             # used to calculate the max adhesive distance after bond has been already formed

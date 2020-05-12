@@ -10,6 +10,7 @@ class Cell:
     def __init__(self, location, radius, motion, booleans, state, diff_counter, div_counter, death_counter,
                  boolean_counter):
         """ location: where the cell is located in the space "[x,y,z]"
+            radius: the length of the cell radius
             motion: whether the cell is moving or not "True or False"
             velocity: the velocity as a vector of the cell
             booleans: array of boolean values for each variable in the boolean network
@@ -17,6 +18,7 @@ class Cell:
             diff_counter: holds the number of steps until the cell differentiates
             div_counter: holds the number of steps until the cell divides
             death_counter: holds the number of steps until the cell dies
+            boolean_counter: holds the number of steps until the cell updates it's boolean values
         """
         self.location = location
         self.radius = radius
@@ -28,23 +30,20 @@ class Cell:
         self.death_counter = death_counter
         self.boolean_counter = boolean_counter
 
-        # Youngs modulus 1000 Pa
-        self.youngs_mod = 1000
-
-        # Poisson's ratio
-        self.poisson = 0.5
-
         # starts the cell off with a zero force vector
         self.force = np.array([0.0, 0.0, 0.0])
 
+        # starts the cell off with a zero velocity vector
         self.velocity = np.array([0.0, 0.0, 0.0])
 
     def motility(self, simulation):
         """ applies forces to each cell based on chemotactic
             or random movement
         """
+        # check to see if the cell is surrounded by any other cells
         neighbors = list(simulation.neighbor_graph.neighbors(self))
         if len(neighbors) >= 1:
+            # if it is, set motion to False
             self.motion = False
 
         # continue if the cell is actively moving
@@ -202,10 +201,10 @@ class Cell:
             index_y = math.ceil(half_index_y / 2)
             index_z = math.ceil(half_index_z / 2)
 
-            # if a certain spot of the grid is less than the max FGF4 it can hold and the cell is NANOG high increase the
-            # FGF4 by 1
-            if simulation.extracellular[0].diffuse_values[index_x][index_y][index_z] < simulation.extracellular[0].maximum \
-                    and self.booleans[3] == 1:
+            # if a certain spot of the grid is less than the max FGF4 it can hold and the cell is NANOG high increase
+            # the FGF4 by 1
+            if simulation.extracellular[0].diffuse_values[index_x][index_y][index_z] < \
+                    simulation.extracellular[0].maximum and self.booleans[3] == 1:
                 simulation.extracellular[0].diffuse_values[index_x][index_y][index_z] += 1
 
             # if the FGF4 amount for the location is greater than 0, set the fgf4_bool value to be 1 for the functions
@@ -228,7 +227,8 @@ class Cell:
             # if the temporary FGFR value is 0 and the FGF4 value is 1 decrease the amount of FGF4 by 1
             # this simulates FGFR using FGF4
 
-            if tempFGFR == 0 and fgf4 == 1 and simulation.extracellular[0].diffuse_values[index_x][index_y][index_z] >= 1:
+            if tempFGFR == 0 and fgf4 == 1 and \
+                    simulation.extracellular[0].diffuse_values[index_x][index_y][index_z] >= 1:
                 simulation.extracellular[0].diffuse_values[index_x][index_y][index_z] -= 1
 
             # if the cell is GATA6 high and Pluripotent increase the differentiation counter by 1
@@ -237,6 +237,7 @@ class Cell:
                 # if the differentiation counter is greater than the threshold, differentiate
                 if self.diff_counter >= simulation.pluri_to_diff:
                     self.differentiate()
+
 
 def random_vector(simulation):
     """ Computes a random point on a unit sphere centered at the origin

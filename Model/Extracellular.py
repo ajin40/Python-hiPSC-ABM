@@ -27,10 +27,8 @@ class Extracellular:
         # prevents any division by zero errors
         if self.dx == 0:
             self.dx = 1
-
         if self.dy == 0:
             self.dy = 1
-
         if self.dz == 0:
             self.dz = 1
 

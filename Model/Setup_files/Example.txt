@@ -143,5 +143,5 @@ Max radius
 [ 0.000005 ]
 
 Force applied to cells when they divide, allowing them to move away from each other
-[ 0.00000002 ]
+[ 0.000000015 ]
 -----------------------------------------------------------------------------------------------------------------------
