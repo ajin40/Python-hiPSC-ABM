@@ -21,7 +21,7 @@ How many cells will be GATA6 high to begin the simulation? Ex. 247
 [ 0 ]
 
 How many cells will be NANOG high to begin the simulation? Ex. 91
-[ 500 ]
+[ 1000 ]
 
 Define the finite dynamical system functions below. Ex. ("x5", "x4 * x2",...)
 [ ("x5", "x1 * x4 + x1 + x4", "x2", "x5 + 1", "(x3+1) * (x4+1)") ]
@@ -43,7 +43,7 @@ How long is each time step in seconds? Ex. 3600
 [ 1800 ]
 
 How often are the Boolean values for each cell updated? Ex. 10
-[ 1 ]
+[ 4 ]
 
 Number of steps required for a pluripotent cell to divide. Ex. 36
 [ 36 ]

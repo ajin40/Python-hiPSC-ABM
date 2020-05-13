@@ -168,8 +168,22 @@ class Simulation:
     def motility_cells(self):
         """ see Cell.py for description
         """
+        # update the array containing the differentiated cells
+        self.get_differentiated()
+
         for i in range(len(self.cells)):
             self.cells[i].motility(self)
+
+    def get_differentiated(self):
+        """ Finds all of the differentiated cells
+        """
+        # clears the array
+        self.diff_cells = np.array([], dtype=np.object)
+
+        # replaces the cells
+        for i in range(len(self.cells)):
+            if self.cells[i].state == "Differentiated":
+                self.diff_cells = np.append(self.diff_cells, self.cells[i])
 
 
     def add_cell(self, cell):
@@ -200,23 +214,11 @@ class Simulation:
         self.jkr_graph.remove_node(cell)
 
 
-    def get_differentiated(self):
-        """ Finds all of the differentiated cells
-        """
-        # clears the array
-        self.diff_cells = np.array([], dtype=np.object)
-
-        # replaces the cells
-        for i in range(len(self.cells)):
-            if self.cells[i].state == "Differentiated":
-                self.diff_cells = np.append(self.diff_cells, self.cells[i])
-
-
     def update_cell_queue(self):
         """ Updates the queues for adding and removing cell objects
         """
-        print("Adding " + str(len(self.cells_to_add)) + " cell objects...")
-        print("Removing " + str(len(self.cells_to_remove)) + " cell objects...")
+        print("Adding " + str(len(self.cells_to_add)) + " cells...")
+        print("Removing " + str(len(self.cells_to_remove)) + " cells...")
 
         # loops over all objects to remove
         for i in range(len(self.cells_to_remove)):
@@ -316,10 +318,13 @@ class Simulation:
             time_holder += self.move_time_step
 
             # calculate the forces acting on each cell
+            self.get_forces()
+
+            # turn the forces acting on a cell into movements
             self.force_to_movement()
 
 
-    def force_to_movement(self):
+    def get_forces(self):
         """ goes through all of the cells and quantifies any forces arising
             from adhesion or repulsion between the cells
         """
@@ -383,6 +388,11 @@ class Simulation:
             elif bond_condition:
                 self.jkr_graph.remove_edge(cell_1, cell_2)
 
+
+    def force_to_movement(self):
+        """ turns the forces acting on cells into
+            small movements in the net force direction
+        """
         # now re-loops over cells to move them and reduce work energy from kinetic energy
         for i in range(len(self.cells)):
 

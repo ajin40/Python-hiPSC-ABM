@@ -28,10 +28,7 @@ for simulation in list_of_simulations:
 
     # This will loop over all steps. The first image and CSV produced are based on starting conditions. The
     # following outputs are representative of one step run by the model.    (base)
-    for step in range(simulation.beginning_step, simulation.end_step + 1):
-
-        # Updates the simulation instance variable to the current step number.    (base)
-        simulation.current_step = step
+    for simulation.current_step in range(simulation.beginning_step, simulation.end_step + 1):
 
         # Prints the current step number and the count of cells. Gives an idea of how the model is running.
         simulation.info()
