@@ -59,8 +59,14 @@ def draw_image(simulation):
             x = dilation_x * location[0]
             y = dilation_y * location[1]
 
-            # coloring of the cells
-            if simulation.current_step >= simulation.dox_step:
+            # coloring of the cells based on what mode the user selects
+            if simulation.color_mode:
+                if simulation.cells[j].state == "Pluripotent":
+                    color = simulation.pluri_color
+                else:
+                    color = simulation.diff_color
+
+            else:
                 if simulation.cells[j].state == "Differentiated":
                     color = simulation.diff_color
                 elif simulation.cells[j].booleans[2] == 1 and simulation.cells[j].booleans[3] == 1:
@@ -70,9 +76,7 @@ def draw_image(simulation):
                 elif simulation.cells[j].booleans[3] == 1:
                     color = simulation.pluri_nanog_high_color
                 else:
-                    color = simulation.pluri_nanog_high_color
-            else:
-                color = simulation.pluri_nanog_high_color
+                    color = simulation.pluri_color
 
             # draw the circle representing the cell
             membrane_circle = (x - x_radius, y - y_radius, x + x_radius, y + y_radius)
@@ -98,8 +102,8 @@ def draw_image(simulation):
             image.line(lines, fill=simulation.bound_color, width=width)
 
         # saves the image as a .png
-        image_name = simulation.name + "_image_step_" + str(int(simulation.current_step))+"_slice_"+str(int(i)) + ".png"
-        base.save(simulation.path + simulation.name + "\\" + image_name, 'PNG')
+        image_name = simulation.name + "_image_" + str(int(simulation.current_step))+"_slice_"+str(int(i)) + ".png"
+        base.save(simulation.path + image_name, 'PNG')
 
         # moves to the next slice location
         lower_slice += thickness
@@ -115,12 +119,12 @@ def image_to_video(simulation):
         image_quality = simulation.image_quality
 
         # creates a base video file to save to
-        video_path = simulation.path + simulation.name + "\\" + simulation.name + '_video.avi'
+        video_path = simulation.path + simulation.name + '_video.avi'
         out = cv2.VideoWriter(video_path, cv2.VideoWriter_fourcc("M", "J", "P", "G"), 1.0, image_quality)
 
         # loops over all images and writes them to the base video file
         for i in range(1, simulation.image_counter):
-            path = simulation.path + simulation.name + "\\" + simulation.name + "_image_step_" + str(i) + "_slice_0" + ".png"
+            path = simulation.path + simulation.name + "_image_" + str(i) + "_slice_0" + ".png"
             image = cv2.imread(path)
             out.write(image)
 
@@ -135,8 +139,8 @@ def create_csv(simulation):
         instance variables from each cell
     """
     # opens .csv file
-    new_file = open(simulation.path + simulation.name + "\\" + simulation.name + "_values_step_" + str(int(simulation.current_step)) + ".csv",
-                    "w", newline="")
+    file_name = simulation.path + simulation.name + "_values_" + str(int(simulation.current_step)) + ".csv"
+    new_file = open(file_name, "w", newline="")
     csv_write = csv.writer(new_file)
     csv_write.writerow(['X_position', 'Y_position', 'Z_position', 'Radius', 'Motion', 'FGFR', 'ERK', 'GATA6', 'NANOG',
                         'State', 'Differentiation_counter', 'Division_counter', 'Death_counter', 'Boolean_counter'])

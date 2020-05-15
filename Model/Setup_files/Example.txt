@@ -52,10 +52,10 @@ Timing
 -----------------------------------------------------------------------------------------------------------------------
 If this simulation is a continuation of a previous simulation, what will be the next step? If this is the first time
 running a simulation, type 1. Ex. 1
-[ 1 ]
+[ 6 ]
 
 What will the final step number be? Ex. 30
-[ 5 ]
+[ 10 ]
 
 How long is each time step in seconds? Ex. 3600
 [ 1800 ]

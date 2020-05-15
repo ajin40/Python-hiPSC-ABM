@@ -48,7 +48,7 @@ def setup(location_of_templates):
         # looks at certain lines of the template file and converts them from strings to their desired type
         # general parameters
         _name = parameters[8][2:-3]
-        _path = parameters[11][2:-3]
+        _output_direct = parameters[11][2:-3]
         _parallel = eval(parameters[14][2:-3])
         _size = eval(parameters[17][2:-3])
         _resolution = eval(parameters[20][2:-3])
@@ -110,13 +110,13 @@ def setup(location_of_templates):
         _max_radius = float(parameters[169][2:-3])
         _move_thresh = int(parameters[172][2:-3])
 
-        # include the separator after the path
-        _path += separator
-
         # if it's not a continuation, copy the template file and check to see if the name is valid
         if not _continuation and not _csv_to_images:
-            _path, _name = check_name(_path, _name, separator)
-            shutil.copy(location_of_templates + separator + file, _path + _name)
+            _path = check_name(_output_direct, _name, separator) + separator
+            shutil.copy(location_of_templates + separator + file, _path)
+
+        else:
+            _path = _output_direct + separator + _name + separator
 
         # initializes simulation class which holds all information about the simulation
         simulation = Simulation.Simulation(_name, _path, _parallel, _size, _resolution, _num_states, _functions,
@@ -141,66 +141,29 @@ def setup(location_of_templates):
         # if this is a continuation of previous simulation, we need to look at previous .csv for cell info
         if _continuation:
             # gets the previous .csv file by subtracting the beginning step by 1
-            previous_file_name = simulation.path + simulation.name + "\\" + simulation.name + "_values_step_" + str(simulation.beginning_step - 1) + ".csv"
-            previous_file = open(previous_file_name, "r", newline="")
-            csv_rows = list(csv.reader(previous_file))
+            previous = simulation.path + simulation.name + "_values_" + str(simulation.beginning_step - 1) + ".csv"
 
-            # loop over all rows in the csv, each line represents a cell
-            for row in csv_rows[1:]:
-                # get the parameters from each row in the csv
-                location_x, location_y, location_z = eval(row[0]), eval(row[1]), eval(row[2])
-                location = np.array([location_x, location_y, location_z])
-                radius = eval(row[3])
-                motion = eval(row[4])
-                fgfr, erk, gata6, nanog = eval(row[5]), eval(row[6]), eval(row[7]), eval(row[8])
-                booleans = np.array([fgfr, erk, gata6, nanog])
-                state = row[9]
-                diff_counter = eval(row[10])
-                div_counter = eval(row[11])
-                death_counter = eval(row[12])
-                boolean_counter = eval(row[13])
-
-                # create instance of cell class based on the following parameters taken from the last csv
-                cell = Cell.Cell(location, radius, motion, booleans, state, diff_counter, div_counter,
-                                 death_counter, boolean_counter)
-
-                # adds object to simulation instance
-                simulation.add_cell(cell)
+            # calls the following function to add instances of the cell class to the simulation instance
+            csv_to_simulation(simulation, previous)
 
         # check if this will be turning an output of .csv files into images and a video
         elif _csv_to_images:
-            list_of_files = os.listdir(simulation.path + simulation.name)
+            print("Turning CSVs into images...")
+            # get the files from the specified directory
+            list_of_files = os.listdir(simulation.path)
             length_of_direct = len(list_of_files)
 
+            # loop over all CSVs avoiding the first file which is a copy of the template
             for i in range(1, length_of_direct):
                 # gets the previous .csv file by subtracting the beginning step by 1
-                current_csv_name = simulation.path + simulation.name + "\\" + simulation.name + "_values_step_" + str(i) + ".csv"
-                current_csv = open(current_csv_name, "r", newline="")
-                csv_rows = list(csv.reader(current_csv))
+                current_csv_name = simulation.path + simulation.name + "_values_" + str(i) + ".csv"
 
+                # calls the following function to add instances of the cell class to the simulation instance
+                csv_to_simulation(simulation, current_csv_name)
+
+                # updates the instance variables as they aren't updated by anything else
                 simulation.beginning_step = 1
                 simulation.current_step = i
-                # loop over all rows in the csv, each line represents a cell
-                for row in csv_rows[1:]:
-                    # get the parameters from each row in the csv
-                    location_x, location_y, location_z = eval(row[0]), eval(row[1]), eval(row[2])
-                    location = np.array([location_x, location_y, location_z])
-                    radius = eval(row[3])
-                    motion = eval(row[4])
-                    fgfr, erk, gata6, nanog = eval(row[5]), eval(row[6]), eval(row[7]), eval(row[8])
-                    booleans = np.array([fgfr, erk, gata6, nanog])
-                    state = row[9]
-                    diff_counter = eval(row[10])
-                    div_counter = eval(row[11])
-                    death_counter = eval(row[12])
-                    boolean_counter = eval(row[13])
-
-                    # create instance of cell class based on the following parameters taken from the last csv
-                    cell = Cell.Cell(location, radius, motion, booleans, state, diff_counter, div_counter,
-                                     death_counter, boolean_counter)
-
-                    # adds object to simulation instance
-                    simulation.add_cell(cell)
 
                 # saves a snapshot of the simulation
                 Output.save_file(simulation)
@@ -208,10 +171,10 @@ def setup(location_of_templates):
                 # clears the array for the next round of images
                 simulation.cells = np.array([], dtype=np.object)
 
-
             # turns the images into a video
             Output.image_to_video(simulation)
 
+            # exits out as the conversion from .csv to images/video is done
             exit()
 
         # if this simulation is not a continuation
@@ -255,7 +218,38 @@ def setup(location_of_templates):
     return simulations
 
 
-def check_name(path, name, separator):
+def csv_to_simulation(simulation, file_name):
+    """ Turns rows of a into instances of the cell
+        class and adds them to the simulation class
+    """
+    # opens the csv and lists the rows
+    csv_file = open(file_name, "r", newline="")
+    csv_rows = list(csv.reader(csv_file))
+
+    # loop over all rows in the csv, each line represents a cell
+    for row in csv_rows[1:]:
+        # get the parameters from each row in the csv
+        location_x, location_y, location_z = eval(row[0]), eval(row[1]), eval(row[2])
+        location = np.array([location_x, location_y, location_z])
+        radius = eval(row[3])
+        motion = eval(row[4])
+        fgfr, erk, gata6, nanog = eval(row[5]), eval(row[6]), eval(row[7]), eval(row[8])
+        booleans = np.array([fgfr, erk, gata6, nanog])
+        state = row[9]
+        diff_counter = eval(row[10])
+        div_counter = eval(row[11])
+        death_counter = eval(row[12])
+        boolean_counter = eval(row[13])
+
+        # create instance of cell class based on the following parameters taken from the last csv
+        cell = Cell.Cell(location, radius, motion, booleans, state, diff_counter, div_counter,
+                         death_counter, boolean_counter)
+
+        # adds object to simulation instance
+        simulation.add_cell(cell)
+
+
+def check_name(output_path, name, separator):
     """ Renames the file if another simulation
         has the same name
     """
@@ -263,7 +257,7 @@ def check_name(path, name, separator):
     while True:
         # if the path does not already exist, make that directory and break out of the loop
         try:
-            os.mkdir(path + name)
+            os.mkdir(output_path + separator + name)
             break
 
         # prompt to either rename or overwrite
@@ -274,10 +268,10 @@ def check_name(path, name, separator):
                 name = input("New name: ")
             if user == "y":
                 # clear current directory to prevent another possible future errors
-                files = os.listdir(path + name)
+                files = os.listdir(output_path + separator + name)
                 for file in files:
-                    os.remove(path + name + separator + file)
+                    os.remove(output_path + separator + name + separator + file)
                 break
 
     # updated path and name if need be
-    return path, name
+    return output_path + separator + name
