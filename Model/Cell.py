@@ -36,47 +36,84 @@ class Cell:
         # starts the cell off with a zero velocity vector
         self.velocity = np.array([0.0, 0.0, 0.0])
 
+
     def motility(self, simulation):
         """ applies forces to each cell based on chemotactic
             or random movement
         """
-        # check to see if the cell is surrounded by any other cells
+        # set motion to false if the cell is surrounded by many neighbors
         neighbors = list(simulation.neighbor_graph.neighbors(self))
         if len(neighbors) >= simulation.move_thresh:
-            # if it is, set motion to False
             self.motion = False
 
-        # continue if the cell is actively moving
-        if self.motion:
-            # continue if conditions are met
-            if self.booleans[2] == 1 and self.state == "Pluripotent":
+        # check whether differentiated or pluripotent
+        if self.state == "Differentiated":
+            # get the neighbors of the cell
+            neighbors = list(simulation.neighbor_graph.neighbors(self))
+
+            # directed movement if the cell has neighbors
+            if 0 < len(neighbors) < 6:
+                # create a vector to hold the sum of normal vectors between a cell and its neighbors
+                vector_holder = np.array([0.0, 0.0, 0.0])
+
+                # loop over the neighbors getting the normal and adding to the holder
+                for i in range(len(neighbors)):
+                    vector = neighbors[i].location - self.location
+                    vector_holder += vector
+
+                # get the magnitude of the sum of normals
+                magnitude = np.linalg.norm(vector_holder)
+
+                # if for some case, its zero set the new normal vector to zero
+                if magnitude == 0:
+                    normal = np.array([0.0, 0.0, 0.0])
+                else:
+                    normal = vector_holder / magnitude
+
+                # move in direction opposite to cells
+                self.force = simulation.motility_force * normal * -1
+
+            # if there aren't any neighbors and still in motion then move randomly
+            elif self.motion:
+                self.force += random_vector(simulation) * simulation.motility_force
+
+        # for pluripotent cells
+        else:
+            # apply movement if the cell is "in motion"
+            if self.motion and self.booleans[2] == 1:
                 # continue if using Guye et al. movement and if there exists differentiated cells
-                if simulation.guye_move and len(simulation.diff_cells) != 0:
-                    # get starting differentiated cell distance
-                    vector = simulation.diff_cells[0].location - self.location
-                    magnitude = np.linalg.norm(vector)
+                if simulation.guye_move:
+                    # get the differentiated neighbors
+                    diff_neighbors = list(simulation.diff_graph.neighbors(self))
 
-                    # loop over all other differentiated cells looking for the closest
-                    for i in range(1, len(simulation.diff_cells)):
-                        # get the distance to each of the other cells
-                        next_vector = simulation.diff_cells[i].location - self.location
-                        next_magnitude = np.linalg.norm(next_vector)
+                    # check to see if there are any differentiated cells nearby
+                    if len(diff_neighbors) > 0:
+                        # get starting differentiated cell distance
+                        vector = diff_neighbors[0].location - self.location
+                        magnitude = np.linalg.norm(vector)
 
-                        # check to see if the cell is closer than others
-                        if next_magnitude < magnitude:
-                            # reset distance and vector for calculating the unit normal
-                            vector = next_vector
-                            magnitude = next_magnitude
+                        # loop over all other differentiated cells looking for the closest
+                        for i in range(1, len(diff_neighbors)):
+                            # get the distance to each of the other cells
+                            next_vector = diff_neighbors[i].location - self.location
+                            next_magnitude = np.linalg.norm(next_vector)
 
-                    # get unit normal and apply force in that direction
-                    normal = vector / magnitude
-                    self.force += normal * simulation.motility_force
+                            # check to see if the cell is closer than others
+                            if next_magnitude < magnitude:
+                                # reset distance and vector for calculating the unit normal
+                                vector = next_vector
+                                magnitude = next_magnitude
+
+                        # move in the direction of the closest differentiated neighbor
+                        normal = vector / magnitude
+                        self.force += normal * simulation.guye_force
+
+                    else:
+                        # if no differentiated cells, move randomly
+                        self.force += random_vector(simulation) * simulation.motility_force
                 else:
                     # if not Guye et al. movement, move randomly
                     self.force += random_vector(simulation) * simulation.motility_force
-            else:
-                # if no differentiated cells, move randomly
-                self.force += random_vector(simulation) * simulation.motility_force
 
 
     def divide(self, simulation):

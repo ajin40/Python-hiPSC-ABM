@@ -13,7 +13,7 @@ class Simulation:
                  slices, image_quality, background_color, bound_color, color_mode, pluri_color, diff_color,
                  pluri_gata6_high_color, pluri_nanog_high_color, pluri_both_high_color, lonely_cell, contact_inhibit,
                  guye_move, motility_force, dox_step, max_radius, division_force, move_thresh, output_images,
-                 output_csvs):
+                 output_csvs, guye_radius, guye_force):
 
         """ path: the path to save the simulation information to
             parallel: true / false which determines whether some tasks are run on the GPU
@@ -55,6 +55,7 @@ class Simulation:
             move_thresh: the number of neighbors needed to inhibit motion
             output_images: whether the model will create images
             output_csvs: whether the model will create csvs
+            guye_radius: the radius of search for a differentiated cell
         """
         self.name = name
         self.path = path
@@ -97,6 +98,8 @@ class Simulation:
         self.move_thresh = move_thresh
         self.output_images = output_images
         self.output_csvs = output_csvs
+        self.guye_radius = guye_radius
+        self.guye_force = guye_force
 
         # counts how many times an image is created for making videos
         self.image_counter = self.beginning_step
@@ -115,6 +118,9 @@ class Simulation:
 
         # graph representing the presence of JKR adhesion bonds between cells
         self.jkr_graph = nx.Graph()
+
+        # graph representing connections between pluripotent cells and their differentiated neighbors
+        self.diff_graph = nx.Graph()
 
         # holds the objects until they are added or removed from the simulation
         self.cells_to_remove = np.array([], dtype=np.object)
@@ -180,21 +186,10 @@ class Simulation:
         """ see Cell.py for description
         """
         # update the array containing the differentiated cells
-        self.get_differentiated()
+        self.check_neighbors(mode="Differentiated")
 
         for i in range(len(self.cells)):
             self.cells[i].motility(self)
-
-    def get_differentiated(self):
-        """ Finds all of the differentiated cells
-        """
-        # clears the array
-        self.diff_cells = np.array([], dtype=np.object)
-
-        # replaces the cells
-        for i in range(len(self.cells)):
-            if self.cells[i].state == "Differentiated":
-                self.diff_cells = np.append(self.diff_cells, self.cells[i])
 
 
     def add_cell(self, cell):
@@ -210,6 +205,9 @@ class Simulation:
         # adds it to the adhesion graph
         self.jkr_graph.add_node(cell)
 
+        # adds it to the differentiated graph
+        self.diff_graph.add_node(cell)
+
 
     def remove_cell(self, cell):
         """ Adds the cell to both the neighbor graph
@@ -223,6 +221,9 @@ class Simulation:
 
         # removes it from the adhesion graph
         self.jkr_graph.remove_node(cell)
+
+        # removes it from the differentiated graph
+        self.diff_graph.remove_node(cell)
 
 
     def update_cell_queue(self):
@@ -258,7 +259,7 @@ class Simulation:
         self.cells_to_add = np.array([], dtype=np.object)
 
 
-    def check_neighbors(self):
+    def check_neighbors(self, mode="standard"):
         """ checks all of the distances between cells if it
             is less than a fixed value create a connection
             between two cells.
@@ -272,8 +273,12 @@ class Simulation:
             import Parallel
             Parallel.check_neighbors_gpu(self)
         else:
-            # distance threshold between two cells to designate a neighbor
-            distance = self.neighbor_distance
+            if mode == "Differentiated":
+                # distance threshold for finding nearest differentiated neighbors
+                distance = self.guye_radius
+            else:
+                # distance threshold between two cells to designate a neighbor
+                distance = self.neighbor_distance
 
             # divides the environment into blocks
             x = int(self.size[0] / distance + 3)
@@ -307,9 +312,17 @@ class Simulation:
 
                             # looks at the cells in a block and decides if they are neighbors
                             for l in range(len(cells_in_block)):
-                                if cells_in_block[l] != self.cells[h]:
-                                    if np.linalg.norm(cells_in_block[l].location - self.cells[h].location) <= distance:
-                                        self.neighbor_graph.add_edge(self.cells[h], cells_in_block[l])
+                                if mode == "Differentiated":
+                                    # for the edge to be formed in the diff_graph only one cell must be differentiated
+                                    con_1 = cells_in_block[l].state == "Differentiated"
+                                    con_2 = self.cells[h].state == "Differentiated"
+                                    if cells_in_block[l] != self.cells[h] and (con_1 or con_2 and not (con_1 and con_2)):
+                                        if np.linalg.norm(cells_in_block[l].location - self.cells[h].location) <= distance:
+                                            self.diff_graph.add_edge(self.cells[h], cells_in_block[l])
+                                else:
+                                    if cells_in_block[l] != self.cells[h]:
+                                        if np.linalg.norm(cells_in_block[l].location - self.cells[h].location) <= distance:
+                                            self.neighbor_graph.add_edge(self.cells[h], cells_in_block[l])
 
 
     def handle_movement(self):

@@ -109,10 +109,13 @@ def setup(location_of_templates):
         _dox_step = int(parameters[166][2:-3])
         _max_radius = float(parameters[169][2:-3])
         _move_thresh = int(parameters[172][2:-3])
+        _guye_radius = float(parameters[175][2:-3])
+        _guye_force = float(parameters[178][2:-3])
 
         # if it's not a continuation, copy the template file and check to see if the name is valid
         if not _continuation and not _csv_to_images:
-            _path, _name = check_name(_output_direct, _name, separator) + separator
+            _path, _name = check_name(_output_direct, _name, separator)
+            _path += separator
             shutil.copy(location_of_templates + separator + file, _path)
 
         else:
@@ -127,7 +130,8 @@ def setup(location_of_templates):
                                            _color_mode, _pluri_color, _diff_color, _pluri_gata6_high_color,
                                            _pluri_nanog_high_color, _pluri_both_high_color, _lonely_cell,
                                            _contact_inhibit, _guye_move, _motility_force, _dox_step, _max_radius,
-                                           _division_force, _move_thresh, _output_images, _output_csvs)
+                                           _division_force, _move_thresh, _output_images, _output_csvs, _guye_radius,
+                                           _guye_force)
 
         # loops over the gradients and adds them to the simulation
         for i in range(len(_extracellular)):
