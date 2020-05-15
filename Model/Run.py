@@ -16,11 +16,10 @@ video based on a collection of the images.
 import Input
 import Output
 
-
 # Creates a list of Simulation instances each corresponding to a template .txt file in Setup_files. Then
 # runs each simulation in succession, allowing for multiple simulations to be run one after another if you
-# were to use a high computing cluster/node.   (base)
-list_of_simulations = Input.setup()
+# were to use a high computing cluster/node. Indicate for the setup function where the template files are.   (base)
+list_of_simulations = Input.setup("C:\\Python37\\Model\\Model\\Setup_files")
 for simulation in list_of_simulations:
 
     # Adds the initial concentration amounts to the space for each instance of the extracellular class    (base)

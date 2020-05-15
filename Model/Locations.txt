@@ -1,5 +1,0 @@
-Path where input files are:
-C:\Python37\Model\Model\Setup_files\
-
-Path where output files go:
-C:\Python37\Model_Outputs\

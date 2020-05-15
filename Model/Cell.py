@@ -42,7 +42,7 @@ class Cell:
         """
         # check to see if the cell is surrounded by any other cells
         neighbors = list(simulation.neighbor_graph.neighbors(self))
-        if len(neighbors) >= 1:
+        if len(neighbors) >= simulation.move_thresh:
             # if it is, set motion to False
             self.motion = False
 
@@ -78,11 +78,12 @@ class Cell:
                 # if no differentiated cells, move randomly
                 self.force += random_vector(simulation) * simulation.motility_force
 
+
     def divide(self, simulation):
         """ produces another cell via mitosis
         """
         # halves the division counter and mass, while reducing the radius to a minimum
-        self.div_counter *= 0.5
+        self.div_counter = 0
         self.boolean_counter = 0
         self.radius = simulation.min_radius
 
@@ -96,6 +97,7 @@ class Cell:
 
         # adds the cell to the simulation
         simulation.cells_to_add = np.append(simulation.cells_to_add, [cell])
+
 
     def boolean_function(self, fgf4_bool, simulation):
         """ updates the boolean variables of the cell
@@ -121,14 +123,21 @@ class Cell:
         self.booleans = np.array([new_fgfr, new_erk, new_gata6, new_nanog])
         return new_fgf4
 
+
     def differentiate(self):
         """ differentiates the cell and updates the boolean values
             and sets the motion to be true
         """
+        # change the state to differentiated
         self.state = "Differentiated"
+
+        # set GATA6 high and NANOG low
         self.booleans[2] = 1
         self.booleans[3] = 0
+
+        # allow the cell to move again
         self.motion = True
+
 
     def kill_cell(self, simulation):
         """ if the cell is without neighbors,
@@ -146,6 +155,7 @@ class Cell:
             if self.death_counter >= simulation.death_thresh:
                 simulation.cells_to_remove = np.append(simulation.cells_to_remove, [self])
 
+
     def diff_surround(self, simulation):
         """ calls the object function that determines if
             a cell will differentiate based on the cells
@@ -157,12 +167,20 @@ class Cell:
             # finds neighbors of a cell
             neighbors = list(simulation.neighbor_graph.neighbors(self))
 
-            # counts neighbors
-            num_neighbors = len(neighbors)
+            # holds the current number differentiated neighbors
+            num_diff_neighbors = 0
 
-            # if there are enough cells surrounding the cell the differentiation timer will increase
-            if num_neighbors >= simulation.diff_surround:
-                self.diff_counter += 1
+            # loops over the neighbors of a cell
+            for i in range(len(neighbors)):
+                # checks to see if current neighbor is differentiated if so add it to the counter
+                if neighbors[i].state == "Differentiated":
+                    num_diff_neighbors += 1
+
+                # if the number of differentiated meets the threshold, increase the diff counter and break the loop
+                if num_diff_neighbors >= simulation.diff_surround:
+                    self.diff_counter += 1
+                    break
+
 
     def update_cell(self, simulation):
         """ updates many of the instance variables

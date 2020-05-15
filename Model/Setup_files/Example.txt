@@ -5,8 +5,11 @@ This is the template for running a simulation. Good luck!
 -----------------------------------------------------------------------------------------------------------------------
 General Parameters
 -----------------------------------------------------------------------------------------------------------------------
-What is the name of the simulation? Ex. "Run_30"
-[ "Run_1" ]
+What is the name of the simulation? Ex. Run_30
+[ Run_6 ]
+
+What is the path for the output directory? Ex. C:\Python37\Model_Outputs
+[ C:\Python37\Model_Outputs ]
 
 Do you want the simulation to use parallel GPU processing? Ex. True
 [ False ]
@@ -30,20 +33,35 @@ Number of states within the finite dynamical system. Currently 2 because the sys
 [ 2 ]
 
 -----------------------------------------------------------------------------------------------------------------------
+Modes
+-----------------------------------------------------------------------------------------------------------------------
+Do you want images and a video produced? Ex. True
+[ True ]
+
+Do you want .csv files produced? Ex. False
+[ False ]
+
+Will this be a continuation of a previous simulation? Ex. True
+[ False ]
+
+Do you want to turn a previous collection of .csv files into images and a video? Ex. False
+[ True ]
+
+-----------------------------------------------------------------------------------------------------------------------
 Timing
 -----------------------------------------------------------------------------------------------------------------------
-What will the final step number be? Ex. 30
-[ 96 ]
-
 If this simulation is a continuation of a previous simulation, what will be the next step? If this is the first time
-running a simulation, type 1. Ex. 24
+running a simulation, type 1. Ex. 1
 [ 1 ]
+
+What will the final step number be? Ex. 30
+[ 5 ]
 
 How long is each time step in seconds? Ex. 3600
 [ 1800 ]
 
 How often are the Boolean values for each cell updated? Ex. 10
-[ 4 ]
+[ 1 ]
 
 Number of steps required for a pluripotent cell to divide. Ex. 36
 [ 36 ]
@@ -85,11 +103,17 @@ JKR work of adhesion value
 Viscosity of the media
 [ 10000 ]
 
+Motility force in Newtons for cells actively moving. Ex. 0.00000001
+[ 0.00000004 ]
+
+Force applied to cells when they divide in Newtons, allowing them to move away from each other. Ex. 0.000000015
+[ 0.000000015 ]
+
 -----------------------------------------------------------------------------------------------------------------------
 Imaging
 -----------------------------------------------------------------------------------------------------------------------
 Image resolution in pixels. Currently 2D only. Ex. (1000, 1000)
-[ (2000, 2000) ]
+[ (4000, 4000) ]
 
 Slicing the z direction into a collection a 2D images spaced evenly apart. How many total slices? Ex. 1
 [ 1 ]
@@ -100,17 +124,23 @@ Background color as RGB. Ex. (255, 255, 255)
 Boundary color as RGB. Ex. (0, 0, 0)
 [ (255, 255, 255) ]
 
+Are you coloring based on pluripotent/differentiated or GATA6/NANOG high/low? True for pluri/diff. Ex. False
+[ True ]
+
+Pluripotent cell color as RGB. Ex. (0, 153, 0)
+[ (0, 153, 0) ]
+
+Differentiated cell color as RGB. Ex. (255, 0, 0)
+[ (255, 0, 0) ]
+
 Pluripotent GATA6 high cell color as RGB. Ex. (255, 255, 255)
 [ (255, 255, 255) ]
 
 Pluripotent NANOG high or GATA6/NANOG low cell color as RGB. Ex. (0, 153, 0)
 [ (0, 153, 0) ]
 
-Pluripotent GATA6/NANOG high cell color. Ex. (0, 0, 0)
+Pluripotent both GATA6/NANOG high cell color. Ex. (0, 0, 0)
 [ (51, 51, 255) ]
-
-Differentiated cell color as RGB. Ex. (255, 0, 0)
-[ (255, 0, 0) ]
 
 -----------------------------------------------------------------------------------------------------------------------
 Miscellaneous/Experimental
@@ -133,15 +163,13 @@ Threshold of differentiated cells to denote "contact-inhibition" preventing divi
 Look for the nearest differentiated cell and move closer to it? Based on Guye et al. Ex. True
 [ True ]
 
-Motility force for cells actively moving. Ex. 0.00000001
-[ 0.00000004 ]
-
 At what step is doxycycline added to the simulation? If it is not added, choose a step beyond the end step. Ex. 24
 [ 49 ]
 
-Max radius
+Max radius of a cell in meters. Ex. 0.000005
 [ 0.000005 ]
 
-Force applied to cells when they divide, allowing them to move away from each other
-[ 0.000000015 ]
+Threshold of cells to needed to inhibit the motion of a cell. Ex. 4
+[ 4 ]
+
 -----------------------------------------------------------------------------------------------------------------------

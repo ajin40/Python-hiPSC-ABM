@@ -7,12 +7,14 @@ class Simulation:
     """ Initialization called once for each simulation. Class holds all information about each simulation as a whole
     """
 
-    def __init__(self, path, parallel, size, resolution, num_states, functions, neighbor_distance, time_step_value,
-                 beginning_step, end_step, move_time_step, pluri_div_thresh, pluri_to_diff, diff_div_thresh,
-                 boolean_thresh, death_thresh, diff_surround, adhesion_const, viscosity, group, slices, image_quality,
-                 background_color, bound_color, pluri_gata6_high_color, pluri_nanog_high_color, pluri_both_high_color,
-                 diff_color, lonely_cell, contact_inhibit, guye_move, motility_force, dox_step, max_radius,
-                 division_force):
+    def __init__(self, name, path, parallel, size, resolution, num_states, functions, neighbor_distance,
+                 time_step_value, beginning_step, end_step, move_time_step, pluri_div_thresh, pluri_to_diff,
+                 diff_div_thresh, boolean_thresh, death_thresh, diff_surround, adhesion_const, viscosity, group,
+                 slices, image_quality, background_color, bound_color, color_mode, pluri_color, diff_color,
+                 pluri_gata6_high_color, pluri_nanog_high_color, pluri_both_high_color, lonely_cell, contact_inhibit,
+                 guye_move, motility_force, dox_step, max_radius, division_force, move_thresh, output_images,
+                 output_csvs):
+
         """ path: the path to save the simulation information to
             parallel: true / false which determines whether some tasks are run on the GPU
             size: the size of the space (x, y, z)
@@ -44,13 +46,17 @@ class Simulation:
             pluri_both_high_color: the color of a both high pluripotent cell
             diff_color: the color of a differentiated cell
             lonely_cell: the number of cells needed for a cell not to be alone
-            contact_inhibit: the number of cells needed to inhibit the division of a differentiated cell
+            contact_inhibit: the number of neighbors needed to inhibit the division of a differentiated cell
             guye_move: if pluripotent gata6 high cells search for differentiated cell
             motility_force: the force a cell exerts to move
             dox_step: at what step is doxycycline is added to the simulation, inducing the gata6 pathway
             max_radius: the maximum radius that would be achieved shortly before division
             division_force: the force applied to the daughter cells when a cell divides
+            move_thresh: the number of neighbors needed to inhibit motion
+            output_images: whether the model will create images
+            output_csvs: whether the model will create csvs
         """
+        self.name = name
         self.path = path
         self.parallel = parallel
         self.size = size
@@ -75,10 +81,12 @@ class Simulation:
         self.image_quality = image_quality
         self.background_color = background_color
         self.bound_color = bound_color
+        self.color_mode = color_mode
+        self.pluri_color = pluri_color
+        self.diff_color = diff_color
         self.pluri_gata6_high_color = pluri_gata6_high_color
         self.pluri_nanog_high_color = pluri_nanog_high_color
         self.pluri_both_high_color = pluri_both_high_color
-        self.diff_color = diff_color
         self.lonely_cell = lonely_cell
         self.contact_inhibit = contact_inhibit
         self.guye_move = guye_move
@@ -86,6 +94,9 @@ class Simulation:
         self.dox_step = dox_step
         self.max_radius = max_radius
         self.division_force = division_force
+        self.move_thresh = move_thresh
+        self.output_images = output_images
+        self.output_csvs = output_csvs
 
         # counts how many times an image is created for making videos
         self.image_counter = self.beginning_step
@@ -311,6 +322,7 @@ class Simulation:
 
         # loops over the following movement functions until time is surpassed
         while time_holder < self.time_step_value:
+
             # recheck for new neighbors
             self.check_neighbors()
 
