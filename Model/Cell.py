@@ -80,39 +80,43 @@ class Cell:
         # for pluripotent cells
         else:
             # apply movement if the cell is "in motion"
-            if self.motion and self.booleans[2] == 1:
-                # continue if using Guye et al. movement and if there exists differentiated cells
-                if simulation.guye_move:
-                    # get the differentiated neighbors
-                    diff_neighbors = list(simulation.diff_graph.neighbors(self))
+            if self.motion:
+                if self.booleans[2] == 1:
+                    # continue if using Guye et al. movement and if there exists differentiated cells
+                    if simulation.guye_move:
+                        # get the differentiated neighbors
+                        diff_neighbors = list(simulation.diff_graph.neighbors(self))
 
-                    # check to see if there are any differentiated cells nearby
-                    if len(diff_neighbors) > 0:
-                        # get starting differentiated cell distance
-                        vector = diff_neighbors[0].location - self.location
-                        magnitude = np.linalg.norm(vector)
+                        # check to see if there are any differentiated cells nearby
+                        if len(diff_neighbors) > 0:
+                            # get starting differentiated cell distance
+                            vector = diff_neighbors[0].location - self.location
+                            magnitude = np.linalg.norm(vector)
 
-                        # loop over all other differentiated cells looking for the closest
-                        for i in range(1, len(diff_neighbors)):
-                            # get the distance to each of the other cells
-                            next_vector = diff_neighbors[i].location - self.location
-                            next_magnitude = np.linalg.norm(next_vector)
+                            # loop over all other differentiated cells looking for the closest
+                            for i in range(1, len(diff_neighbors)):
+                                # get the distance to each of the other cells
+                                next_vector = diff_neighbors[i].location - self.location
+                                next_magnitude = np.linalg.norm(next_vector)
 
-                            # check to see if the cell is closer than others
-                            if next_magnitude < magnitude:
-                                # reset distance and vector for calculating the unit normal
-                                vector = next_vector
-                                magnitude = next_magnitude
+                                # check to see if the cell is closer than others
+                                if next_magnitude < magnitude:
+                                    # reset distance and vector for calculating the unit normal
+                                    vector = next_vector
+                                    magnitude = next_magnitude
 
-                        # move in the direction of the closest differentiated neighbor
-                        normal = vector / magnitude
-                        self.force += normal * simulation.guye_force
+                            # move in the direction of the closest differentiated neighbor
+                            normal = vector / magnitude
+                            self.force += normal * simulation.guye_force
 
+                        else:
+                            # if no differentiated cells, move randomly
+                            self.force += random_vector(simulation) * simulation.motility_force
                     else:
-                        # if no differentiated cells, move randomly
+                        # if not Guye et al. movement, move randomly
                         self.force += random_vector(simulation) * simulation.motility_force
                 else:
-                    # if not Guye et al. movement, move randomly
+                    # if not GATA6 high
                     self.force += random_vector(simulation) * simulation.motility_force
 
 
