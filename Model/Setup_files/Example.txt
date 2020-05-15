@@ -6,7 +6,7 @@ This is the template for running a simulation. Good luck!
 General Parameters
 -----------------------------------------------------------------------------------------------------------------------
 What is the name of the simulation? Ex. Run_30
-[ Run_6 ]
+[ Run_7 ]
 
 What is the path for the output directory? Ex. C:\Python37\Model_Outputs
 [ C:\Python37\Model_Outputs ]
@@ -24,7 +24,7 @@ How many cells will be GATA6 high to begin the simulation? Ex. 247
 [ 0 ]
 
 How many cells will be NANOG high to begin the simulation? Ex. 91
-[ 1000 ]
+[ 2000 ]
 
 Define the finite dynamical system functions below. Ex. ("x5", "x4 * x2",...)
 [ ("x5", "x1 * x4 + x1 + x4", "x2", "x5 + 1", "(x3+1) * (x4+1)") ]
@@ -39,23 +39,23 @@ Do you want images and a video produced? Ex. True
 [ True ]
 
 Do you want .csv files produced? Ex. False
-[ False ]
+[ True ]
 
 Will this be a continuation of a previous simulation? Ex. True
 [ False ]
 
 Do you want to turn a previous collection of .csv files into images and a video? Ex. False
-[ True ]
+[ False ]
 
 -----------------------------------------------------------------------------------------------------------------------
 Timing
 -----------------------------------------------------------------------------------------------------------------------
 If this simulation is a continuation of a previous simulation, what will be the next step? If this is the first time
 running a simulation, type 1. Ex. 1
-[ 6 ]
+[ 1 ]
 
 What will the final step number be? Ex. 30
-[ 10 ]
+[ 96 ]
 
 How long is each time step in seconds? Ex. 3600
 [ 1800 ]
@@ -67,7 +67,7 @@ Number of steps required for a pluripotent cell to divide. Ex. 36
 [ 36 ]
 
 Number of steps required for a pluripotent cell to differentiate. Ex. 36
-[ 48 ]
+[ 144 ]
 
 Number of steps required for a differentiated cell to divide. Ex. 24
 [ 72 ]
@@ -104,7 +104,7 @@ Viscosity of the media
 [ 10000 ]
 
 Motility force in Newtons for cells actively moving. Ex. 0.00000001
-[ 0.00000004 ]
+[ 0.00000002 ]
 
 Force applied to cells when they divide in Newtons, allowing them to move away from each other. Ex. 0.000000015
 [ 0.000000015 ]
@@ -113,7 +113,7 @@ Force applied to cells when they divide in Newtons, allowing them to move away f
 Imaging
 -----------------------------------------------------------------------------------------------------------------------
 Image resolution in pixels. Currently 2D only. Ex. (1000, 1000)
-[ (4000, 4000) ]
+[ (2000, 2000) ]
 
 Slicing the z direction into a collection a 2D images spaced evenly apart. How many total slices? Ex. 1
 [ 1 ]
@@ -146,7 +146,7 @@ Pluripotent both GATA6/NANOG high cell color. Ex. (0, 0, 0)
 Miscellaneous/Experimental
 -----------------------------------------------------------------------------------------------------------------------
 Amount of differentiated cells needed to surround a pluripotent cell to possibly differentiate it. Ex. 5
-[ 5 ]
+[ 8 ]
 
 Stochastic FGFR + ERK values? Ex. True
 [ True ]

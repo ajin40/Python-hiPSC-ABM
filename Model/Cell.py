@@ -59,7 +59,7 @@ class Cell:
                     # loop over all other differentiated cells looking for the closest
                     for i in range(1, len(simulation.diff_cells)):
                         # get the distance to each of the other cells
-                        next_vector = simulation.diff_cells[i].locationn - self.location
+                        next_vector = simulation.diff_cells[i].location - self.location
                         next_magnitude = np.linalg.norm(next_vector)
 
                         # check to see if the cell is closer than others

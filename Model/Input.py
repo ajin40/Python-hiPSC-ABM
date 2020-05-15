@@ -112,7 +112,7 @@ def setup(location_of_templates):
 
         # if it's not a continuation, copy the template file and check to see if the name is valid
         if not _continuation and not _csv_to_images:
-            _path = check_name(_output_direct, _name, separator) + separator
+            _path, _name = check_name(_output_direct, _name, separator) + separator
             shutil.copy(location_of_templates + separator + file, _path)
 
         else:
@@ -274,4 +274,4 @@ def check_name(output_path, name, separator):
                 break
 
     # updated path and name if need be
-    return output_path + separator + name
+    return output_path + separator + name, name
