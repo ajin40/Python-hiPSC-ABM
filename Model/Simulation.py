@@ -1,8 +1,10 @@
 import numpy as np
 import networkx as nx
 import math
+import itertools
 
 
+from operator import methodcaller
 class Simulation:
     """ Initialization called once for each simulation. Class holds all information about each simulation as a whole
     """
@@ -102,7 +104,7 @@ class Simulation:
         self.guye_force = guye_force
 
         # counts how many times an image is created for making videos
-        self.image_counter = self.beginning_step
+        self.image_counter = 0
 
         # keeps a running count of the simulation steps
         self.current_step = self.beginning_step
@@ -264,9 +266,6 @@ class Simulation:
             is less than a fixed value create a connection
             between two cells.
         """
-        # removes the edges from the graph. Simply no function from networkx exists to do this
-        edges = list(self.neighbor_graph.edges())
-        self.neighbor_graph.remove_edges_from(edges)
 
         # tries to run the parallel version of this function
         if self.parallel:
@@ -274,9 +273,17 @@ class Simulation:
             Parallel.check_neighbors_gpu(self)
         else:
             if mode == "Differentiated":
+                # removes the edges from the graph. Simply no function from networkx exists to do this
+                edges = list(self.neighbor_graph.edges())
+                self.diff_graph.remove_edges_from(edges)
+
                 # distance threshold for finding nearest differentiated neighbors
                 distance = self.guye_radius
             else:
+                # removes the edges from the graph. Simply no function from networkx exists to do this
+                edges = list(self.neighbor_graph.edges())
+                self.neighbor_graph.remove_edges_from(edges)
+
                 # distance threshold between two cells to designate a neighbor
                 distance = self.neighbor_distance
 
@@ -305,24 +312,22 @@ class Simulation:
                 blocks[location_x][location_y][location_z] = np.append(current_block, self.cells[h])
 
                 # looks at the blocks surrounding a given block that houses the cell
-                for i in range(-1, 2):
-                    for j in range(-1, 2):
-                        for k in range(-1, 2):
-                            cells_in_block = blocks[location_x + i][location_y + j][location_z + k]
+                for i, j, k in itertools.product(range(-1, 2), repeat=3):
+                    cells_in_block = blocks[location_x + i][location_y + j][location_z + k]
 
-                            # looks at the cells in a block and decides if they are neighbors
-                            for l in range(len(cells_in_block)):
-                                if mode == "Differentiated":
-                                    # for the edge to be formed in the diff_graph only one cell must be differentiated
-                                    con_1 = cells_in_block[l].state == "Differentiated"
-                                    con_2 = self.cells[h].state == "Differentiated"
-                                    if cells_in_block[l] != self.cells[h] and (con_1 or con_2 and not (con_1 and con_2)):
-                                        if np.linalg.norm(cells_in_block[l].location - self.cells[h].location) <= distance:
-                                            self.diff_graph.add_edge(self.cells[h], cells_in_block[l])
-                                else:
-                                    if cells_in_block[l] != self.cells[h]:
-                                        if np.linalg.norm(cells_in_block[l].location - self.cells[h].location) <= distance:
-                                            self.neighbor_graph.add_edge(self.cells[h], cells_in_block[l])
+                    # looks at the cells in a block and decides if they are neighbors
+                    for l in range(len(cells_in_block)):
+                        if mode == "Differentiated":
+                            # for the edge to be formed in the diff_graph only one cell must be differentiated
+                            con_1 = cells_in_block[l].state == "Differentiated"
+                            con_2 = self.cells[h].state == "Differentiated"
+                            if cells_in_block[l] != self.cells[h] and (con_1 or con_2 and not (con_1 and con_2)):
+                                if np.linalg.norm(cells_in_block[l].location - self.cells[h].location) <= distance:
+                                    self.diff_graph.add_edge(self.cells[h], cells_in_block[l])
+                        else:
+                            if cells_in_block[l] != self.cells[h]:
+                                if np.linalg.norm(cells_in_block[l].location - self.cells[h].location) <= distance:
+                                    self.neighbor_graph.add_edge(self.cells[h], cells_in_block[l])
 
 
     def handle_movement(self):
@@ -335,7 +340,6 @@ class Simulation:
 
         # loops over the following movement functions until time is surpassed
         while time_holder < self.time_step_value:
-
             # recheck for new neighbors
             self.check_neighbors()
 
@@ -348,6 +352,9 @@ class Simulation:
             # turn the forces acting on a cell into movements
             self.force_to_movement()
 
+        # reset active force back to zero as these forces are only updated once per turn
+        for i in range(len(self.cells)):
+            self.cells[i].active_force = np.array([0.0, 0.0, 0.0])
 
     def get_forces(self):
         """ goes through all of the cells and quantifies any forces arising
@@ -405,8 +412,8 @@ class Simulation:
                 jkr_force = f * math.pi * self.adhesion_const * r_hat
 
                 # adds the adhesive force as a vector in opposite directions to each cell's force holder
-                cell_1.force += jkr_force * normal
-                cell_2.force -= jkr_force * normal
+                cell_1.inactive_force += jkr_force * normal
+                cell_2.inactive_force -= jkr_force * normal
 
             # remove the edge if the it fails to meet the criteria for distance, JKR simulating that
             # the bond is broken
@@ -425,7 +432,7 @@ class Simulation:
             stokes_friction = 6 * math.pi * self.viscosity * self.cells[i].radius
 
             # update the velocity of the cell based on the solution
-            self.cells[i].velocity = self.cells[i].force / stokes_friction
+            self.cells[i].velocity = (self.cells[i].active_force + self.cells[i].inactive_force) / stokes_friction
 
             # set the possible new location
             new_location = self.cells[i].location + self.cells[i].velocity * self.move_time_step
@@ -440,6 +447,6 @@ class Simulation:
                 else:
                     self.cells[i].location[j] = new_location[j]
 
-            # reset velocity and force back to zero
+            # reset velocity and inactive force and not the active force as that remains constant for the entire step
             self.cells[i].velocity = np.array([0.0, 0.0, 0.0])
-            self.cells[i].force = np.array([0.0, 0.0, 0.0])
+            self.cells[i].inactive_force = np.array([0.0, 0.0, 0.0])

@@ -6,7 +6,7 @@ This is the template for running a simulation. Good luck!
 General Parameters
 -----------------------------------------------------------------------------------------------------------------------
 What is the name of the simulation? Ex. Run_30
-[ Run_12 ]
+[ Run_23 ]
 
 What is the path for the output directory? Ex. C:\Python37\Model_Outputs
 [ C:\Python37\Model_Outputs ]
@@ -24,7 +24,7 @@ How many cells will be GATA6 high to begin the simulation? Ex. 247
 [ 0 ]
 
 How many cells will be NANOG high to begin the simulation? Ex. 91
-[ 2000 ]
+[ 1500 ]
 
 Define the finite dynamical system functions below. Ex. ("x5", "x4 * x2",...)
 [ ("x5", "x1 * x4 + x1 + x4", "x2", "x5 + 1", "(x3+1) * (x4+1)") ]
@@ -39,13 +39,16 @@ Do you want images and a video produced? Ex. True
 [ True ]
 
 Do you want .csv files produced? Ex. False
-[ True ]
+[ False ]
 
 Will this be a continuation of a previous simulation? Ex. True
 [ False ]
 
 Do you want to turn a previous collection of .csv files into images and a video? Ex. False
 [ False ]
+
+Do you want to turn a previous collection of images into a video? Use after simulation is stopped before end. Ex. False
+[ True ]
 
 -----------------------------------------------------------------------------------------------------------------------
 Timing
@@ -55,7 +58,7 @@ running a simulation, type 1. Ex. 1
 [ 1 ]
 
 What will the final step number be? Ex. 30
-[ 196 ]
+[ 192 ]
 
 How long is each time step in seconds? Ex. 3600
 [ 1800 ]
@@ -104,10 +107,10 @@ Viscosity of the media
 [ 10000 ]
 
 Motility force in Newtons for cells actively moving. Ex. 0.00000001
-[ 0.00000002 ]
+[ 0.0000000025 ]
 
 Force applied to cells when they divide in Newtons, allowing them to move away from each other. Ex. 0.000000015
-[ 0.00000001 ]
+[ 0.00000000025 ]
 
 -----------------------------------------------------------------------------------------------------------------------
 Imaging
@@ -128,10 +131,10 @@ Are you coloring based on pluripotent/differentiated or GATA6/NANOG high/low? Tr
 [ True ]
 
 Pluripotent cell color as RGB. Ex. (0, 153, 0)
-[ (0, 153, 0) ]
+[ (22, 252, 32) ]
 
 Differentiated cell color as RGB. Ex. (255, 0, 0)
-[ (255, 0, 0) ]
+[ (230, 0, 0) ]
 
 Pluripotent GATA6 high cell color as RGB. Ex. (255, 255, 255)
 [ (255, 255, 255) ]
@@ -152,7 +155,7 @@ Stochastic FGFR + ERK values? Ex. True
 [ True ]
 
 How many cells are added/removed to the simulation at once, per time step? Type 0 if all at once. Ex. 5
-[ 0 ]
+[ 10 ]
 
 Threshold of cells to denote a cell as lonely or not. If lower than this value, increase chance of cell death. Ex. 4
 [ 1 ]
@@ -164,17 +167,17 @@ Look for the nearest differentiated cell and move closer to it? Based on Guye et
 [ True ]
 
 At what step is doxycycline added to the simulation? If it is not added, choose a step beyond the end step. Ex. 24
-[ 1 ]
+[ 49 ]
 
 Max radius of a cell in meters. Ex. 0.000005
 [ 0.000005 ]
 
 Threshold of cells to needed to inhibit the motion of a cell. Ex. 4
-[ 4 ]
+[ 3 ]
 
 Guye radius of search for differentiated cells in meters. Ex. 0.00003
 [ 0.00003 ]
 
 Guye force of motility in newtons. Ex. 0.00000001
-[ 0.000000005 ]
+[ 0.0000000025 ]
 -----------------------------------------------------------------------------------------------------------------------

@@ -123,7 +123,7 @@ def image_to_video(simulation):
         out = cv2.VideoWriter(video_path, cv2.VideoWriter_fourcc("M", "J", "P", "G"), 1.0, image_quality)
 
         # loops over all images and writes them to the base video file
-        for i in range(1, simulation.image_counter):
+        for i in range(simulation.beginning_step, simulation.beginning_step + simulation.image_counter + 1):
             path = simulation.path + simulation.name + "_image_" + str(i) + "_slice_0" + ".png"
             image = cv2.imread(path)
             out.write(image)

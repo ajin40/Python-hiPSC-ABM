@@ -30,8 +30,11 @@ class Cell:
         self.death_counter = death_counter
         self.boolean_counter = boolean_counter
 
-        # starts the cell off with a zero force vector
-        self.force = np.array([0.0, 0.0, 0.0])
+        # holds any active forces applied to a cell resulting from motility and division
+        self.active_force = np.array([0.0, 0.0, 0.0])
+
+        # holds any inactive forces resulting from adhesion or repulsion
+        self.inactive_force = np.array([0.0, 0.0, 0.0])
 
         # starts the cell off with a zero velocity vector
         self.velocity = np.array([0.0, 0.0, 0.0])
@@ -71,11 +74,11 @@ class Cell:
                     normal = vector_holder / magnitude
 
                 # move in direction opposite to cells
-                self.force = simulation.motility_force * normal * -1
+                self.active_force += simulation.motility_force * normal * -1
 
             # if there aren't any neighbors and still in motion then move randomly
             elif self.motion:
-                self.force += random_vector(simulation) * simulation.motility_force
+                self.active_force += random_vector(simulation) * simulation.motility_force
 
         # for pluripotent cells
         else:
@@ -107,17 +110,17 @@ class Cell:
 
                             # move in the direction of the closest differentiated neighbor
                             normal = vector / magnitude
-                            self.force += normal * simulation.guye_force
+                            self.active_force += normal * simulation.guye_force
 
                         else:
                             # if no differentiated cells, move randomly
-                            self.force += random_vector(simulation) * simulation.motility_force
+                            self.active_force += random_vector(simulation) * simulation.motility_force
                     else:
                         # if not Guye et al. movement, move randomly
-                        self.force += random_vector(simulation) * simulation.motility_force
+                        self.active_force += random_vector(simulation) * simulation.motility_force
                 else:
                     # if not GATA6 high
-                    self.force += random_vector(simulation) * simulation.motility_force
+                    self.active_force += random_vector(simulation) * simulation.motility_force
 
 
     def divide(self, simulation):
@@ -133,8 +136,8 @@ class Cell:
 
         # apply a cell division force moving the cells away from each other
         force_vector = random_vector(simulation) * simulation.division_force
-        self.force += force_vector
-        cell.force -= force_vector
+        self.active_force += force_vector
+        cell.active_force -= force_vector
 
         # adds the cell to the simulation
         simulation.cells_to_add = np.append(simulation.cells_to_add, [cell])
