@@ -14,7 +14,7 @@ choices, and  purposes regarding the model.
 """
 import Input
 import Output
-
+import time
 
 # setup() will create an instance of the Simulation class that holds extracellular and cell objects.
 # This is done by reading a template .txt file that contains all initial parameters of the model.   (base)
@@ -31,7 +31,10 @@ for simulation.current_step in range(simulation.beginning_step, simulation.end_s
     # simulation.update_diffusion()
 
     # Refreshes the graph used to represent cells as nodes and neighbor connections as edges.   (base)
+    start = time.time()
     simulation.check_neighbors()
+    end = time.time()
+    print(end-start)
 
     # A way of introducing cell death into the model by removing cells if they are without neighbors for so long.
     simulation.kill_cells()

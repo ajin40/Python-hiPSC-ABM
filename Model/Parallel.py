@@ -30,44 +30,41 @@ def update_gradient_gpu(extracellular, simulation):
     extracellular.diffuse_values = cp.asnumpy(a)
 
 
-def check_neighbors_gpu(simulation):
+def check_neighbors_gpu(simulation, distance):
     """ checks all of the distances between cells if it
         is less than a fixed value create a connection
         between two cells.
     """
-    # distance threshold between two cells to designate a neighbor and turns it into a gpu array
-    distance = simulation.neighbor_distance
-    distance_cuda = cuda.to_device(np.array([simulation.neighbor_distance]))
+    # distance threshold between two cells to designate a neighbor, turns it into gpu array
+    distance_cuda = cuda.to_device(np.array([distance]))
 
     # divides the space into blocks and gives a holder of fixed size for each block
-    x = int(simulation.size[0] / distance + 3)
-    y = int(simulation.size[1] / distance + 3)
-    z = int(simulation.size[2] / distance + 3)
-    holder_size = 100
+    blocks_size = simulation.size // distance + np.array([3, 3, 3])
+    blocks_size = np.append(blocks_size, 100)
+    blocks_size = tuple(blocks_size.astype(int))
 
     # assigns values of -1 to denote a lack of cells
-    blocks = np.ones((x, y, z, holder_size)) * -1
+    blocks = np.ones(blocks_size) * -1
 
     # an array used to accelerate the cuda function by telling the function how many cells are in a given block
-    blocks_help = np.zeros((x, y, z))
+    blocks_help = np.zeros(blocks_size)
 
     # assigns cells to blocks as a general location
     for i in range(len(simulation.cells)):
         # offset blocks by 1 to avoid missing cells
-        location_x = int(simulation.cells[i].location[0] / distance) + 1
-        location_y = int(simulation.cells[i].location[1] / distance) + 1
-        location_z = int(simulation.cells[i].location[2] / distance) + 1
+        block_location = simulation.cells[i].location // distance + np.array([1, 1, 1])
+        block_location = block_location.astype(int)
+        x, y, z = block_location[0], block_location[1], block_location[2]
 
         # tries to place the cell in the holder for the block. if the holder's value is other than -1 it will move
         # to the next spot to see if it's empty
-        place = 0
-        while blocks[location_x][location_y][location_z][place] != -1:
-            place += 1
+        place = blocks_help[x][y][z]
+
         # gives the cell's array location
-        blocks[location_x][location_y][location_z][place] = i
+        blocks[x][y][z][place] = i
 
         # updates the total amount cells in a block
-        blocks_help[location_x][location_y][location_z] = place + 1
+        blocks_help[x][y][z] += 1
 
     # turn the blocks array and the blocks_help array into a format to be sent to the gpu
     blocks_cuda = cuda.to_device(blocks)

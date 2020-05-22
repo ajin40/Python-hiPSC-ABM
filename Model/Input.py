@@ -41,6 +41,7 @@ def setup(template_location):
     _output_direct = lines[11][2:-3]
     _parallel = eval(lines[14][2:-3])
     _size = eval(lines[17][2:-3])
+    _size = np.array([_size[0], _size[1], _size[2]])
     _resolution = eval(lines[20][2:-3])
     _num_GATA6 = int(lines[23][2:-3])
     _num_NANOG = int(lines[26][2:-3])

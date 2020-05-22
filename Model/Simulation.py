@@ -121,14 +121,11 @@ class Simulation:
         self.jkr_graph = nx.Graph()
 
         # graph representing connections between pluripotent cells and their differentiated neighbors
-        self.diff_graph = nx.Graph()
+        self.Guye_graph = nx.Graph()
 
         # holds the objects until they are added or removed from the simulation
         self.cells_to_remove = np.array([], dtype=np.object)
         self.cells_to_add = np.array([], dtype=np.object)
-
-        # holds all of the differentiated cells
-        self.diff_cells = np.array([], dtype=np.object)
 
         # the minimum radius after division currently 2D
         self.min_radius = self.max_radius / 2 ** 0.5
@@ -144,7 +141,6 @@ class Simulation:
 
         # Poisson's ratio
         self.poisson = 0.5
-
 
     def info(self):
         """ prints information about the simulation as it
@@ -187,11 +183,10 @@ class Simulation:
         """ see Cell.py for description
         """
         # update the array containing the differentiated cells
-        self.check_neighbors(mode="Differentiated")
+        self.check_neighbors(mode="Guye")
 
         for i in range(len(self.cells)):
             self.cells[i].motility(self)
-
 
     def add_cell(self, cell):
         """ Adds the cell to both the neighbor graph
@@ -200,15 +195,10 @@ class Simulation:
         # adds it to the array holding the cell objects
         self.cells = np.append(self.cells, cell)
 
-        # adds it to the neighbor graph
+        # adds it to the following graphs
         self.neighbor_graph.add_node(cell)
-
-        # adds it to the adhesion graph
         self.jkr_graph.add_node(cell)
-
-        # adds it to the differentiated graph
-        self.diff_graph.add_node(cell)
-
+        self.Guye_graph.add_node(cell)
 
     def remove_cell(self, cell):
         """ Adds the cell to both the neighbor graph
@@ -217,15 +207,10 @@ class Simulation:
         # removes it from the array holding the cell objects
         self.cells = self.cells[self.cells != cell]
 
-        # removes it from the neighbor graph
+        # removes it from the following graphs
         self.neighbor_graph.remove_node(cell)
-
-        # removes it from the adhesion graph
         self.jkr_graph.remove_node(cell)
-
-        # removes it from the differentiated graph
-        self.diff_graph.remove_node(cell)
-
+        self.Guye_graph.remove_node(cell)
 
     def update_cell_queue(self):
         """ Updates the queues for adding and removing cell objects
@@ -259,75 +244,70 @@ class Simulation:
         self.cells_to_remove = np.array([], dtype=np.object)
         self.cells_to_add = np.array([], dtype=np.object)
 
-
     def check_neighbors(self, mode="standard"):
         """ checks all of the distances between cells if it
             is less than a fixed value create a connection
             between two cells.
         """
+        # based on the mode the search radius for neighbors will vary
+        if mode == "Guye":
+            # removes the edges from the graph
+            edges = list(self.neighbor_graph.edges())
+            self.Guye_graph.remove_edges_from(edges)
 
-        # tries to run the parallel version of this function
-        if self.parallel:
-            import Parallel
-            Parallel.check_neighbors_gpu(self)
+            # distance threshold for finding nearest differentiated neighbors
+            distance = self.guye_radius
         else:
-            if mode == "Differentiated":
-                # removes the edges from the graph. Simply no function from networkx exists to do this
-                edges = list(self.neighbor_graph.edges())
-                self.diff_graph.remove_edges_from(edges)
+            # removes the edges from the graph
+            edges = list(self.neighbor_graph.edges())
+            self.neighbor_graph.remove_edges_from(edges)
 
-                # distance threshold for finding nearest differentiated neighbors
-                distance = self.guye_radius
-            else:
-                # removes the edges from the graph. Simply no function from networkx exists to do this
-                edges = list(self.neighbor_graph.edges())
-                self.neighbor_graph.remove_edges_from(edges)
+            # distance threshold between two cells to designate a neighbor
+            distance = self.neighbor_distance
 
-                # distance threshold between two cells to designate a neighbor
-                distance = self.neighbor_distance
+        # call the parallel version if desired
+        if self.parallel:
+            # prevents the need for having the numba library if it's not installed
+            import Parallel
+            Parallel.check_neighbors_gpu(self, distance)
 
-            # divides the environment into blocks
-            x = int(self.size[0] / distance + 3)
-            y = int(self.size[1] / distance + 3)
-            z = int(self.size[2] / distance + 3)
-            blocks = np.empty((x, y, z), dtype=object)
+        # call the boring non-parallel cpu version
+        else:
+            # create an array of blocks that takes up the entire space and extra to prevent errors
+            blocks_size = self.size // distance + np.array([3, 3, 3])
+            blocks_size = tuple(blocks_size.astype(int))
+            blocks = np.empty(blocks_size, dtype=object)
 
-            # gives each block an array as a cell holder
-            for i in range(x):
-                for j in range(y):
-                    for k in range(z):
-                        blocks[i][j][k] = np.array([])
+            # gives each block an array that acts as a holder for cells optimized triple for-loop
+            for i, j, k in itertools.product(range(blocks_size[0]), range(blocks_size[1]), range(blocks_size[2])):
+                blocks[i][j][k] = np.array([])
 
-            # assigns each cell to a block by rounding its coordinates up to the nearest integer
-            # loops over all cells and gets block location
             for h in range(len(self.cells)):
-                # offset blocks by 1 to help when searching over blocks
-                location_x = int(self.cells[h].location[0] / distance) + 1
-                location_y = int(self.cells[h].location[1] / distance) + 1
-                location_z = int(self.cells[h].location[2] / distance) + 1
+                # offset the block location by 1 to help when searching over blocks and reduce potential error
+                block_location = self.cells[h].location // distance + np.array([1, 1, 1])
+                block_location = block_location.astype(int)
+                x, y, z = block_location[0], block_location[1], block_location[2]
 
                 # adds the cell to a given block
-                current_block = blocks[location_x][location_y][location_z]
-                blocks[location_x][location_y][location_z] = np.append(current_block, self.cells[h])
+                blocks[x][y][z] = np.append(blocks[x][y][z], self.cells[h])
 
                 # looks at the blocks surrounding a given block that houses the cell
                 for i, j, k in itertools.product(range(-1, 2), repeat=3):
-                    cells_in_block = blocks[location_x + i][location_y + j][location_z + k]
+                    cells_in_block = blocks[x + i][y + j][z + k]
 
                     # looks at the cells in a block and decides if they are neighbors
                     for l in range(len(cells_in_block)):
-                        if mode == "Differentiated":
+                        if mode == "Guye":
                             # for the edge to be formed in the diff_graph only one cell must be differentiated
-                            con_1 = cells_in_block[l].state == "Differentiated"
-                            con_2 = self.cells[h].state == "Differentiated"
+                            con_1 = cells_in_block[l].state == "Guye"
+                            con_2 = self.cells[h].state == "Guye"
                             if cells_in_block[l] != self.cells[h] and (con_1 or con_2 and not (con_1 and con_2)):
                                 if np.linalg.norm(cells_in_block[l].location - self.cells[h].location) <= distance:
-                                    self.diff_graph.add_edge(self.cells[h], cells_in_block[l])
+                                    self.Guye_graph.add_edge(self.cells[h], cells_in_block[l])
                         else:
                             if cells_in_block[l] != self.cells[h]:
                                 if np.linalg.norm(cells_in_block[l].location - self.cells[h].location) <= distance:
                                     self.neighbor_graph.add_edge(self.cells[h], cells_in_block[l])
-
 
     def handle_movement(self):
         """ runs the following functions together for a
@@ -418,7 +398,6 @@ class Simulation:
             # the bond is broken
             elif bond_condition:
                 self.jkr_graph.remove_edge(cell_1, cell_2)
-
 
     def force_to_movement(self):
         """ turns the forces acting on cells into
