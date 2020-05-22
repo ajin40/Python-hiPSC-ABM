@@ -1,66 +1,61 @@
 """
 
 This is the Python file that you run to begin the simulation. Before you begin, make sure you have
-updated Locations.txt such that it points to the template files and where you would like the files
-to be outputted. All lines indicated with "(base)" are necessary to for the model to function.
-Removing such lines will cause the model to either run incorrectly or not at all. Feel free to modify
-or delete any functions that are not labeled in this fashion. Add any necessary functions here to
-incorporate them into the model.
+updated "Input.setup(...)" such that it represents the string that is the path pointing to the .txt file
+a.k.a. the template file used for simulation information. All lines indicated with "(base)" are
+necessary to for the model to work. Removing such lines will cause the model to either run incorrectly
+or not at all. Feel free to modify or delete any functions that are not labeled in this fashion. Add
+any necessary functions here to customize the model to your liking. Functions underneath the for loop
+are run each step, while functions before or after will be run before or after all steps are executed.
 
-Input.py and Output.py are standalone files that are not part of any class. Input reads the
-template files and creates an instance of the Simulation class, which holds all created cell
-and extracellular objects. Output will take the Simulation and create images, CSVs, and a
-video based on a collection of the images.
+See each file for a description on how each file is used. Documentation should provide lengthy explanations,
+choices, and  purposes regarding the model.
 
 """
 import Input
 import Output
 
 
-# Creates a list of Simulation instances each corresponding to a template .txt file in Setup_files. Then
-# runs each simulation in succession, allowing for multiple simulations to be run one after another if you
-# were to use a high computing cluster/node. Indicate for the setup function where the template files are.   (base)
-simulation = Input.setup("C:\\Python37\\Model\\Model\\template.txt")
+# setup() will create an instance of the Simulation class that holds extracellular and cell objects.
+# This is done by reading a template .txt file that contains all initial parameters of the model.   (base)
+simulation = Input.setup("C:\\Python37\\Seed Project\\Model\\template.txt")
 
-# Adds the initial concentration amounts to the space for each instance of the extracellular class    (base)
-simulation.initialize_diffusion()
-
-# This will loop over all steps. The first image and CSV produced are based on starting conditions. The
-# following outputs are representative of one step run by the model.    (base)
+# This will loop over all steps defined in the template file in addition to updating the current step
+# of the simulation.   (base)
 for simulation.current_step in range(simulation.beginning_step, simulation.end_step + 1):
 
-    # Prints the current step number and the count of cells. Gives an idea of how the model is running.
+    # Prints the current step and number of cells. Used to give an idea of the progress.
     simulation.info()
 
-    # Updates each of the extracellular gradients by adjusting concentrations.
-    simulation.update_diffusion()
+    # Updates each of the extracellular gradients by "smoothing" the points that represent the concentrations.   (base)
+    # simulation.update_diffusion()
 
-    # Updates the graph containing all edges that represent a cell's neighbors. Each time the cells move this must
-    # be run to maintain accuracy of which cells surround a given cell.
+    # Refreshes the graph used to represent cells as nodes and neighbor connections as edges.   (base)
     simulation.check_neighbors()
 
-    # If cells are by themselves for too long, they will be added to the queue that removes the cells.
+    # A way of introducing cell death into the model by removing cells if they are without neighbors for so long.
     simulation.kill_cells()
 
-    # If enough neighbor differentiated cells surround a pluripotent cell, it may induce differentiation
+    # Represents the phenomena that differentiated neighbors of a pluripotent cell may induce its differentiation.
     simulation.diff_surround_cells()
 
-    # Applies forces to each cell based on random or Guye movement
+    # Gets motility forces depending on a variety of factors involving state and presence of neighbors
     simulation.motility_cells()
 
     # Updates cells by adjusting trackers for differentiation and division based on intracellular, intercellular,
-    # and extracellular conditions.
+    # and extracellular conditions.   (base)
     simulation.update_cells()
 
-    # Adds/removes cells to/from the simulation either all together or in desired amounts of cell. If done in
-    # groups, the handle_movement() function will be called to better represent asynchronous division and death
+    # Adds/removes cells to/from the simulation either all together or in desired numbers of cells. If done in
+    # groups, the handle_movement() function will be used to better represent asynchronous division and death   (base)
     simulation.update_cell_queue()
 
-    # Moves the cells to a state of physical equilibrium so that there is minimal overlap between cells
+    # Moves the cells to a state of physical equilibrium so that there is minimal overlap of cells, while also
+    # applying forces from the previous motility_cells() function.   (base)
     simulation.handle_movement()
 
-    # Saves a snapshot of the simulation at the given step. This includes images and a CSV file.     (base)
+    # Saves a snapshot of the simulation at the given step. This may include an image and a CSV file.    (base)
     Output.save_file(simulation)
 
-# Looks at all images produced by the simulation and turns them into a video in order.
+# Looks at all images produced by the simulation and turns them into a video.
 Output.image_to_video(simulation)

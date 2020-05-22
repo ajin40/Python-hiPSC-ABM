@@ -1,7 +1,7 @@
 from numba import cuda
 import math
 import numpy as np
-import cupy as cp
+# import cupy as cp
 
 def update_gradient_gpu(extracellular, simulation):
     """ This is a near identical function to the

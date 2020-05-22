@@ -4,7 +4,6 @@ import math
 import itertools
 
 
-from operator import methodcaller
 class Simulation:
     """ Initialization called once for each simulation. Class holds all information about each simulation as a whole
     """
