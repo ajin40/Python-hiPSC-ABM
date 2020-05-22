@@ -30,7 +30,7 @@ def update_gradient_gpu(extracellular, simulation):
     extracellular.diffuse_values = cp.asnumpy(a)
 
 
-def check_neighbors_gpu(simulation, distance):
+def check_neighbors_gpu(simulation, distance, mode):
     """ checks all of the distances between cells if it
         is less than a fixed value create a connection
         between two cells.
@@ -40,6 +40,7 @@ def check_neighbors_gpu(simulation, distance):
 
     # divides the space into blocks and gives a holder of fixed size for each block
     blocks_size = simulation.size // distance + np.array([3, 3, 3])
+    blocks_size_help = tuple(blocks_size.astype(int))
     blocks_size = np.append(blocks_size, 100)
     blocks_size = tuple(blocks_size.astype(int))
 
@@ -47,7 +48,7 @@ def check_neighbors_gpu(simulation, distance):
     blocks = np.ones(blocks_size) * -1
 
     # an array used to accelerate the cuda function by telling the function how many cells are in a given block
-    blocks_help = np.zeros(blocks_size)
+    blocks_help = np.zeros(blocks_size_help, dtype=np.int)
 
     # assigns cells to blocks as a general location
     for i in range(len(simulation.cells)):
@@ -99,8 +100,13 @@ def check_neighbors_gpu(simulation, distance):
         cell_1_index = int(edges[i][0])
         cell_2_index = int(output[edges[i][0]][edges[i][1]])
 
-        # adds an edge between these two cells
-        simulation.neighbor_graph.add_edge(simulation.cells[cell_1_index], simulation.cells[cell_2_index])
+        # check what mode
+        if mode == "Guye":
+            # adds an edge between these two cells
+            simulation.Guye_graph.add_edge(simulation.cells[cell_1_index], simulation.cells[cell_2_index])
+        else:
+            # adds an edge between these two cells
+            simulation.neighbor_graph.add_edge(simulation.cells[cell_1_index], simulation.cells[cell_2_index])
 
 
 @cuda.jit

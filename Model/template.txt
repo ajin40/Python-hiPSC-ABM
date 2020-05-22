@@ -12,7 +12,7 @@ What is the path for the output directory? Ex. C:\Python37\Model_Outputs
 [ C:\Python37\Outputs ]
 
 Do you want the simulation to use parallel GPU processing? Ex. True
-[ False ]
+[ True ]
 
 What is size of the space that the cells reside (in meters). Ex. (x, y, z)
 [ (0.001, 0.001, 0.0) ]
@@ -155,7 +155,7 @@ Stochastic FGFR + ERK values? Ex. True
 [ True ]
 
 How many cells are added/removed to the simulation at once, per time step? Type 0 if all at once. Ex. 5
-[ 10 ]
+[ 0 ]
 
 Threshold of cells to denote a cell as lonely or not. If lower than this value, increase chance of cell death. Ex. 4
 [ 1 ]

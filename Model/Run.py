@@ -55,7 +55,7 @@ for simulation.current_step in range(simulation.beginning_step, simulation.end_s
 
     # Moves the cells to a state of physical equilibrium so that there is minimal overlap of cells, while also
     # applying forces from the previous motility_cells() function.   (base)
-    simulation.handle_movement()
+    # simulation.handle_movement()
 
     # Saves a snapshot of the simulation at the given step. This may include an image and a CSV file.    (base)
     Output.save_file(simulation)

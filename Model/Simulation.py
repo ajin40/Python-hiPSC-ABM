@@ -269,7 +269,7 @@ class Simulation:
         if self.parallel:
             # prevents the need for having the numba library if it's not installed
             import Parallel
-            Parallel.check_neighbors_gpu(self, distance)
+            Parallel.check_neighbors_gpu(self, distance, mode)
 
         # call the boring non-parallel cpu version
         else:
