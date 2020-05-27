@@ -7,6 +7,7 @@ import copy
 class Cell:
     """ Class for each cell in the simulation
     """
+
     def __init__(self, location, radius, motion, booleans, state, diff_counter, div_counter, death_counter,
                  boolean_counter):
         """ location: where the cell is located in the space "[x,y,z]"
@@ -38,7 +39,6 @@ class Cell:
 
         # starts the cell off with a zero velocity vector
         self.velocity = np.array([0.0, 0.0, 0.0])
-
 
     def motility(self, simulation):
         """ applies forces to each cell based on chemotactic
@@ -122,7 +122,6 @@ class Cell:
                     # if not GATA6 high
                     self.active_force += random_vector(simulation) * simulation.motility_force
 
-
     def divide(self, simulation):
         """ produces another cell via mitosis
         """
@@ -141,7 +140,6 @@ class Cell:
 
         # adds the cell to the simulation
         simulation.cells_to_add = np.append(simulation.cells_to_add, [cell])
-
 
     def boolean_function(self, fgf4_bool, simulation):
         """ updates the boolean variables of the cell
@@ -167,7 +165,6 @@ class Cell:
         self.booleans = np.array([new_fgfr, new_erk, new_gata6, new_nanog])
         return new_fgf4
 
-
     def differentiate(self):
         """ differentiates the cell and updates the boolean values
             and sets the motion to be true
@@ -181,7 +178,6 @@ class Cell:
 
         # allow the cell to move again
         self.motion = True
-
 
     def kill_cell(self, simulation):
         """ if the cell is without neighbors,
@@ -198,7 +194,6 @@ class Cell:
         if self.state == "Pluripotent":
             if self.death_counter >= simulation.death_thresh:
                 simulation.cells_to_remove = np.append(simulation.cells_to_remove, [self])
-
 
     def diff_surround(self, simulation):
         """ calls the object function that determines if
@@ -225,7 +220,6 @@ class Cell:
                     self.diff_counter += 1
                     break
 
-
     def update_cell(self, simulation):
         """ updates many of the instance variables
             of the cell
@@ -246,7 +240,7 @@ class Cell:
             elif self.state == "Pluripotent" and self.div_counter >= simulation.pluri_div_thresh:
                 self.divide(simulation)
             else:
-                self.div_counter += 1
+                self.div_counter += r.randint(0, 2)
 
         # activate the following pathway based on if dox has been induced yet
         if simulation.current_step >= simulation.dox_step:

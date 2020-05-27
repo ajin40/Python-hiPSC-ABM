@@ -137,7 +137,7 @@ def setup(template_location):
         simulation.extracellular = np.append(simulation.extracellular, [new_extracellular])
 
     # Adds the initial concentration amounts to the space for each instance of the extracellular class    (base)
-    simulation.initialize_diffusion()
+    # simulation.initialize_diffusion()
 
 #######################################################################################################################
 # Continuation Mode

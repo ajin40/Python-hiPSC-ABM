@@ -2,6 +2,8 @@ from numba import cuda
 import math
 import numpy as np
 # import cupy as cp
+import time
+
 
 def update_gradient_gpu(extracellular, simulation):
     """ This is a near identical function to the
@@ -30,10 +32,21 @@ def update_gradient_gpu(extracellular, simulation):
     extracellular.diffuse_values = cp.asnumpy(a)
 
 
+@cuda.jit(device=True)
+def magnitude(location_one, location_two):
+    """ This is a cuda device function for
+        finding magnitude give two vectors
+    """
+    total = 0
+    for i in range(0, 3):
+        total += (location_one[i] - location_two[i]) ** 2
+
+    return total ** 0.5
+
+
 def check_neighbors_gpu(simulation, distance, mode):
-    """ checks all of the distances between cells if it
-        is less than a fixed value create a connection
-        between two cells.
+    """ The GPU parallelized version of check_neighbors()
+        from the Simulation class.
     """
     # distance threshold between two cells to designate a neighbor, turns it into gpu array
     distance_cuda = cuda.to_device(np.array([distance]))
@@ -147,13 +160,24 @@ def check_neighbors_cuda(location_array, blocks, blocks_help, distance, output):
                             place += 1
 
 
-@cuda.jit(device=True)
-def magnitude(location_one, location_two):
-    """ This is a cuda device function for
-        finding magnitude give two vectors
+def forces_to_movement_gpu(simulation):
+    """ The GPU parallelized version of get_forces()
+        from the Simulation class.
     """
-    total = 0
-    for i in range(0, 3):
-        total += (location_one[i] - location_two[i]) ** 2
 
-    return total ** 0.5
+    # list of the neighbors as these will only be the cells in physical contact
+    edges = list(simulation.neighbor_graph.edges())
+
+    # creates a holder and loops over all edges
+    holder = np.empty((0, 2), int)
+    for i in range(len(edges)):
+        # turns the edges, which are cell objects into indices
+        a = np.where(simulation.cells == edges[i][0])[0]
+        b = np.where(simulation.cells == edges[i][1])[0]
+
+        # add the tuple to a holder creating a 2D array
+        c = np.concatenate((a, b))
+        holder = np.append(holder, [c], axis=0)
+
+
+
