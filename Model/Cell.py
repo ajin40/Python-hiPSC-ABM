@@ -40,19 +40,25 @@ class Cell:
         # starts the cell off with a zero velocity vector
         self.velocity = np.array([0.0, 0.0, 0.0])
 
+        # create an empty array used for holding the neighbors
+        self.neighbors = np.array([], np.object)
+
+        # create an empty array used for holding the Guye neighbors
+        self.guye_neighbors = np.array([], np.object)
+
     def motility(self, simulation):
         """ applies forces to each cell based on chemotactic
             or random movement
         """
         # set motion to false if the cell is surrounded by many neighbors
-        neighbors = list(simulation.neighbor_graph.neighbors(self))
+        neighbors = self.neighbors
         if len(neighbors) >= simulation.move_thresh:
             self.motion = False
 
         # check whether differentiated or pluripotent
         if self.state == "Differentiated":
             # get the neighbors of the cell
-            neighbors = list(simulation.neighbor_graph.neighbors(self))
+            neighbors = self.neighbors
 
             # directed movement if the cell has neighbors
             if 0 < len(neighbors) < 6:
@@ -88,18 +94,18 @@ class Cell:
                     # continue if using Guye et al. movement and if there exists differentiated cells
                     if simulation.guye_move:
                         # get the differentiated neighbors
-                        diff_neighbors = list(simulation.diff_graph.neighbors(self))
+                        guye_neighbors = self.guye_neighbors
 
                         # check to see if there are any differentiated cells nearby
-                        if len(diff_neighbors) > 0:
+                        if len(guye_neighbors) > 0:
                             # get starting differentiated cell distance
-                            vector = diff_neighbors[0].location - self.location
+                            vector = guye_neighbors[0].location - self.location
                             magnitude = np.linalg.norm(vector)
 
                             # loop over all other differentiated cells looking for the closest
-                            for i in range(1, len(diff_neighbors)):
+                            for i in range(1, len(guye_neighbors)):
                                 # get the distance to each of the other cells
-                                next_vector = diff_neighbors[i].location - self.location
+                                next_vector = guye_neighbors[i].location - self.location
                                 next_magnitude = np.linalg.norm(next_vector)
 
                                 # check to see if the cell is closer than others
@@ -184,7 +190,7 @@ class Cell:
             increase the counter for death or kill it
         """
         # looks at the neighbors
-        neighbors = list(simulation.neighbor_graph.neighbors(self))
+        neighbors = self.neighbors
         if len(neighbors) < simulation.lonely_cell:
             self.death_counter += 1
         else:
@@ -202,9 +208,8 @@ class Cell:
         """
         # checks to see if cell is Pluripotent and GATA6 low
         if self.state == "Pluripotent" and self.booleans[2] == 0:
-
             # finds neighbors of a cell
-            neighbors = list(simulation.neighbor_graph.neighbors(self))
+            neighbors = self.neighbors
 
             # holds the current number differentiated neighbors
             num_diff_neighbors = 0
@@ -233,7 +238,7 @@ class Cell:
         # checks to see if the non-moving cell should divide
         if not self.motion:
             if self.state == "Differentiated" and self.div_counter >= simulation.diff_div_thresh:
-                neighbors = list(simulation.neighbor_graph.neighbors(self))
+                neighbors = self.neighbors
                 if len(neighbors) < simulation.contact_inhibit:
                     self.divide(simulation)
 

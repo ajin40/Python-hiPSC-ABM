@@ -33,6 +33,9 @@ for simulation.current_step in range(simulation.beginning_step, simulation.end_s
     # Refreshes the graph used to represent cells as nodes and neighbor connections as edges.   (base)
     simulation.check_neighbors()
 
+    # updates the instance variable for each cell that points to the cell objects that are its neighbors
+    simulation.update_neighbors()
+
     # A way of introducing cell death into the model by removing cells if they are without neighbors for so long.
     simulation.kill_cells()
 
@@ -49,6 +52,9 @@ for simulation.current_step in range(simulation.beginning_step, simulation.end_s
     # Adds/removes cells to/from the simulation either all together or in desired numbers of cells. If done in
     # groups, the handle_movement() function will be used to better represent asynchronous division and death   (base)
     simulation.update_cell_queue()
+
+    # This will update the graphs based on adding new cells or removing old cells
+    simulation.update_graphs()
 
     # Moves the cells to a state of physical equilibrium so that there is minimal overlap of cells, while also
     # applying forces from the previous motility_cells() function.   (base)

@@ -2,7 +2,6 @@ from numba import cuda
 import math
 import numpy as np
 # import cupy as cp
-import time
 
 
 def update_gradient_gpu(extracellular, simulation):
@@ -44,10 +43,17 @@ def magnitude(location_one, location_two):
     return total ** 0.5
 
 
-def check_neighbors_gpu(simulation, distance, mode):
+def check_neighbors_gpu(simulation, distance, mode, edge_holder):
     """ The GPU parallelized version of check_neighbors()
         from the Simulation class.
     """
+    # based on the edge holder get an idea of how many neighbors at most a cell will have and send it to the gpu
+    max_neighbors = int(len(edge_holder) / len(simulation.cells))
+    max_neighbors_cuda = cuda.to_device(max_neighbors)
+
+    # send the edge_holder array to the gpu
+    edge_holder_cuda = cuda.to_device(edge_holder)
+
     # distance threshold between two cells to designate a neighbor, turns it into gpu array
     distance_cuda = cuda.to_device(np.array([distance]))
 
@@ -90,45 +96,33 @@ def check_neighbors_gpu(simulation, distance, mode):
         location_array = np.append(location_array, [simulation.cells[i].location], axis=0)
     location_array_cuda = cuda.to_device(location_array)
 
-    # an array used to hold neighbors sent back from the gpu to be read on the cpu
-    output_array = np.ones((len(simulation.cells), 100)) * -1
-    output_cuda = cuda.to_device(output_array)
-
     # sets up the correct allocation of threads and blocks
     threads_per_block = 72
     blocks_per_grid = math.ceil(location_array.size / threads_per_block)
 
     # calls the cuda function with the given inputs
     check_neighbors_cuda[blocks_per_grid, threads_per_block](location_array_cuda, blocks_cuda, blocks_help_cuda,
-                                                             distance_cuda, output_cuda)
-    # returns the array back from the gpu
-    output = output_cuda.copy_to_host()
+                                                             distance_cuda, edge_holder_cuda, max_neighbors_cuda)
+    # return the array back from the GPU
+    output = edge_holder_cuda.copy_to_host()
 
-    # get the places where there are neighbors indicated by their index
-    edges = np.argwhere(output != -1)
-
-    # forms an edge between cells based on the results from edges
-    for i in range(len(edges)):
-        # sometimes values end up as floats of an int, this prevents that
-        cell_1_index = int(edges[i][0])
-        cell_2_index = int(output[edges[i][0]][edges[i][1]])
-
-        # check what mode
-        if mode == "Guye":
-            # adds an edge between these two cells
-            simulation.Guye_graph.add_edge(simulation.cells[cell_1_index], simulation.cells[cell_2_index])
-        else:
-            # adds an edge between these two cells
-            simulation.neighbor_graph.add_edge(simulation.cells[cell_1_index], simulation.cells[cell_2_index])
+    # add the edges based on which mode the function is in
+    if mode == "Guye":
+        simulation.Guye_graph.add_edges(output)
+    else:
+        simulation.neighbor_graph.add_edges(output)
 
 
 @cuda.jit
-def check_neighbors_cuda(location_array, blocks, blocks_help, distance, output):
+def check_neighbors_cuda(location_array, blocks, blocks_help, distance, edge_holder, max_neighbors):
     """ This is the parallelized function for checking
         neighbors that is run numerous times.
     """
     # a provides the location on the array as it runs, essentially loops over the cells
     index_1 = cuda.grid(1)
+
+    # identify the location on the edge holder where the function will begin writing edges
+    place = cuda.grid(1) * max_neighbors[0]
 
     # checks to see that position is in the array, double-check as GPUs can be weird sometimes
     if index_1 < location_array.shape[0]:
@@ -136,9 +130,6 @@ def check_neighbors_cuda(location_array, blocks, blocks_help, distance, output):
         location_x = int(location_array[index_1][0] / distance[0]) + 1
         location_y = int(location_array[index_1][1] / distance[0]) + 1
         location_z = int(location_array[index_1][2] / distance[0]) + 1
-
-        # holds the index of the neighbor as it's added to the output array, faster than another for loop
-        place = 0
 
         # looks at the blocks surrounding the current block as these are the ones containing the neighbors
         for i in range(-1, 2):
@@ -156,7 +147,8 @@ def check_neighbors_cuda(location_array, blocks, blocks_help, distance, output):
                         if magnitude(location_array[index_1], location_array[index_2]) <= distance[0] and \
                                 index_1 != index_2:
                             # assign the array location showing that this cell is a neighbor
-                            output[index_1][place] = index_2
+                            edge_holder[place][0] = index_1
+                            edge_holder[place][1] = index_2
                             place += 1
 
 

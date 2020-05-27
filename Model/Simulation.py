@@ -1,5 +1,5 @@
 import numpy as np
-import networkx as nx
+import igraph
 import math
 import itertools
 
@@ -114,13 +114,13 @@ class Simulation:
         self.extracellular = np.array([], dtype=np.object)
 
         # graph representing cells and neighbors
-        self.neighbor_graph = nx.Graph()
+        self.neighbor_graph = igraph.Graph()
 
         # graph representing the presence of JKR adhesion bonds between cells
-        self.jkr_graph = nx.Graph()
+        self.jkr_graph = igraph.Graph()
 
         # graph representing connections between pluripotent cells and their differentiated neighbors
-        self.Guye_graph = nx.Graph()
+        self.Guye_graph = igraph.Graph()
 
         # holds the objects until they are added or removed from the simulation
         self.cells_to_remove = np.array([], dtype=np.object)
@@ -184,6 +184,8 @@ class Simulation:
         # update the array containing the differentiated cells
         self.check_neighbors(mode="Guye")
 
+        self.update_neighbors(mode="Guye")
+
         for i in range(len(self.cells)):
             self.cells[i].motility(self)
 
@@ -194,22 +196,12 @@ class Simulation:
         # adds it to the array holding the cell objects
         self.cells = np.append(self.cells, cell)
 
-        # adds it to the following graphs
-        self.neighbor_graph.add_node(cell)
-        self.jkr_graph.add_node(cell)
-        self.Guye_graph.add_node(cell)
-
     def remove_cell(self, cell):
         """ Adds the cell to both the neighbor graph
             and the JKR adhesion graph
         """
         # removes it from the array holding the cell objects
         self.cells = self.cells[self.cells != cell]
-
-        # removes it from the following graphs
-        self.neighbor_graph.remove_node(cell)
-        self.jkr_graph.remove_node(cell)
-        self.Guye_graph.remove_node(cell)
 
     def update_cell_queue(self):
         """ Updates the queues for adding and removing cell objects
@@ -243,6 +235,15 @@ class Simulation:
         self.cells_to_remove = np.array([], dtype=np.object)
         self.cells_to_add = np.array([], dtype=np.object)
 
+    def update_graphs(self):
+        """ This will update the graphs based on adding
+            new cells or removing old cells
+        """
+        number_cells = len(self.cells)
+        self.neighbor_graph = igraph.Graph(number_cells)
+        self.Guye_graph = igraph.Graph(number_cells)
+        self.jkr_graph = igraph.Graph(number_cells)
+
     def check_neighbors(self, mode="standard"):
         """ checks all of the distances between cells if it
             is less than a fixed value create a connection
@@ -250,37 +251,56 @@ class Simulation:
         """
         # based on the mode the search radius for neighbors will vary
         if mode == "Guye":
-            # removes the edges from the graph
-            edges = list(self.neighbor_graph.edges())
-            self.Guye_graph.remove_edges_from(edges)
+            # create a new graph with number of nodes corresponding to the number of cells
+            self.Guye_graph = igraph.Graph(len(self.cells))
 
             # distance threshold for finding nearest differentiated neighbors
             distance = self.guye_radius
         else:
-            # removes the edges from the graph
-            edges = list(self.neighbor_graph.edges())
-            self.neighbor_graph.remove_edges_from(edges)
+            # create a new graph with number of nodes corresponding to the number of cells
+            self.neighbor_graph = igraph.Graph(len(self.cells))
 
             # distance threshold between two cells to designate a neighbor
             distance = self.neighbor_distance
+
+        # creates an array used to hold all edges, which combined with igraph is the most optimized method
+        # of adding edges to the graphs. igraph will remove loops so extra edges of (0, 0) will be removed
+        if self.size[2] == 0:
+            # this find the approximate number of cells per unit of area and determine the approximate number of
+            # cells will be the in radius that a cell's neighbors will be in. "error" can be adjusted to
+            # to better predict the total number of edges
+            error = 4
+            length = int((error * distance ** 2 * len(self.cells) ** 2) / (self.size[0] * self.size[1]))
+            edge_holder = np.zeros((length, 2), dtype=np.int)
+
+        # the 3D version of approximating potential edges which works much the same way; however, this calculates
+        # based in 3D and uses volume instead
+        else:
+            error = 4
+            length = int((error * distance ** 3 * len(self.cells) ** 2) / (self.size[0] * self.size[1] * self.size[2]))
+            edge_holder = np.zeros((length, 2), dtype=np.int)
 
         # call the parallel version if desired
         if self.parallel:
             # prevents the need for having the numba library if it's not installed
             import Parallel
-            Parallel.check_neighbors_gpu(self, distance, mode)
+            Parallel.check_neighbors_gpu(self, distance, mode, edge_holder)
 
         # call the boring non-parallel cpu version
         else:
+            # a counter used to know where the next edge will be placed in the edges_holder
+            edge_counter = 0
+
             # create an array of blocks that takes up the entire space and extra to prevent errors
             blocks_size = self.size // distance + np.array([3, 3, 3])
             blocks_size = tuple(blocks_size.astype(int))
-            blocks = np.empty(blocks_size, dtype=object)
+            blocks = np.empty(blocks_size, dtype=np.object)
 
             # gives each block an array that acts as a holder for cells optimized triple for-loop
             for i, j, k in itertools.product(range(blocks_size[0]), range(blocks_size[1]), range(blocks_size[2])):
-                blocks[i][j][k] = np.array([])
+                blocks[i][j][k] = np.array([], dtype=np.int)
 
+            # loops over all cells appending their index value in the corresponding block
             for h in range(len(self.cells)):
                 # offset the block location by 1 to help when searching over blocks and reduce potential error
                 block_location = self.cells[h].location // distance + np.array([1, 1, 1])
@@ -288,25 +308,65 @@ class Simulation:
                 x, y, z = block_location[0], block_location[1], block_location[2]
 
                 # adds the cell to a given block
-                blocks[x][y][z] = np.append(blocks[x][y][z], self.cells[h])
+                blocks[x][y][z] = np.append(blocks[x][y][z], h)
 
                 # looks at the blocks surrounding a given block that houses the cell
                 for i, j, k in itertools.product(range(-1, 2), repeat=3):
-                    cells_in_block = blocks[x + i][y + j][z + k]
+                    indices_in_block = blocks[x + i][y + j][z + k]
 
                     # looks at the cells in a block and decides if they are neighbors
-                    for l in range(len(cells_in_block)):
+                    for l in range(len(indices_in_block)):
+                        # for the specified index in that block get the cell object in self.cells
+                        cell_in_block = self.cells[indices_in_block[l]]
+
+                        # determine which mode to use
                         if mode == "Guye":
-                            # for the edge to be formed in the diff_graph only one cell must be differentiated
-                            con_1 = cells_in_block[l].state == "Differentiated"
+                            # for the edge to be formed in the Guye_graph only one cell must be differentiated
+                            con_1 = cell_in_block.state == "Differentiated"
                             con_2 = self.cells[h].state == "Differentiated"
-                            if cells_in_block[l] != self.cells[h] and (con_1 or con_2 and not (con_1 and con_2)):
-                                if np.linalg.norm(cells_in_block[l].location - self.cells[h].location) <= distance:
-                                    self.Guye_graph.add_edge(self.cells[h], cells_in_block[l])
+                            if cell_in_block != self.cells[h] and (con_1 or con_2 and not (con_1 and con_2)):
+                                if np.linalg.norm(cell_in_block.location - self.cells[h].location) <= distance:
+                                    edge_holder[edge_counter][0] = h
+                                    edge_holder[edge_counter][1] = indices_in_block[l]
+                                    edge_counter += 1
                         else:
-                            if cells_in_block[l] != self.cells[h]:
-                                if np.linalg.norm(cells_in_block[l].location - self.cells[h].location) <= distance:
-                                    self.neighbor_graph.add_edge(self.cells[h], cells_in_block[l])
+                            if cell_in_block != self.cells[h]:
+                                if np.linalg.norm(cell_in_block.location - self.cells[h].location) <= distance:
+                                    edge_holder[edge_counter][0] = h
+                                    edge_holder[edge_counter][1] = indices_in_block[l]
+                                    edge_counter += 1
+
+            # based on the mode the search radius for neighbors will vary
+            if mode == "Guye":
+                # add the new edges to the Guye graph
+                self.Guye_graph.add_edges(edge_holder)
+            else:
+                # add the new edges to the neighbor graph
+                self.neighbor_graph.add_edges(edge_holder)
+
+        # at the end simplify the graphs to protect from double counting edges as igraph does not actively remove them
+        if mode == "Guye":
+            self.Guye_graph.simplify()
+        else:
+            self.neighbor_graph.simplify()
+
+    def update_neighbors(self, mode="standard"):
+        """ updates each cell's instance variable
+            pointing to the cell objects that are its
+            neighbors.
+        """
+        # loops over all cells and gets the neighbors based on the index in the graph
+        for i in range(len(self.cells)):
+            if mode == "Guye":
+                neighbors = self.Guye_graph.neighbors(i)
+                for j in range(len(neighbors)):
+                    self.cells[i].guye_neighbors = np.append(self.cells[j].guye_neighbors, self.cells[neighbors[j]])
+
+            else:
+                neighbors = self.neighbor_graph.neighbors(i)
+                # loops over the neighbors adding the corresponding cell object to the array holding the neighbors
+                for j in range(len(neighbors)):
+                    self.cells[i].neighbors = np.append(self.cells[j].neighbors, self.cells[neighbors[j]])
 
     def handle_movement(self):
         """ runs the following functions together for a
@@ -321,11 +381,11 @@ class Simulation:
             # increases the time based on the desired time step
             time_holder += self.move_time_step
 
-            # calculate the forces acting on each cell
-            self.forces_to_movement()
-
             # recheck neighbors after the cells have moved
             self.check_neighbors()
+
+            # calculate the forces acting on each cell
+            self.forces_to_movement()
 
         # reset active force back to zero as these forces are only updated once per step
         for i in range(len(self.cells)):
@@ -344,13 +404,17 @@ class Simulation:
         # call the boring non-parallel cpu version
         else:
             # list of the neighbors as these will only be the cells in physical contact
-            edges = list(self.neighbor_graph.edges())
+            edges = self.neighbor_graph.get_edgelist()
 
             # loops over the pairs of neighbors
             for i in range(len(edges)):
+                # get the indices of the nodes in the edge
+                index_1 = edges[i][0]
+                index_2 = edges[i][1]
+
                 # assigns the nodes of each edge to a variable
-                cell_1 = edges[i][0]
-                cell_2 = edges[i][1]
+                cell_1 = self.cells[index_1]
+                cell_2 = self.cells[index_2]
 
                 # hold the vector between the centers of the cells and the magnitude of this vector
                 disp_vector = cell_1.location - cell_2.location
@@ -365,7 +429,7 @@ class Simulation:
 
                 # indicate that an adhesive bond has formed between the cells
                 if overlap >= 0:
-                    self.jkr_graph.add_edge(cell_1, cell_2)
+                    self.jkr_graph.add_edges([(index_1, index_2)])
 
                 # gets two values used for JKR
                 e_hat = (((1 - self.poisson ** 2) / self.youngs_mod) + ((1 - self.poisson ** 2) / self.youngs_mod))**-1
@@ -382,7 +446,7 @@ class Simulation:
                 overlap_condition = d > -0.360562
 
                 # bond condition use to see if bond exists
-                bond_condition = self.jkr_graph.has_edge(cell_1, cell_2)
+                bond_condition = (index_1, index_2) in self.jkr_graph.get_edgelist()
 
                 # check to see if the cells will have a force interaction
                 if overlap_condition and bond_condition:
@@ -400,7 +464,7 @@ class Simulation:
                 # remove the edge if the it fails to meet the criteria for distance, JKR simulating that
                 # the bond is broken
                 elif bond_condition:
-                    self.jkr_graph.remove_edge(cell_1, cell_2)
+                    self.jkr_graph.delete_edges([(index_1, index_2)])
 
             # now re-loops over cells to move them and reduce work energy from kinetic energy
             for i in range(len(self.cells)):
