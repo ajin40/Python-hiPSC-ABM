@@ -1,54 +1,61 @@
+"""
+
+This is the Python file that you run to begin the simulation. Before you begin, make sure you have
+updated "Input.setup(...)" such that it represents the string that is the path pointing to the .txt file
+a.k.a. the template file used for simulation information. All lines indicated with "(base)" are
+necessary to for the model to work. Removing such lines will cause the model to either run incorrectly
+or not at all. Feel free to modify or delete any functions that are not labeled in this fashion. Add
+any necessary functions here to customize the model to your liking. Functions underneath the for loop
+are run each step, while functions before or after will be run before or after all steps are executed.
+
+See each file for a description on how each file is used. Documentation should provide lengthy explanations,
+choices, and  purposes regarding the model.
+
+"""
 import Input
 import Output
 
 
-# Creates a list of simulation instances each corresponding to the setup file    (base)
-Simulations = Input.Setup()
+# setup() will create an instance of the Simulation class that holds extracellular and cell objects.
+# This is done by reading a template .txt file that contains all initial parameters of the model.   (base)
+simulation = Input.setup("C:\\Python37\\Seed Project\\Model\\template.txt")
 
-# Runs the simulations in succession    (base)
-for Simulation in Simulations:
+# This will loop over all steps defined in the template file in addition to updating the current step
+# of the simulation.   (base)
+for simulation.current_step in range(simulation.beginning_step, simulation.end_step + 1):
 
-    # Adds the initial concentration amounts to the grid for each diffusing extracellular molecule    (base)
-    Simulation.initialize_diffusion()
+    # Prints the current step and number of cells. Used to give an idea of the progress.
+    simulation.info()
 
-    # This will run the simulation until the end time is reached    (base)
-    while Simulation.time_counter <= Simulation.end_time:
+    # Updates each of the extracellular gradients by "smoothing" the points that represent the concentrations.   (base)
+    # simulation.update_diffusion()
 
-        # Prints number of cells, timestep, amount of cells being removed and added
-        Simulation.info()
+    # Refreshes the graph used to represent cells as nodes and neighbor connections as edges.   (base)
+    simulation.check_neighbors()
 
-        # Updates each of the gradients/molecules by adjusting concentrations
-        Simulation.update_diffusion()
+    # A way of introducing cell death into the model by removing cells if they are without neighbors for so long.
+    simulation.kill_cells()
 
-        # If cells are by themselves for too long, they will be removed from the simulation
-        Simulation.kill_cells()
+    # Represents the phenomena that differentiated neighbors of a pluripotent cell may induce its differentiation.
+    simulation.diff_surround_cells()
 
-        # If enough neighbor differentiated cells surround a pluripotent cell, it may cause differentiation
-        Simulation.diff_surround_cells()
+    # Gets motility forces depending on a variety of factors involving state and presence of neighbors
+    simulation.motility_cells()
 
-        # Updates cells by adjusting trackers for differentiation and division
-        Simulation.update_cells()
+    # Updates cells by adjusting trackers for differentiation and division based on intracellular, intercellular,
+    # and extracellular conditions.   (base)
+    simulation.update_cells()
 
-        # Represents growth as mass increase and recalculates radii based on mass increases
-        Simulation.change_size_cells()
+    # Adds/removes cells to/from the simulation either all together or in desired numbers of cells. If done in
+    # groups, the handle_movement() function will be used to better represent asynchronous division and death   (base)
+    simulation.update_cell_queue()
 
-        # Adds/removes objects at once to/from the simulation includes handling collisions when cells are added
-        Simulation.update_cell_queue()
+    # Moves the cells to a state of physical equilibrium so that there is minimal overlap of cells, while also
+    # applying forces from the previous motility_cells() function.   (base)
+    simulation.handle_movement()
 
-        # Allows the cells in motion to move in a random fashion
-        Simulation.randomly_move_cells()
+    # Saves a snapshot of the simulation at the given step. This may include an image and a CSV file.    (base)
+    Output.save_file(simulation)
 
-        # Moves the cells to a state of physical equilibrium so that there is minimal overlap between cells
-        Simulation.handle_collisions()
-
-        # Checks for neighboring cells
-        Simulation.check_neighbors()
-
-        # Saves a 2D image and a .csv file containing key simulation information for each cell     (base)
-        Output.save_file(Simulation)
-
-        # Increases the time counter for the while loop    (base)
-        Simulation.time_counter += Simulation.time_step
-
-    # Turns all of the images into a video    (base)
-    Output.image_to_video(Simulation)
+# Looks at all images produced by the simulation and turns them into a video.
+Output.image_to_video(simulation)
