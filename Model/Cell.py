@@ -43,9 +43,6 @@ class Cell:
         # create an empty array used for holding the neighbors
         self.neighbors = np.array([], np.object)
 
-        # create an empty array used for holding the Guye neighbors
-        self.guye_neighbors = np.array([], np.object)
-
     def motility(self, simulation):
         """ applies forces to each cell based on chemotactic
             or random movement
