@@ -120,7 +120,7 @@ class Simulation:
         self.jkr_graph = igraph.Graph()
 
         # graph representing connections between pluripotent cells and their differentiated neighbors
-        self.Guye_graph = igraph.Graph()
+        self.guye_graph = igraph.Graph()
 
         # holds the objects until they are added or removed from the simulation
         self.cells_to_remove = np.array([], dtype=np.object)
@@ -181,37 +181,52 @@ class Simulation:
     def motility_cells(self):
         """ see Cell.py for description
         """
-        # update the array containing the differentiated cells
+        # update the graph that represents connections between pluripotent cells and differentiated cells
         self.check_neighbors(mode="Guye")
 
-        self.update_neighbors(mode="Guye")
-
+        # loop over all cells and call the instance method
         for i in range(len(self.cells)):
             self.cells[i].motility(self)
 
     def add_cell(self, cell):
-        """ Adds the cell to both the neighbor graph
-            and the JKR adhesion graph
+        """ Will add a cell to the main cell holder
+            "self.cells" in addition to adding the instance
+            to all graphs
         """
         # adds it to the array holding the cell objects
         self.cells = np.append(self.cells, cell)
 
+        # add it to the following graphs, this is simply done by increasing the graph length by one
+        self.neighbor_graph.add_vertex()
+        self.guye_graph.add_vertex()
+        self.jkr_graph.add_vertex()
+
     def remove_cell(self, cell):
-        """ Adds the cell to both the neighbor graph
-            and the JKR adhesion graph
+        """ Will remove a cell from the main cell holder
+            "self.cells" in addition to removing the instance
+            from all graphs
         """
-        # removes it from the array holding the cell objects
-        self.cells = self.cells[self.cells != cell]
+        # find the index of the cell and delete it from self.cells
+        index = np.argwhere(self.cells == cell)
+        self.cells = np.delete(self.cells, index)
+
+        # remove the particular index from the following graphs as these deal in terms of indices not objects
+        # this will actively adjust edges as the indices change, so no worries here
+        self.neighbor_graph.delete_vertices(index)
+        self.guye_graph.delete_vertices(index)
+        self.jkr_graph.delete_vertices(index)
 
     def update_cell_queue(self):
-        """ Updates the queues for adding and removing cell objects
+        """ Controls how cells are added/removed from
+            the simulation.
         """
+        # give the user an idea of how many cells are being added/removed during a given step
         print("Adding " + str(len(self.cells_to_add)) + " cells...")
         print("Removing " + str(len(self.cells_to_remove)) + " cells...")
 
-        # loops over all objects to remove
-        for i in range(len(self.cells_to_remove)):
-            self.remove_cell(self.cells_to_remove[i])
+        # loops over all objects to add
+        for i in range(len(self.cells_to_add)):
+            self.add_cell(self.cells_to_add[i])
 
             # Cannot add all of the new cell objects, otherwise several cells are likely to be added
             #   in close proximity to each other at later time steps. Such object addition, coupled
@@ -222,27 +237,18 @@ class Simulation:
                 if (i + 1) % self.group == 0:
                     self.handle_movement()
 
-        # loops over all objects to add
-        for i in range(len(self.cells_to_add)):
-            self.add_cell(self.cells_to_add[i])
+        # loops over all objects to remove
+        for i in range(len(self.cells_to_remove)):
+            self.remove_cell(self.cells_to_remove[i])
 
-            # can't add all the cells together or you get a mess
+            # much like above where many cells are added together, removing all at once may create unrealistic results
             if self.group != 0:
                 if (i + 1) % self.group == 0:
                     self.handle_movement()
 
-        # clear the arrays
-        self.cells_to_remove = np.array([], dtype=np.object)
+        # clear the arrays for the next step
         self.cells_to_add = np.array([], dtype=np.object)
-
-    def update_graphs(self):
-        """ This will update the graphs based on adding
-            new cells or removing old cells
-        """
-        number_cells = len(self.cells)
-        self.neighbor_graph = igraph.Graph(number_cells)
-        self.Guye_graph = igraph.Graph(number_cells)
-        self.jkr_graph = igraph.Graph(number_cells)
+        self.cells_to_remove = np.array([], dtype=np.object)
 
     def check_neighbors(self, mode="standard"):
         """ checks all of the distances between cells if it

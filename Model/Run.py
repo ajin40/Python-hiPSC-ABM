@@ -53,9 +53,6 @@ for simulation.current_step in range(simulation.beginning_step, simulation.end_s
     # groups, the handle_movement() function will be used to better represent asynchronous division and death   (base)
     simulation.update_cell_queue()
 
-    # This will update the graphs based on adding new cells or removing old cells
-    simulation.update_graphs()
-
     # Moves the cells to a state of physical equilibrium so that there is minimal overlap of cells, while also
     # applying forces from the previous motility_cells() function.   (base)
     simulation.handle_movement()
