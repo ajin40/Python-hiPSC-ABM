@@ -54,6 +54,24 @@ def check_neighbors_gpu(simulation, distance, mode, edge_holder):
     # send the edge_holder array to the gpu
     edge_holder_cuda = cuda.to_device(edge_holder)
 
+    # designate what mode the function is being used for and assign a value to that
+    if mode == "Guye":
+        mode_value = 1
+        mode_cuda = cuda.to_device(np.array([mode]))
+        states = np.array([], dtype=np.int)
+        for i in range(len(simulation.cells)):
+            if simulation.cells[i].state == "Differentiated":
+                states = np.append(states, 1)
+            else:
+                states = np.append(states, 0)
+    else:
+        mode_value = 0
+        states = np.array([])
+
+    # send the states and mode array to the gpu
+    states_cuda = cuda.to_device(states)
+    mode_cuda = cuda.to_device(mode_value)
+
     # distance threshold between two cells to designate a neighbor, turns it into gpu array
     distance_cuda = cuda.to_device(np.array([distance]))
 
@@ -102,7 +120,8 @@ def check_neighbors_gpu(simulation, distance, mode, edge_holder):
 
     # calls the cuda function with the given inputs
     check_neighbors_cuda[blocks_per_grid, threads_per_block](location_array_cuda, blocks_cuda, blocks_help_cuda,
-                                                             distance_cuda, edge_holder_cuda, max_neighbors_cuda)
+                                                             distance_cuda, edge_holder_cuda, max_neighbors_cuda,
+                                                             states_cuda, mode_cuda)
     # return the array back from the GPU
     output = edge_holder_cuda.copy_to_host()
 
@@ -114,7 +133,8 @@ def check_neighbors_gpu(simulation, distance, mode, edge_holder):
 
 
 @cuda.jit
-def check_neighbors_cuda(location_array, blocks, blocks_help, distance, edge_holder, max_neighbors):
+def check_neighbors_cuda(location_array, blocks, blocks_help, distance, edge_holder, max_neighbors, states,
+                         mode):
     """ This is the parallelized function for checking
         neighbors that is run numerous times.
     """
@@ -143,13 +163,26 @@ def check_neighbors_cuda(location_array, blocks, blocks_help, distance, edge_hol
                         # gets the index of the potential neighbor
                         index_2 = int(blocks[location_x + i][location_y + j][location_z + k][l])
 
-                        # get the magnitude via the device function and make sure not the same cell
-                        if magnitude(location_array[index_1], location_array[index_2]) <= distance[0] and \
-                                index_1 != index_2:
-                            # assign the array location showing that this cell is a neighbor
-                            edge_holder[place][0] = index_1
-                            edge_holder[place][1] = index_2
-                            place += 1
+                        if bool(mode[0]):
+                            con_1 = bool(states[index_1])
+                            con_2 = bool(states[index_2])
+                            if index_1 != index_2 and (con_1 or con_2 and not (con_1 and con_2)):
+                                # get the magnitude via the device function and make sure not the same cell
+                                if magnitude(location_array[index_1], location_array[index_2]) <= distance[0] and \
+                                        index_1 != index_2:
+                                    # assign the array location showing that this cell is a neighbor
+                                    edge_holder[place][0] = index_1
+                                    edge_holder[place][1] = index_2
+                                    place += 1
+
+                        else:
+                            # get the magnitude via the device function and make sure not the same cell
+                            if magnitude(location_array[index_1], location_array[index_2]) <= distance[0] and \
+                                    index_1 != index_2:
+                                # assign the array location showing that this cell is a neighbor
+                                edge_holder[place][0] = index_1
+                                edge_holder[place][1] = index_2
+                                place += 1
 
 
 def forces_to_movement_gpu(simulation):

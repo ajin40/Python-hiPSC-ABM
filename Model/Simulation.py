@@ -399,7 +399,7 @@ class Simulation:
         if self.parallel:
             # prevents the need for having the numba library if it's not installed
             import Parallel
-            Parallel.forces_to_movement_gpu(self)
+            # Parallel.forces_to_movement_gpu(self)
 
         # call the boring non-parallel cpu version
         else:
