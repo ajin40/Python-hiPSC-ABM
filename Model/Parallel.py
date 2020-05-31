@@ -91,14 +91,14 @@ def check_neighbors_gpu(simulation, distance, edge_holder):
     blocks_help_cuda = cuda.to_device(blocks_help)
 
     # loops over all over the cells and puts their locations into a holder array and turns it into a gpu array
-    location_array = np.empty((0, 3), float)
+    location_array = np.zeros((len(simulation.cells), 3))
     for i in range(len(simulation.cells)):
-        location_array = np.append(location_array, [simulation.cells[i].location], axis=0)
+        location_array[i] = simulation.cells[i].location
     location_array_cuda = cuda.to_device(location_array)
 
     # sets up the correct allocation of threads and blocks
     threads_per_block = 72
-    blocks_per_grid = math.ceil(location_array.size / threads_per_block)
+    blocks_per_grid = math.ceil(len(location_array) / threads_per_block)
 
     # calls the cuda function with the given inputs
     check_neighbors_cuda[blocks_per_grid, threads_per_block](location_array_cuda, blocks_cuda, blocks_help_cuda,
@@ -106,8 +106,8 @@ def check_neighbors_gpu(simulation, distance, edge_holder):
     # return the array back from the GPU
     output = edge_holder_cuda.copy_to_host()
 
-    # add the edges from the output
-    simulation.neighbor_graph.add_edges(output)
+    # return the edges that will be added to the graph
+    return output
 
 
 @cuda.jit
@@ -141,31 +141,214 @@ def check_neighbors_cuda(location_array, blocks, blocks_help, distance, edge_hol
                         index_2 = int(blocks[location_x + i][location_y + j][location_z + k][l])
 
                         # get the magnitude via the device function and make sure not the same cell
-                        if magnitude(location_array[index_1], location_array[index_2]) <= distance[0]:
+                        if magnitude(location_array[index_1], location_array[index_2]) <= distance[0] and \
+                                index_1 != index_2:
                             # assign the array location showing that this cell is a neighbor
                             edge_holder[place][0] = index_1
                             edge_holder[place][1] = index_2
                             place += 1
 
 
-def forces_to_movement_gpu(simulation):
-    """ The GPU parallelized version of get_forces()
+def get_forces_gpu(simulation, edges, jkr_edges, add_jkr_edges, delete_jkr_edges, poisson, youngs, adhesion_const):
+    """ The GPU parallelized version of forces_to_movement()
         from the Simulation class.
     """
-
-    # list of the neighbors as these will only be the cells in physical contact
-    edges = list(simulation.neighbor_graph.edges())
-
-    # creates a holder and loops over all edges
-    holder = np.empty((0, 2), int)
+    bond = np.empty((0, 1), bool)
     for i in range(len(edges)):
-        # turns the edges, which are cell objects into indices
-        a = np.where(simulation.cells == edges[i][0])[0]
-        b = np.where(simulation.cells == edges[i][1])[0]
+        if edges[i] in jkr_edges:
+            bond = np.append(bond, True)
+        else:
+            bond = np.append(bond, False)
 
-        # add the tuple to a holder creating a 2D array
-        c = np.concatenate((a, b))
-        holder = np.append(holder, [c], axis=0)
+    bond_cuda = cuda.to_device(bond)
+
+    # convert these arrays into a form able to be read by the GPU
+    edges_cuda = cuda.to_device(edges)
+    jkr_edges_cuda = cuda.to_device(jkr_edges)
+    add_jkr_edges_cuda = cuda.to_device(add_jkr_edges)
+    delete_jkr_edges_cuda = cuda.to_device(delete_jkr_edges)
+    poisson_cuda = cuda.to_device([poisson])
+    youngs_cuda = cuda.to_device([youngs])
+    adhesion_const_cuda = cuda.to_device([adhesion_const])
+    forces_cuda = cuda.to_device(np.zeros((len(simulation.cells), 3)))
+
+    # loops over all over the cells and puts their locations into a holder array and turns it into a gpu array
+    locations = np.empty((0, 3), float)
+    radii = np.empty((0, 1), float)
+
+    for i in range(len(simulation.cells)):
+        locations = np.append(locations, [simulation.cells[i].location], axis=0)
+        radii = np.append(radii, simulation.cells[i].radius)
+
+    locations_cuda = cuda.to_device(locations)
+    radii_cuda = cuda.to_device(radii)
+
+    # sets up the correct allocation of threads and blocks
+    threads_per_block = 72
+    blocks_per_grid = math.ceil(len(edges) / threads_per_block)
+
+    get_forces_cuda[blocks_per_grid, threads_per_block](edges_cuda, jkr_edges_cuda, add_jkr_edges_cuda,
+                                                        delete_jkr_edges_cuda, locations_cuda, radii_cuda,
+                                                        forces_cuda, poisson_cuda, youngs_cuda, adhesion_const_cuda,
+                                                        bond_cuda)
+
+    forces_output = forces_cuda.copy_to_host()
+
+    for i in range(len(simulation.cells)):
+        simulation.cells[i].inactive_force += forces_output[i]
+
+    add_jkr_edges_output = add_jkr_edges_cuda.copy_to_host()
+    delete_jkr_edges_output = delete_jkr_edges_cuda.copy_to_host()
+
+    return add_jkr_edges_output, delete_jkr_edges_output
 
 
+@cuda.jit
+def get_forces_cuda(edges, jkr_edges, add_jkr_edges, delete_jkr_edges, locations, radii, forces, poisson, youngs,
+                    adhesion_const, bond):
 
+    # a provides the location on the array as it runs, essentially loops over the cells
+    edge_index = cuda.grid(1)
+
+    # checks to see that position is in the array, double-check as GPUs can be weird sometimes
+    if edge_index < edges.shape[0]:
+
+        # get the indices of the cells in the edge
+        index_1 = edges[edge_index][0]
+        index_2 = edges[edge_index][1]
+
+        # get the normal vector
+        location_1 = locations[index_1]
+        location_2 = locations[index_2]
+        vector_x = location_1[0] - location_2[0]
+        vector_y = location_1[1] - location_2[1]
+        vector_z = location_1[2] - location_2[2]
+        displacement = magnitude(location_1, location_2)
+
+        if displacement != 0:
+            normal_x = vector_x / displacement
+            normal_y = vector_y / displacement
+            normal_z = vector_z / displacement
+        else:
+            normal_x, normal_y, normal_z = 0, 0, 0
+
+        # get the total overlap of the cells used later in calculations
+        overlap = radii[index_1] + radii[index_2] - displacement
+
+        # indicate that an adhesive bond has formed between the cells
+        if overlap >= 0:
+            add_jkr_edges[edge_index][0] = index_1
+            add_jkr_edges[edge_index][1] = index_2
+
+        # gets two values used for JKR
+        e_hat = (((1 - poisson[0] ** 2) / youngs[0]) + ((1 - poisson[0] ** 2) / youngs[0])) ** -1
+        r_hat = ((1 / radii[index_1]) + (1 / radii[index_2])) ** -1
+
+        # used to calculate the max adhesive distance after bond has been already formed
+        overlap_ = (((math.pi * adhesion_const[0]) / e_hat) ** (2 / 3)) * (r_hat ** (1 / 3))
+
+        # get the nondimensionalized overlap, used for later calculations and checks
+        # also for the use of a polynomial approximation of the force
+        d = overlap / overlap_
+
+        # used to see if the adhesive bond once formed has broken
+        overlap_condition = d > -0.360562
+
+        bond_condition = bond[edge_index]
+
+        # check to see if the cells will have a force interaction
+        if overlap_condition and bond_condition:
+            # plug the value of d into the nondimensionalized equation for the JKR force
+            f = (-0.0204 * d ** 3) + (0.4942 * d ** 2) + (1.0801 * d) - 1.324
+
+            # convert from the nondimensionalization to find the adhesive force
+            jkr_force = f * math.pi * adhesion_const[0] * r_hat
+
+            # adds the adhesive force as a vector in opposite directions to each cell's force holder
+            forces[index_1][0] += jkr_force * normal_x
+            forces[index_1][1] += jkr_force * normal_y
+            forces[index_1][2] += jkr_force * normal_z
+
+            forces[index_2][0] -= jkr_force * normal_x
+            forces[index_2][1] -= jkr_force * normal_y
+            forces[index_2][2] -= jkr_force * normal_z
+
+        # remove the edge if the it fails to meet the criteria for distance, JKR simulating that
+        # the bond is broken
+        elif bond_condition:
+            delete_jkr_edges[edge_index] = edge_index
+
+
+def apply_forces_gpu(simulation):
+    inactive_forces = np.empty((0, 3), np.float)
+    active_forces = np.empty((0, 3), np.float)
+    locations = np.empty((0, 3), np.float)
+    radii = np.empty((0, 3), np.float)
+
+    for i in range(len(simulation.cells)):
+        inactive_forces = np.append(inactive_forces, [simulation.cells[i].inactive_force], axis=0)
+        active_forces = np.append(active_forces, [simulation.cells[i].active_force], axis=0)
+        locations = np.append(locations, [simulation.cells[i].location], axis=0)
+        radii = np.append(radii, [simulation.cells[i].radius], axis=0)
+
+    inactive_forces_cuda = cuda.to_device(inactive_forces)
+    active_forces_cuda = cuda.to_device(active_forces)
+    locations_cuda = cuda.to_device(locations)
+    radii_cuda = cuda.to_device(radii)
+
+    # sets up the correct allocation of threads and blocks
+    threads_per_block = 72
+    blocks_per_grid = math.ceil(len(locations) / threads_per_block)
+
+    viscosity_cuda = cuda.to_device([simulation.viscosity])
+    size_cuda = cuda.to_device(simulation.size)
+    move_step_cuda = cuda.to_device([simulation.move_time_step])
+
+    apply_forces_cuda[blocks_per_grid, threads_per_block](inactive_forces_cuda, active_forces_cuda, locations_cuda,
+                                                          radii_cuda, viscosity_cuda, size_cuda, move_step_cuda)
+
+    new_locations = locations_cuda.copy_to_host()
+
+    for i in range(len(simulation.cells)):
+        simulation.cells[i].location = new_locations[i]
+        simulation.cells[i].inactive_force = np.array([0.0, 0.0, 0.0])
+
+
+@cuda.jit
+def apply_forces_cuda(inactive_forces, active_forces, locations, radii, viscosity, size, move_time):
+    index = cuda.grid(1)
+
+    if index < locations.shape[0]:
+        # stokes law for velocity based on force and fluid viscosity
+        stokes_friction = 6 * math.pi * viscosity[0] * radii[index]
+
+        # update the velocity of the cell based on the solution
+        velocity_x = (active_forces[index][0] + inactive_forces[index][0]) / stokes_friction
+        velocity_y = (active_forces[index][1] + inactive_forces[index][1]) / stokes_friction
+        velocity_z = (active_forces[index][2] + inactive_forces[index][2]) / stokes_friction
+
+        # set the possible new location
+        new_location_x = locations[index][0] + velocity_x * move_time[0]
+        new_location_y = locations[index][1] + velocity_y * move_time[0]
+        new_location_z = locations[index][2] + velocity_z * move_time[0]
+
+        if new_location_x > size[0]:
+            locations[index][0] = size[0]
+        elif new_location_x < 0:
+            locations[index][0] = 0.0
+        else:
+            locations[index][0] = new_location_x
+
+        if new_location_y > size[1]:
+            locations[index][1] = size[1]
+        elif new_location_y < 0:
+            locations[index][1] = 0.0
+        else:
+            locations[index][1] = new_location_y
+
+        if new_location_z > size[2]:
+            locations[index][2] = size[2]
+        elif new_location_z < 0:
+            locations[index][2] = 0.0
+        else:
+            locations[index][2] = new_location_z

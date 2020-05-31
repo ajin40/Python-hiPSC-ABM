@@ -5,8 +5,6 @@ import itertools
 
 
 class Simulation:
-    """ Initialization called once for each simulation. Class holds all information about each simulation as a whole
-    """
     def __init__(self, name, path, parallel, size, resolution, num_states, functions, neighbor_distance,
                  time_step_value, beginning_step, end_step, move_time_step, pluri_div_thresh, pluri_to_diff,
                  diff_div_thresh, boolean_thresh, death_thresh, diff_surround, adhesion_const, viscosity, group,
@@ -199,7 +197,7 @@ class Simulation:
             from all graphs
         """
         # find the index of the cell and delete it from self.cells
-        index = np.argwhere(self.cells == cell)
+        index = int(np.argwhere(self.cells == cell))
         self.cells = np.delete(self.cells, index)
 
         # remove the particular index from the following graphs as these deal in terms of indices not objects
@@ -247,8 +245,7 @@ class Simulation:
             between two cells.
         """
         # clear all of the edges in the neighbor graph
-        edges = self.neighbor_graph.get_edgelist()
-        self.neighbor_graph.delete_edges(edges)
+        self.neighbor_graph.delete_edges(None)
 
         # distance threshold between two cells to designate a neighbor
         distance = self.neighbor_distance
@@ -259,14 +256,14 @@ class Simulation:
             # this find the approximate number of cells per unit of area and determine the approximate number of
             # cells will be the in radius that a cell's neighbors will be in. "error" can be adjusted to
             # to better predict the total number of edges
-            error = 4
+            error = 2
             length = int((error * distance ** 2 * len(self.cells) ** 2) / (self.size[0] * self.size[1]))
             edge_holder = np.zeros((length, 2), dtype=np.int)
 
         # the 3D version of approximating potential edges which works much the same way; however, this calculates
         # based in 3D and uses volume instead
         else:
-            error = 4
+            error = 3
             length = int((error * distance ** 3 * len(self.cells) ** 2) / (self.size[0] * self.size[1] * self.size[2]))
             edge_holder = np.zeros((length, 2), dtype=np.int)
 
@@ -274,7 +271,7 @@ class Simulation:
         if self.parallel:
             # prevents the need for having the numba library if it's not installed
             import Parallel
-            Parallel.check_neighbors_gpu(self, distance, edge_holder)
+            edge_holder = Parallel.check_neighbors_gpu(self, distance, edge_holder)
 
         # call the boring non-parallel cpu version
         else:
@@ -310,15 +307,14 @@ class Simulation:
                         cell_in_block = self.cells[indices_in_block[l]]
 
                         # check to see if that cell is within the search radius
-                        if np.linalg.norm(cell_in_block.location - self.cells[h].location) <= distance:
+                        if np.linalg.norm(cell_in_block.location - self.cells[h].location) <= distance and \
+                                h != indices_in_block[l]:
                             edge_holder[edge_counter][0] = h
                             edge_holder[edge_counter][1] = indices_in_block[l]
                             edge_counter += 1
 
-            # add the new edges to the neighbor graph
-            self.neighbor_graph.add_edges(edge_holder)
-
-        # this will remove any loops (edges between a cell and itself) and any duplicate edges
+        # add the new edges and remove any duplicate edges or loops
+        self.neighbor_graph.add_edges(edge_holder)
         self.neighbor_graph.simplify()
 
     def update_neighbors(self):
@@ -336,6 +332,15 @@ class Simulation:
             for j in range(len(neighbors)):
                 self.cells[i].neighbors = np.append(self.cells[j].neighbors, self.cells[neighbors[j]])
 
+    def nearest_diff(self):
+        """ This will find the closest differentiated
+            cell within a given search radius and assign
+            that cell to an instance variable for each cell
+        """
+        # this may appear rather similar to the check_neighbors function; however there are stark differences that
+        # warrant a separate function rather than a combination
+        print("mmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmm")
+
     def handle_movement(self):
         """ runs the following functions together for a
             given time amount. Resets the force and
@@ -349,31 +354,44 @@ class Simulation:
             # increases the time based on the desired time step
             time_holder += self.move_time_step
 
+            # calculate the forces acting on each cell
+            self.get_forces()
+
+            # turn the forces into movement
+            self.apply_forces()
+
             # recheck neighbors after the cells have moved
             self.check_neighbors()
-
-            # calculate the forces acting on each cell
-            self.forces_to_movement()
 
         # reset active force back to zero as these forces are only updated once per step
         for i in range(len(self.cells)):
             self.cells[i].active_force = np.array([0.0, 0.0, 0.0])
 
-    def forces_to_movement(self):
+    def get_forces(self):
         """ goes through all of the cells and quantifies any forces arising
             from adhesion or repulsion between the cells
         """
+        # list the edges of the graphs as both functions will need them in this format
+        edges = np.array(self.neighbor_graph.get_edgelist(), dtype=np.int)
+        jkr_edges = np.array(self.jkr_graph.get_edgelist(), dtype=np.int)
+
+        # create 2D arrays used for adding/deleting edges, much faster than appending
+        add_jkr_edges = np.zeros((len(edges), 2), dtype=np.int)
+        delete_jkr_edges = np.zeros(len(edges), dtype=np.int)
+
+        # get the values for Youngs modulus and Poisson's ratio
+        poisson = self.poisson
+        youngs = self.youngs_mod
+        adhesion_const = self.adhesion_const
+
         # call the parallel version if desired
         if self.parallel:
             # prevents the need for having the numba library if it's not installed
             import Parallel
-            # Parallel.forces_to_movement_gpu(self)
-
+            add_jkr_edges, delete_jkr_edges = Parallel.get_forces_gpu(self, edges, jkr_edges, add_jkr_edges,
+                                                                      delete_jkr_edges, poisson, youngs, adhesion_const)
         # call the boring non-parallel cpu version
         else:
-            # list of the neighbors as these will only be the cells in physical contact
-            edges = self.neighbor_graph.get_edgelist()
-
             # loops over the pairs of neighbors
             for i in range(len(edges)):
                 # get the indices of the nodes in the edge
@@ -397,14 +415,14 @@ class Simulation:
 
                 # indicate that an adhesive bond has formed between the cells
                 if overlap >= 0:
-                    self.jkr_graph.add_edges([(index_1, index_2)])
+                    add_jkr_edges[i] = (index_1, index_2)
 
                 # gets two values used for JKR
-                e_hat = (((1 - self.poisson ** 2) / self.youngs_mod) + ((1 - self.poisson ** 2) / self.youngs_mod))**-1
+                e_hat = (((1 - poisson ** 2) / youngs) + ((1 - poisson ** 2) / youngs)) ** -1
                 r_hat = ((1 / cell_1.radius) + (1 / cell_2.radius)) ** -1
 
                 # used to calculate the max adhesive distance after bond has been already formed
-                overlap_ = (((math.pi * self.adhesion_const) / e_hat) ** (2 / 3)) * (r_hat ** (1 / 3))
+                overlap_ = (((math.pi * adhesion_const) / e_hat) ** (2 / 3)) * (r_hat ** (1 / 3))
 
                 # get the nondimensionalized overlap, used for later calculations and checks
                 # also for the use of a polynomial approximation of the force
@@ -414,7 +432,7 @@ class Simulation:
                 overlap_condition = d > -0.360562
 
                 # bond condition use to see if bond exists
-                bond_condition = (index_1, index_2) in self.jkr_graph.get_edgelist()
+                bond_condition = (index_1, index_2) in jkr_edges
 
                 # check to see if the cells will have a force interaction
                 if overlap_condition and bond_condition:
@@ -432,19 +450,32 @@ class Simulation:
                 # remove the edge if the it fails to meet the criteria for distance, JKR simulating that
                 # the bond is broken
                 elif bond_condition:
-                    self.jkr_graph.delete_edges([(index_1, index_2)])
+                    delete_jkr_edges[i] = i
 
-            # now re-loops over cells to move them and reduce work energy from kinetic energy
+        # update the jkr graph after the arrays have been updated by either the parallel or non-parallel function
+        self.jkr_graph.add_edges(add_jkr_edges)
+        self.jkr_graph.delete_edges(delete_jkr_edges)
+        self.jkr_graph.simplify()
+
+    def apply_forces(self):
+        # call the parallel version if desired
+        if self.parallel:
+            # prevents the need for having the numba library if it's not installed
+            import Parallel
+            Parallel.apply_forces_gpu(self)
+
+        # call the boring non-parallel cpu version
+        else:
+            # loops over cells to move them
             for i in range(len(self.cells)):
-
                 # stokes law for velocity based on force and fluid viscosity
                 stokes_friction = 6 * math.pi * self.viscosity * self.cells[i].radius
 
                 # update the velocity of the cell based on the solution
-                self.cells[i].velocity = (self.cells[i].active_force + self.cells[i].inactive_force) / stokes_friction
+                velocity = (self.cells[i].active_force + self.cells[i].inactive_force) / stokes_friction
 
                 # set the possible new location
-                new_location = self.cells[i].location + self.cells[i].velocity * self.move_time_step
+                new_location = self.cells[i].location + velocity * self.move_time_step
 
                 # loops over all directions of space
                 for j in range(0, 3):
@@ -457,5 +488,4 @@ class Simulation:
                         self.cells[i].location[j] = new_location[j]
 
                 # reset velocity/inactive force and not the active force as that remains constant for the entire step
-                self.cells[i].velocity = np.array([0.0, 0.0, 0.0])
                 self.cells[i].inactive_force = np.array([0.0, 0.0, 0.0])

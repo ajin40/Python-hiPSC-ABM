@@ -5,9 +5,6 @@ import copy
 
 
 class Cell:
-    """ Class for each cell in the simulation
-    """
-
     def __init__(self, location, radius, motion, booleans, state, diff_counter, div_counter, death_counter,
                  boolean_counter):
         """ location: where the cell is located in the space "[x,y,z]"
@@ -36,9 +33,6 @@ class Cell:
 
         # holds any inactive forces resulting from adhesion or repulsion
         self.inactive_force = np.array([0.0, 0.0, 0.0])
-
-        # starts the cell off with a zero velocity vector
-        self.velocity = np.array([0.0, 0.0, 0.0])
 
         # create an empty array used for holding the neighbors
         self.neighbors = np.array([], np.object)

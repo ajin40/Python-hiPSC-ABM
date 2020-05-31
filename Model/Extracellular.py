@@ -62,8 +62,9 @@ class Extracellular:
         """
         # if desired, run the parallel version of this function
         if self.parallel:
-            import Parallel
-            Parallel.update_gradient_gpu(self, simulation)
+            pass
+            # import Parallel
+            # Parallel.update_gradient_gpu(self, simulation)
         else:
             # get the number of times this will be run
             time_steps = int(simulation.time_step_value / self.dt)
