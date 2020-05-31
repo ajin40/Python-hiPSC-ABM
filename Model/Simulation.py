@@ -250,21 +250,22 @@ class Simulation:
         # distance threshold between two cells to designate a neighbor
         distance = self.neighbor_distance
 
-        # creates an array used to hold all edges, which combined with igraph is the most optimized method
-        # of adding edges to the graphs. igraph will remove loops so extra edges of (0, 0) will be removed
-        if self.size[2] == 0:
-            # this find the approximate number of cells per unit of area and determine the approximate number of
-            # cells will be the in radius that a cell's neighbors will be in. "error" can be adjusted to
-            # to better predict the total number of edges
-            error = 2
-            length = int((error * distance ** 2 * len(self.cells) ** 2) / (self.size[0] * self.size[1]))
+        # the below formulas are able to provide a pretty good prediction of the number of total edges in the
+        # neighbor graph. It's faster to over-predict the amount of edges, add them all at once, and filter the
+        # nonsense edges than append the edges to a running list one at a time. If you see indexing errors,
+        # increase "error" slightly and try again. igraph works via index integers so this will create a 2D that
+        # has pairs of zeros meant to be overwritten, though will filtering by simplify()
+
+        # checks if the space the cells are in is 2D
+        if self.size[0] == 0 or self.size[1] == 0 or self.size[2] == 0:
+            error = 2.00
+            length = math.ceil((error * distance ** 2 * len(self.cells) ** 2) / (self.size[0] * self.size[1]))
             edge_holder = np.zeros((length, 2), dtype=np.int)
 
-        # the 3D version of approximating potential edges which works much the same way; however, this calculates
-        # based in 3D and uses volume instead
+        # assume the 3D case
         else:
-            error = 3
-            length = int((error * distance ** 3 * len(self.cells) ** 2) / (self.size[0] * self.size[1] * self.size[2]))
+            error = 2.50
+            length = math.ceil((error * distance ** 3 * len(self.cells) ** 2)/(self.size[0]*self.size[1]*self.size[2]))
             edge_holder = np.zeros((length, 2), dtype=np.int)
 
         # call the parallel version if desired
@@ -278,39 +279,46 @@ class Simulation:
             # a counter used to know where the next edge will be placed in the edges_holder
             edge_counter = 0
 
-            # create an array of blocks that takes up the entire space and extra to prevent errors
-            blocks_size = self.size // distance + np.array([3, 3, 3])
-            blocks_size = tuple(blocks_size.astype(int))
-            blocks = np.empty(blocks_size, dtype=np.object)
+            # create an 3D array that will divide the space up into a collection of bins
+            bins_size = self.size // distance + np.array([3, 3, 3])
+            bins_size = tuple(bins_size.astype(int))
+            bins = np.empty(bins_size, dtype=np.object)
 
-            # gives each block an array that acts as a holder for cells optimized triple for-loop
-            for i, j, k in itertools.product(range(blocks_size[0]), range(blocks_size[1]), range(blocks_size[2])):
-                blocks[i][j][k] = np.array([], dtype=np.int)
+            # each bin will be a numpy array that will hold indices of cells
+            for i, j, k in itertools.product(range(bins_size[0]), range(bins_size[1]), range(bins_size[2])):
+                bins[i][j][k] = np.array([], dtype=np.int)
 
-            # loops over all cells appending their index value in the corresponding block
-            for h in range(len(self.cells)):
-                # offset the block location by 1 to help when searching over blocks and reduce potential error
-                block_location = self.cells[h].location // distance + np.array([1, 1, 1])
-                block_location = block_location.astype(int)
-                x, y, z = block_location[0], block_location[1], block_location[2]
+            # loops over all cells appending their index value in the corresponding bin
+            for pivot_index in range(len(self.cells)):
+                # offset the bin location by 1 to help when searching over bins and reduce potential error of cells
+                # that may be slightly outside the space
+                bin_location = self.cells[pivot_index].location // distance + np.array([1, 1, 1])
+                bin_location = bin_location.astype(int)
+                x, y, z = bin_location[0], bin_location[1], bin_location[2]
 
-                # adds the cell to a given block
-                blocks[x][y][z] = np.append(blocks[x][y][z], h)
+                # adds the cell to the corresponding bin
+                bins[x][y][z] = np.append(bins[x][y][z], pivot_index)
 
-                # looks at the blocks surrounding a given block that houses the cell
+                # looks at the bins surrounding a given bin that houses the cell as these are the only potential cells
+                # to be neighbors of the cell in question
                 for i, j, k in itertools.product(range(-1, 2), repeat=3):
-                    indices_in_block = blocks[x + i][y + j][z + k]
+                    # get the array that is holding the indices of a cells in a block
+                    indices_in_bin = bins[x + i][y + j][z + k]
 
                     # looks at the cells in a block and decides if they are neighbors
-                    for l in range(len(indices_in_block)):
+                    for l in range(len(indices_in_bin)):
+                        # get the index of the current cell in question
+                        current_index = indices_in_bin[l]
+
                         # for the specified index in that block get the cell object in self.cells
-                        cell_in_block = self.cells[indices_in_block[l]]
+                        current_cell = self.cells[current_index]
 
                         # check to see if that cell is within the search radius
-                        if np.linalg.norm(cell_in_block.location - self.cells[h].location) <= distance and \
-                                h != indices_in_block[l]:
-                            edge_holder[edge_counter][0] = h
-                            edge_holder[edge_counter][1] = indices_in_block[l]
+                        if np.linalg.norm(current_cell.location - self.cells[pivot_index].location) <= distance and \
+                                pivot_index != current_index:
+                            # update the edge array and increase the place for the next addition
+                            edge_holder[edge_counter][0] = pivot_index
+                            edge_holder[edge_counter][1] = current_index
                             edge_counter += 1
 
         # add the new edges and remove any duplicate edges or loops
@@ -326,11 +334,12 @@ class Simulation:
         # all the instance variables holding the neighbor cell objects
         # loops over all cells and gets the neighbors based on the index in the graph
         for i in range(len(self.cells)):
+            self.cells[i].neighbors = np.array([], np.object)
             neighbors = self.neighbor_graph.neighbors(i)
 
             # loops over the neighbors adding the corresponding cell object to the array holding the neighbors
             for j in range(len(neighbors)):
-                self.cells[i].neighbors = np.append(self.cells[j].neighbors, self.cells[neighbors[j]])
+                self.cells[i].neighbors = np.append(self.cells[i].neighbors, self.cells[neighbors[j]])
 
     def nearest_diff(self):
         """ This will find the closest differentiated

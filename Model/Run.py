@@ -14,7 +14,6 @@ choices, and  purposes regarding the model.
 """
 import Input
 import Output
-import time
 
 
 # setup() will create an instance of the Simulation class that holds extracellular and cell objects.
@@ -29,13 +28,13 @@ for simulation.current_step in range(simulation.beginning_step, simulation.end_s
     simulation.info()
 
     # Updates each of the extracellular gradients by "smoothing" the points that represent the concentrations.   (base)
-    # simulation.update_diffusion()
+    simulation.update_diffusion()
 
     # Refreshes the graph used to represent cells as nodes and neighbor connections as edges.   (base)
     simulation.check_neighbors()
 
     # updates the instance variable for each cell that points to the cell objects that are its neighbors
-    simulation.update_neighbors()
+    # simulation.update_neighbors()
 
     # if any differentiated cells exist within a cell's defined search radius, this will find the closest one.
     simulation.nearest_diff()
