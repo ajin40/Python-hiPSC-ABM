@@ -283,13 +283,13 @@ def apply_forces_gpu(simulation):
     inactive_forces = np.empty((0, 3), np.float)
     active_forces = np.empty((0, 3), np.float)
     locations = np.empty((0, 3), np.float)
-    radii = np.empty((0, 3), np.float)
+    radii = np.empty((0, 1), np.float)
 
     for i in range(len(simulation.cells)):
         inactive_forces = np.append(inactive_forces, [simulation.cells[i].inactive_force], axis=0)
         active_forces = np.append(active_forces, [simulation.cells[i].active_force], axis=0)
         locations = np.append(locations, [simulation.cells[i].location], axis=0)
-        radii = np.append(radii, [simulation.cells[i].radius], axis=0)
+        radii = np.append(radii, simulation.cells[i].radius)
 
     inactive_forces_cuda = cuda.to_device(inactive_forces)
     active_forces_cuda = cuda.to_device(active_forces)

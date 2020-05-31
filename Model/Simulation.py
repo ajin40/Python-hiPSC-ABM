@@ -339,7 +339,60 @@ class Simulation:
         """
         # this may appear rather similar to the check_neighbors function; however there are stark differences that
         # warrant a separate function rather than a combination
-        print("mmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmm")
+
+        distance = self.guye_radius
+
+        # create an array of blocks that takes up the entire space and extra to prevent errors
+        blocks_size = self.size // distance + np.array([3, 3, 3])
+        blocks_size = tuple(blocks_size.astype(int))
+        blocks = np.empty(blocks_size, dtype=np.object)
+
+        # gives each block an array that acts as a holder for cells optimized triple for-loop
+        for i, j, k in itertools.product(range(blocks_size[0]), range(blocks_size[1]), range(blocks_size[2])):
+            blocks[i][j][k] = np.array([], dtype=np.int)
+
+        # loops over all cells appending their index value in the corresponding block
+        for h in range(len(self.cells)):
+            if self.cells[h].state == "Differentiated":
+                # offset the block location by 1 to help when searching over blocks and reduce potential error
+                block_location = self.cells[h].location // distance + np.array([1, 1, 1])
+                block_location = block_location.astype(int)
+                x, y, z = block_location[0], block_location[1], block_location[2]
+
+                # adds the cell to a given block
+                blocks[x][y][z] = np.append(blocks[x][y][z], h)
+
+        for h in range(len(self.cells)):
+            if self.cells[h].state == "Pluripotent":
+                # offset the block location by 1 to help when searching over blocks and reduce potential error
+                block_location = self.cells[h].location // distance + np.array([1, 1, 1])
+                block_location = block_location.astype(int)
+                x, y, z = block_location[0], block_location[1], block_location[2]
+
+                closest_index = h
+                closest_dist = 0
+
+                # looks at the blocks surrounding a given block that houses the cell
+                for i, j, k in itertools.product(range(-1, 2), repeat=3):
+                    indices_in_block = blocks[x + i][y + j][z + k]
+
+                    # looks at the cells in a block and decides if they are neighbors
+                    for l in range(len(indices_in_block)):
+                        # for the specified index in that block get the cell object in self.cells
+                        cell_in_block = self.cells[indices_in_block[l]]
+
+                        # check to see if that cell is within the search radius
+                        mag = np.linalg.norm(cell_in_block.location - self.cells[h].location)
+                        if mag <= distance and h != indices_in_block[l]:
+                            if closest_dist == 0 or closest_index == h:
+                                closest_index = indices_in_block[l]
+                                closest_dist = mag
+                            else:
+                                if mag < closest_dist:
+                                    closest_index = indices_in_block[l]
+                                    closest_dist = mag
+
+                self.cells[h].closest_diff = self.cells[closest_index]
 
     def handle_movement(self):
         """ runs the following functions together for a
@@ -355,6 +408,7 @@ class Simulation:
             time_holder += self.move_time_step
 
             # calculate the forces acting on each cell
+
             self.get_forces()
 
             # turn the forces into movement

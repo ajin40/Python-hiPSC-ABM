@@ -37,6 +37,8 @@ class Cell:
         # create an empty array used for holding the neighbors
         self.neighbors = np.array([], np.object)
 
+        self.closest_diff = None
+
     def motility(self, simulation):
         """ applies forces to each cell based on chemotactic
             or random movement
@@ -85,33 +87,15 @@ class Cell:
                     # continue if using Guye et al. movement and if there exists differentiated cells
                     if simulation.guye_move:
                         # get the differentiated neighbors
-                        guye_neighbors = self.guye_neighbors
+                        guye_neighbor = self.closest_diff
 
-                        # check to see if there are any differentiated cells nearby
-                        if len(guye_neighbors) > 0:
-                            # get starting differentiated cell distance
-                            vector = guye_neighbors[0].location - self.location
-                            magnitude = np.linalg.norm(vector)
+                        vector = guye_neighbor.location - self.location
+                        magnitude = np.linalg.norm(vector)
 
-                            # loop over all other differentiated cells looking for the closest
-                            for i in range(1, len(guye_neighbors)):
-                                # get the distance to each of the other cells
-                                next_vector = guye_neighbors[i].location - self.location
-                                next_magnitude = np.linalg.norm(next_vector)
+                        # move in the direction of the closest differentiated neighbor
+                        normal = vector / magnitude
+                        self.active_force += normal * simulation.guye_force
 
-                                # check to see if the cell is closer than others
-                                if next_magnitude < magnitude:
-                                    # reset distance and vector for calculating the unit normal
-                                    vector = next_vector
-                                    magnitude = next_magnitude
-
-                            # move in the direction of the closest differentiated neighbor
-                            normal = vector / magnitude
-                            self.active_force += normal * simulation.guye_force
-
-                        else:
-                            # if no differentiated cells, move randomly
-                            self.active_force += random_vector(simulation) * simulation.motility_force
                     else:
                         # if not Guye et al. movement, move randomly
                         self.active_force += random_vector(simulation) * simulation.motility_force

@@ -47,7 +47,7 @@ for simulation.current_step in range(simulation.beginning_step, simulation.end_s
     simulation.diff_surround_cells()
 
     # Gets motility forces depending on a variety of factors involving state and presence of neighbors
-    # simulation.motility_cells()
+    simulation.motility_cells()
 
     # Updates cells by adjusting trackers for differentiation and division based on intracellular, intercellular,
     # and extracellular conditions.   (base)
