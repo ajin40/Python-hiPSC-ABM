@@ -110,6 +110,7 @@ class Cell:
         self.div_counter = 0
         self.boolean_counter = 0
         self.radius = simulation.min_radius
+        self.neighbors = np.array([], np.object)
 
         # create a deep copy of the object
         cell = copy.deepcopy(self)

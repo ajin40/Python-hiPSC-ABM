@@ -14,7 +14,6 @@ choices, and  purposes regarding the model.
 """
 import Input
 import Output
-import time
 
 # setup() will create an instance of the Simulation class that holds extracellular and cell objects.
 # This is done by reading a template .txt file that contains all initial parameters of the model.   (base)
@@ -34,7 +33,7 @@ for simulation.current_step in range(simulation.beginning_step, simulation.end_s
     simulation.check_neighbors()
 
     # updates the instance variable for each cell that points to the cell objects that are its neighbors
-    # simulation.update_neighbors()
+    simulation.update_neighbors()
 
     # if any differentiated cells exist within a cell's defined search radius, this will find the closest one.
     simulation.nearest_diff()
@@ -56,9 +55,15 @@ for simulation.current_step in range(simulation.beginning_step, simulation.end_s
     # groups, the handle_movement() function will be used to better represent asynchronous division and death   (base)
     simulation.update_cell_queue()
 
+    # Refreshes the graph used to represent cells as nodes and neighbor connections as edges.   (base)
+    simulation.check_neighbors()
+
+    # updates the instance variable for each cell that points to the cell objects that are its neighbors
+    simulation.update_neighbors()
+
     # Moves the cells to a state of physical equilibrium so that there is minimal overlap of cells, while also
     # applying forces from the previous motility_cells() function.   (base)
-    # simulation.handle_movement()
+    simulation.handle_movement()
 
     # Saves a snapshot of the simulation at the given step. This may include an image and a CSV file.    (base)
     Output.save_file(simulation)

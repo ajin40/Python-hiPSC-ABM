@@ -321,7 +321,10 @@ class Simulation:
         # all the instance variables holding the neighbor cell objects
         # loops over all cells and gets the neighbors based on the index in the graph
         for i in range(len(self.cells)):
+            # clear the neighbors from the previous step
             self.cells[i].neighbors = np.array([], np.object)
+
+            # get the indices of the node's neighbors
             neighbors = self.neighbor_graph.neighbors(i)
 
             # loops over the neighbors adding the corresponding cell object to the array holding the neighbors
@@ -395,16 +398,12 @@ class Simulation:
             given time amount. Resets the force and
             velocity arrays as well.
         """
-        # holds the current value of the time until it surpasses the simulation time step value
-        time_holder = 0.0
+        # get the total amount of times the cells will be incrementally moved during the step
+        steps = int(self.time_step_value / self.move_time_step)
 
-        # loops over the following movement functions until time is surpassed
-        while time_holder < self.time_step_value:
-            # increases the time based on the desired time step
-            time_holder += self.move_time_step
-
+        # run the following functions consecutively for the given amount of steps
+        for i in range(steps):
             # calculate the forces acting on each cell
-
             self.get_forces()
 
             # turn the forces into movement
@@ -421,11 +420,31 @@ class Simulation:
         """ goes through all of the cells and quantifies any forces arising
             from adhesion or repulsion between the cells
         """
+        # make sure that all edges in the jkr graph are also in the neighbor graph...if not, remove them as this
+        # function will only act on the neighbor edges
+        # get a list of the edges from both graphs
+        jkr_edges = self.jkr_graph.get_edgelist()
+        neighbor_edges = self.neighbor_graph.get_edgelist()
+        # loop over all edges in the jkr graph checking for membership in the neighbor graph
+        for i in range(len(jkr_edges)):
+            # if not in the graph, remove it from the jkr graph
+            if not jkr_edges[i] in neighbor_edges:
+                self.jkr_graph.delete_edges(jkr_edges[i])
+
+        # this determines if a jkr adhesion bond already exists between two cells, used in the parallel
+        # as "in" operator is not supported so this is used in both for simplicity
+        bond_exists = np.zeros(len(neighbor_edges), dtype=bool)
+        for i in range(len(neighbor_edges)):
+            # if a bond exists set the corresponding index to True
+            if neighbor_edges[i] in jkr_edges:
+                bond_exists[i] = True
+
         # list the edges of the graphs as both functions will need them in this format
         edges = np.array(self.neighbor_graph.get_edgelist(), dtype=np.int)
         jkr_edges = np.array(self.jkr_graph.get_edgelist(), dtype=np.int)
 
-        # create 2D arrays used for adding/deleting edges, much faster than appending
+        # create arrays used for adding/deleting edges, sadly there is a difference between the way these
+        # input information
         add_jkr_edges = np.zeros((len(edges), 2), dtype=np.int)
         delete_jkr_edges = np.zeros(len(edges), dtype=np.int)
 
@@ -482,7 +501,7 @@ class Simulation:
                 overlap_condition = d > -0.360562
 
                 # bond condition use to see if bond exists
-                bond_condition = (index_1, index_2) in jkr_edges
+                bond_condition = bond_exists[i]
 
                 # check to see if the cells will have a force interaction
                 if overlap_condition and bond_condition:
@@ -508,6 +527,9 @@ class Simulation:
         self.jkr_graph.simplify()
 
     def apply_forces(self):
+        """ Turns the active motility/division forces
+            and inactive JKR forces into movement
+        """
         # call the parallel version if desired
         if self.parallel:
             # prevents the need for having the numba library if it's not installed
