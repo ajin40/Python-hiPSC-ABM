@@ -1,34 +1,33 @@
 from numba import cuda
 import math
 import numpy as np
-# import cupy as cp
 
 
-def update_gradient_gpu(extracellular, simulation):
-    """ This is a near identical function to the
-        non-parallel one; however, this uses
-        cupy which is identical to numpy, but
-        it is run on a cuda gpu instead
-    """
-    # get the number of times this will be run
-    time_steps = int(simulation.time_step_value / extracellular.dt)
-
-    # make the variable name smaller for easier writing
-    a = cp.asarray(extracellular.diffuse_values)
-
-    # perform the following operations on the diffusion points at each time step
-    for i in range(time_steps):
-
-        x = (a[2:][1:-1][1:-1] - 2 * a[1:-1][1:-1][1:-1] + a[:-2][1:-1][1:-1]) / extracellular.dx2
-        y = (a[1:-1][2:][1:-1] - 2 * a[1:-1][1:-1][1:-1] + a[1:-1][:-2][1:-1]) / extracellular.dy2
-        z = (a[1:-1][1:-1][2:] - 2 * a[1:-1][1:-1][1:-1] + a[1:-1][1:-1][:-2]) / extracellular.dz2
-
-        # update the array, assign a variable for ease of writing
-        new_value = a[1:-1][1:-1][1:-1] + extracellular.diffuse_const * extracellular.dt * (x + y + z)
-        a[1:-1][1:-1][1:-1] = new_value
-
-    # turn it back into a numpy array
-    extracellular.diffuse_values = cp.asnumpy(a)
+# def update_gradient_gpu(extracellular, simulation):
+#     """ This is a near identical function to the
+#         non-parallel one; however, this uses
+#         cupy which is identical to numpy, but
+#         it is run on a cuda gpu instead
+#     """
+#     # get the number of times this will be run
+#     time_steps = int(simulation.time_step_value / extracellular.dt)
+#
+#     # make the variable name smaller for easier writing
+#     a = cp.asarray(extracellular.diffuse_values)
+#
+#     # perform the following operations on the diffusion points at each time step
+#     for i in range(time_steps):
+#
+#         x = (a[2:][1:-1][1:-1] - 2 * a[1:-1][1:-1][1:-1] + a[:-2][1:-1][1:-1]) / extracellular.dx2
+#         y = (a[1:-1][2:][1:-1] - 2 * a[1:-1][1:-1][1:-1] + a[1:-1][:-2][1:-1]) / extracellular.dy2
+#         z = (a[1:-1][1:-1][2:] - 2 * a[1:-1][1:-1][1:-1] + a[1:-1][1:-1][:-2]) / extracellular.dz2
+#
+#         # update the array, assign a variable for ease of writing
+#         new_value = a[1:-1][1:-1][1:-1] + extracellular.diffuse_const * extracellular.dt * (x + y + z)
+#         a[1:-1][1:-1][1:-1] = new_value
+#
+#     # turn it back into a numpy array
+#     extracellular.diffuse_values = cp.asnumpy(a)
 
 
 @cuda.jit(device=True)
@@ -43,75 +42,70 @@ def magnitude(location_one, location_two):
     return total ** 0.5
 
 
-def check_neighbors_gpu(simulation, distance, edge_holder):
+def check_neighbors_gpu(simulation, distance, edge_holder, max_neighbors):
     """ The GPU parallelized version of check_neighbors()
         from the Simulation class.
     """
-    # based on the edge holder get an idea of how many neighbors at most a cell will have and send it to the gpu
-    max_neighbors = int(len(edge_holder) / len(simulation.cells))
+    # turn the following into arrays that can be interpreted by the gpu
+    distance_cuda = cuda.to_device(distance)
     max_neighbors_cuda = cuda.to_device(max_neighbors)
-
-    # send the edge_holder array to the gpu
     edge_holder_cuda = cuda.to_device(edge_holder)
 
-    # distance threshold between two cells to designate a neighbor, turns it into gpu array
-    distance_cuda = cuda.to_device(np.array([distance]))
-
-    # divides the space into blocks and gives a holder of fixed size for each block
-    blocks_size = simulation.size // distance + np.array([3, 3, 3])
-    blocks_size_help = tuple(blocks_size.astype(int))
-    blocks_size = np.append(blocks_size, 100)
-    blocks_size = tuple(blocks_size.astype(int))
+    # divides the space into bins and gives a holder of fixed size for each bin
+    bins_size = simulation.size // distance + np.array([3, 3, 3])
+    bins_size_help = tuple(bins_size.astype(int))
+    bins_size = np.append(bins_size, 100)
+    bins_size = tuple(bins_size.astype(int))
 
     # assigns values of -1 to denote a lack of cells
-    blocks = np.ones(blocks_size) * -1
+    bins = np.ones(bins_size) * -1
 
-    # an array used to accelerate the cuda function by telling the function how many cells are in a given block
-    blocks_help = np.zeros(blocks_size_help, dtype=np.int)
+    # an array used to accelerate the cuda function by telling the function how many cells are in a given bin
+    bins_help = np.zeros(bins_size_help, dtype=np.int)
 
-    # assigns cells to blocks as a general location
+    # assigns cells to bins as a general location
     for i in range(len(simulation.cells)):
-        # offset blocks by 1 to avoid missing cells
+        # offset bins by 1 to avoid missing cells
         block_location = simulation.cells[i].location // distance + np.array([1, 1, 1])
         block_location = block_location.astype(int)
         x, y, z = block_location[0], block_location[1], block_location[2]
 
-        # tries to place the cell in the holder for the block. if the holder's value is other than -1 it will move
+        # tries to place the cell in the holder for the bin. if the holder's value is other than -1 it will move
         # to the next spot to see if it's empty
-        place = blocks_help[x][y][z]
+        place = bins_help[x][y][z]
 
         # gives the cell's array location
-        blocks[x][y][z][place] = i
+        bins[x][y][z][place] = i
 
-        # updates the total amount cells in a block
-        blocks_help[x][y][z] += 1
+        # updates the total amount cells in a bin
+        bins_help[x][y][z] += 1
 
-    # turn the blocks array and the blocks_help array into a format to be sent to the gpu
-    blocks_cuda = cuda.to_device(blocks)
-    blocks_help_cuda = cuda.to_device(blocks_help)
+    # turn the bins array and the blocks_help array into a format to be sent to the gpu
+    bins_cuda = cuda.to_device(bins)
+    bins_help_cuda = cuda.to_device(bins_help)
 
     # loops over all over the cells and puts their locations into a holder array and turns it into a gpu array
-    location_array = np.zeros((len(simulation.cells), 3))
+    locations = np.zeros((len(simulation.cells), 3))
     for i in range(len(simulation.cells)):
-        location_array[i] = simulation.cells[i].location
-    location_array_cuda = cuda.to_device(location_array)
+        locations[i] = simulation.cells[i].location
+    locations_cuda = cuda.to_device(locations)
 
     # sets up the correct allocation of threads and blocks
     threads_per_block = 72
-    blocks_per_grid = math.ceil(len(location_array) / threads_per_block)
+    blocks_per_grid = math.ceil(len(locations) / threads_per_block)
 
     # calls the cuda function with the given inputs
-    check_neighbors_cuda[blocks_per_grid, threads_per_block](location_array_cuda, blocks_cuda, blocks_help_cuda,
+    check_neighbors_cuda[blocks_per_grid, threads_per_block](locations_cuda, bins_cuda, bins_help_cuda,
                                                              distance_cuda, edge_holder_cuda, max_neighbors_cuda)
     # return the array back from the GPU
-    output = edge_holder_cuda.copy_to_host()
+    new_edges = edge_holder_cuda.copy_to_host()
 
     # return the edges that will be added to the graph
-    return output
+    return new_edges
 
 
 @cuda.jit
-def check_neighbors_cuda(location_array, blocks, blocks_help, distance, edge_holder, max_neighbors):
+def check_neighbors_cuda(locations, bins, bins_help, distance, edge_holder, max_neighbors):
     """ This is the parallelized function for checking
         neighbors that is run numerous times.
     """
@@ -122,26 +116,26 @@ def check_neighbors_cuda(location_array, blocks, blocks_help, distance, edge_hol
     place = cuda.grid(1) * max_neighbors[0]
 
     # checks to see that position is in the array, double-check as GPUs can be weird sometimes
-    if index_1 < location_array.shape[0]:
+    if index_1 < locations.shape[0]:
         # gets the block location based on how they were inputted
-        location_x = int(location_array[index_1][0] / distance[0]) + 1
-        location_y = int(location_array[index_1][1] / distance[0]) + 1
-        location_z = int(location_array[index_1][2] / distance[0]) + 1
+        location_x = int(locations[index_1][0] / distance[0]) + 1
+        location_y = int(locations[index_1][1] / distance[0]) + 1
+        location_z = int(locations[index_1][2] / distance[0]) + 1
 
         # looks at the blocks surrounding the current block as these are the ones containing the neighbors
         for i in range(-1, 2):
             for j in range(-1, 2):
                 for k in range(-1, 2):
                     # gets the number of cells in each block thanks to the helper array, int to prevent problems
-                    number_cells = int(blocks_help[location_x + i][location_y + j][location_z + k])
+                    number_cells = int(bins_help[location_x + i][location_y + j][location_z + k])
 
                     # loops over the cell indices in the current block
                     for l in range(number_cells):
                         # gets the index of the potential neighbor
-                        index_2 = int(blocks[location_x + i][location_y + j][location_z + k][l])
+                        index_2 = int(bins[location_x + i][location_y + j][location_z + k][l])
 
                         # get the magnitude via the device function and make sure not the same cell
-                        if magnitude(location_array[index_1], location_array[index_2]) <= distance[0] and \
+                        if magnitude(locations[index_1], locations[index_2]) <= distance[0] and \
                                 index_1 != index_2:
                             # assign the array location showing that this cell is a neighbor
                             edge_holder[place][0] = index_1
@@ -280,44 +274,58 @@ def get_forces_cuda(edges, jkr_edges, add_jkr_edges, delete_jkr_edges, locations
 
 
 def apply_forces_gpu(simulation):
-    inactive_forces = np.empty((0, 3), np.float)
-    active_forces = np.empty((0, 3), np.float)
-    locations = np.empty((0, 3), np.float)
-    radii = np.empty((0, 1), np.float)
+    """ The GPU parallelized version of apply_forces()
+        from the Simulation class.
+    """
+    # get the length of the arrays and create them so that they can later be updated
+    length = len(simulation.cells)
+    inactive_forces = np.empty((length, 3), np.float)
+    active_forces = np.empty((length, 3), np.float)
+    locations = np.empty((length, 3), np.float)
+    radii = np.empty(length, np.float)
 
+    # loop over all cells and input their values to the arrays
     for i in range(len(simulation.cells)):
-        inactive_forces = np.append(inactive_forces, [simulation.cells[i].inactive_force], axis=0)
-        active_forces = np.append(active_forces, [simulation.cells[i].active_force], axis=0)
-        locations = np.append(locations, [simulation.cells[i].location], axis=0)
-        radii = np.append(radii, simulation.cells[i].radius)
+        inactive_forces[i] = simulation.cells[i].inactive_force
+        active_forces[i] = simulation.cells[i].active_force
+        locations[i] = simulation.cells[i].location
+        radii[i] = simulation.cells[i].radius
 
+    # turn those arrays into gpu arrays
     inactive_forces_cuda = cuda.to_device(inactive_forces)
     active_forces_cuda = cuda.to_device(active_forces)
     locations_cuda = cuda.to_device(locations)
     radii_cuda = cuda.to_device(radii)
+    viscosity_cuda = cuda.to_device(simulation.viscosity)
+    size_cuda = cuda.to_device(simulation.size)
+    move_time_step_cuda = cuda.to_device(simulation.move_time_step)
 
     # sets up the correct allocation of threads and blocks
     threads_per_block = 72
     blocks_per_grid = math.ceil(len(locations) / threads_per_block)
 
-    viscosity_cuda = cuda.to_device([simulation.viscosity])
-    size_cuda = cuda.to_device(simulation.size)
-    move_step_cuda = cuda.to_device([simulation.move_time_step])
-
+    # call the cuda function
     apply_forces_cuda[blocks_per_grid, threads_per_block](inactive_forces_cuda, active_forces_cuda, locations_cuda,
-                                                          radii_cuda, viscosity_cuda, size_cuda, move_step_cuda)
+                                                          radii_cuda, viscosity_cuda, size_cuda, move_time_step_cuda)
 
+    # return the new cell locations from the gpu
     new_locations = locations_cuda.copy_to_host()
 
+    # loop over all cells updating the locations and setting the inactive_force back to zero
     for i in range(len(simulation.cells)):
         simulation.cells[i].location = new_locations[i]
         simulation.cells[i].inactive_force = np.array([0.0, 0.0, 0.0])
 
 
 @cuda.jit
-def apply_forces_cuda(inactive_forces, active_forces, locations, radii, viscosity, size, move_time):
+def apply_forces_cuda(inactive_forces, active_forces, locations, radii, viscosity, size, move_time_step):
+    """ This is the parallelized function for applying
+        forces that is run numerous times.
+    """
+    # get the index in the array
     index = cuda.grid(1)
 
+    # double check that this in still in the array
     if index < locations.shape[0]:
         # stokes law for velocity based on force and fluid viscosity
         stokes_friction = 6 * math.pi * viscosity[0] * radii[index]
@@ -328,10 +336,12 @@ def apply_forces_cuda(inactive_forces, active_forces, locations, radii, viscosit
         velocity_z = (active_forces[index][2] + inactive_forces[index][2]) / stokes_friction
 
         # set the possible new location
-        new_location_x = locations[index][0] + velocity_x * move_time[0]
-        new_location_y = locations[index][1] + velocity_y * move_time[0]
-        new_location_z = locations[index][2] + velocity_z * move_time[0]
+        new_location_x = locations[index][0] + velocity_x * move_time_step[0]
+        new_location_y = locations[index][1] + velocity_y * move_time_step[0]
+        new_location_z = locations[index][2] + velocity_z * move_time_step[0]
 
+        # the following check that the cell's new location is within the simulation space
+        # for the x direction
         if new_location_x > size[0]:
             locations[index][0] = size[0]
         elif new_location_x < 0:
@@ -339,6 +349,7 @@ def apply_forces_cuda(inactive_forces, active_forces, locations, radii, viscosit
         else:
             locations[index][0] = new_location_x
 
+        # for the y direction
         if new_location_y > size[1]:
             locations[index][1] = size[1]
         elif new_location_y < 0:
@@ -346,6 +357,7 @@ def apply_forces_cuda(inactive_forces, active_forces, locations, radii, viscosit
         else:
             locations[index][1] = new_location_y
 
+        # for the z direction
         if new_location_z > size[2]:
             locations[index][2] = size[2]
         elif new_location_z < 0:

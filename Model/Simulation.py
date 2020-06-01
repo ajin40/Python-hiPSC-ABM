@@ -250,29 +250,16 @@ class Simulation:
         # distance threshold between two cells to designate a neighbor
         distance = self.neighbor_distance
 
-        # the below formulas are able to provide a pretty good prediction of the number of total edges in the
-        # neighbor graph. It's faster to over-predict the amount of edges, add them all at once, and filter the
-        # nonsense edges than append the edges to a running list one at a time. If you see indexing errors,
-        # increase "error" slightly and try again. igraph works via index integers so this will create a 2D that
-        # has pairs of zeros meant to be overwritten, though will filtering by simplify()
-
-        # checks if the space the cells are in is 2D
-        if self.size[0] == 0 or self.size[1] == 0 or self.size[2] == 0:
-            error = 2.00
-            length = math.ceil((error * distance ** 2 * len(self.cells) ** 2) / (self.size[0] * self.size[1]))
-            edge_holder = np.zeros((length, 2), dtype=np.int)
-
-        # assume the 3D case
-        else:
-            error = 2.50
-            length = math.ceil((error * distance ** 3 * len(self.cells) ** 2)/(self.size[0]*self.size[1]*self.size[2]))
-            edge_holder = np.zeros((length, 2), dtype=np.int)
+        # provide an idea of the maximum number of neighbors for a cells
+        max_neighbors = 15
+        length = len(self.cells) * max_neighbors
+        edge_holder = np.zeros((length, 2), dtype=np.int)
 
         # call the parallel version if desired
         if self.parallel:
             # prevents the need for having the numba library if it's not installed
             import Parallel
-            edge_holder = Parallel.check_neighbors_gpu(self, distance, edge_holder)
+            edge_holder = Parallel.check_neighbors_gpu(self, distance, edge_holder, max_neighbors)
 
         # call the boring non-parallel cpu version
         else:
