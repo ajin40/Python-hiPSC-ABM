@@ -420,52 +420,63 @@ class Simulation:
         """ goes through all of the cells and quantifies any forces arising
             from adhesion or repulsion between the cells
         """
-        # make sure that all edges in the jkr graph are also in the neighbor graph...if not, remove them as this
-        # function will only act on the neighbor edges
         # get a list of the edges from both graphs
-        jkr_edges = self.jkr_graph.get_edgelist()
         neighbor_edges = self.neighbor_graph.get_edgelist()
-        # loop over all edges in the jkr graph checking for membership in the neighbor graph
-        for i in range(len(jkr_edges)):
-            # if not in the graph, remove it from the jkr graph
-            if not jkr_edges[i] in neighbor_edges:
-                self.jkr_graph.delete_edges(jkr_edges[i])
-
-        # this determines if a jkr adhesion bond already exists between two cells, used in the parallel
-        # as "in" operator is not supported so this is used in both for simplicity
-        bond_exists = np.zeros(len(neighbor_edges), dtype=bool)
-        for i in range(len(neighbor_edges)):
-            # if a bond exists set the corresponding index to True
-            if neighbor_edges[i] in jkr_edges:
-                bond_exists[i] = True
-
-        # list the edges of the graphs as both functions will need them in this format
-        edges = np.array(self.neighbor_graph.get_edgelist(), dtype=np.int)
-        jkr_edges = np.array(self.jkr_graph.get_edgelist(), dtype=np.int)
 
         # create arrays used for adding/deleting edges, sadly there is a difference between the way these
         # input information
-        add_jkr_edges = np.zeros((len(edges), 2), dtype=np.int)
-        delete_jkr_edges = np.zeros(len(edges), dtype=np.int)
+        add_jkr_edges = np.zeros((len(neighbor_edges), 2), dtype=np.int)
+        delete_jkr_edges = np.zeros(len(neighbor_edges), dtype=np.int)
+
+        # make sure that all edges in the jkr graph are also in the neighbor graph as there is no way to eliminate
+        # stray edges if they exist
+        self.jkr_graph = self.jkr_graph & self.neighbor_graph
+
+        # loop over the neighbor edges and check to see if a jkr bond will be created
+        for i in range(len(neighbor_edges)):
+            # get the indices of the nodes in the edge
+            index_1 = neighbor_edges[i][0]
+            index_2 = neighbor_edges[i][1]
+
+            # assigns the nodes of each edge to a variable
+            cell_1 = self.cells[index_1]
+            cell_2 = self.cells[index_2]
+
+            # hold the vector between the centers of the cells and the magnitude of this vector
+            disp_vector = cell_1.location - cell_2.location
+            magnitude = np.linalg.norm(disp_vector)
+
+            # get the total overlap of the cells used later in calculations
+            overlap = cell_1.radius + cell_2.radius - magnitude
+
+            # indicate that an adhesive bond has formed between the cells
+            if overlap >= 0:
+                add_jkr_edges[i] = (index_1, index_2)
+
+        # add the new jkr edges
+        self.jkr_graph.add_edges(add_jkr_edges)
 
         # get the values for Youngs modulus and Poisson's ratio
         poisson = self.poisson
         youngs = self.youngs_mod
         adhesion_const = self.adhesion_const
 
+        # get the updated edges of the jkr graph
+        jkr_edges = self.jkr_graph.get_edgelist()
+
         # call the parallel version if desired
         if self.parallel:
             # prevents the need for having the numba library if it's not installed
             import Parallel
-            add_jkr_edges, delete_jkr_edges = Parallel.get_forces_gpu(self, edges, jkr_edges, add_jkr_edges,
-                                                                      delete_jkr_edges, poisson, youngs, adhesion_const)
+            delete_jkr_edges = Parallel.get_forces_gpu(self, jkr_edges, delete_jkr_edges, poisson, youngs,
+                                                       adhesion_const)
         # call the boring non-parallel cpu version
         else:
-            # loops over the pairs of neighbors
-            for i in range(len(edges)):
+            # loops over the jkr edges
+            for i in range(len(jkr_edges)):
                 # get the indices of the nodes in the edge
-                index_1 = edges[i][0]
-                index_2 = edges[i][1]
+                index_1 = jkr_edges[i][0]
+                index_2 = jkr_edges[i][1]
 
                 # assigns the nodes of each edge to a variable
                 cell_1 = self.cells[index_1]
@@ -497,14 +508,8 @@ class Simulation:
                 # also for the use of a polynomial approximation of the force
                 d = overlap / overlap_
 
-                # used to see if the adhesive bond once formed has broken
-                overlap_condition = d > -0.360562
-
-                # bond condition use to see if bond exists
-                bond_condition = bond_exists[i]
-
                 # check to see if the cells will have a force interaction
-                if overlap_condition and bond_condition:
+                if d > -0.360562:
 
                     # plug the value of d into the nondimensionalized equation for the JKR force
                     f = (-0.0204 * d ** 3) + (0.4942 * d ** 2) + (1.0801 * d) - 1.324
@@ -518,11 +523,10 @@ class Simulation:
 
                 # remove the edge if the it fails to meet the criteria for distance, JKR simulating that
                 # the bond is broken
-                elif bond_condition:
+                else:
                     delete_jkr_edges[i] = i
 
         # update the jkr graph after the arrays have been updated by either the parallel or non-parallel function
-        self.jkr_graph.add_edges(add_jkr_edges)
         self.jkr_graph.delete_edges(delete_jkr_edges)
         self.jkr_graph.simplify()
 

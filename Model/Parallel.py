@@ -143,96 +143,91 @@ def check_neighbors_cuda(locations, bins, bins_help, distance, edge_holder, max_
                             place += 1
 
 
-def get_forces_gpu(simulation, edges, jkr_edges, add_jkr_edges, delete_jkr_edges, poisson, youngs, adhesion_const):
+def get_forces_gpu(simulation, jkr_edges, delete_jkr_edges, poisson, youngs, adhesion_const):
     """ The GPU parallelized version of forces_to_movement()
         from the Simulation class.
     """
-    bond = np.empty((0, 1), bool)
-    for i in range(len(edges)):
-        if edges[i] in jkr_edges:
-            bond = np.append(bond, True)
-        else:
-            bond = np.append(bond, False)
-
-    bond_cuda = cuda.to_device(bond)
-
     # convert these arrays into a form able to be read by the GPU
-    edges_cuda = cuda.to_device(edges)
     jkr_edges_cuda = cuda.to_device(jkr_edges)
-    add_jkr_edges_cuda = cuda.to_device(add_jkr_edges)
     delete_jkr_edges_cuda = cuda.to_device(delete_jkr_edges)
-    poisson_cuda = cuda.to_device([poisson])
-    youngs_cuda = cuda.to_device([youngs])
-    adhesion_const_cuda = cuda.to_device([adhesion_const])
+    poisson_cuda = cuda.to_device(poisson)
+    youngs_cuda = cuda.to_device(youngs)
+    adhesion_const_cuda = cuda.to_device(adhesion_const)
     forces_cuda = cuda.to_device(np.zeros((len(simulation.cells), 3)))
 
-    # loops over all over the cells and puts their locations into a holder array and turns it into a gpu array
-    locations = np.empty((0, 3), float)
-    radii = np.empty((0, 1), float)
+    # get the length of the arrays and create them so that they can later be updated
+    length = len(simulation.cells)
+    locations = np.empty((length, 3), np.float)
+    radii = np.empty(length, np.float)
 
+    # loop over all cells and input their values to the arrays
     for i in range(len(simulation.cells)):
-        locations = np.append(locations, [simulation.cells[i].location], axis=0)
-        radii = np.append(radii, simulation.cells[i].radius)
+        locations[i] = simulation.cells[i].location
+        radii[i] = simulation.cells[i].radius
 
+    # send these to the gpu
     locations_cuda = cuda.to_device(locations)
     radii_cuda = cuda.to_device(radii)
 
     # sets up the correct allocation of threads and blocks
     threads_per_block = 72
-    blocks_per_grid = math.ceil(len(edges) / threads_per_block)
+    blocks_per_grid = math.ceil(len(jkr_edges) / threads_per_block)
 
-    get_forces_cuda[blocks_per_grid, threads_per_block](edges_cuda, jkr_edges_cuda, add_jkr_edges_cuda,
-                                                        delete_jkr_edges_cuda, locations_cuda, radii_cuda,
-                                                        forces_cuda, poisson_cuda, youngs_cuda, adhesion_const_cuda,
-                                                        bond_cuda)
-
+    # call the cuda function
+    get_forces_cuda[blocks_per_grid, threads_per_block](jkr_edges_cuda, delete_jkr_edges_cuda, locations_cuda,
+                                                        radii_cuda, forces_cuda, poisson_cuda, youngs_cuda,
+                                                        adhesion_const_cuda)
+    # get these back from the gpu
     forces_output = forces_cuda.copy_to_host()
+    delete_jkr_edges_output = delete_jkr_edges_cuda.copy_to_host()
 
+    # add the forces to the cells
     for i in range(len(simulation.cells)):
         simulation.cells[i].inactive_force += forces_output[i]
 
-    add_jkr_edges_output = add_jkr_edges_cuda.copy_to_host()
-    delete_jkr_edges_output = delete_jkr_edges_cuda.copy_to_host()
-
-    return add_jkr_edges_output, delete_jkr_edges_output
+    # return the edges to be deleted
+    return delete_jkr_edges_output
 
 
 @cuda.jit
-def get_forces_cuda(edges, jkr_edges, add_jkr_edges, delete_jkr_edges, locations, radii, forces, poisson, youngs,
-                    adhesion_const, bond):
-
+def get_forces_cuda(jkr_edges, delete_jkr_edges, locations, radii, forces, poisson, youngs, adhesion_const):
+    """ The parallelized function that
+        is run numerous times
+    """
     # a provides the location on the array as it runs, essentially loops over the cells
     edge_index = cuda.grid(1)
 
     # checks to see that position is in the array, double-check as GPUs can be weird sometimes
-    if edge_index < edges.shape[0]:
+    if edge_index < jkr_edges.shape[0]:
 
         # get the indices of the cells in the edge
-        index_1 = edges[edge_index][0]
-        index_2 = edges[edge_index][1]
+        index_1 = jkr_edges[edge_index][0]
+        index_2 = jkr_edges[edge_index][1]
 
-        # get the normal vector
+        # get the locations of the two cells
         location_1 = locations[index_1]
         location_2 = locations[index_2]
+
+        # get the displacement vector between the two cells
         vector_x = location_1[0] - location_2[0]
         vector_y = location_1[1] - location_2[1]
         vector_z = location_1[2] - location_2[2]
+
+        # get the magnitude of the displacement
         displacement = magnitude(location_1, location_2)
 
+        # make sure the magnitude is not 0
         if displacement != 0:
             normal_x = vector_x / displacement
             normal_y = vector_y / displacement
             normal_z = vector_z / displacement
+
+        # if so return the zero vector
         else:
             normal_x, normal_y, normal_z = 0, 0, 0
 
         # get the total overlap of the cells used later in calculations
         overlap = radii[index_1] + radii[index_2] - displacement
-
-        # indicate that an adhesive bond has formed between the cells
-        if overlap >= 0:
-            add_jkr_edges[edge_index][0] = index_1
-            add_jkr_edges[edge_index][1] = index_2
 
         # gets two values used for JKR
         e_hat = (((1 - poisson[0] ** 2) / youngs[0]) + ((1 - poisson[0] ** 2) / youngs[0])) ** -1
@@ -245,13 +240,8 @@ def get_forces_cuda(edges, jkr_edges, add_jkr_edges, delete_jkr_edges, locations
         # also for the use of a polynomial approximation of the force
         d = overlap / overlap_
 
-        # used to see if the adhesive bond once formed has broken
-        overlap_condition = d > -0.360562
-
-        bond_condition = bond[edge_index]
-
         # check to see if the cells will have a force interaction
-        if overlap_condition and bond_condition:
+        if d > -0.360562:
             # plug the value of d into the nondimensionalized equation for the JKR force
             f = (-0.0204 * d ** 3) + (0.4942 * d ** 2) + (1.0801 * d) - 1.324
 
@@ -269,7 +259,7 @@ def get_forces_cuda(edges, jkr_edges, add_jkr_edges, delete_jkr_edges, locations
 
         # remove the edge if the it fails to meet the criteria for distance, JKR simulating that
         # the bond is broken
-        elif bond_condition:
+        else:
             delete_jkr_edges[edge_index] = edge_index
 
 
