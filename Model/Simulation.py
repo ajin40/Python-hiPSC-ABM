@@ -331,14 +331,14 @@ class Simulation:
             for j in range(len(neighbors)):
                 self.cells[i].neighbors = np.append(self.cells[i].neighbors, self.cells[neighbors[j]])
 
-    def nearest_diff(self):
+    def closest_diff(self):
         """ This will find the closest differentiated
             cell within a given search radius and assign
             that cell to an instance variable for each cell
         """
         # this may appear rather similar to the check_neighbors function; however there are stark differences that
         # warrant a separate function rather than a combination
-
+        # get the distance for the search radius
         distance = self.guye_radius
 
         # create an array of blocks that takes up the entire space and extra to prevent errors
@@ -368,11 +368,13 @@ class Simulation:
                 block_location = block_location.astype(int)
                 x, y, z = block_location[0], block_location[1], block_location[2]
 
-                closest_index = h
-                closest_dist = 0
+                # create an arbitrary distance that any cell close enough will replace
+                closest_index = None
+                closest_dist = distance * 2
 
                 # looks at the blocks surrounding a given block that houses the cell
                 for i, j, k in itertools.product(range(-1, 2), repeat=3):
+                    # an array holding the cell indices
                     indices_in_block = blocks[x + i][y + j][z + k]
 
                     # looks at the cells in a block and decides if they are neighbors
@@ -380,18 +382,17 @@ class Simulation:
                         # for the specified index in that block get the cell object in self.cells
                         cell_in_block = self.cells[indices_in_block[l]]
 
-                        # check to see if that cell is within the search radius
-                        mag = np.linalg.norm(cell_in_block.location - self.cells[h].location)
-                        if mag <= distance and h != indices_in_block[l]:
-                            if closest_dist == 0 or closest_index == h:
+                        # check to see if that cell is within the search radius and not the same cell
+                        magnitude = np.linalg.norm(cell_in_block.location - self.cells[h].location)
+                        if magnitude <= distance and h != indices_in_block[l]:
+                            # if it's closer than the last cell, update the closest magnitude and index
+                            if magnitude < closest_dist:
                                 closest_index = indices_in_block[l]
-                                closest_dist = mag
-                            else:
-                                if mag < closest_dist:
-                                    closest_index = indices_in_block[l]
-                                    closest_dist = mag
+                                closest_dist = magnitude
 
-                self.cells[h].closest_diff = self.cells[closest_index]
+                # check to make sure the initial cell doesn't slip through
+                if closest_dist <= distance:
+                    self.cells[h].closest_diff = self.cells[closest_index]
 
     def handle_movement(self):
         """ runs the following functions together for a
@@ -492,10 +493,6 @@ class Simulation:
 
                 # get the total overlap of the cells used later in calculations
                 overlap = cell_1.radius + cell_2.radius - magnitude
-
-                # indicate that an adhesive bond has formed between the cells
-                if overlap >= 0:
-                    add_jkr_edges[i] = (index_1, index_2)
 
                 # gets two values used for JKR
                 e_hat = (((1 - poisson ** 2) / youngs) + ((1 - poisson ** 2) / youngs)) ** -1

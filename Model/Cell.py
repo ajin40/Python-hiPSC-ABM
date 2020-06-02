@@ -37,6 +37,7 @@ class Cell:
         # create an empty array used for holding the neighbors
         self.neighbors = np.array([], np.object)
 
+        # a pointer to the closest differentiated cell
         self.closest_diff = None
 
     def motility(self, simulation):
@@ -111,6 +112,7 @@ class Cell:
         self.boolean_counter = 0
         self.radius = simulation.min_radius
         self.neighbors = np.array([], np.object)
+        self.closest_diff = None
 
         # create a deep copy of the object
         cell = copy.deepcopy(self)

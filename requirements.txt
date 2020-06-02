@@ -1,5 +1,5 @@
 opencv-python
 Pillow
 numpy
-networkx
+python-igraph
 numba
