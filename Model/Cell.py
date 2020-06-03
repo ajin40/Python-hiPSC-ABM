@@ -29,10 +29,10 @@ class Cell:
         self.boolean_counter = boolean_counter
 
         # holds any active forces applied to a cell resulting from motility and division
-        self.active_force = np.array([0.0, 0.0, 0.0])
+        self.active_force = np.array([0.0, 0.0, 0.0], dtype=float)
 
         # holds any inactive forces resulting from adhesion or repulsion
-        self.inactive_force = np.array([0.0, 0.0, 0.0])
+        self.inactive_force = np.array([0.0, 0.0, 0.0], dtype=float)
 
         # create an empty array used for holding the neighbors
         self.neighbors = np.array([], np.object)
@@ -117,7 +117,7 @@ class Cell:
         # create a deep copy of the object
         cell = copy.deepcopy(self)
 
-        # apply a cell division force moving the cells away from each other
+        # move the cells to a position that is representative of the new locations of daughter cells
         position = random_vector(simulation) * (simulation.max_radius - simulation.min_radius)
         self.location += position
         cell.location -= position

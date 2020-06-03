@@ -15,6 +15,7 @@ Input.py consists of two functions both of which are used to get the simulation 
 is added to the model and subsequently the template file, that can be implemented here. 
 """
 
+
 def setup(template_location):
     """ Looks at all of the setup files and turns them into
         instances of the simulation class, which contain

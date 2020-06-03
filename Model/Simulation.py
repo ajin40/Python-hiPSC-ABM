@@ -411,6 +411,9 @@ class Simulation:
             # recheck neighbors after the cells have moved
             self.check_neighbors()
 
+        for i in range(len(self.cells)):
+            self.cells[i].active_force = np.array([0.0, 0.0, 0.0], dtype=float)
+
     def get_forces(self):
         """ goes through all of the cells and quantifies any forces arising
             from adhesion or repulsion between the cells
@@ -427,26 +430,32 @@ class Simulation:
         # stray edges if they exist
         self.jkr_graph = self.jkr_graph & self.neighbor_graph
 
-        # loop over the neighbor edges and check to see if a jkr bond will be created
-        for i in range(len(neighbor_edges)):
-            # get the indices of the nodes in the edge
-            index_1 = neighbor_edges[i][0]
-            index_2 = neighbor_edges[i][1]
+        # look at the neighbor edges and see if any will classify as jkr edges
+        if self.parallel:
+            import Parallel
+            add_jkr_edges = Parallel.get_jkr_edges(self, neighbor_edges, add_jkr_edges)
 
-            # assigns the nodes of each edge to a variable
-            cell_1 = self.cells[index_1]
-            cell_2 = self.cells[index_2]
+        else:
+            # loop over the neighbor edges and check to see if a jkr bond will be created
+            for i in range(len(neighbor_edges)):
+                # get the indices of the nodes in the edge
+                index_1 = neighbor_edges[i][0]
+                index_2 = neighbor_edges[i][1]
 
-            # hold the vector between the centers of the cells and the magnitude of this vector
-            disp_vector = cell_1.location - cell_2.location
-            magnitude = np.linalg.norm(disp_vector)
+                # assigns the nodes of each edge to a variable
+                cell_1 = self.cells[index_1]
+                cell_2 = self.cells[index_2]
 
-            # get the total overlap of the cells used later in calculations
-            overlap = cell_1.radius + cell_2.radius - magnitude
+                # hold the vector between the centers of the cells and the magnitude of this vector
+                disp_vector = cell_1.location - cell_2.location
+                magnitude = np.linalg.norm(disp_vector)
 
-            # indicate that an adhesive bond has formed between the cells
-            if overlap >= 0:
-                add_jkr_edges[i] = (index_1, index_2)
+                # get the total overlap of the cells used later in calculations
+                overlap = cell_1.radius + cell_2.radius - magnitude
+
+                # indicate that an adhesive bond has formed between the cells
+                if overlap >= 0:
+                    add_jkr_edges[i] = (index_1, index_2)
 
         # add the new jkr edges
         self.jkr_graph.add_edges(add_jkr_edges)
@@ -466,6 +475,7 @@ class Simulation:
             import Parallel
             delete_jkr_edges = Parallel.get_forces_gpu(self, jkr_edges, delete_jkr_edges, poisson, youngs,
                                                        adhesion_const)
+
         # call the boring non-parallel cpu version
         else:
             # loops over the jkr edges

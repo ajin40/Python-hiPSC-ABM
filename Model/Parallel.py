@@ -143,6 +143,67 @@ def check_neighbors_cuda(locations, bins, bins_help, distance, edge_holder, max_
                             place += 1
 
 
+def get_jkr_edges(simulation, neighbor_edges, add_edges):
+    """ The GPU parallelized version of get_jkr_edges()
+        form the simulation class.
+    """
+    # convert these arrays into a form able to be read by the GPU
+    neighbor_edges_cuda = cuda.to_device(neighbor_edges)
+    add_edges_cuda = cuda.to_device(add_edges)
+
+    # get the length of the arrays and create them so that they can later be updated
+    length = len(simulation.cells)
+    locations = np.empty((length, 3), np.float)
+    radii = np.empty(length, np.float)
+
+    # loop over all cells and input their values to the arrays
+    for i in range(len(simulation.cells)):
+        locations[i] = simulation.cells[i].location
+        radii[i] = simulation.cells[i].radius
+
+    # send these to the gpu
+    locations_cuda = cuda.to_device(locations)
+    radii_cuda = cuda.to_device(radii)
+
+    # sets up the correct allocation of threads and blocks
+    threads_per_block = 72
+    blocks_per_grid = math.ceil(len(neighbor_edges) / threads_per_block)
+
+    # call the cuda function
+    get_jkr_edges_cuda[blocks_per_grid, threads_per_block](neighbor_edges_cuda, add_edges_cuda, locations_cuda,
+                                                           radii_cuda)
+    # return the add_edges array
+    output = add_edges_cuda.copy_to_host()
+    return output
+
+
+@cuda.jit
+def get_jkr_edges_cuda(neighbor_edges, add_edges, locations, radii):
+    """ The parallelized function that
+        is run numerous times
+    """
+    # a provides the location on the array as it runs, essentially loops over the cells
+    edge_index = cuda.grid(1)
+
+    # checks to see that position is in the array, double-check as GPUs can be weird sometimes
+    if edge_index < neighbor_edges.shape[0]:
+        # get the indices of the cells in the edge
+        index_1 = neighbor_edges[edge_index][0]
+        index_2 = neighbor_edges[edge_index][1]
+
+        # get the locations of the two cells
+        location_1 = locations[index_1]
+        location_2 = locations[index_2]
+
+        # get the magnitude of the displacement
+        displacement = magnitude(location_1, location_2)
+
+        # update the add_edges array
+        if radii[index_1] + radii[index_2] - displacement >= 0:
+            add_edges[edge_index][0] = index_1
+            add_edges[edge_index][1] = index_2
+
+
 def get_forces_gpu(simulation, jkr_edges, delete_jkr_edges, poisson, youngs, adhesion_const):
     """ The GPU parallelized version of forces_to_movement()
         from the Simulation class.
@@ -304,8 +365,7 @@ def apply_forces_gpu(simulation):
     # loop over all cells updating the locations and setting the inactive_force back to zero
     for i in range(len(simulation.cells)):
         simulation.cells[i].location = new_locations[i]
-        simulation.cells[i].inactive_force = np.array([0.0, 0.0, 0.0])
-        simulation.cells[i].active_force = np.array([0.0, 0.0, 0.0])
+        simulation.cells[i].inactive_force = np.array([0.0, 0.0, 0.0], dtype=float)
 
 
 @cuda.jit
