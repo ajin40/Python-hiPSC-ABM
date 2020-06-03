@@ -16,7 +16,7 @@ Use "Clone or download" to either open the model in GitHub Desktop or download a
 
 This command will achieve the above too.
 ```
-$ git clone https://github.com/JackToppen/stem-cell-patterning_Python.git
+$ git clone https://github.com/JackToppen/Python-hiPSC-CBM.git
 ```
 The model requires Python 3.7. Install any necessary modules. Shown below.
 ```
