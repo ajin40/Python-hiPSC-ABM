@@ -1,5 +1,5 @@
-# Stem Cell Patterning Python
-#### Agent-based model of pluripotent colonies patterning through differentiation.
+# Python hiPSC CBM
+#### Center-based model of pluripotent colonies patterning through differentiation.
 
 Developed from a seed project with the Southeast Center for Mathematics and Biology at Georgia Tech.
 
