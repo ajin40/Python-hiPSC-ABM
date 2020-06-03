@@ -10,8 +10,8 @@ class Simulation:
                  diff_div_thresh, boolean_thresh, death_thresh, diff_surround, adhesion_const, viscosity, group,
                  slices, image_quality, background_color, bound_color, color_mode, pluri_color, diff_color,
                  pluri_gata6_high_color, pluri_nanog_high_color, pluri_both_high_color, lonely_cell, contact_inhibit,
-                 guye_move, motility_force, dox_step, max_radius, division_force, move_thresh, output_images,
-                 output_csvs, guye_radius, guye_force):
+                 guye_move, motility_force, dox_step, max_radius, move_thresh, output_images, output_csvs, guye_radius,
+                 guye_force):
 
         """ path: the path to save the simulation information to
             parallel: true / false which determines whether some tasks are run on the GPU
@@ -49,7 +49,6 @@ class Simulation:
             motility_force: the force a cell exerts to move
             dox_step: at what step is doxycycline is added to the simulation, inducing the gata6 pathway
             max_radius: the maximum radius that would be achieved shortly before division
-            division_force: the force applied to the daughter cells when a cell divides
             move_thresh: the number of neighbors needed to inhibit motion
             output_images: whether the model will create images
             output_csvs: whether the model will create csvs
@@ -92,7 +91,6 @@ class Simulation:
         self.motility_force = motility_force
         self.dox_step = dox_step
         self.max_radius = max_radius
-        self.division_force = division_force
         self.move_thresh = move_thresh
         self.output_images = output_images
         self.output_csvs = output_csvs
@@ -413,10 +411,6 @@ class Simulation:
             # recheck neighbors after the cells have moved
             self.check_neighbors()
 
-        # reset active force back to zero as these forces are only updated once per step
-        for i in range(len(self.cells)):
-            self.cells[i].active_force = np.array([0.0, 0.0, 0.0])
-
     def get_forces(self):
         """ goes through all of the cells and quantifies any forces arising
             from adhesion or repulsion between the cells
@@ -456,6 +450,7 @@ class Simulation:
 
         # add the new jkr edges
         self.jkr_graph.add_edges(add_jkr_edges)
+        self.jkr_graph.simplify()
 
         # get the values for Youngs modulus and Poisson's ratio
         poisson = self.poisson
@@ -486,6 +481,7 @@ class Simulation:
                 # hold the vector between the centers of the cells and the magnitude of this vector
                 disp_vector = cell_1.location - cell_2.location
                 magnitude = np.linalg.norm(disp_vector)
+
                 if magnitude == 0:
                     normal = np.array([0.0, 0.0, 0.0])
                 else:
@@ -560,5 +556,6 @@ class Simulation:
                     else:
                         self.cells[i].location[j] = new_location[j]
 
-                # reset velocity/inactive force and not the active force as that remains constant for the entire step
+                # reset the forces back to zero
                 self.cells[i].inactive_force = np.array([0.0, 0.0, 0.0])
+                self.cells[i].active_force = np.array([0.0, 0.0, 0.0])

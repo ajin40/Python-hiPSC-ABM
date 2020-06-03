@@ -36,7 +36,7 @@ for simulation.current_step in range(simulation.beginning_step, simulation.end_s
     simulation.update_neighbors()
 
     # if any differentiated cells exist within a cell's defined search radius, this will find the closest one.
-    simulation.nearest_diff()
+    simulation.closest_diff()
 
     # A way of introducing cell death into the model by removing cells if they are without neighbors for so long.
     simulation.kill_cells()

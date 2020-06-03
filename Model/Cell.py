@@ -86,7 +86,7 @@ class Cell:
             if self.motion:
                 if self.booleans[2] == 1:
                     # continue if using Guye et al. movement and if there exists differentiated cells
-                    if simulation.guye_move:
+                    if simulation.guye_move and self.closest_diff is not None:
                         # get the differentiated neighbors
                         guye_neighbor = self.closest_diff
 
@@ -118,9 +118,9 @@ class Cell:
         cell = copy.deepcopy(self)
 
         # apply a cell division force moving the cells away from each other
-        force_vector = random_vector(simulation) * simulation.division_force
-        self.active_force += force_vector
-        cell.active_force -= force_vector
+        position = random_vector(simulation) * (simulation.max_radius - simulation.min_radius)
+        self.location += position
+        cell.location -= position
 
         # adds the cell to the simulation
         simulation.cells_to_add = np.append(simulation.cells_to_add, [cell])

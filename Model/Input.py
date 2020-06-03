@@ -77,32 +77,31 @@ def setup(template_location):
     _adhesion_const = float(lines[103][2:-3])
     _viscosity = float(lines[106][2:-3])
     _motility_force = float(lines[109][2:-3])
-    _division_force = float(lines[112][2:-3])
 
     # imaging
-    _image_quality = eval(lines[118][2:-3])
-    _slices = int(lines[121][2:-3])
-    _background_color = eval(lines[124][2:-3])
-    _bound_color = eval(lines[127][2:-3])
-    _color_mode = eval(lines[130][2:-3])
-    _pluri_color = eval(lines[133][2:-3])
-    _diff_color = eval(lines[136][2:-3])
-    _pluri_gata6_high_color = eval(lines[139][2:-3])
-    _pluri_nanog_high_color = eval(lines[142][2:-3])
-    _pluri_both_high_color = eval(lines[145][2:-3])
+    _image_quality = eval(lines[115][2:-3])
+    _slices = int(lines[118][2:-3])
+    _background_color = eval(lines[121][2:-3])
+    _bound_color = eval(lines[124][2:-3])
+    _color_mode = eval(lines[127][2:-3])
+    _pluri_color = eval(lines[130][2:-3])
+    _diff_color = eval(lines[133][2:-3])
+    _pluri_gata6_high_color = eval(lines[136][2:-3])
+    _pluri_nanog_high_color = eval(lines[139][2:-3])
+    _pluri_both_high_color = eval(lines[142][2:-3])
 
     # miscellaneous/experimental
-    _diff_surround = int(lines[151][2:-3])
-    _stochastic = bool(lines[154][2:-3])
-    _group = int(lines[157][2:-3])
-    _lonely_cell = int(lines[160][2:-3])
-    _contact_inhibit = int(lines[163][2:-3])
-    _guye_move = bool(lines[166][2:-3])
-    _dox_step = int(lines[169][2:-3])
-    _max_radius = float(lines[172][2:-3])
-    _move_thresh = int(lines[175][2:-3])
-    _guye_radius = float(lines[178][2:-3])
-    _guye_force = float(lines[181][2:-3])
+    _diff_surround = int(lines[148][2:-3])
+    _stochastic = bool(lines[153][2:-3])
+    _group = int(lines[154][2:-3])
+    _lonely_cell = int(lines[157][2:-3])
+    _contact_inhibit = int(lines[160][2:-3])
+    _guye_move = bool(lines[163][2:-3])
+    _dox_step = int(lines[166][2:-3])
+    _max_radius = float(lines[169][2:-3])
+    _move_thresh = int(lines[172][2:-3])
+    _guye_radius = float(lines[175][2:-3])
+    _guye_force = float(lines[178][2:-3])
 
     # if the mode is not a continuation and not turning CSVs into images
     if not _continuation and not _csv_to_images and not _images_to_video:
@@ -125,8 +124,7 @@ def setup(template_location):
                                        _color_mode, _pluri_color, _diff_color, _pluri_gata6_high_color,
                                        _pluri_nanog_high_color, _pluri_both_high_color, _lonely_cell,
                                        _contact_inhibit, _guye_move, _motility_force, _dox_step, _max_radius,
-                                       _division_force, _move_thresh, _output_images, _output_csvs, _guye_radius,
-                                       _guye_force)
+                                       _move_thresh, _output_images, _output_csvs, _guye_radius, _guye_force)
 
     # loops over the gradients and adds them to the simulation
     for i in range(len(_extracellular)):

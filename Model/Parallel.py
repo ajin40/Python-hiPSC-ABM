@@ -305,6 +305,7 @@ def apply_forces_gpu(simulation):
     for i in range(len(simulation.cells)):
         simulation.cells[i].location = new_locations[i]
         simulation.cells[i].inactive_force = np.array([0.0, 0.0, 0.0])
+        simulation.cells[i].active_force = np.array([0.0, 0.0, 0.0])
 
 
 @cuda.jit
