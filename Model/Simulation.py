@@ -131,6 +131,30 @@ class Simulation:
         for i in range(len(self.extracellular)):
             self.extracellular[i].update_gradient(self)
 
+    def random_vector(self):
+        """ Computes a random point on a unit sphere centered at the origin
+            Returns - point [x,y,z]
+        """
+        # gets random angle on the cell
+        theta = r.random() * 2 * math.pi
+
+        # gets x,y,z off theta and whether 2D or 3D
+        if self.size[2] == 0:
+            # 2D
+            x = math.cos(theta)
+            y = math.sin(theta)
+            return np.array([x, y, 0.0])
+
+        else:
+            # 3D spherical coordinates
+            phi = r.random() * 2 * math.pi
+            radius = math.cos(phi)
+
+            x = radius * math.cos(theta)
+            y = radius * math.sin(theta)
+            z = math.sin(phi)
+            return np.array([x, y, z])
+
     def update_cells(self):
         """ Loops over all indices of cells and updates
             certain parameters
@@ -312,31 +336,131 @@ class Simulation:
                             break
 
     def motility_cells(self):
-        """ see Cell.py for description
+        """ Gives the cells a motion force, depending on
+            set rules for the cell types.
         """
-        for i in range(len(self.cells)):
-            self.cells[i].motility(self)
+        # loop over all of the cells
+        for i in range(self.number_cells):
+            # set motion to false if the cell is surrounded by many neighbors
+            neighbors = self.neighbor_graph.neighbors(i)
+            if len(neighbors) >= self.move_thresh:
+                self.cell_motion[i] = False
 
-    def add_cell(self, cell):
-        """ Will add a cell to the main cell holder
-            "self.cells" in addition to adding the instance
-            to all graphs
+            # check whether differentiated or pluripotent
+            if self.cell_states[i] == "Differentiated":
+
+                # directed movement if the cell has neighbors
+                if 0 < len(neighbors) < 6:
+                    # create a vector to hold the sum of normal vectors between a cell and its neighbors
+                    vector_holder = np.array([0.0, 0.0, 0.0])
+
+                    # loop over the neighbors getting the normal and adding to the holder
+                    for j in range(len(neighbors)):
+                        vector = self.cell_locations[neighbors[j]] - self.cell_locations[i]
+                        vector_holder += vector
+
+                    # get the magnitude of the sum of normals
+                    magnitude = np.linalg.norm(vector_holder)
+
+                    # if for some case, its zero set the new normal vector to zero
+                    if magnitude == 0:
+                        normal = np.array([0.0, 0.0, 0.0])
+                    else:
+                        normal = vector_holder / magnitude
+
+                    # move in direction opposite to cells
+                    self.cell_motility_force[i] += self.motility_force * normal * -1
+
+                # if there aren't any neighbors and still in motion then move randomly
+                elif self.cell_motion[i]:
+                    self.cell_motility_force[i] += self.random_vector() * self.motility_force
+
+            # for pluripotent cells
+            else:
+                # apply movement if the cell is "in motion"
+                if self.cell_motion[i]:
+                    if self.cell_booleans[i][2] == 1:
+                        # continue if using Guye et al. movement and if there exists differentiated cells
+                        if self.guye_move and self.cell_closest_diff[i] is not None:
+                            # get the differentiated neighbors
+                            guye_neighbor = self.cell_closest_diff[i]
+
+                            vector = self.cell_locations[guye_neighbor] - self.cell_locations[i]
+                            magnitude = np.linalg.norm(vector)
+
+                            # move in the direction of the closest differentiated neighbor
+                            normal = vector / magnitude
+                            self.cell_motility_force[i] += normal * self.guye_force
+
+                        else:
+                            # if not Guye et al. movement, move randomly
+                            self.cell_motility_force[i] += self.random_vector() * self.motility_force
+                    else:
+                        # if not GATA6 high
+                        self.cell_motility_force[i] += self.random_vector() * self.motility_force
+
+    def divide(self, simulation):
+        """ produces another cell via mitosis
+        """
+        # halves the division counter and mass, while reducing the radius to a minimum
+        self.div_counter = 0
+        self.boolean_counter = 0
+        self.radius = simulation.min_radius
+        self.neighbors = np.array([], np.object)
+        self.closest_diff = None
+
+        # create a deep copy of the object
+        cell = copy.deepcopy(self)
+
+        # move the cells to a position that is representative of the new locations of daughter cells
+        position = self.random_vector(simulation) * (simulation.max_radius - simulation.min_radius)
+        self.location += position
+        cell.location -= position
+
+        # adds the cell to the simulation
+        simulation.cells_to_add = np.append(simulation.cells_to_add, [cell])
+
+    def add_cell(self, location, radius, motion, booleans, state, diff_counter, div_counter, death_counter,
+                 bool_counter, motility_force, jkr_force, closest_diff):
+        """ Adds the parameters to each of the arrays
+            that act as holders for all information
         """
         # adds it to the array holding the cell objects
-        self.cells = np.append(self.cells, cell)
+        self.cell_locations = np.append(self.cell_locations, location)
+        self.cell_radii = np.append(self.cell_radii, radius)
+        self.cell_motion = np.append(self.cell_motion, motion)
+        self.cell_booleans = np.append(self.cell_booleans, booleans)
+        self.cell_states = np.append(self.cell_states, state)
+        self.cell_diff_counter = np.append(self.cell_diff_counter, diff_counter)
+        self.cell_div_counter = np.append(self.cell_div_counter, div_counter)
+        self.cell_death_counter = np.append(self.cell_death_counter, death_counter)
+        self.cell_bool_counter = np.append(self.cell_bool_counter, bool_counter)
+        self.cell_motility_force = np.append(self.cell_motility_force, motility_force)
+        self.cell_jkr_force = np.append(self.cell_jkr_force, jkr_force)
+        self.cell_closest_diff = np.append(self.cell_closest_diff, closest_diff)
 
         # add it to the following graphs, this is simply done by increasing the graph length by one
         self.neighbor_graph.add_vertex()
         self.jkr_graph.add_vertex()
 
-    def remove_cell(self, cell):
+    def remove_cell(self, index):
         """ Will remove a cell from the main cell holder
             "self.cells" in addition to removing the instance
             from all graphs
         """
-        # find the index of the cell and delete it from self.cells
-        index = int(np.argwhere(self.cells == cell))
-        self.cells = np.delete(self.cells, index)
+        # delete the index of each holder array
+        self.cell_locations = np.delete(self.cell_locations, index)
+        self.cell_radii = np.delete(self.cell_radii, index)
+        self.cell_motion = np.delete(self.cell_motion, index)
+        self.cell_booleans = np.delete(self.cell_booleans, index)
+        self.cell_states = np.delete(self.cell_states, index)
+        self.cell_diff_counter = np.delete(self.cell_diff_counter, index)
+        self.cell_div_counter = np.delete(self.cell_div_counter, index)
+        self.cell_death_counter = np.delete(self.cell_death_counter, index)
+        self.cell_bool_counter = np.delete(self.cell_bool_counter, index)
+        self.cell_motility_force = np.delete(self.cell_motility_force, index)
+        self.cell_jkr_force = np.delete(self.cell_jkr_force, index)
+        self.cell_closest_diff = np.delete(self.cell_closest_diff, index)
 
         # remove the particular index from the following graphs as these deal in terms of indices not objects
         # this will actively adjust edges as the indices change, so no worries here
