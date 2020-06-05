@@ -3,43 +3,14 @@ import math
 import numpy as np
 
 
-# def update_gradient_gpu(extracellular, simulation):
-#     """ This is a near identical function to the
-#         non-parallel one; however, this uses
-#         cupy which is identical to numpy, but
-#         it is run on a cuda gpu instead
-#     """
-#     # get the number of times this will be run
-#     time_steps = int(simulation.time_step_value / extracellular.dt)
-#
-#     # make the variable name smaller for easier writing
-#     a = cp.asarray(extracellular.diffuse_values)
-#
-#     # perform the following operations on the diffusion points at each time step
-#     for i in range(time_steps):
-#
-#         x = (a[2:][1:-1][1:-1] - 2 * a[1:-1][1:-1][1:-1] + a[:-2][1:-1][1:-1]) / extracellular.dx2
-#         y = (a[1:-1][2:][1:-1] - 2 * a[1:-1][1:-1][1:-1] + a[1:-1][:-2][1:-1]) / extracellular.dy2
-#         z = (a[1:-1][1:-1][2:] - 2 * a[1:-1][1:-1][1:-1] + a[1:-1][1:-1][:-2]) / extracellular.dz2
-#
-#         # update the array, assign a variable for ease of writing
-#         new_value = a[1:-1][1:-1][1:-1] + extracellular.diffuse_const * extracellular.dt * (x + y + z)
-#         a[1:-1][1:-1][1:-1] = new_value
-#
-#     # turn it back into a numpy array
-#     extracellular.diffuse_values = cp.asnumpy(a)
-
-
-@cuda.jit(device=True)
-def magnitude(location_one, location_two):
-    """ This is a cuda device function for
-        finding magnitude give two vectors
+def update_cells_gpu(simulation):
+    """ The GPU parallelized version of update_cells()
+        from the Simulation class.
     """
-    total = 0
-    for i in range(0, 3):
-        total += (location_one[i] - location_two[i]) ** 2
 
-    return total ** 0.5
+
+
+def update_cells_cuda()
 
 
 def check_neighbors_gpu(simulation, distance, edge_holder, max_neighbors):
@@ -97,6 +68,7 @@ def check_neighbors_gpu(simulation, distance, edge_holder, max_neighbors):
     # calls the cuda function with the given inputs
     check_neighbors_cuda[blocks_per_grid, threads_per_block](locations_cuda, bins_cuda, bins_help_cuda,
                                                              distance_cuda, edge_holder_cuda, max_neighbors_cuda)
+
     # return the array back from the GPU
     new_edges = edge_holder_cuda.copy_to_host()
 
@@ -208,6 +180,7 @@ def get_forces_gpu(simulation, jkr_edges, delete_jkr_edges, poisson, youngs, adh
     """ The GPU parallelized version of forces_to_movement()
         from the Simulation class.
     """
+
     # convert these arrays into a form able to be read by the GPU
     jkr_edges_cuda = cuda.to_device(jkr_edges)
     delete_jkr_edges_cuda = cuda.to_device(delete_jkr_edges)
@@ -415,3 +388,40 @@ def apply_forces_cuda(inactive_forces, active_forces, locations, radii, viscosit
             locations[index][2] = 0.0
         else:
             locations[index][2] = new_location_z
+
+# def update_gradient_gpu(extracellular, simulation):
+#     """ This is a near identical function to the
+#         non-parallel one; however, this uses
+#         cupy which is identical to numpy, but
+#         it is run on a cuda gpu instead
+#     """
+#     # get the number of times this will be run
+#     time_steps = int(simulation.time_step_value / extracellular.dt)
+#
+#     # make the variable name smaller for easier writing
+#     a = cp.asarray(extracellular.diffuse_values)
+#
+#     # perform the following operations on the diffusion points at each time step
+#     for i in range(time_steps):
+#
+#         x = (a[2:][1:-1][1:-1] - 2 * a[1:-1][1:-1][1:-1] + a[:-2][1:-1][1:-1]) / extracellular.dx2
+#         y = (a[1:-1][2:][1:-1] - 2 * a[1:-1][1:-1][1:-1] + a[1:-1][:-2][1:-1]) / extracellular.dy2
+#         z = (a[1:-1][1:-1][2:] - 2 * a[1:-1][1:-1][1:-1] + a[1:-1][1:-1][:-2]) / extracellular.dz2
+#
+#         # update the array, assign a variable for ease of writing
+#         new_value = a[1:-1][1:-1][1:-1] + extracellular.diffuse_const * extracellular.dt * (x + y + z)
+#         a[1:-1][1:-1][1:-1] = new_value
+#
+#     # turn it back into a numpy array
+#     extracellular.diffuse_values = cp.asnumpy(a)
+
+@cuda.jit(device=True)
+def magnitude(location_one, location_two):
+    """ This is a cuda device function for
+        finding magnitude give two vectors
+    """
+    total = 0
+    for i in range(0, 3):
+        total += (location_one[i] - location_two[i]) ** 2
+
+    return total ** 0.5

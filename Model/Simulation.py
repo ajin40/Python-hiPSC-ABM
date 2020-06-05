@@ -1,4 +1,5 @@
 import numpy as np
+import random as r
 import igraph
 import math
 import itertools
@@ -13,47 +14,7 @@ class Simulation:
                  guye_move, motility_force, dox_step, max_radius, move_thresh, output_images, output_csvs, guye_radius,
                  guye_force):
 
-        """ path: the path to save the simulation information to
-            parallel: true / false which determines whether some tasks are run on the GPU
-            size: the size of the space (x, y, z)
-            resolution: the spatial resolution of the space
-            num_states: the number of states for the finite dynamical system (positive integer).
-                Currently 2 because the system is a Boolean network
-            functions: the finite dynamical system functions as a string from the template file
-            neighbor_distance: how close cells need to be in order to be considered 'neighbors'
-            time_step_value: how much actual time (in seconds) is the step worth
-            beginning_step: the step the model starts at, used primarily to continue a previous simulation
-            end_time: the end time for the simulation
-            move_time_step: the time value in which the cells are moved incrementally
-            pluri_div_thresh: threshold for pluripotent cells to divide
-            pluri_to_diff: threshold for pluripotent cells to differentiate
-            diff_div_thresh:  threshold for differentiated cells to divide
-            boolean_thresh: threshold for updating the boolean values
-            death_thresh: the value at which a cell dies
-            diff_surround: the amount of differentiated cells needed to surround
-                a pluripotent cell inducing its differentiation
-            adhesion_const: JKR work of adhesion
-            viscosity: the viscosity of the space the cells are in
-            group: how many cells are removed or added at once per time step
-            slices: the amount of slices taken in the z direction
-            image_quality: the dimensions of the output images in pixels
-            background_color: the color of the image background
-            bound_color: the colors of the bounding lines of the image
-            pluri_gata6_high_color: the color of a gata6 high pluripotent cell
-            pluri_nanog_high_color: the color of a nanog high pluripotent cell
-            pluri_both_high_color: the color of a both high pluripotent cell
-            diff_color: the color of a differentiated cell
-            lonely_cell: the number of cells needed for a cell not to be alone
-            contact_inhibit: the number of neighbors needed to inhibit the division of a differentiated cell
-            guye_move: if pluripotent gata6 high cells search for differentiated cell
-            motility_force: the force a cell exerts to move
-            dox_step: at what step is doxycycline is added to the simulation, inducing the gata6 pathway
-            max_radius: the maximum radius that would be achieved shortly before division
-            move_thresh: the number of neighbors needed to inhibit motion
-            output_images: whether the model will create images
-            output_csvs: whether the model will create csvs
-            guye_radius: the radius of search for a differentiated cell
-        """
+        # documentation should explain how all instance variables are used
         self.name = name
         self.path = path
         self.parallel = parallel
@@ -97,6 +58,23 @@ class Simulation:
         self.guye_radius = guye_radius
         self.guye_force = guye_force
 
+        # these arrays hold all values of the cells, each index corresponds to a cell
+        self.cell_locations = np.array([], dtype=float)
+        self.cell_radii = np.array([], dtype=float)
+        self.cell_motion = np.array([], dtype=bool)
+        self.cell_booleans = np.array([], dtype=object)
+        self.cell_states = np.array([], dtype=str)
+        self.cell_diff_counter = np.array([], dtype=int)
+        self.cell_div_counter = np.array([], dtype=int)
+        self.cell_death_counter = np.array([], dtype=int)
+        self.cell_bool_counter = np.array([], dtype=int)
+        self.cell_motility_force = np.array([], dtype=object)
+        self.cell_jkr_force = np.array([], dtype=object)
+        self.cell_closest_diff = np.array([], dtype=int)
+
+        # holds the current number of cells
+        self.number_cells = 0
+
         # counts how many times an image is created for making videos
         self.image_counter = 0
 
@@ -115,9 +93,9 @@ class Simulation:
         # graph representing the presence of JKR adhesion bonds between cells
         self.jkr_graph = igraph.Graph()
 
-        # holds the objects until they are added or removed from the simulation
-        self.cells_to_remove = np.array([], dtype=np.object)
-        self.cells_to_add = np.array([], dtype=np.object)
+        # holds indices that will used to divide a cell or remove it
+        self.cells_to_divide = np.array([], dtype=int)
+        self.cells_to_remove = np.array([], dtype=int)
 
         # the minimum radius after division currently 2D
         self.min_radius = self.max_radius / 2 ** 0.5
@@ -154,10 +132,123 @@ class Simulation:
             self.extracellular[i].update_gradient(self)
 
     def update_cells(self):
-        """ see Cell.py for description
+        """ Loops over all indices of cells and updates
+            certain parameters
         """
-        for i in range(len(self.cells)):
-            self.cells[i].update_cell(self)
+        # call the parallel version if you think gpus are cool
+        if self.parallel:
+            # prevents the need for having the numba library if it's not installed
+            import Parallel
+            Parallel.update_cells_gpu(self)
+
+        # call the boring non-parallel cpu version
+        else:
+            # loop over the cells
+            for i in range(self.number_cells):
+                # increase the cell radius based on the state and whether or not it has reached the max size
+                if self.cell_radii[i] < self.max_radius:
+                    # pluripotent growth
+                    if self.cell_states[i] == "Pluripotent":
+                        self.cell_radii[i] += self.pluri_growth
+                    # differentiated growth
+                    else:
+                        self.cell_radii[i] += self.diff_growth
+
+                # checks to see if the non-moving cell should divide
+                if not self.cell_motion[i]:
+                    # check for contact inhibition of a differentiated cell
+                    if self.cell_states[i] == "Differentiated" and self.cell_div_counter[i] >= self.diff_div_thresh:
+                        neighbors = self.neighbor_graph.neighbors(i)
+                        if len(neighbors) < self.contact_inhibit:
+                            self.cells_to_divide = np.append(self.cells_to_divide, i)
+
+                    # division for pluripotent cell
+                    elif self.cell_states[i] == "Pluripotent" and self.cell_div_counter[i] >= self.pluri_div_thresh:
+                        self.cells_to_divide = np.append(self.cells_to_divide, i)
+
+                    # if not dividing stochastically increase the division counter
+                    else:
+                        self.cell_div_counter[i] += r.randint(0, 2)
+
+                # activate the following pathway based on if dox has been induced yet
+                if self.current_step >= self.dox_step:
+                    # coverts position in space into an integer for array location
+                    x_step = self.extracellular[0].dx
+                    y_step = self.extracellular[0].dy
+                    z_step = self.extracellular[0].dz
+                    half_index_x = self.cell_locations[i][0] // (x_step / 2)
+                    half_index_y = self.cell_locations[i][1] // (y_step / 2)
+                    half_index_z = self.cell_locations[i][2] // (z_step / 2)
+                    index_x = math.ceil(half_index_x / 2)
+                    index_y = math.ceil(half_index_y / 2)
+                    index_z = math.ceil(half_index_z / 2)
+
+                    # if a certain spot of the grid is less than the max FGF4 it can hold and the cell is NANOG high
+                    # increase the FGF4 by 1
+                    if self.extracellular[0].diffuse_values[index_x][index_y][index_z] < \
+                            self.extracellular[0].maximum and self.cell_booleans[i][3] == 1:
+                        self.extracellular[0].diffuse_values[index_x][index_y][index_z] += 1
+
+                    # if the FGF4 amount for the location is greater than 0, set the fgf4_bool value to be 1 for the
+                    # functions
+                    if self.extracellular[0].diffuse_values[index_x][index_y][index_z] > 0:
+                        fgf4_bool = 1
+                    else:
+                        fgf4_bool = 0
+
+                    # temporarily hold the FGFR value
+                    temp_fgfr = self.cell_booleans[i][0]
+
+                    # only update the booleans when the counter matches the boolean update rate
+                    if self.cell_bool_counter[i] % self.boolean_thresh == 0:
+                        # gets the functions from the simulation
+                        function_list = self.functions
+
+                        # xn is equal to the value corresponding to its function
+                        x1 = fgf4_bool
+                        x2 = self.cell_booleans[i][0]
+                        x3 = self.cell_booleans[i][1]
+                        x4 = self.cell_booleans[i][2]
+                        x5 = self.cell_booleans[i][3]
+
+                        # evaluate the functions by turning them from strings to math equations
+                        new_fgf4 = eval(function_list[0]) % self.num_states
+                        new_fgfr = eval(function_list[1]) % self.num_states
+                        new_erk = eval(function_list[2]) % self.num_states
+                        new_gata6 = eval(function_list[3]) % self.num_states
+                        new_nanog = eval(function_list[4]) % self.num_states
+
+                        # updates self.booleans with the new boolean values and returns the new fgf4 value
+                        self.cell_booleans[i] = np.array([new_fgfr, new_erk, new_gata6, new_nanog])
+
+                    # otherwise carry the same value for fgf4
+                    else:
+                        new_fgf4 = fgf4_bool
+
+                    # increase the boolean counter
+                    self.cell_bool_counter[i] += 1
+
+                    # if the temporary FGFR value is 0 and the FGF4 value is 1 decrease the amount of FGF4 by 1
+                    # this simulates FGFR using FGF4
+                    if temp_fgfr == 0 and new_fgf4 == 1 and \
+                            self.extracellular[0].diffuse_values[index_x][index_y][index_z] >= 1:
+                        self.extracellular[0].diffuse_values[index_x][index_y][index_z] -= 1
+
+                    # if the cell is GATA6 high and pluripotent increase the differentiation counter by 1
+                    if self.cell_booleans[i][2] == 1 and self.cell_states[i] == "Pluripotent":
+                        self.cell_diff_counter[i] += 1
+
+                        # if the differentiation counter is greater than the threshold, differentiate
+                        if self.cell_diff_counter[i] >= self.pluri_to_diff:
+                            # change the state to differentiated
+                            self.cell_states[i] = "Differentiated"
+
+                            # set GATA6 high and NANOG low
+                            self.cell_booleans[i][2] = 1
+                            self.cell_booleans[i][3] = 0
+
+                            # allow the cell to move again
+                            self.cell_motion[i] = True
 
     def kill_cells(self):
         """ see Cell.py for description

@@ -14,7 +14,6 @@ choices, and  purposes regarding the model.
 """
 import Input
 import Output
-import time
 
 # setup() will create an instance of the Simulation class that holds extracellular and cell objects.
 # This is done by reading a template .txt file that contains all initial parameters of the model.   (base)
@@ -67,7 +66,6 @@ for simulation.current_step in range(simulation.beginning_step, simulation.end_s
 
     # Saves a snapshot of the simulation at the given step. This may include an image and a CSV file.    (base)
     Output.save_file(simulation)
-    end = time.time()
 
 # Looks at all images produced by the simulation and turns them into a video.
 Output.image_to_video(simulation)
