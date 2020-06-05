@@ -470,7 +470,7 @@ class Simulation:
                             self.cell_diff_counter[i] += 1
                             break
 
-    def motility_cells(self):
+    def cell_motility(self):
         """ Gives the cells a motion force, depending on
             set rules for the cell types.
         """
@@ -534,27 +534,34 @@ class Simulation:
                         # if not GATA6 high
                         self.cell_motility_force[i] += self.random_vector() * self.motility_force
 
-    def check_neighbors(self):
+    def check_neighbors(self, mode="standard"):
         """ checks all of the distances between cells if it
             is less than a fixed value create a connection
             between two cells.
         """
-        # clear all of the edges in the neighbor graph
-        self.neighbor_graph.delete_edges(None)
+        # determine which mode this function is in
+        if mode == "JKR":
+            # get the radius of search length
+            distance = self.jkr_distance
 
-        # distance threshold between two cells to designate a neighbor
-        distance = self.neighbor_distance
+        elif mode == "Guye":
+            # get the radius of search length
+            distance = self.guye_distance
+        else:
+            # clear all of the edges in the neighbor graph and # get the radius of search length
+            self.neighbor_graph.delete_edges(None)
+            distance = self.neighbor_distance
 
         # provide an idea of the maximum number of neighbors for a cells
         max_neighbors = 15
-        length = len(self.cells) * max_neighbors
+        length = self.number_cells * max_neighbors
         edge_holder = np.zeros((length, 2), dtype=np.int)
 
         # call the parallel version if desired
         if self.parallel:
             # prevents the need for having the numba library if it's not installed
             import Parallel
-            edge_holder = Parallel.check_neighbors_gpu(self, distance, edge_holder, max_neighbors)
+            edge_holder = Parallel.check_neighbors_gpu(self, distance, edge_holder, max_neighbors, mode)
 
         # call the boring non-parallel cpu version
         else:
@@ -570,124 +577,133 @@ class Simulation:
             for i, j, k in itertools.product(range(bins_size[0]), range(bins_size[1]), range(bins_size[2])):
                 bins[i][j][k] = np.array([], dtype=np.int)
 
-            # loops over all cells appending their index value in the corresponding bin
-            for pivot_index in range(len(self.cells)):
-                # offset the bin location by 1 to help when searching over bins and reduce potential error of cells
-                # that may be slightly outside the space
-                bin_location = self.cells[pivot_index].location // distance + np.array([1, 1, 1])
-                bin_location = bin_location.astype(int)
-                x, y, z = bin_location[0], bin_location[1], bin_location[2]
+            # you may ask why these are all separate and my answer to that is it's faster
+            # determine which mode this function is in, split up here to reduce conditional checks
+            if mode == "JKR":
+                # loops over all cells appending their index value in the corresponding bin
+                for pivot_index in range(self.number_cells):
+                    # offset the bin location by 1 to help when searching over bins and reduce potential error of cells
+                    # that may be slightly outside the space
+                    bin_location = self.cell_locations[pivot_index] // distance + np.array([1, 1, 1])
+                    bin_location = bin_location.astype(int)
+                    x, y, z = bin_location[0], bin_location[1], bin_location[2]
 
-                # adds the cell to the corresponding bin
-                bins[x][y][z] = np.append(bins[x][y][z], pivot_index)
+                    # adds the cell to the corresponding bin
+                    bins[x][y][z] = np.append(bins[x][y][z], pivot_index)
 
-                # looks at the bins surrounding a given bin that houses the cell as these are the only potential cells
-                # to be neighbors of the cell in question
-                for i, j, k in itertools.product(range(-1, 2), repeat=3):
-                    # get the array that is holding the indices of a cells in a block
-                    indices_in_bin = bins[x + i][y + j][z + k]
+                    for i, j, k in itertools.product(range(-1, 2), repeat=3):
+                        # get the array that is holding the indices of a cells in a block
+                        indices_in_bin = bins[x + i][y + j][z + k]
 
-                    # looks at the cells in a block and decides if they are neighbors
-                    for l in range(len(indices_in_bin)):
-                        # get the index of the current cell in question
-                        current_index = indices_in_bin[l]
+                        # looks at the cells in a block and decides if they are neighbors
+                        for l in range(len(indices_in_bin)):
+                            # get the index of the current cell in question
+                            current_index = indices_in_bin[l]
 
-                        # for the specified index in that block get the cell object in self.cells
-                        current_cell = self.cells[current_index]
+                            # get the magnitude of the vector between the cells
+                            mag = np.linalg.norm(self.cell_locations[current_index] - self.cell_locations[pivot_index])
 
-                        # check to see if that cell is within the search radius
-                        if np.linalg.norm(current_cell.location - self.cells[pivot_index].location) <= distance and \
-                                pivot_index != current_index:
-                            # update the edge array and increase the place for the next addition
-                            edge_holder[edge_counter][0] = pivot_index
-                            edge_holder[edge_counter][1] = current_index
-                            edge_counter += 1
+                            # compute the overlap of the cell space
+                            overlap = self.cell_radii[current_index] + self.cell_radii[pivot_index] - mag
 
-        # add the new edges and remove any duplicate edges or loops
-        self.neighbor_graph.add_edges(edge_holder)
-        self.neighbor_graph.simplify()
+                            # if overlap present and not the same cell
+                            if overlap >= 0 and pivot_index != current_index:
+                                # update the edge array and increase the place for the next addition
+                                edge_holder[edge_counter][0] = pivot_index
+                                edge_holder[edge_counter][1] = current_index
+                                edge_counter += 1
 
-    def update_neighbors(self):
-        """ Updates each cell's instance variable
-            pointing to the cell objects that are its
-            neighbors.
-        """
-        # this is separate from check_neighbors as that is run numerous times without the need for updating
-        # all the instance variables holding the neighbor cell objects
-        # loops over all cells and gets the neighbors based on the index in the graph
-        for i in range(len(self.cells)):
-            # clear the neighbors from the previous step
-            self.cells[i].neighbors = np.array([], np.object)
+                # add the new edges and remove any duplicate edges or loops
+                self.jkr_graph.add_edges(edge_holder)
+                self.jkr_graph.simplify()
 
-            # get the indices of the node's neighbors
-            neighbors = self.neighbor_graph.neighbors(i)
+            # this is the Guye mode which will look for nearby differentiated neighbors around a pluripotent cell
+            elif mode == "Guye":
+                for pivot_index in range(self.number_cells):
+                    if self.cell_states[pivot_index] == "Pluripotent":
+                        # offset the bin location by 1 to help when searching over bins and reduce potential error of
+                        # cells that may be slightly outside the space
+                        bin_location = self.cell_locations[pivot_index] // distance + np.array([1, 1, 1])
+                        bin_location = bin_location.astype(int)
+                        x, y, z = bin_location[0], bin_location[1], bin_location[2]
 
-            # loops over the neighbors adding the corresponding cell object to the array holding the neighbors
-            for j in range(len(neighbors)):
-                self.cells[i].neighbors = np.append(self.cells[i].neighbors, self.cells[neighbors[j]])
+                        # create an arbitrary distance that any cell close enough will replace
+                        closest_index = None
+                        closest_dist = distance * 2
 
-    def closest_diff(self):
-        """ This will find the closest differentiated
-            cell within a given search radius and assign
-            that cell to an instance variable for each cell
-        """
-        # this may appear rather similar to the check_neighbors function; however there are stark differences that
-        # warrant a separate function rather than a combination
-        # get the distance for the search radius
-        distance = self.guye_radius
+                        for i, j, k in itertools.product(range(-1, 2), repeat=3):
+                            # get the array that is holding the indices of a cells in a block
+                            indices_in_bin = bins[x + i][y + j][z + k]
 
-        # create an array of blocks that takes up the entire space and extra to prevent errors
-        blocks_size = self.size // distance + np.array([3, 3, 3])
-        blocks_size = tuple(blocks_size.astype(int))
-        blocks = np.empty(blocks_size, dtype=np.object)
+                            # looks at the cells in a block and decides if they are neighbors
+                            for l in range(len(indices_in_bin)):
+                                # get the index of the current cell in question
+                                current_index = indices_in_bin[l]
 
-        # gives each block an array that acts as a holder for cells optimized triple for-loop
-        for i, j, k in itertools.product(range(blocks_size[0]), range(blocks_size[1]), range(blocks_size[2])):
-            blocks[i][j][k] = np.array([], dtype=np.int)
+                                # check to see if that cell is within the search radius and not the same cell
+                                m = np.linalg.norm(self.cell_locations[current_index]-self.cell_locations[pivot_index])
+                                if m <= distance and current_index != pivot_index:
+                                    # if it's closer than the last cell, update the closest magnitude and index
+                                    if m < closest_dist:
+                                        closest_index = current_index
+                                        closest_dist = m
 
-        # loops over all cells appending their index value in the corresponding block
-        for h in range(len(self.cells)):
-            if self.cells[h].state == "Differentiated":
-                # offset the block location by 1 to help when searching over blocks and reduce potential error
-                block_location = self.cells[h].location // distance + np.array([1, 1, 1])
-                block_location = block_location.astype(int)
-                x, y, z = block_location[0], block_location[1], block_location[2]
+                        # check to make sure the initial cell doesn't slip through
+                        if closest_dist <= distance:
+                            self.cell_closest_diff[pivot_index] = closest_index
 
-                # adds the cell to a given block
-                blocks[x][y][z] = np.append(blocks[x][y][z], h)
+            # assume the standard mode which looks for all neighbors regardless of type/state
+            else:
+                # loops over all cells appending their index value in the corresponding bin
+                for pivot_index in range(self.number_cells):
+                    # offset the bin location by 1 to help when searching over bins and reduce potential error of cells
+                    # that may be slightly outside the space
+                    bin_location = self.cell_locations[pivot_index] // distance + np.array([1, 1, 1])
+                    bin_location = bin_location.astype(int)
+                    x, y, z = bin_location[0], bin_location[1], bin_location[2]
 
-        for h in range(len(self.cells)):
-            if self.cells[h].state == "Pluripotent":
-                # offset the block location by 1 to help when searching over blocks and reduce potential error
-                block_location = self.cells[h].location // distance + np.array([1, 1, 1])
-                block_location = block_location.astype(int)
-                x, y, z = block_location[0], block_location[1], block_location[2]
+                    # adds the cell to the corresponding bin
+                    bins[x][y][z] = np.append(bins[x][y][z], pivot_index)
 
-                # create an arbitrary distance that any cell close enough will replace
-                closest_index = None
-                closest_dist = distance * 2
+                    for i, j, k in itertools.product(range(-1, 2), repeat=3):
+                        # get the array that is holding the indices of a cells in a block
+                        indices_in_bin = bins[x + i][y + j][z + k]
 
-                # looks at the blocks surrounding a given block that houses the cell
-                for i, j, k in itertools.product(range(-1, 2), repeat=3):
-                    # an array holding the cell indices
-                    indices_in_block = blocks[x + i][y + j][z + k]
+                        # looks at the cells in a block and decides if they are neighbors
+                        for l in range(len(indices_in_bin)):
+                            # get the index of the current cell in question
+                            current_index = indices_in_bin[l]
 
-                    # looks at the cells in a block and decides if they are neighbors
-                    for l in range(len(indices_in_block)):
-                        # for the specified index in that block get the cell object in self.cells
-                        cell_in_block = self.cells[indices_in_block[l]]
+                            # check to see if that cell is within the search radius
+                            if np.linalg.norm(self.cell_locations[current_index] - self.cell_locations[pivot_index]) \
+                                    <= distance and pivot_index != current_index:
+                                # update the edge array and increase the place for the next addition
+                                edge_holder[edge_counter][0] = pivot_index
+                                edge_holder[edge_counter][1] = current_index
+                                edge_counter += 1
 
-                        # check to see if that cell is within the search radius and not the same cell
-                        magnitude = np.linalg.norm(cell_in_block.location - self.cells[h].location)
-                        if magnitude <= distance and h != indices_in_block[l]:
-                            # if it's closer than the last cell, update the closest magnitude and index
-                            if magnitude < closest_dist:
-                                closest_index = indices_in_block[l]
-                                closest_dist = magnitude
+                # add the new edges and remove any duplicate edges or loops
+                self.neighbor_graph.add_edges(edge_holder)
+                self.neighbor_graph.simplify()
 
-                # check to make sure the initial cell doesn't slip through
-                if closest_dist <= distance:
-                    self.cells[h].closest_diff = self.cells[closest_index]
+    # def update_neighbors(self):
+    #     """ Updates each cell's instance variable
+    #         pointing to the cell objects that are its
+    #         neighbors.
+    #     """
+    #     # this is separate from check_neighbors as that is run numerous times without the need for updating
+    #     # all the instance variables holding the neighbor cell objects
+    #     # loops over all cells and gets the neighbors based on the index in the graph
+    #     for i in range(self.number_cells):
+    #         # clear the neighbors from the previous step
+    #         self.cells[i].neighbors = np.array([], np.object)
+    #
+    #         # get the indices of the node's neighbors
+    #         neighbors = self.neighbor_graph.neighbors(i)
+    #
+    #         # loops over the neighbors adding the corresponding cell object to the array holding the neighbors
+    #         for j in range(len(neighbors)):
+    #             self.cells[i].neighbors = np.append(self.cells[i].neighbors, self.cells[neighbors[j]])
 
     def handle_movement(self):
         """ runs the following functions together for a
@@ -706,58 +722,15 @@ class Simulation:
             self.apply_forces()
 
             # recheck neighbors after the cells have moved
-            self.check_neighbors()
+            self.check_neighbors('JKR')
 
-        for i in range(len(self.cells)):
-            self.cells[i].active_force = np.array([0.0, 0.0, 0.0], dtype=float)
+        for i in range(self.number_cells):
+            self.cell_motility_force[i] = np.array([0.0, 0.0, 0.0], dtype=float)
 
     def get_forces(self):
         """ goes through all of the cells and quantifies any forces arising
             from adhesion or repulsion between the cells
         """
-        # get a list of the edges from both graphs
-        neighbor_edges = self.neighbor_graph.get_edgelist()
-
-        # create arrays used for adding/deleting edges, sadly there is a difference between the way these
-        # input information
-        add_jkr_edges = np.zeros((len(neighbor_edges), 2), dtype=np.int)
-        delete_jkr_edges = np.zeros(len(neighbor_edges), dtype=np.int)
-
-        # make sure that all edges in the jkr graph are also in the neighbor graph as there is no way to eliminate
-        # stray edges if they exist
-        self.jkr_graph = self.jkr_graph & self.neighbor_graph
-
-        # look at the neighbor edges and see if any will classify as jkr edges
-        if self.parallel:
-            import Parallel
-            add_jkr_edges = Parallel.get_jkr_edges(self, neighbor_edges, add_jkr_edges)
-
-        else:
-            # loop over the neighbor edges and check to see if a jkr bond will be created
-            for i in range(len(neighbor_edges)):
-                # get the indices of the nodes in the edge
-                index_1 = neighbor_edges[i][0]
-                index_2 = neighbor_edges[i][1]
-
-                # assigns the nodes of each edge to a variable
-                cell_1 = self.cells[index_1]
-                cell_2 = self.cells[index_2]
-
-                # hold the vector between the centers of the cells and the magnitude of this vector
-                disp_vector = cell_1.location - cell_2.location
-                magnitude = np.linalg.norm(disp_vector)
-
-                # get the total overlap of the cells used later in calculations
-                overlap = cell_1.radius + cell_2.radius - magnitude
-
-                # indicate that an adhesive bond has formed between the cells
-                if overlap >= 0:
-                    add_jkr_edges[i] = (index_1, index_2)
-
-        # add the new jkr edges
-        self.jkr_graph.add_edges(add_jkr_edges)
-        self.jkr_graph.simplify()
-
         # get the values for Youngs modulus and Poisson's ratio
         poisson = self.poisson
         youngs = self.youngs_mod
@@ -765,6 +738,7 @@ class Simulation:
 
         # get the updated edges of the jkr graph
         jkr_edges = self.jkr_graph.get_edgelist()
+        delete_jkr_edges = np.zeros(len(jkr_edges), dtype=np.int)
 
         # call the parallel version if desired
         if self.parallel:
@@ -772,7 +746,6 @@ class Simulation:
             import Parallel
             delete_jkr_edges = Parallel.get_forces_gpu(self, jkr_edges, delete_jkr_edges, poisson, youngs,
                                                        adhesion_const)
-
         # call the boring non-parallel cpu version
         else:
             # loops over the jkr edges
@@ -781,12 +754,8 @@ class Simulation:
                 index_1 = jkr_edges[i][0]
                 index_2 = jkr_edges[i][1]
 
-                # assigns the nodes of each edge to a variable
-                cell_1 = self.cells[index_1]
-                cell_2 = self.cells[index_2]
-
                 # hold the vector between the centers of the cells and the magnitude of this vector
-                disp_vector = cell_1.location - cell_2.location
+                disp_vector = self.cell_locations[index_1] - self.cell_locations[index_2]
                 magnitude = np.linalg.norm(disp_vector)
 
                 if magnitude == 0:
@@ -795,11 +764,11 @@ class Simulation:
                     normal = disp_vector / np.linalg.norm(disp_vector)
 
                 # get the total overlap of the cells used later in calculations
-                overlap = cell_1.radius + cell_2.radius - magnitude
+                overlap = self.cell_radii[index_1] + self.cell_radii[index_2] - magnitude
 
                 # gets two values used for JKR
                 e_hat = (((1 - poisson ** 2) / youngs) + ((1 - poisson ** 2) / youngs)) ** -1
-                r_hat = ((1 / cell_1.radius) + (1 / cell_2.radius)) ** -1
+                r_hat = ((1 / self.cell_radii[index_1]) + (1 / self.cell_radii[index_2])) ** -1
 
                 # used to calculate the max adhesive distance after bond has been already formed
                 overlap_ = (((math.pi * adhesion_const) / e_hat) ** (2 / 3)) * (r_hat ** (1 / 3))
@@ -818,8 +787,8 @@ class Simulation:
                     jkr_force = f * math.pi * self.adhesion_const * r_hat
 
                     # adds the adhesive force as a vector in opposite directions to each cell's force holder
-                    cell_1.inactive_force += jkr_force * normal
-                    cell_2.inactive_force -= jkr_force * normal
+                    self.cell_jkr_force[index_1] += jkr_force * normal
+                    self.cell_jkr_force[index_2] -= jkr_force * normal
 
                 # remove the edge if the it fails to meet the criteria for distance, JKR simulating that
                 # the bond is broken
@@ -843,26 +812,25 @@ class Simulation:
         # call the boring non-parallel cpu version
         else:
             # loops over cells to move them
-            for i in range(len(self.cells)):
+            for i in range(self.number_cells):
                 # stokes law for velocity based on force and fluid viscosity
-                stokes_friction = 6 * math.pi * self.viscosity * self.cells[i].radius
+                stokes_friction = 6 * math.pi * self.viscosity * self.cell_radii[i]
 
                 # update the velocity of the cell based on the solution
-                velocity = (self.cells[i].active_force + self.cells[i].inactive_force) / stokes_friction
+                velocity = (self.cell_motility_force[i] + self.cell_jkr_force[i]) / stokes_friction
 
                 # set the possible new location
-                new_location = self.cells[i].location + velocity * self.move_time_step
+                new_location = self.cell_locations[i] + velocity * self.move_time_step
 
                 # loops over all directions of space
                 for j in range(0, 3):
                     # check if new location is in environment space if not simulation a collision with the bounds
                     if new_location[j] > self.size[j]:
-                        self.cells[i].location[j] = self.size[j]
+                        self.cell_locations[i][j] = self.size[j]
                     elif new_location[j] < 0:
-                        self.cells[i].location[j] = 0.0
+                        self.cell_locations[i][j] = 0.0
                     else:
-                        self.cells[i].location[j] = new_location[j]
+                        self.cell_locations[i][j] = new_location[j]
 
-                # reset the forces back to zero
-                self.cells[i].inactive_force = np.array([0.0, 0.0, 0.0])
-                self.cells[i].active_force = np.array([0.0, 0.0, 0.0])
+                # reset the jkr forces back to zero
+                self.cell_jkr_force[i] = np.array([0.0, 0.0, 0.0])

@@ -3,14 +3,14 @@ import math
 import numpy as np
 
 
-def update_cells_gpu(simulation):
-    """ The GPU parallelized version of update_cells()
-        from the Simulation class.
-    """
-
-
-
-def update_cells_cuda()
+# def update_cells_gpu(simulation):
+#     """ The GPU parallelized version of update_cells()
+#         from the Simulation class.
+#     """
+#
+#
+#
+# def update_cells_cuda()
 
 
 def check_neighbors_gpu(simulation, distance, edge_holder, max_neighbors):
@@ -115,72 +115,10 @@ def check_neighbors_cuda(locations, bins, bins_help, distance, edge_holder, max_
                             place += 1
 
 
-def get_jkr_edges(simulation, neighbor_edges, add_edges):
-    """ The GPU parallelized version of get_jkr_edges()
-        form the simulation class.
-    """
-    # convert these arrays into a form able to be read by the GPU
-    neighbor_edges_cuda = cuda.to_device(neighbor_edges)
-    add_edges_cuda = cuda.to_device(add_edges)
-
-    # get the length of the arrays and create them so that they can later be updated
-    length = len(simulation.cells)
-    locations = np.empty((length, 3), np.float)
-    radii = np.empty(length, np.float)
-
-    # loop over all cells and input their values to the arrays
-    for i in range(len(simulation.cells)):
-        locations[i] = simulation.cells[i].location
-        radii[i] = simulation.cells[i].radius
-
-    # send these to the gpu
-    locations_cuda = cuda.to_device(locations)
-    radii_cuda = cuda.to_device(radii)
-
-    # sets up the correct allocation of threads and blocks
-    threads_per_block = 72
-    blocks_per_grid = math.ceil(len(neighbor_edges) / threads_per_block)
-
-    # call the cuda function
-    get_jkr_edges_cuda[blocks_per_grid, threads_per_block](neighbor_edges_cuda, add_edges_cuda, locations_cuda,
-                                                           radii_cuda)
-    # return the add_edges array
-    output = add_edges_cuda.copy_to_host()
-    return output
-
-
-@cuda.jit
-def get_jkr_edges_cuda(neighbor_edges, add_edges, locations, radii):
-    """ The parallelized function that
-        is run numerous times
-    """
-    # a provides the location on the array as it runs, essentially loops over the cells
-    edge_index = cuda.grid(1)
-
-    # checks to see that position is in the array, double-check as GPUs can be weird sometimes
-    if edge_index < neighbor_edges.shape[0]:
-        # get the indices of the cells in the edge
-        index_1 = neighbor_edges[edge_index][0]
-        index_2 = neighbor_edges[edge_index][1]
-
-        # get the locations of the two cells
-        location_1 = locations[index_1]
-        location_2 = locations[index_2]
-
-        # get the magnitude of the displacement
-        displacement = magnitude(location_1, location_2)
-
-        # update the add_edges array
-        if radii[index_1] + radii[index_2] - displacement >= 0:
-            add_edges[edge_index][0] = index_1
-            add_edges[edge_index][1] = index_2
-
-
 def get_forces_gpu(simulation, jkr_edges, delete_jkr_edges, poisson, youngs, adhesion_const):
     """ The GPU parallelized version of forces_to_movement()
         from the Simulation class.
     """
-
     # convert these arrays into a form able to be read by the GPU
     jkr_edges_cuda = cuda.to_device(jkr_edges)
     delete_jkr_edges_cuda = cuda.to_device(delete_jkr_edges)
@@ -389,6 +327,18 @@ def apply_forces_cuda(inactive_forces, active_forces, locations, radii, viscosit
         else:
             locations[index][2] = new_location_z
 
+
+@cuda.jit(device=True)
+def magnitude(location_one, location_two):
+    """ This is a cuda device function for
+        finding magnitude give two vectors
+    """
+    total = 0
+    for i in range(0, 3):
+        total += (location_one[i] - location_two[i]) ** 2
+
+    return total ** 0.5
+
 # def update_gradient_gpu(extracellular, simulation):
 #     """ This is a near identical function to the
 #         non-parallel one; however, this uses
@@ -415,13 +365,4 @@ def apply_forces_cuda(inactive_forces, active_forces, locations, radii, viscosit
 #     # turn it back into a numpy array
 #     extracellular.diffuse_values = cp.asnumpy(a)
 
-@cuda.jit(device=True)
-def magnitude(location_one, location_two):
-    """ This is a cuda device function for
-        finding magnitude give two vectors
-    """
-    total = 0
-    for i in range(0, 3):
-        total += (location_one[i] - location_two[i]) ** 2
 
-    return total ** 0.5
