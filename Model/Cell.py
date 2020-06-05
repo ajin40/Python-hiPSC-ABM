@@ -126,46 +126,6 @@ class Cell:
         simulation.cells_to_add = np.append(simulation.cells_to_add, [cell])
 
 
-    def kill_cell(self, simulation):
-        """ if the cell is without neighbors,
-            increase the counter for death or kill it
-        """
-        # looks at the neighbors
-        neighbors = self.neighbors
-        if len(neighbors) < simulation.lonely_cell:
-            self.death_counter += 1
-        else:
-            self.death_counter = 0
-
-        # removes cell if it meets the parameters
-        if self.state == "Pluripotent":
-            if self.death_counter >= simulation.death_thresh:
-                simulation.cells_to_remove = np.append(simulation.cells_to_remove, [self])
-
-    def diff_surround(self, simulation):
-        """ calls the object function that determines if
-            a cell will differentiate based on the cells
-            that surround it
-        """
-        # checks to see if cell is Pluripotent and GATA6 low
-        if self.state == "Pluripotent" and self.booleans[2] == 0:
-            # finds neighbors of a cell
-            neighbors = self.neighbors
-
-            # holds the current number differentiated neighbors
-            num_diff_neighbors = 0
-
-            # loops over the neighbors of a cell
-            for i in range(len(neighbors)):
-                # checks to see if current neighbor is differentiated if so add it to the counter
-                if neighbors[i].state == "Differentiated":
-                    num_diff_neighbors += 1
-
-                # if the number of differentiated meets the threshold, increase the diff counter and break the loop
-                if num_diff_neighbors >= simulation.diff_surround:
-                    self.diff_counter += 1
-                    break
-
 
 
 

@@ -250,17 +250,66 @@ class Simulation:
                             # allow the cell to move again
                             self.cell_motion[i] = True
 
-    def kill_cells(self):
-        """ see Cell.py for description
+    def cell_death(self):
+        """ Simulates cell death based on pluripotency
+            and number of neighbors
         """
-        for i in range(len(self.cells)):
-            self.cells[i].kill_cell(self)
+        # call the parallel version if you think gpus are cool
+        if self.parallel:
+            # prevents the need for having the numba library if it's not installed
+            import Parallel
+            Parallel.cell_death_gpu(self)
 
-    def diff_surround_cells(self):
-        """ see Cell.py for description
+        # call the boring non-parallel cpu version
+        else:
+            # loops over all cells
+            for i in range(self.number_cells):
+                # checks to see if cell is pluripotent
+                if self.cell_states[i] == "Pluripotent":
+                    # looks at the neighbors and counts them, adding to the death counter if not enough neighbors
+                    neighbors = self.neighbor_graph.neighbors(i)
+                    if len(neighbors) < self.lonely_cell:
+                        self.cell_death_counter[i] += 1
+                    else:
+                        self.cell_death_counter[i] = 0
+
+                    # removes cell if it meets the parameters
+                    if self.cell_death_counter[i] >= self.death_thresh:
+                        self.cells_to_remove = np.append(self.cells_to_remove, i)
+
+    def diff_surround(self):
+        """ Simulates the phenomenon of differentiated
+            cells inducing the differentiation of a
+            pluripotent/NANOG high cell
         """
-        for i in range(len(self.cells)):
-            self.cells[i].diff_surround(self)
+        # call the parallel version if you think gpus are cool
+        if self.parallel:
+            # prevents the need for having the numba library if it's not installed
+            import Parallel
+            Parallel.diff_surround_gpu(self)
+
+        # call the boring non-parallel cpu version
+        else:
+            # loops over all cells
+            for i in range(self.number_cells):
+                # checks to see if cell is pluripotent and GATA6 low
+                if self.cell_states[i] == "Pluripotent" and self.cell_booleans[i][2] == 0:
+                    # finds neighbors of a cell
+                    neighbors = self.neighbor_graph.neighbors(i)
+
+                    # holds the current number differentiated neighbors
+                    num_diff_neighbors = 0
+
+                    # loops over the neighbors of a cell
+                    for j in range(len(neighbors)):
+                        # checks to see if current neighbor is differentiated if so add it to the counter
+                        if self.cell_states[neighbors[j]] == "Differentiated":
+                            num_diff_neighbors += 1
+
+                        # if the number of differentiated meets the threshold, increase the counter and break the loop
+                        if num_diff_neighbors >= self.diff_surround:
+                            self.cell_diff_counter[i] += 1
+                            break
 
     def motility_cells(self):
         """ see Cell.py for description
