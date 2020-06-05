@@ -14,7 +14,7 @@ choices, and  purposes regarding the model.
 """
 import Input
 import Output
-
+import time
 
 # setup() will create an instance of the Simulation class that holds extracellular and cell objects.
 # This is done by reading a template .txt file that contains all initial parameters of the model.   (base)
@@ -23,15 +23,20 @@ simulation = Input.setup("C:\\Python37\\Seed Project\\Model\\template.txt")
 # This will loop over all steps defined in the template file in addition to updating the current step
 # of the simulation.   (base)
 for simulation.current_step in range(simulation.beginning_step, simulation.end_step + 1):
-
     # Prints the current step and number of cells. Used to give an idea of the progress.
     simulation.info()
 
     # Updates each of the extracellular gradients by "smoothing" the points that represent the concentrations.   (base)
-    # simulation.update_diffusion()
+    simulation.update_diffusion()
 
     # Refreshes the graph used to represent cells as nodes and neighbor connections as edges.   (base)
     simulation.check_neighbors()
+
+    # updates the instance variable for each cell that points to the cell objects that are its neighbors
+    simulation.update_neighbors()
+
+    # if any differentiated cells exist within a cell's defined search radius, this will find the closest one.
+    simulation.closest_diff()
 
     # A way of introducing cell death into the model by removing cells if they are without neighbors for so long.
     simulation.kill_cells()
@@ -50,12 +55,19 @@ for simulation.current_step in range(simulation.beginning_step, simulation.end_s
     # groups, the handle_movement() function will be used to better represent asynchronous division and death   (base)
     simulation.update_cell_queue()
 
+    # Refreshes the graph used to represent cells as nodes and neighbor connections as edges.   (base)
+    simulation.check_neighbors()
+
+    # updates the instance variable for each cell that points to the cell objects that are its neighbors
+    simulation.update_neighbors()
+
     # Moves the cells to a state of physical equilibrium so that there is minimal overlap of cells, while also
     # applying forces from the previous motility_cells() function.   (base)
     simulation.handle_movement()
 
     # Saves a snapshot of the simulation at the given step. This may include an image and a CSV file.    (base)
     Output.save_file(simulation)
+    end = time.time()
 
 # Looks at all images produced by the simulation and turns them into a video.
 Output.image_to_video(simulation)

@@ -5,9 +5,6 @@ import copy
 
 
 class Cell:
-    """ Class for each cell in the simulation
-    """
-
     def __init__(self, location, radius, motion, booleans, state, diff_counter, div_counter, death_counter,
                  boolean_counter):
         """ location: where the cell is located in the space "[x,y,z]"
@@ -32,27 +29,30 @@ class Cell:
         self.boolean_counter = boolean_counter
 
         # holds any active forces applied to a cell resulting from motility and division
-        self.active_force = np.array([0.0, 0.0, 0.0])
+        self.active_force = np.array([0.0, 0.0, 0.0], dtype=float)
 
         # holds any inactive forces resulting from adhesion or repulsion
-        self.inactive_force = np.array([0.0, 0.0, 0.0])
+        self.inactive_force = np.array([0.0, 0.0, 0.0], dtype=float)
 
-        # starts the cell off with a zero velocity vector
-        self.velocity = np.array([0.0, 0.0, 0.0])
+        # create an empty array used for holding the neighbors
+        self.neighbors = np.array([], np.object)
+
+        # a pointer to the closest differentiated cell
+        self.closest_diff = None
 
     def motility(self, simulation):
         """ applies forces to each cell based on chemotactic
             or random movement
         """
         # set motion to false if the cell is surrounded by many neighbors
-        neighbors = list(simulation.neighbor_graph.neighbors(self))
+        neighbors = self.neighbors
         if len(neighbors) >= simulation.move_thresh:
             self.motion = False
 
         # check whether differentiated or pluripotent
         if self.state == "Differentiated":
             # get the neighbors of the cell
-            neighbors = list(simulation.neighbor_graph.neighbors(self))
+            neighbors = self.neighbors
 
             # directed movement if the cell has neighbors
             if 0 < len(neighbors) < 6:
@@ -86,35 +86,17 @@ class Cell:
             if self.motion:
                 if self.booleans[2] == 1:
                     # continue if using Guye et al. movement and if there exists differentiated cells
-                    if simulation.guye_move:
+                    if simulation.guye_move and self.closest_diff is not None:
                         # get the differentiated neighbors
-                        diff_neighbors = list(simulation.diff_graph.neighbors(self))
+                        guye_neighbor = self.closest_diff
 
-                        # check to see if there are any differentiated cells nearby
-                        if len(diff_neighbors) > 0:
-                            # get starting differentiated cell distance
-                            vector = diff_neighbors[0].location - self.location
-                            magnitude = np.linalg.norm(vector)
+                        vector = guye_neighbor.location - self.location
+                        magnitude = np.linalg.norm(vector)
 
-                            # loop over all other differentiated cells looking for the closest
-                            for i in range(1, len(diff_neighbors)):
-                                # get the distance to each of the other cells
-                                next_vector = diff_neighbors[i].location - self.location
-                                next_magnitude = np.linalg.norm(next_vector)
+                        # move in the direction of the closest differentiated neighbor
+                        normal = vector / magnitude
+                        self.active_force += normal * simulation.guye_force
 
-                                # check to see if the cell is closer than others
-                                if next_magnitude < magnitude:
-                                    # reset distance and vector for calculating the unit normal
-                                    vector = next_vector
-                                    magnitude = next_magnitude
-
-                            # move in the direction of the closest differentiated neighbor
-                            normal = vector / magnitude
-                            self.active_force += normal * simulation.guye_force
-
-                        else:
-                            # if no differentiated cells, move randomly
-                            self.active_force += random_vector(simulation) * simulation.motility_force
                     else:
                         # if not Guye et al. movement, move randomly
                         self.active_force += random_vector(simulation) * simulation.motility_force
@@ -129,14 +111,16 @@ class Cell:
         self.div_counter = 0
         self.boolean_counter = 0
         self.radius = simulation.min_radius
+        self.neighbors = np.array([], np.object)
+        self.closest_diff = None
 
         # create a deep copy of the object
         cell = copy.deepcopy(self)
 
-        # apply a cell division force moving the cells away from each other
-        force_vector = random_vector(simulation) * simulation.division_force
-        self.active_force += force_vector
-        cell.active_force -= force_vector
+        # move the cells to a position that is representative of the new locations of daughter cells
+        position = random_vector(simulation) * (simulation.max_radius - simulation.min_radius)
+        self.location += position
+        cell.location -= position
 
         # adds the cell to the simulation
         simulation.cells_to_add = np.append(simulation.cells_to_add, [cell])
@@ -184,7 +168,7 @@ class Cell:
             increase the counter for death or kill it
         """
         # looks at the neighbors
-        neighbors = list(simulation.neighbor_graph.neighbors(self))
+        neighbors = self.neighbors
         if len(neighbors) < simulation.lonely_cell:
             self.death_counter += 1
         else:
@@ -202,9 +186,8 @@ class Cell:
         """
         # checks to see if cell is Pluripotent and GATA6 low
         if self.state == "Pluripotent" and self.booleans[2] == 0:
-
             # finds neighbors of a cell
-            neighbors = list(simulation.neighbor_graph.neighbors(self))
+            neighbors = self.neighbors
 
             # holds the current number differentiated neighbors
             num_diff_neighbors = 0
@@ -233,7 +216,7 @@ class Cell:
         # checks to see if the non-moving cell should divide
         if not self.motion:
             if self.state == "Differentiated" and self.div_counter >= simulation.diff_div_thresh:
-                neighbors = list(simulation.neighbor_graph.neighbors(self))
+                neighbors = self.neighbors
                 if len(neighbors) < simulation.contact_inhibit:
                     self.divide(simulation)
 
