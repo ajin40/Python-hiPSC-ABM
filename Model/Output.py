@@ -35,9 +35,9 @@ def draw_image(simulation):
         image = ImageDraw.Draw(base)
 
         # loops over all of the cells and draws the nucleus and radius
-        for j in range(len(simulation.cells)):
-            location = simulation.cells[j].location
-            radius = simulation.cells[j].radius
+        for j in range(simulation.number_cells):
+            location = simulation.cell_locations[j]
+            radius = simulation.cell_radii[j]
 
             # determine the radius based on the lower bound of the slice
             x_radius_lower = dilation_x * max(radius ** 2 - (location[2] - lower_slice) ** 2, 0.0) ** 0.5
@@ -61,19 +61,19 @@ def draw_image(simulation):
 
             # coloring of the cells based on what mode the user selects
             if simulation.color_mode:
-                if simulation.cells[j].state == "Pluripotent":
+                if simulation.cell_states[j] == "Pluripotent":
                     color = simulation.pluri_color
                 else:
                     color = simulation.diff_color
 
             else:
-                if simulation.cells[j].state == "Differentiated":
+                if simulation.cell_states[j] == "Differentiated":
                     color = simulation.diff_color
-                elif simulation.cells[j].booleans[2] == 1 and simulation.cells[j].booleans[3] == 1:
+                elif simulation.cell_booleans[j][2] == 1 and simulation.cell_booleans[j][3] == 1:
                     color = simulation.pluri_both_high_color
-                elif simulation.cells[j].booleans[2] == 1:
+                elif simulation.cell_booleans[j][2] == 1:
                     color = simulation.pluri_gata6_high_color
-                elif simulation.cells[j].booleans[3] == 1:
+                elif simulation.cell_booleans[j][3] == 1:
                     color = simulation.pluri_nanog_high_color
                 else:
                     color = simulation.pluri_color
@@ -146,21 +146,21 @@ def create_csv(simulation):
                         'State', 'Differentiation_counter', 'Division_counter', 'Death_counter', 'Boolean_counter'])
 
     # each row is a different cell
-    for i in range(len(simulation.cells)):
-        location_x = round(simulation.cells[i].location[0], 8)
-        location_y = round(simulation.cells[i].location[1], 8)
-        location_z = round(simulation.cells[i].location[2], 8)
-        radius = simulation.cells[i].radius
-        motion = simulation.cells[i].motion
-        fgfr = simulation.cells[i].booleans[0]
-        erk = simulation.cells[i].booleans[1]
-        gata = simulation.cells[i].booleans[2]
-        nanog = simulation.cells[i].booleans[3]
-        state = simulation.cells[i].state
-        diff_counter = simulation.cells[i].diff_counter
-        div_counter = simulation.cells[i].div_counter
-        death_counter = simulation.cells[i].death_counter
-        bool_counter = simulation.cells[i].boolean_counter
+    for i in range(simulation.number_cells):
+        location_x = round(simulation.cell_locations[i][0], 8)
+        location_y = round(simulation.cell_locations[i][1], 8)
+        location_z = round(simulation.cell_locations[i][2], 8)
+        radius = simulation.cell_radii[i]
+        motion = simulation.cell_motion[i]
+        fgfr = simulation.cell_booleans[i][0]
+        erk = simulation.cell_booleans[i][1]
+        gata = simulation.cell_booleans[i][2]
+        nanog = simulation.cell_booleans[i][3]
+        state = simulation.cell_states[i]
+        diff_counter = simulation.cell_diff_counter[i]
+        div_counter = simulation.cell_div_counter[i]
+        death_counter = simulation.cell_death_counter[i]
+        bool_counter = simulation.cell_bool_counter[i]
 
         # writes the row for the cell
         csv_write.writerow([location_x, location_y, location_z, radius, motion, fgfr, erk, gata, nanog, state,

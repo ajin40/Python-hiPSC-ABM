@@ -7,7 +7,6 @@ import csv
 
 import Extracellular
 import Simulation
-import Cell
 import Output
 
 """
@@ -171,7 +170,18 @@ def setup(template_location):
             Output.save_file(simulation)
 
             # clears the array for the next round of images
-            simulation.cells = np.array([], dtype=np.object)
+            simulation.cell_locations = np.array([], dtype=float)
+            simulation.cell_radii = np.array([], dtype=float)
+            simulation.cell_motion = np.array([], dtype=bool)
+            simulation.cell_booleans = np.array([], dtype=object)
+            simulation.cell_states = np.array([], dtype=str)
+            simulation.cell_diff_counter = np.array([], dtype=int)
+            simulation.cell_div_counter = np.array([], dtype=int)
+            simulation.cell_death_counter = np.array([], dtype=int)
+            simulation.cell_bool_counter = np.array([], dtype=int)
+            simulation.cell_motility_force = np.array([], dtype=object)
+            simulation.cell_jkr_force = np.array([], dtype=object)
+            simulation.cell_closest_diff = np.array([], dtype=int)
 
         # turns the images into a video
         Output.image_to_video(simulation)
@@ -206,7 +216,7 @@ def setup(template_location):
         # loops over all cells and creates a stem cell object for each one with given parameters
         for i in range(_num_NANOG + _num_GATA6):
             # gives random location in the space
-            _location = np.array([r.random() * _size[0], r.random() * _size[1], r.random() * _size[2]])
+            location = np.array([r.random() * _size[0], r.random() * _size[1], r.random() * _size[2]])
 
             # give the cells starting states for the finite dynamical system
             if i < _num_NANOG:
@@ -221,19 +231,22 @@ def setup(template_location):
                     booleans = np.array([0, 0, 1, 0])
 
             # randomize the starting counters for differentiation, division, and death
-            _diff_counter = r.randint(0, _pluri_to_diff)
-            _div_counter = r.randint(0, _pluri_div_thresh)
-            _death_counter = r.randint(0, _death_thresh)
-            _boolean_counter = r.randint(0, _boolean_thresh)
+            diff_counter = r.randint(0, _pluri_to_diff)
+            div_counter = r.randint(0, _pluri_div_thresh)
+            death_counter = r.randint(0, _death_thresh)
+            bool_counter = r.randint(0, _boolean_thresh)
 
-            radius = simulation.min_radius + simulation.pluri_growth * _div_counter
+            # get the radius based on the randomized growth
+            radius = simulation.min_radius + simulation.pluri_growth * div_counter
 
-            # creates instance of Cell class
-            cell = Cell.Cell(_location, radius, True, booleans, "Pluripotent", _diff_counter, _div_counter,
-                             _death_counter, _boolean_counter)
+            # set up the forces and closest differentiated cell with empty values
+            motility_force = np.zeros(3, dtype=float)
+            jkr_force = np.zeros(3, dtype=float)
+            closest_diff = None
 
             # adds object to simulation instance
-            simulation.add_cell(cell)
+            simulation.add_cell(location, radius, True, booleans, "Pluripotent", diff_counter, div_counter,
+                                death_counter, bool_counter, motility_force, jkr_force, closest_diff)
 
     # returns the list of simulations
     return simulation
@@ -260,14 +273,16 @@ def csv_to_simulation(simulation, csv_file):
         diff_counter = eval(row[10])
         div_counter = eval(row[11])
         death_counter = eval(row[12])
-        boolean_counter = eval(row[13])
+        bool_counter = eval(row[13])
 
-        # create instance of cell class based on the following parameters taken from the last csv
-        cell = Cell.Cell(location, radius, motion, booleans, state, diff_counter, div_counter,
-                         death_counter, boolean_counter)
+        # set up the forces and closest differentiated cell with empty values
+        motility_force = np.zeros(3, dtype=float)
+        jkr_force = np.zeros(3, dtype=float)
+        closest_diff = None
 
-        # adds object to simulation instance
-        simulation.add_cell(cell)
+        # add the cell to the holder arrays
+        simulation.add_cell(location, radius, motion, booleans, state, diff_counter, div_counter, death_counter,
+                            bool_counter, motility_force, jkr_force, closest_diff)
 
 
 def check_name(output_path, name, separator):
