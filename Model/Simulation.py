@@ -402,62 +402,46 @@ class Simulation:
         """ Simulates cell death based on pluripotency
             and number of neighbors
         """
-        # call the parallel version if you think gpus are cool
-        if self.parallel:
-            # prevents the need for having the numba library if it's not installed
-            import Parallel
-            Parallel.cell_death_gpu(self)
+        # loops over all cells
+        for i in range(self.number_cells):
+            # checks to see if cell is pluripotent
+            if self.cell_states[i] == "Pluripotent":
+                # looks at the neighbors and counts them, adding to the death counter if not enough neighbors
+                neighbors = self.neighbor_graph.neighbors(i)
+                if len(neighbors) < self.lonely_cell:
+                    self.cell_death_counter[i] += 1
+                else:
+                    self.cell_death_counter[i] = 0
 
-        # call the boring non-parallel cpu version
-        else:
-            # loops over all cells
-            for i in range(self.number_cells):
-                # checks to see if cell is pluripotent
-                if self.cell_states[i] == "Pluripotent":
-                    # looks at the neighbors and counts them, adding to the death counter if not enough neighbors
-                    neighbors = self.neighbor_graph.neighbors(i)
-                    if len(neighbors) < self.lonely_cell:
-                        self.cell_death_counter[i] += 1
-                    else:
-                        self.cell_death_counter[i] = 0
-
-                    # removes cell if it meets the parameters
-                    if self.cell_death_counter[i] >= self.death_thresh:
-                        self.cells_to_remove = np.append(self.cells_to_remove, i)
+                # removes cell if it meets the parameters
+                if self.cell_death_counter[i] >= self.death_thresh:
+                    self.cells_to_remove = np.append(self.cells_to_remove, i)
 
     def cell_diff_surround(self):
         """ Simulates the phenomenon of differentiated
             cells inducing the differentiation of a
             pluripotent/NANOG high cell
         """
-        # call the parallel version if you think gpus are cool
-        if self.parallel:
-            # prevents the need for having the numba library if it's not installed
-            import Parallel
-            Parallel.diff_surround_gpu(self)
+        # loops over all cells
+        for i in range(self.number_cells):
+            # checks to see if cell is pluripotent and GATA6 low
+            if self.cell_states[i] == "Pluripotent" and self.cell_booleans[i][2] == 0:
+                # finds neighbors of a cell
+                neighbors = self.neighbor_graph.neighbors(i)
 
-        # call the boring non-parallel cpu version
-        else:
-            # loops over all cells
-            for i in range(self.number_cells):
-                # checks to see if cell is pluripotent and GATA6 low
-                if self.cell_states[i] == "Pluripotent" and self.cell_booleans[i][2] == 0:
-                    # finds neighbors of a cell
-                    neighbors = self.neighbor_graph.neighbors(i)
+                # holds the current number differentiated neighbors
+                num_diff_neighbors = 0
 
-                    # holds the current number differentiated neighbors
-                    num_diff_neighbors = 0
+                # loops over the neighbors of a cell
+                for j in range(len(neighbors)):
+                    # checks to see if current neighbor is differentiated if so add it to the counter
+                    if self.cell_states[neighbors[j]] == "Differentiated":
+                        num_diff_neighbors += 1
 
-                    # loops over the neighbors of a cell
-                    for j in range(len(neighbors)):
-                        # checks to see if current neighbor is differentiated if so add it to the counter
-                        if self.cell_states[neighbors[j]] == "Differentiated":
-                            num_diff_neighbors += 1
-
-                        # if the number of differentiated meets the threshold, increase the counter and break the loop
-                        if num_diff_neighbors >= self.diff_surround:
-                            self.cell_diff_counter[i] += 1
-                            break
+                    # if the number of differentiated meets the threshold, increase the counter and break the loop
+                    if num_diff_neighbors >= self.diff_surround:
+                        self.cell_diff_counter[i] += 1
+                        break
 
     def cell_motility(self):
         """ Gives the cells a motion force, depending on
@@ -522,25 +506,6 @@ class Simulation:
                     else:
                         # if not GATA6 high
                         self.cell_motility_force[i] += self.random_vector() * self.motility_force
-
-    # def update_neighbors(self):
-    #     """ Updates each cell's instance variable
-    #         pointing to the cell objects that are its
-    #         neighbors.
-    #     """
-    #     # this is separate from check_neighbors as that is run numerous times without the need for updating
-    #     # all the instance variables holding the neighbor cell objects
-    #     # loops over all cells and gets the neighbors based on the index in the graph
-    #     for i in range(self.number_cells):
-    #         # clear the neighbors from the previous step
-    #         self.cells[i].neighbors = np.array([], np.object)
-    #
-    #         # get the indices of the node's neighbors
-    #         neighbors = self.neighbor_graph.neighbors(i)
-    #
-    #         # loops over the neighbors adding the corresponding cell object to the array holding the neighbors
-    #         for j in range(len(neighbors)):
-    #             self.cells[i].neighbors = np.append(self.cells[i].neighbors, self.cells[neighbors[j]])
 
     def check_neighbors(self):
         """ checks all of the distances between cells if it
@@ -767,8 +732,8 @@ class Simulation:
             # turn the forces into movement
             self.apply_forces()
 
-        for i in range(self.number_cells):
-            self.cell_motility_force[i] = np.array([0.0, 0.0, 0.0], dtype=float)
+        # reset all forces back to zero vectors
+        self.cell_motility_force = np.zeros((self.number_cells, 3))
 
     def get_forces(self):
         """ goes through all of the cells and quantifies any forces arising

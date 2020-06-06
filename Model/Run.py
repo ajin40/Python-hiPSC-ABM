@@ -31,9 +31,6 @@ for simulation.current_step in range(simulation.beginning_step, simulation.end_s
     # Refreshes the graph used to represent cells as nodes and neighbor connections as edges.   (base)
     simulation.check_neighbors()
 
-    # updates the instance variable for each cell that points to the cell objects that are its neighbors
-    # simulation.update_neighbors()
-
     # if any differentiated cells exist within a cell's defined search radius, this will find the closest one.
     simulation.nearest_diff()
 
@@ -56,9 +53,6 @@ for simulation.current_step in range(simulation.beginning_step, simulation.end_s
 
     # Refreshes the graph used to represent cells as nodes and neighbor connections as edges.   (base)
     simulation.check_neighbors()
-
-    # updates the instance variable for each cell that points to the cell objects that are its neighbors
-    # simulation.update_neighbors()
 
     # Moves the cells to a state of physical equilibrium so that there is minimal overlap of cells, while also
     # applying forces from the previous motility_cells() function.   (base)

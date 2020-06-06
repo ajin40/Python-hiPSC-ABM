@@ -3,14 +3,18 @@ import math
 import numpy as np
 
 
-# def update_cells_gpu(simulation):
-#     """ The GPU parallelized version of update_cells()
-#         from the Simulation class.
-#     """
-#
-#
-#
-# def update_cells_cuda()
+def update_cells_gpu(simulation):
+    """ The GPU parallelized version of update_cells()
+        from the Simulation class.
+    """
+    pass
+
+
+def update_cells_cuda():
+    """ The code that is actually run by each
+        thread of the GPU for update_cells_gpu()
+    """
+    pass
 
 
 def check_neighbors_gpu(simulation, distance, edge_holder, max_neighbors):
@@ -32,7 +36,7 @@ def check_neighbors_gpu(simulation, distance, edge_holder, max_neighbors):
     bins = np.ones(bins_size) * -1
 
     # an array used to accelerate the cuda function by telling the function how many cells are in a given bin
-    bins_help = np.zeros(bins_size_help, dtype=np.int)
+    bins_help = np.zeros(bins_size_help, dtype=int)
 
     # assigns cells to bins as a general location
     for i in range(len(simulation.cells)):
@@ -55,25 +59,18 @@ def check_neighbors_gpu(simulation, distance, edge_holder, max_neighbors):
     bins_cuda = cuda.to_device(bins)
     bins_help_cuda = cuda.to_device(bins_help)
 
-    # loops over all over the cells and puts their locations into a holder array and turns it into a gpu array
-    locations = np.zeros((len(simulation.cells), 3))
-    for i in range(len(simulation.cells)):
-        locations[i] = simulation.cells[i].location
-    locations_cuda = cuda.to_device(locations)
+    # turn the array into a form readable by the GPU
+    locations_cuda = cuda.to_device(simulation.cells_locations)
 
     # sets up the correct allocation of threads and blocks
     threads_per_block = 72
-    blocks_per_grid = math.ceil(len(locations) / threads_per_block)
+    blocks_per_grid = math.ceil(simulation.number_cells / threads_per_block)
 
     # calls the cuda function with the given inputs
     check_neighbors_cuda[blocks_per_grid, threads_per_block](locations_cuda, bins_cuda, bins_help_cuda,
                                                              distance_cuda, edge_holder_cuda, max_neighbors_cuda)
-
-    # return the array back from the GPU
-    new_edges = edge_holder_cuda.copy_to_host()
-
-    # return the edges that will be added to the graph
-    return new_edges
+    # return the edges array
+    return edge_holder_cuda.copy_to_host()
 
 
 @cuda.jit
@@ -115,6 +112,22 @@ def check_neighbors_cuda(locations, bins, bins_help, distance, edge_holder, max_
                             place += 1
 
 
+def nearest_diff_gpu(simulation, distance):
+    pass
+
+
+def nearest_diff_cuda():
+    pass
+
+
+def jkr_neighbors_gpu(simulation, distance, edge_holder, max_edges):
+    pass
+
+
+def jkr_neighbors_cuda():
+    pass
+
+
 def get_forces_gpu(simulation, jkr_edges, delete_jkr_edges, poisson, youngs, adhesion_const):
     """ The GPU parallelized version of forces_to_movement()
         from the Simulation class.
@@ -125,21 +138,11 @@ def get_forces_gpu(simulation, jkr_edges, delete_jkr_edges, poisson, youngs, adh
     poisson_cuda = cuda.to_device(poisson)
     youngs_cuda = cuda.to_device(youngs)
     adhesion_const_cuda = cuda.to_device(adhesion_const)
-    forces_cuda = cuda.to_device(np.zeros((len(simulation.cells), 3)))
-
-    # get the length of the arrays and create them so that they can later be updated
-    length = len(simulation.cells)
-    locations = np.empty((length, 3), np.float)
-    radii = np.empty(length, np.float)
-
-    # loop over all cells and input their values to the arrays
-    for i in range(len(simulation.cells)):
-        locations[i] = simulation.cells[i].location
-        radii[i] = simulation.cells[i].radius
+    forces_cuda = cuda.to_device(np.zeros((simulation.number_cells, 3)))
 
     # send these to the gpu
-    locations_cuda = cuda.to_device(locations)
-    radii_cuda = cuda.to_device(radii)
+    locations_cuda = cuda.to_device(simulation.cell_locations)
+    radii_cuda = cuda.to_device(simulation.cell_radii)
 
     # sets up the correct allocation of threads and blocks
     threads_per_block = 72
@@ -153,9 +156,8 @@ def get_forces_gpu(simulation, jkr_edges, delete_jkr_edges, poisson, youngs, adh
     forces_output = forces_cuda.copy_to_host()
     delete_jkr_edges_output = delete_jkr_edges_cuda.copy_to_host()
 
-    # add the forces to the cells
-    for i in range(len(simulation.cells)):
-        simulation.cells[i].inactive_force += forces_output[i]
+    # update the JKR forces of all the cells
+    simulation.cells_jkr_force = forces_output
 
     # return the edges to be deleted
     return delete_jkr_edges_output
@@ -239,32 +241,18 @@ def apply_forces_gpu(simulation):
     """ The GPU parallelized version of apply_forces()
         from the Simulation class.
     """
-    # get the length of the arrays and create them so that they can later be updated
-    length = len(simulation.cells)
-    inactive_forces = np.empty((length, 3), np.float)
-    active_forces = np.empty((length, 3), np.float)
-    locations = np.empty((length, 3), np.float)
-    radii = np.empty(length, np.float)
-
-    # loop over all cells and input their values to the arrays
-    for i in range(len(simulation.cells)):
-        inactive_forces[i] = simulation.cells[i].inactive_force
-        active_forces[i] = simulation.cells[i].active_force
-        locations[i] = simulation.cells[i].location
-        radii[i] = simulation.cells[i].radius
-
     # turn those arrays into gpu arrays
-    inactive_forces_cuda = cuda.to_device(inactive_forces)
-    active_forces_cuda = cuda.to_device(active_forces)
-    locations_cuda = cuda.to_device(locations)
-    radii_cuda = cuda.to_device(radii)
+    inactive_forces_cuda = cuda.to_device(simulation.cells_inactive_force)
+    active_forces_cuda = cuda.to_device(simulation.cells_active_force)
+    locations_cuda = cuda.to_device(simulation.cells_locations)
+    radii_cuda = cuda.to_device(simulation.cells_radii)
     viscosity_cuda = cuda.to_device(simulation.viscosity)
     size_cuda = cuda.to_device(simulation.size)
     move_time_step_cuda = cuda.to_device(simulation.move_time_step)
 
     # sets up the correct allocation of threads and blocks
     threads_per_block = 72
-    blocks_per_grid = math.ceil(len(locations) / threads_per_block)
+    blocks_per_grid = math.ceil(simulation.number_cells / threads_per_block)
 
     # call the cuda function
     apply_forces_cuda[blocks_per_grid, threads_per_block](inactive_forces_cuda, active_forces_cuda, locations_cuda,
@@ -273,10 +261,9 @@ def apply_forces_gpu(simulation):
     # return the new cell locations from the gpu
     new_locations = locations_cuda.copy_to_host()
 
-    # loop over all cells updating the locations and setting the inactive_force back to zero
-    for i in range(len(simulation.cells)):
-        simulation.cells[i].location = new_locations[i]
-        simulation.cells[i].inactive_force = np.array([0.0, 0.0, 0.0], dtype=float)
+    # update all of the cell locations and set the JKR forces back to zero vectors
+    simulation.cell_locations = new_locations
+    simulation.cells_jkr_force = np.zeros((simulation.number_cells, 3))
 
 
 @cuda.jit
@@ -338,6 +325,7 @@ def magnitude(location_one, location_two):
         total += (location_one[i] - location_two[i]) ** 2
 
     return total ** 0.5
+
 
 # def update_gradient_gpu(extracellular, simulation):
 #     """ This is a near identical function to the
