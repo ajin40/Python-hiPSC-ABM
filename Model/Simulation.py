@@ -231,7 +231,13 @@ class Simulation:
 
         # loops over all objects to remove
         for i in range(len(self.cells_to_remove)):
-            self.remove_cell(self.cells_to_remove[i])
+            index = self.cells_to_remove[i]
+            self.remove_cell(index)
+
+            # adjusts the indices as the holders will shift when a cell is removed
+            for j in range(i + 1, len(self.cells_to_remove)):
+                if index < self.cells_to_remove[j]:
+                    self.cells_to_remove[j] -= 1
 
             # much like above where many cells are added together, removing all at once may create unrealistic results
             if self.group != 0:
