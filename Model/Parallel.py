@@ -168,7 +168,7 @@ def jkr_neighbors_gpu(simulation, distance, edge_holder, max_neighbors):
 
 
 @cuda.jit
-def check_neighbors_cuda(locations, bins, bins_help, distance, edge_holder, max_neighbors):
+def jkr_neighbors_cuda(locations, bins, bins_help, distance, edge_holder, max_neighbors):
     """ This is the parallelized function for checking
             neighbors that is run numerous times.
         """
@@ -216,7 +216,7 @@ def get_forces_gpu(simulation, jkr_edges, delete_jkr_edges, poisson, youngs, adh
     poisson_cuda = cuda.to_device(poisson)
     youngs_cuda = cuda.to_device(youngs)
     adhesion_const_cuda = cuda.to_device(adhesion_const)
-    forces_cuda = cuda.to_device(np.zeros((simulation.number_cells, 3)))
+    forces_cuda = cuda.to_device(simulation.cell_jkr_force)
 
     # send these to the gpu
     locations_cuda = cuda.to_device(simulation.cell_locations)
@@ -231,11 +231,8 @@ def get_forces_gpu(simulation, jkr_edges, delete_jkr_edges, poisson, youngs, adh
                                                         radii_cuda, forces_cuda, poisson_cuda, youngs_cuda,
                                                         adhesion_const_cuda)
     # get these back from the gpu
-    forces_output = forces_cuda.copy_to_host()
+    simulation.cell_jkr_force = forces_cuda.copy_to_host()
     delete_jkr_edges_output = delete_jkr_edges_cuda.copy_to_host()
-
-    # update the JKR forces of all the cells
-    simulation.cells_jkr_force = forces_output
 
     # return the edges to be deleted
     return delete_jkr_edges_output
@@ -266,20 +263,20 @@ def get_forces_cuda(jkr_edges, delete_jkr_edges, locations, radii, forces, poiss
         vector_z = location_1[2] - location_2[2]
 
         # get the magnitude of the displacement
-        displacement = magnitude(location_1, location_2)
+        mag = magnitude(location_1, location_2)
 
         # make sure the magnitude is not 0
-        if displacement != 0:
-            normal_x = vector_x / displacement
-            normal_y = vector_y / displacement
-            normal_z = vector_z / displacement
+        if mag != 0:
+            normal_x = vector_x / mag
+            normal_y = vector_y / mag
+            normal_z = vector_z / mag
 
         # if so return the zero vector
         else:
             normal_x, normal_y, normal_z = 0, 0, 0
 
         # get the total overlap of the cells used later in calculations
-        overlap = radii[index_1] + radii[index_2] - displacement
+        overlap = radii[index_1] + radii[index_2] - mag
 
         # gets two values used for JKR
         e_hat = (((1 - poisson[0] ** 2) / youngs[0]) + ((1 - poisson[0] ** 2) / youngs[0])) ** -1
@@ -341,7 +338,7 @@ def apply_forces_gpu(simulation):
 
     # update all of the cell locations and set the JKR forces back to zero vectors
     simulation.cell_locations = new_locations
-    simulation.cells_jkr_force = np.zeros((simulation.number_cells, 3))
+    simulation.cell_jkr_force = np.zeros((simulation.number_cells, 3), dtype=float)
 
 
 @cuda.jit
