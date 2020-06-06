@@ -35,13 +35,13 @@ for simulation.current_step in range(simulation.beginning_step, simulation.end_s
     # simulation.update_neighbors()
 
     # if any differentiated cells exist within a cell's defined search radius, this will find the closest one.
-    simulation.closest_diff()
+    simulation.nearest_diff()
 
     # A way of introducing cell death into the model by removing cells if they are without neighbors for so long.
     simulation.cell_death()
 
     # Represents the phenomena that differentiated neighbors of a pluripotent cell may induce its differentiation.
-    simulation.diff_surround()
+    simulation.cell_diff_surround()
 
     # Gets motility forces depending on a variety of factors involving state and presence of neighbors
     simulation.cell_motility()
@@ -58,7 +58,7 @@ for simulation.current_step in range(simulation.beginning_step, simulation.end_s
     simulation.check_neighbors()
 
     # updates the instance variable for each cell that points to the cell objects that are its neighbors
-    simulation.update_neighbors()
+    # simulation.update_neighbors()
 
     # Moves the cells to a state of physical equilibrium so that there is minimal overlap of cells, while also
     # applying forces from the previous motility_cells() function.   (base)

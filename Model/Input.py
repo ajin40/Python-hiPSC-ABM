@@ -102,6 +102,7 @@ def setup(template_location):
     _move_thresh = int(lines[172][2:-3])
     _guye_radius = float(lines[175][2:-3])
     _guye_force = float(lines[178][2:-3])
+    _jkr_distance = float(lines[181][2:-3])
 
     # if the mode is not a continuation and not turning CSVs into images
     if not _continuation and not _csv_to_images and not _images_to_video:
@@ -124,7 +125,8 @@ def setup(template_location):
                                        _color_mode, _pluri_color, _diff_color, _pluri_gata6_high_color,
                                        _pluri_nanog_high_color, _pluri_both_high_color, _lonely_cell,
                                        _contact_inhibit, _guye_move, _motility_force, _dox_step, _max_radius,
-                                       _move_thresh, _output_images, _output_csvs, _guye_radius, _guye_force)
+                                       _move_thresh, _output_images, _output_csvs, _guye_radius, _guye_force,
+                                       _jkr_distance)
 
     # loops over the gradients and adds them to the simulation
     for i in range(len(_extracellular)):

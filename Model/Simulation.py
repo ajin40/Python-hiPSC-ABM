@@ -12,7 +12,7 @@ class Simulation:
                  slices, image_quality, background_color, bound_color, color_mode, pluri_color, diff_color,
                  pluri_gata6_high_color, pluri_nanog_high_color, pluri_both_high_color, lonely_cell, contact_inhibit,
                  guye_move, motility_force, dox_step, max_radius, move_thresh, output_images, output_csvs,
-                 guye_distance, guye_force):
+                 guye_distance, guye_force, jkr_distance):
 
         # documentation should explain how all instance variables are used
         self.name = name
@@ -57,19 +57,20 @@ class Simulation:
         self.output_csvs = output_csvs
         self.guye_distance = guye_distance
         self.guye_force = guye_force
+        self.jkr_distance = jkr_distance
 
         # these arrays hold all values of the cells, each index corresponds to a cell
-        self.cell_locations = np.array([], dtype=float)
+        self.cell_locations = np.empty((0, 3), dtype=float)
         self.cell_radii = np.array([], dtype=float)
         self.cell_motion = np.array([], dtype=bool)
-        self.cell_booleans = np.array([], dtype=object)
+        self.cell_booleans = np.empty((0, 4), dtype=float)
         self.cell_states = np.array([], dtype=str)
         self.cell_diff_counter = np.array([], dtype=int)
         self.cell_div_counter = np.array([], dtype=int)
         self.cell_death_counter = np.array([], dtype=int)
         self.cell_bool_counter = np.array([], dtype=int)
-        self.cell_motility_force = np.array([], dtype=object)
-        self.cell_jkr_force = np.array([], dtype=object)
+        self.cell_motility_force = np.empty((0, 3), dtype=float)
+        self.cell_jkr_force = np.empty((0, 3), dtype=float)
         self.cell_closest_diff = np.array([], dtype=int)
 
         # holds the current number of cells
@@ -114,30 +115,6 @@ class Simulation:
             cells. Checks to make sure all arrays
             match in length.
         """
-        # get the lengths of all of the array holding cell values
-        a = len(self.cell_locations)
-        b = len(self.cell_radii)
-        c = len(self.cell_motion)
-        d = len(self.cell_booleans)
-        e = len(self.cell_states)
-        f = len(self.cell_diff_counter)
-        g = len(self.cell_div_counter)
-        h = len(self.cell_death_counter)
-        i = len(self.cell_bool_counter)
-        j = len(self.cell_motility_force)
-        k = len(self.cell_jkr_force)
-        l = len(self.cell_closest_diff)
-
-        # compare the lengths assigning true if they all are the same length
-        length_condition = a == b == c == d == e == f == g == h == i == j == k == l
-
-        # if they all match lengths assign the length to the number of cells instance variable
-        if length_condition:
-            self.number_cells = a
-        # if not, tell the user of a pending error
-        else:
-            print("The length of the array differs...you probably forgot to add something")
-
         # prints info about the current step and number of cells
         print("Step: " + str(self.current_step))
         print("Number of cells: " + str(self.number_cells))
@@ -184,22 +161,25 @@ class Simulation:
             that act as holders for all information
         """
         # adds it to the array holding the cell objects
-        self.cell_locations = np.append(self.cell_locations, location)
+        self.cell_locations = np.append(self.cell_locations, [location], axis=0)
         self.cell_radii = np.append(self.cell_radii, radius)
         self.cell_motion = np.append(self.cell_motion, motion)
-        self.cell_booleans = np.append(self.cell_booleans, booleans)
+        self.cell_booleans = np.append(self.cell_booleans, [booleans], axis=0)
         self.cell_states = np.append(self.cell_states, state)
         self.cell_diff_counter = np.append(self.cell_diff_counter, diff_counter)
         self.cell_div_counter = np.append(self.cell_div_counter, div_counter)
         self.cell_death_counter = np.append(self.cell_death_counter, death_counter)
         self.cell_bool_counter = np.append(self.cell_bool_counter, bool_counter)
-        self.cell_motility_force = np.append(self.cell_motility_force, motility_force)
-        self.cell_jkr_force = np.append(self.cell_jkr_force, jkr_force)
+        self.cell_motility_force = np.append(self.cell_motility_force, [motility_force], axis=0)
+        self.cell_jkr_force = np.append(self.cell_jkr_force, [jkr_force], axis=0)
         self.cell_closest_diff = np.append(self.cell_closest_diff, closest_diff)
 
         # add it to the following graphs, this is simply done by increasing the graph length by one
         self.neighbor_graph.add_vertex()
         self.jkr_graph.add_vertex()
+
+        # update the number of cells
+        self.number_cells += 1
 
     def remove_cell(self, index):
         """ Will remove a cell from the main cell holder
@@ -207,23 +187,26 @@ class Simulation:
             from all graphs
         """
         # delete the index of each holder array
-        self.cell_locations = np.delete(self.cell_locations, index)
+        self.cell_locations = np.delete(self.cell_locations, index, axis=0)
         self.cell_radii = np.delete(self.cell_radii, index)
         self.cell_motion = np.delete(self.cell_motion, index)
-        self.cell_booleans = np.delete(self.cell_booleans, index)
+        self.cell_booleans = np.delete(self.cell_booleans, index, axis=0)
         self.cell_states = np.delete(self.cell_states, index)
         self.cell_diff_counter = np.delete(self.cell_diff_counter, index)
         self.cell_div_counter = np.delete(self.cell_div_counter, index)
         self.cell_death_counter = np.delete(self.cell_death_counter, index)
         self.cell_bool_counter = np.delete(self.cell_bool_counter, index)
-        self.cell_motility_force = np.delete(self.cell_motility_force, index)
-        self.cell_jkr_force = np.delete(self.cell_jkr_force, index)
+        self.cell_motility_force = np.delete(self.cell_motility_force, index, axis=0)
+        self.cell_jkr_force = np.delete(self.cell_jkr_force, index, axis=0)
         self.cell_closest_diff = np.delete(self.cell_closest_diff, index)
 
         # remove the particular index from the following graphs as these deal in terms of indices not objects
         # this will actively adjust edges as the indices change, so no worries here
         self.neighbor_graph.delete_vertices(index)
         self.jkr_graph.delete_vertices(index)
+
+        # update the number of cells
+        self.number_cells -= 1
 
     def update_cell_queue(self):
         """ Controls how cells are added/removed from
@@ -436,7 +419,7 @@ class Simulation:
                     if self.cell_death_counter[i] >= self.death_thresh:
                         self.cells_to_remove = np.append(self.cells_to_remove, i)
 
-    def diff_surround(self):
+    def cell_diff_surround(self):
         """ Simulates the phenomenon of differentiated
             cells inducing the differentiation of a
             pluripotent/NANOG high cell

@@ -12,7 +12,7 @@ What is the path for the output directory? Ex. C:\Python37\Model_Outputs
 [ C:\Python37\Outputs ]
 
 Do you want the simulation to use parallel GPU processing? Ex. True
-[ True ]
+[ False ]
 
 What is size of the space that the cells reside (in meters). Ex. (x, y, z)
 [ (0.001, 0.001, 0.0) ]
@@ -24,7 +24,7 @@ How many cells will be GATA6 high to begin the simulation? Ex. 247
 [ 0 ]
 
 How many cells will be NANOG high to begin the simulation? Ex. 91
-[ 20000 ]
+[ 100 ]
 
 Define the finite dynamical system functions below. Ex. ("x5", "x4 * x2",...)
 [ ("x5", "x1 * x4 + x1 + x4", "x2", "x5 + 1", "(x3+1) * (x4+1)") ]
@@ -177,6 +177,9 @@ Guye radius of search for differentiated cells in meters. Ex. 0.00003
 
 Guye force of motility in newtons. Ex. 0.00000001
 [ 0.0000000025 ]
+
+JKR radius of search for all collisions.
+[ 0.00001 ]
 
 The time has come. Execute Order Sixty-Six? Ex. True
 [ True ]
