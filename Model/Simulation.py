@@ -283,120 +283,112 @@ class Simulation:
         """ Loops over all indices of cells and updates
             certain parameters
         """
-        # call the parallel version if you think gpus are cool
-        if self.parallel:
-            # prevents the need for having the numba library if it's not installed
-            import Parallel
-            Parallel.update_cells_gpu(self)
+        # loop over the cells
+        for i in range(self.number_cells):
+            # increase the cell radius based on the state and whether or not it has reached the max size
+            if self.cell_radii[i] < self.max_radius:
+                # pluripotent growth
+                if self.cell_states[i] == "Pluripotent":
+                    self.cell_radii[i] += self.pluri_growth
+                # differentiated growth
+                else:
+                    self.cell_radii[i] += self.diff_growth
 
-        # call the boring non-parallel cpu version
-        else:
-            # loop over the cells
-            for i in range(self.number_cells):
-                # increase the cell radius based on the state and whether or not it has reached the max size
-                if self.cell_radii[i] < self.max_radius:
-                    # pluripotent growth
-                    if self.cell_states[i] == "Pluripotent":
-                        self.cell_radii[i] += self.pluri_growth
-                    # differentiated growth
-                    else:
-                        self.cell_radii[i] += self.diff_growth
-
-                # checks to see if the non-moving cell should divide
-                if not self.cell_motion[i]:
-                    # check for contact inhibition of a differentiated cell
-                    if self.cell_states[i] == "Differentiated" and self.cell_div_counter[i] >= self.diff_div_thresh:
-                        neighbors = self.neighbor_graph.neighbors(i)
-                        if len(neighbors) < self.contact_inhibit:
-                            self.cells_to_divide = np.append(self.cells_to_divide, i)
-
-                    # division for pluripotent cell
-                    elif self.cell_states[i] == "Pluripotent" and self.cell_div_counter[i] >= self.pluri_div_thresh:
+            # checks to see if the non-moving cell should divide
+            if not self.cell_motion[i]:
+                # check for contact inhibition of a differentiated cell
+                if self.cell_states[i] == "Differentiated" and self.cell_div_counter[i] >= self.diff_div_thresh:
+                    neighbors = self.neighbor_graph.neighbors(i)
+                    if len(neighbors) < self.contact_inhibit:
                         self.cells_to_divide = np.append(self.cells_to_divide, i)
 
-                    # if not dividing stochastically increase the division counter
-                    else:
-                        self.cell_div_counter[i] += r.randint(0, 2)
+                # division for pluripotent cell
+                elif self.cell_states[i] == "Pluripotent" and self.cell_div_counter[i] >= self.pluri_div_thresh:
+                    self.cells_to_divide = np.append(self.cells_to_divide, i)
 
-                # activate the following pathway based on if dox has been induced yet
-                if self.current_step >= self.dox_step:
-                    # coverts position in space into an integer for array location
-                    x_step = self.extracellular[0].dx
-                    y_step = self.extracellular[0].dy
-                    z_step = self.extracellular[0].dz
-                    half_index_x = self.cell_locations[i][0] // (x_step / 2)
-                    half_index_y = self.cell_locations[i][1] // (y_step / 2)
-                    half_index_z = self.cell_locations[i][2] // (z_step / 2)
-                    index_x = math.ceil(half_index_x / 2)
-                    index_y = math.ceil(half_index_y / 2)
-                    index_z = math.ceil(half_index_z / 2)
+                # if not dividing stochastically increase the division counter
+                else:
+                    self.cell_div_counter[i] += r.randint(0, 2)
 
-                    # if a certain spot of the grid is less than the max FGF4 it can hold and the cell is NANOG high
-                    # increase the FGF4 by 1
-                    if self.extracellular[0].diffuse_values[index_x][index_y][index_z] < \
-                            self.extracellular[0].maximum and self.cell_booleans[i][3] == 1:
-                        self.extracellular[0].diffuse_values[index_x][index_y][index_z] += 1
+            # activate the following pathway based on if dox has been induced yet
+            if self.current_step >= self.dox_step:
+                # coverts position in space into an integer for array location
+                x_step = self.extracellular[0].dx
+                y_step = self.extracellular[0].dy
+                z_step = self.extracellular[0].dz
+                half_index_x = self.cell_locations[i][0] // (x_step / 2)
+                half_index_y = self.cell_locations[i][1] // (y_step / 2)
+                half_index_z = self.cell_locations[i][2] // (z_step / 2)
+                index_x = math.ceil(half_index_x / 2)
+                index_y = math.ceil(half_index_y / 2)
+                index_z = math.ceil(half_index_z / 2)
 
-                    # if the FGF4 amount for the location is greater than 0, set the fgf4_bool value to be 1 for the
-                    # functions
-                    if self.extracellular[0].diffuse_values[index_x][index_y][index_z] > 0:
-                        fgf4_bool = 1
-                    else:
-                        fgf4_bool = 0
+                # if a certain spot of the grid is less than the max FGF4 it can hold and the cell is NANOG high
+                # increase the FGF4 by 1
+                if self.extracellular[0].diffuse_values[index_x][index_y][index_z] < \
+                        self.extracellular[0].maximum and self.cell_booleans[i][3] == 1:
+                    self.extracellular[0].diffuse_values[index_x][index_y][index_z] += 1
 
-                    # temporarily hold the FGFR value
-                    temp_fgfr = self.cell_booleans[i][0]
+                # if the FGF4 amount for the location is greater than 0, set the fgf4_bool value to be 1 for the
+                # functions
+                if self.extracellular[0].diffuse_values[index_x][index_y][index_z] > 0:
+                    fgf4_bool = 1
+                else:
+                    fgf4_bool = 0
 
-                    # only update the booleans when the counter matches the boolean update rate
-                    if self.cell_bool_counter[i] % self.boolean_thresh == 0:
-                        # gets the functions from the simulation
-                        function_list = self.functions
+                # temporarily hold the FGFR value
+                temp_fgfr = self.cell_booleans[i][0]
 
-                        # xn is equal to the value corresponding to its function
-                        x1 = fgf4_bool
-                        x2 = self.cell_booleans[i][0]
-                        x3 = self.cell_booleans[i][1]
-                        x4 = self.cell_booleans[i][2]
-                        x5 = self.cell_booleans[i][3]
+                # only update the booleans when the counter matches the boolean update rate
+                if self.cell_bool_counter[i] % self.boolean_thresh == 0:
+                    # gets the functions from the simulation
+                    function_list = self.functions
 
-                        # evaluate the functions by turning them from strings to math equations
-                        new_fgf4 = eval(function_list[0]) % self.num_states
-                        new_fgfr = eval(function_list[1]) % self.num_states
-                        new_erk = eval(function_list[2]) % self.num_states
-                        new_gata6 = eval(function_list[3]) % self.num_states
-                        new_nanog = eval(function_list[4]) % self.num_states
+                    # xn is equal to the value corresponding to its function
+                    x1 = fgf4_bool
+                    x2 = self.cell_booleans[i][0]
+                    x3 = self.cell_booleans[i][1]
+                    x4 = self.cell_booleans[i][2]
+                    x5 = self.cell_booleans[i][3]
 
-                        # updates self.booleans with the new boolean values and returns the new fgf4 value
-                        self.cell_booleans[i] = np.array([new_fgfr, new_erk, new_gata6, new_nanog])
+                    # evaluate the functions by turning them from strings to math equations
+                    new_fgf4 = eval(function_list[0]) % self.num_states
+                    new_fgfr = eval(function_list[1]) % self.num_states
+                    new_erk = eval(function_list[2]) % self.num_states
+                    new_gata6 = eval(function_list[3]) % self.num_states
+                    new_nanog = eval(function_list[4]) % self.num_states
 
-                    # otherwise carry the same value for fgf4
-                    else:
-                        new_fgf4 = fgf4_bool
+                    # updates self.booleans with the new boolean values and returns the new fgf4 value
+                    self.cell_booleans[i] = np.array([new_fgfr, new_erk, new_gata6, new_nanog])
 
-                    # increase the boolean counter
-                    self.cell_bool_counter[i] += 1
+                # otherwise carry the same value for fgf4
+                else:
+                    new_fgf4 = fgf4_bool
 
-                    # if the temporary FGFR value is 0 and the FGF4 value is 1 decrease the amount of FGF4 by 1
-                    # this simulates FGFR using FGF4
-                    if temp_fgfr == 0 and new_fgf4 == 1 and \
-                            self.extracellular[0].diffuse_values[index_x][index_y][index_z] >= 1:
-                        self.extracellular[0].diffuse_values[index_x][index_y][index_z] -= 1
+                # increase the boolean counter
+                self.cell_bool_counter[i] += 1
 
-                    # if the cell is GATA6 high and pluripotent increase the differentiation counter by 1
-                    if self.cell_booleans[i][2] == 1 and self.cell_states[i] == "Pluripotent":
-                        self.cell_diff_counter[i] += 1
+                # if the temporary FGFR value is 0 and the FGF4 value is 1 decrease the amount of FGF4 by 1
+                # this simulates FGFR using FGF4
+                if temp_fgfr == 0 and new_fgf4 == 1 and \
+                        self.extracellular[0].diffuse_values[index_x][index_y][index_z] >= 1:
+                    self.extracellular[0].diffuse_values[index_x][index_y][index_z] -= 1
 
-                        # if the differentiation counter is greater than the threshold, differentiate
-                        if self.cell_diff_counter[i] >= self.pluri_to_diff:
-                            # change the state to differentiated
-                            self.cell_states[i] = "Differentiated"
+                # if the cell is GATA6 high and pluripotent increase the differentiation counter by 1
+                if self.cell_booleans[i][2] == 1 and self.cell_states[i] == "Pluripotent":
+                    self.cell_diff_counter[i] += 1
 
-                            # set GATA6 high and NANOG low
-                            self.cell_booleans[i][2] = 1
-                            self.cell_booleans[i][3] = 0
+                    # if the differentiation counter is greater than the threshold, differentiate
+                    if self.cell_diff_counter[i] >= self.pluri_to_diff:
+                        # change the state to differentiated
+                        self.cell_states[i] = "Differentiated"
 
-                            # allow the cell to move again
-                            self.cell_motion[i] = True
+                        # set GATA6 high and NANOG low
+                        self.cell_booleans[i][2] = 1
+                        self.cell_booleans[i][3] = 0
+
+                        # allow the cell to move again
+                        self.cell_motion[i] = True
 
     def cell_death(self):
         """ Simulates cell death based on pluripotency
@@ -519,7 +511,7 @@ class Simulation:
         # provide an idea of the maximum number of neighbors for a cells
         max_neighbors = 15
         length = self.number_cells * max_neighbors
-        edge_holder = np.zeros((length, 2), dtype=np.int)
+        edge_holder = np.zeros((length, 2), dtype=int)
 
         # call the parallel version if desired
         if self.parallel:
@@ -581,66 +573,58 @@ class Simulation:
         # get the radius of search length
         distance = self.guye_distance
 
-        # call the parallel version if desired
-        if self.parallel:
-            # prevents the need for having the numba library if it's not installed
-            import Parallel
-            Parallel.nearest_diff_gpu(self, distance)
+        # create an 3D array that will divide the space up into a collection of bins
+        bins_size = self.size // distance + np.array([3, 3, 3])
+        bins_size = tuple(bins_size.astype(int))
+        bins = np.empty(bins_size, dtype=np.object)
 
-        # call the boring non-parallel cpu version
-        else:
-            # create an 3D array that will divide the space up into a collection of bins
-            bins_size = self.size // distance + np.array([3, 3, 3])
-            bins_size = tuple(bins_size.astype(int))
-            bins = np.empty(bins_size, dtype=np.object)
+        # each bin will be a numpy array that will hold indices of cells
+        for i, j, k in itertools.product(range(bins_size[0]), range(bins_size[1]), range(bins_size[2])):
+            bins[i][j][k] = np.array([], dtype=np.int)
 
-            # each bin will be a numpy array that will hold indices of cells
-            for i, j, k in itertools.product(range(bins_size[0]), range(bins_size[1]), range(bins_size[2])):
-                bins[i][j][k] = np.array([], dtype=np.int)
+        # loops over all pluripotent cells appending their index value in the corresponding bin
+        for pivot_index in range(self.number_cells):
+            if self.cell_states[pivot_index] == "Pluripotent":
+                # offset the bin location by 1 to help when searching over bins and reduce potential error of
+                # cells that may be slightly outside the space
+                bin_location = self.cell_locations[pivot_index] // distance + np.array([1, 1, 1])
+                bin_location = bin_location.astype(int)
+                x, y, z = bin_location[0], bin_location[1], bin_location[2]
 
-            # loops over all pluripotent cells appending their index value in the corresponding bin
-            for pivot_index in range(self.number_cells):
-                if self.cell_states[pivot_index] == "Pluripotent":
-                    # offset the bin location by 1 to help when searching over bins and reduce potential error of
-                    # cells that may be slightly outside the space
-                    bin_location = self.cell_locations[pivot_index] // distance + np.array([1, 1, 1])
-                    bin_location = bin_location.astype(int)
-                    x, y, z = bin_location[0], bin_location[1], bin_location[2]
+                # adds the cell to the corresponding bin
+                bins[x][y][z] = np.append(bins[x][y][z], pivot_index)
 
-                    # adds the cell to the corresponding bin
-                    bins[x][y][z] = np.append(bins[x][y][z], pivot_index)
+        # loops over all differentiated cells looking for the surrounding differentiated cells
+        for pivot_index in range(self.number_cells):
+            if self.cell_states[pivot_index] == "Differentiated":
+                bin_location = self.cell_locations[pivot_index] // distance + np.array([1, 1, 1])
+                bin_location = bin_location.astype(int)
+                x, y, z = bin_location[0], bin_location[1], bin_location[2]
+                # create an arbitrary distance that any cell close enough will replace
+                closest_index = None
+                closest_dist = distance * 2
 
-            # loops over all differentiated cells looking for the surrounding differentiated cells
-            for pivot_index in range(self.number_cells):
-                if self.cell_states[pivot_index] == "Differentiated":
-                    bin_location = self.cell_locations[pivot_index] // distance + np.array([1, 1, 1])
-                    bin_location = bin_location.astype(int)
-                    x, y, z = bin_location[0], bin_location[1], bin_location[2]
-                    # create an arbitrary distance that any cell close enough will replace
-                    closest_index = None
-                    closest_dist = distance * 2
+                # look at the surrounding bins
+                for i, j, k in itertools.product(range(-1, 2), repeat=3):
+                    # get the array that is holding the indices of a cells in a block
+                    indices_in_bin = bins[x + i][y + j][z + k]
 
-                    # look at the surrounding bins
-                    for i, j, k in itertools.product(range(-1, 2), repeat=3):
-                        # get the array that is holding the indices of a cells in a block
-                        indices_in_bin = bins[x + i][y + j][z + k]
+                    # looks at the cells in a block and decides if they are neighbors
+                    for l in range(len(indices_in_bin)):
+                        # get the index of the current cell in question
+                        current_index = indices_in_bin[l]
 
-                        # looks at the cells in a block and decides if they are neighbors
-                        for l in range(len(indices_in_bin)):
-                            # get the index of the current cell in question
-                            current_index = indices_in_bin[l]
+                        # check to see if that cell is within the search radius and not the same cell
+                        m = np.linalg.norm(self.cell_locations[current_index] - self.cell_locations[pivot_index])
+                        if m <= distance and current_index != pivot_index:
+                            # if it's closer than the last cell, update the closest magnitude and index
+                            if m < closest_dist:
+                                closest_index = current_index
+                                closest_dist = m
 
-                            # check to see if that cell is within the search radius and not the same cell
-                            m = np.linalg.norm(self.cell_locations[current_index] - self.cell_locations[pivot_index])
-                            if m <= distance and current_index != pivot_index:
-                                # if it's closer than the last cell, update the closest magnitude and index
-                                if m < closest_dist:
-                                    closest_index = current_index
-                                    closest_dist = m
-
-                    # check to make sure the initial cell doesn't slip through
-                    if closest_dist <= distance:
-                        self.cell_closest_diff[pivot_index] = closest_index
+                # check to make sure the initial cell doesn't slip through
+                if closest_dist <= distance:
+                    self.cell_closest_diff[pivot_index] = closest_index
 
     def jkr_neighbors(self):
         """ finds all pairs of cells that are overlapping
@@ -653,13 +637,13 @@ class Simulation:
         # provide an idea of the maximum number of neighbors for a cells
         max_neighbors = 15
         length = self.number_cells * max_neighbors
-        edge_holder = np.zeros((length, 2), dtype=np.int)
+        edge_holder = np.zeros((length, 2), dtype=int)
 
         # call the parallel version if desired
         if self.parallel:
             # prevents the need for having the numba library if it's not installed
             import Parallel
-            edge_holder = Parallel.jkr_neighbors_gpu(self, distance, edge_holder, max_neighbors)
+            edge_holder = Parallel.check_neighbors_gpu(self, distance, edge_holder, max_neighbors)
 
         # call the boring non-parallel cpu version
         else:
@@ -746,10 +730,10 @@ class Simulation:
 
         # get the updated edges of the jkr graph
         jkr_edges = self.jkr_graph.get_edgelist()
-        delete_jkr_edges = np.zeros(len(jkr_edges), dtype=np.int)
+        delete_jkr_edges = np.zeros(len(jkr_edges), dtype=int)
 
         # call the parallel version if desired
-        if self.parallel:
+        if self.parallel and len(jkr_edges) > 0:
             # prevents the need for having the numba library if it's not installed
             import Parallel
             delete_jkr_edges = Parallel.get_forces_gpu(self, jkr_edges, delete_jkr_edges, poisson, youngs,

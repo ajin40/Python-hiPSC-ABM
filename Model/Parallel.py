@@ -3,18 +3,16 @@ import math
 import numpy as np
 
 
-def update_cells_gpu(simulation):
-    """ The GPU parallelized version of update_cells()
-        from the Simulation class.
+@cuda.jit(device=True)
+def magnitude(location_one, location_two):
+    """ This is a cuda device function for
+        finding magnitude give two vectors
     """
-    pass
+    total = 0
+    for i in range(0, 3):
+        total += (location_one[i] - location_two[i]) ** 2
 
-
-def update_cells_cuda():
-    """ The code that is actually run by each
-        thread of the GPU for update_cells_gpu()
-    """
-    pass
+    return total ** 0.5
 
 
 def check_neighbors_gpu(simulation, distance, edge_holder, max_neighbors):
@@ -39,9 +37,9 @@ def check_neighbors_gpu(simulation, distance, edge_holder, max_neighbors):
     bins_help = np.zeros(bins_size_help, dtype=int)
 
     # assigns cells to bins as a general location
-    for i in range(len(simulation.cells)):
+    for i in range(simulation.number_cells):
         # offset bins by 1 to avoid missing cells
-        block_location = simulation.cells[i].location // distance + np.array([1, 1, 1])
+        block_location = simulation.cell_locations[i] // distance + np.array([1, 1, 1])
         block_location = block_location.astype(int)
         x, y, z = block_location[0], block_location[1], block_location[2]
 
@@ -60,7 +58,7 @@ def check_neighbors_gpu(simulation, distance, edge_holder, max_neighbors):
     bins_help_cuda = cuda.to_device(bins_help)
 
     # turn the array into a form readable by the GPU
-    locations_cuda = cuda.to_device(simulation.cells_locations)
+    locations_cuda = cuda.to_device(simulation.cell_locations)
 
     # sets up the correct allocation of threads and blocks
     threads_per_block = 72
@@ -112,20 +110,100 @@ def check_neighbors_cuda(locations, bins, bins_help, distance, edge_holder, max_
                             place += 1
 
 
-def nearest_diff_gpu(simulation, distance):
-    pass
+def jkr_neighbors_gpu(simulation, distance, edge_holder, max_neighbors):
+    """ The GPU parallelized version of check_neighbors()
+            from the Simulation class.
+        """
+    # turn the following into arrays that can be interpreted by the gpu
+    distance_cuda = cuda.to_device(distance)
+    max_neighbors_cuda = cuda.to_device(max_neighbors)
+    edge_holder_cuda = cuda.to_device(edge_holder)
+
+    # divides the space into bins and gives a holder of fixed size for each bin
+    bins_size = simulation.size // distance + np.array([3, 3, 3])
+    bins_size_help = tuple(bins_size.astype(int))
+    bins_size = np.append(bins_size, 100)
+    bins_size = tuple(bins_size.astype(int))
+
+    # assigns values of -1 to denote a lack of cells
+    bins = np.ones(bins_size) * -1
+
+    # an array used to accelerate the cuda function by telling the function how many cells are in a given bin
+    bins_help = np.zeros(bins_size_help, dtype=int)
+
+    # assigns cells to bins as a general location
+    for i in range(simulation.number_cells):
+        # offset bins by 1 to avoid missing cells
+        block_location = simulation.cell_locations[i] // distance + np.array([1, 1, 1])
+        block_location = block_location.astype(int)
+        x, y, z = block_location[0], block_location[1], block_location[2]
+
+        # tries to place the cell in the holder for the bin. if the holder's value is other than -1 it will move
+        # to the next spot to see if it's empty
+        place = bins_help[x][y][z]
+
+        # gives the cell's array location
+        bins[x][y][z][place] = i
+
+        # updates the total amount cells in a bin
+        bins_help[x][y][z] += 1
+
+    # turn the bins array and the blocks_help array into a format to be sent to the gpu
+    bins_cuda = cuda.to_device(bins)
+    bins_help_cuda = cuda.to_device(bins_help)
+
+    # turn the array into a form readable by the GPU
+    locations_cuda = cuda.to_device(simulation.cell_locations)
+
+    # sets up the correct allocation of threads and blocks
+    threads_per_block = 72
+    blocks_per_grid = math.ceil(simulation.number_cells / threads_per_block)
+
+    # calls the cuda function with the given inputs
+    check_neighbors_cuda[blocks_per_grid, threads_per_block](locations_cuda, bins_cuda, bins_help_cuda,
+                                                             distance_cuda, edge_holder_cuda, max_neighbors_cuda)
+    # return the edges array
+    return edge_holder_cuda.copy_to_host()
 
 
-def nearest_diff_cuda():
-    pass
 
+@cuda.jit
+def check_neighbors_cuda(locations, bins, bins_help, distance, edge_holder, max_neighbors):
+    """ This is the parallelized function for checking
+            neighbors that is run numerous times.
+        """
+    # a provides the location on the array as it runs, essentially loops over the cells
+    index_1 = cuda.grid(1)
 
-def jkr_neighbors_gpu(simulation, distance, edge_holder, max_edges):
-    pass
+    # identify the location on the edge holder where the function will begin writing edges
+    place = cuda.grid(1) * max_neighbors[0]
 
+    # checks to see that position is in the array, double-check as GPUs can be weird sometimes
+    if index_1 < locations.shape[0]:
+        # gets the block location based on how they were inputted
+        location_x = int(locations[index_1][0] / distance[0]) + 1
+        location_y = int(locations[index_1][1] / distance[0]) + 1
+        location_z = int(locations[index_1][2] / distance[0]) + 1
 
-def jkr_neighbors_cuda():
-    pass
+        # looks at the blocks surrounding the current block as these are the ones containing the neighbors
+        for i in range(-1, 2):
+            for j in range(-1, 2):
+                for k in range(-1, 2):
+                    # gets the number of cells in each block thanks to the helper array, int to prevent problems
+                    number_cells = int(bins_help[location_x + i][location_y + j][location_z + k])
+
+                    # loops over the cell indices in the current block
+                    for l in range(number_cells):
+                        # gets the index of the potential neighbor
+                        index_2 = int(bins[location_x + i][location_y + j][location_z + k][l])
+
+                        # get the magnitude via the device function and make sure not the same cell
+                        if magnitude(locations[index_1], locations[index_2]) <= distance[0] and \
+                                index_1 != index_2:
+                            # assign the array location showing that this cell is a neighbor
+                            edge_holder[place][0] = index_1
+                            edge_holder[place][1] = index_2
+                            place += 1
 
 
 def get_forces_gpu(simulation, jkr_edges, delete_jkr_edges, poisson, youngs, adhesion_const):
@@ -242,10 +320,10 @@ def apply_forces_gpu(simulation):
         from the Simulation class.
     """
     # turn those arrays into gpu arrays
-    inactive_forces_cuda = cuda.to_device(simulation.cells_inactive_force)
-    active_forces_cuda = cuda.to_device(simulation.cells_active_force)
-    locations_cuda = cuda.to_device(simulation.cells_locations)
-    radii_cuda = cuda.to_device(simulation.cells_radii)
+    inactive_forces_cuda = cuda.to_device(simulation.cell_jkr_force)
+    active_forces_cuda = cuda.to_device(simulation.cell_motility_force)
+    locations_cuda = cuda.to_device(simulation.cell_locations)
+    radii_cuda = cuda.to_device(simulation.cell_radii)
     viscosity_cuda = cuda.to_device(simulation.viscosity)
     size_cuda = cuda.to_device(simulation.size)
     move_time_step_cuda = cuda.to_device(simulation.move_time_step)
@@ -315,16 +393,7 @@ def apply_forces_cuda(inactive_forces, active_forces, locations, radii, viscosit
             locations[index][2] = new_location_z
 
 
-@cuda.jit(device=True)
-def magnitude(location_one, location_two):
-    """ This is a cuda device function for
-        finding magnitude give two vectors
-    """
-    total = 0
-    for i in range(0, 3):
-        total += (location_one[i] - location_two[i]) ** 2
 
-    return total ** 0.5
 
 
 # def update_gradient_gpu(extracellular, simulation):
