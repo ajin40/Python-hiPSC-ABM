@@ -526,7 +526,7 @@ class Simulation:
             edge_counter = 0
 
             # create an 3D array that will divide the space up into a collection of bins
-            bins_size = self.size // distance + np.array([3, 3, 3])
+            bins_size = self.size // distance + np.array([4, 4, 4])
             bins_size = tuple(bins_size.astype(int))
             bins = np.empty(bins_size, dtype=np.object)
 
@@ -538,7 +538,7 @@ class Simulation:
             for pivot_index in range(self.number_cells):
                 # offset the bin location by 1 to help when searching over bins and reduce potential error of cells
                 # that may be slightly outside the space
-                bin_location = self.cell_locations[pivot_index] // distance + np.array([1, 1, 1])
+                bin_location = self.cell_locations[pivot_index] // distance + np.array([2, 2, 2])
                 bin_location = bin_location.astype(int)
                 x, y, z = bin_location[0], bin_location[1], bin_location[2]
 
@@ -575,7 +575,7 @@ class Simulation:
         distance = self.guye_distance
 
         # create an 3D array that will divide the space up into a collection of bins
-        bins_size = self.size // distance + np.array([3, 3, 3])
+        bins_size = self.size // distance + np.array([4, 4, 4])
         bins_size = tuple(bins_size.astype(int))
         bins = np.empty(bins_size, dtype=np.object)
 
@@ -588,7 +588,7 @@ class Simulation:
             if self.cell_states[pivot_index] == "Pluripotent":
                 # offset the bin location by 1 to help when searching over bins and reduce potential error of
                 # cells that may be slightly outside the space
-                bin_location = self.cell_locations[pivot_index] // distance + np.array([1, 1, 1])
+                bin_location = self.cell_locations[pivot_index] // distance + np.array([2, 2, 2])
                 bin_location = bin_location.astype(int)
                 x, y, z = bin_location[0], bin_location[1], bin_location[2]
 
@@ -598,7 +598,7 @@ class Simulation:
         # loops over all differentiated cells looking for the surrounding differentiated cells
         for pivot_index in range(self.number_cells):
             if self.cell_states[pivot_index] == "Differentiated":
-                bin_location = self.cell_locations[pivot_index] // distance + np.array([1, 1, 1])
+                bin_location = self.cell_locations[pivot_index] // distance + np.array([2, 2, 2])
                 bin_location = bin_location.astype(int)
                 x, y, z = bin_location[0], bin_location[1], bin_location[2]
                 # create an arbitrary distance that any cell close enough will replace
@@ -641,58 +641,58 @@ class Simulation:
         edge_holder = np.zeros((length, 2), dtype=int)
 
         # call the parallel version if desired
-        # if self.parallel:
-        #     # prevents the need for having the numba library if it's not installed
-        #     import Parallel
-        #     edge_holder = Parallel.check_neighbors_gpu(self, distance, edge_holder, max_neighbors)
-        #
-        # # call the boring non-parallel cpu version
-        # else:
-        # a counter used to know where the next edge will be placed in the edges_holder
-        edge_counter = 0
+        if self.parallel:
+            # prevents the need for having the numba library if it's not installed
+            import Parallel
+            edge_holder = Parallel.jkr_neighbors_gpu(self, distance, edge_holder, max_neighbors)
 
-        # create an 3D array that will divide the space up into a collection of bins
-        bins_size = self.size // distance + np.array([3, 3, 3])
-        bins_size = tuple(bins_size.astype(int))
-        bins = np.empty(bins_size, dtype=np.object)
+        # call the boring non-parallel cpu version
+        else:
+            # a counter used to know where the next edge will be placed in the edges_holder
+            edge_counter = 0
 
-        # each bin will be a numpy array that will hold indices of cells
-        for i, j, k in itertools.product(range(bins_size[0]), range(bins_size[1]), range(bins_size[2])):
-            bins[i][j][k] = np.array([], dtype=np.int)
+            # create an 3D array that will divide the space up into a collection of bins
+            bins_size = self.size // distance + np.array([4, 4, 4])
+            bins_size = tuple(bins_size.astype(int))
+            bins = np.empty(bins_size, dtype=np.object)
 
-        # loops over all cells appending their index value in the corresponding bin
-        for pivot_index in range(self.number_cells):
-            # offset the bin location by 1 to help when searching over bins and reduce potential error of cells
-            # that may be slightly outside the space
-            bin_location = self.cell_locations[pivot_index] // distance + np.array([1, 1, 1])
-            bin_location = bin_location.astype(int)
-            x, y, z = bin_location[0], bin_location[1], bin_location[2]
+            # each bin will be a numpy array that will hold indices of cells
+            for i, j, k in itertools.product(range(bins_size[0]), range(bins_size[1]), range(bins_size[2])):
+                bins[i][j][k] = np.array([], dtype=np.int)
 
-            # adds the cell to the corresponding bin
-            bins[x][y][z] = np.append(bins[x][y][z], pivot_index)
+            # loops over all cells appending their index value in the corresponding bin
+            for pivot_index in range(self.number_cells):
+                # offset the bin location by 1 to help when searching over bins and reduce potential error of cells
+                # that may be slightly outside the space
+                bin_location = self.cell_locations[pivot_index] // distance + np.array([2, 2, 2])
+                bin_location = bin_location.astype(int)
+                x, y, z = bin_location[0], bin_location[1], bin_location[2]
 
-            # loop over all nearby bins
-            for i, j, k in itertools.product(range(-1, 2), repeat=3):
-                # get the array that is holding the indices of a cells in a block
-                indices_in_bin = bins[x + i][y + j][z + k]
+                # adds the cell to the corresponding bin
+                bins[x][y][z] = np.append(bins[x][y][z], pivot_index)
 
-                # looks at the cells in a block and decides if they are neighbors
-                for l in range(len(indices_in_bin)):
-                    # get the index of the current cell in question
-                    current_index = indices_in_bin[l]
+                # loop over all nearby bins
+                for i, j, k in itertools.product(range(-1, 2), repeat=3):
+                    # get the array that is holding the indices of a cells in a block
+                    indices_in_bin = bins[x + i][y + j][z + k]
 
-                    # get the magnitude of the vector between the cells
-                    mag = np.linalg.norm(self.cell_locations[current_index] - self.cell_locations[pivot_index])
+                    # looks at the cells in a block and decides if they are neighbors
+                    for l in range(len(indices_in_bin)):
+                        # get the index of the current cell in question
+                        current_index = indices_in_bin[l]
 
-                    # compute the overlap of the cell space
-                    overlap = self.cell_radii[current_index] + self.cell_radii[pivot_index] - mag
+                        # get the magnitude of the vector between the cells
+                        mag = np.linalg.norm(self.cell_locations[current_index] - self.cell_locations[pivot_index])
 
-                    # if overlap present and not the same cell
-                    if overlap >= 0 and pivot_index != current_index:
-                        # update the edge array and increase the place for the next addition
-                        edge_holder[edge_counter][0] = pivot_index
-                        edge_holder[edge_counter][1] = current_index
-                        edge_counter += 1
+                        # compute the overlap of the cell space
+                        overlap = self.cell_radii[current_index] + self.cell_radii[pivot_index] - mag
+
+                        # if overlap present and not the same cell
+                        if overlap >= 0 and pivot_index != current_index:
+                            # update the edge array and increase the place for the next addition
+                            edge_holder[edge_counter][0] = pivot_index
+                            edge_holder[edge_counter][1] = current_index
+                            edge_counter += 1
 
         # add the new edges and remove any duplicate edges or loops
         self.jkr_graph.add_edges(edge_holder)

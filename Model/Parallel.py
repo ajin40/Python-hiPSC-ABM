@@ -25,7 +25,7 @@ def check_neighbors_gpu(simulation, distance, edge_holder, max_neighbors):
     edge_holder_cuda = cuda.to_device(edge_holder)
 
     # divides the space into bins and gives a holder of fixed size for each bin
-    bins_size = simulation.size // distance + np.array([3, 3, 3])
+    bins_size = simulation.size // distance + np.array([4, 4, 4])
     bins_size_help = tuple(bins_size.astype(int))
     bins_size = np.append(bins_size, 100)
     bins_size = tuple(bins_size.astype(int))
@@ -39,7 +39,7 @@ def check_neighbors_gpu(simulation, distance, edge_holder, max_neighbors):
     # assigns cells to bins as a general location
     for i in range(simulation.number_cells):
         # offset bins by 1 to avoid missing cells
-        block_location = simulation.cell_locations[i] // distance + np.array([1, 1, 1])
+        block_location = simulation.cell_locations[i] // distance + np.array([2, 2, 2])
         block_location = block_location.astype(int)
         x, y, z = block_location[0], block_location[1], block_location[2]
 
@@ -111,16 +111,16 @@ def check_neighbors_cuda(locations, bins, bins_help, distance, edge_holder, max_
 
 
 def jkr_neighbors_gpu(simulation, distance, edge_holder, max_neighbors):
-    """ The GPU parallelized version of check_neighbors()
-            from the Simulation class.
-        """
+    """ The GPU parallelized version of jkr_neighbors()
+        from the Simulation class.
+    """
     # turn the following into arrays that can be interpreted by the gpu
     distance_cuda = cuda.to_device(distance)
     max_neighbors_cuda = cuda.to_device(max_neighbors)
     edge_holder_cuda = cuda.to_device(edge_holder)
 
     # divides the space into bins and gives a holder of fixed size for each bin
-    bins_size = simulation.size // distance + np.array([3, 3, 3])
+    bins_size = simulation.size // distance + np.array([4, 4, 4])
     bins_size_help = tuple(bins_size.astype(int))
     bins_size = np.append(bins_size, 100)
     bins_size = tuple(bins_size.astype(int))
@@ -134,7 +134,7 @@ def jkr_neighbors_gpu(simulation, distance, edge_holder, max_neighbors):
     # assigns cells to bins as a general location
     for i in range(simulation.number_cells):
         # offset bins by 1 to avoid missing cells
-        block_location = simulation.cell_locations[i] // distance + np.array([1, 1, 1])
+        block_location = simulation.cell_locations[i] // distance + np.array([2, 2, 2])
         block_location = block_location.astype(int)
         x, y, z = block_location[0], block_location[1], block_location[2]
 
@@ -154,24 +154,25 @@ def jkr_neighbors_gpu(simulation, distance, edge_holder, max_neighbors):
 
     # turn the array into a form readable by the GPU
     locations_cuda = cuda.to_device(simulation.cell_locations)
+    radii_cuda = cuda.to_device(simulation.cell_radii)
 
     # sets up the correct allocation of threads and blocks
     threads_per_block = 72
     blocks_per_grid = math.ceil(simulation.number_cells / threads_per_block)
 
     # calls the cuda function with the given inputs
-    check_neighbors_cuda[blocks_per_grid, threads_per_block](locations_cuda, bins_cuda, bins_help_cuda,
-                                                             distance_cuda, edge_holder_cuda, max_neighbors_cuda)
+    jkr_neighbors_cuda[blocks_per_grid, threads_per_block](locations_cuda, radii_cuda, bins_cuda, bins_help_cuda,
+                                                           distance_cuda, edge_holder_cuda, max_neighbors_cuda)
+
     # return the edges array
     return edge_holder_cuda.copy_to_host()
 
 
-
 @cuda.jit
-def jkr_neighbors_cuda(locations, bins, bins_help, distance, edge_holder, max_neighbors):
+def jkr_neighbors_cuda(locations, radii, bins, bins_help, distance, edge_holder, max_neighbors):
     """ This is the parallelized function for checking
-            neighbors that is run numerous times.
-        """
+        neighbors that is run numerous times.
+    """
     # a provides the location on the array as it runs, essentially loops over the cells
     index_1 = cuda.grid(1)
 
@@ -197,9 +198,14 @@ def jkr_neighbors_cuda(locations, bins, bins_help, distance, edge_holder, max_ne
                         # gets the index of the potential neighbor
                         index_2 = int(bins[location_x + i][location_y + j][location_z + k][l])
 
-                        # get the magnitude via the device function and make sure not the same cell
-                        if magnitude(locations[index_1], locations[index_2]) <= distance[0] and \
-                                index_1 != index_2:
+                        # get the magnitude via the device function
+                        mag = magnitude(locations[index_1], locations[index_2])
+
+                        # calculate the cell overlap
+                        overlap = radii[index_1] + radii[index_2] - mag
+
+                        # if overlap and not the same cell add it to the edges
+                        if overlap >= 0 and index_1 != index_2:
                             # assign the array location showing that this cell is a neighbor
                             edge_holder[place][0] = index_1
                             edge_holder[place][1] = index_2
@@ -317,8 +323,8 @@ def apply_forces_gpu(simulation):
         from the Simulation class.
     """
     # turn those arrays into gpu arrays
-    inactive_forces_cuda = cuda.to_device(simulation.cell_jkr_force)
-    active_forces_cuda = cuda.to_device(simulation.cell_motility_force)
+    jkr_forces_cuda = cuda.to_device(simulation.cell_jkr_force)
+    motility_forces_cuda = cuda.to_device(simulation.cell_motility_force)
     locations_cuda = cuda.to_device(simulation.cell_locations)
     radii_cuda = cuda.to_device(simulation.cell_radii)
     viscosity_cuda = cuda.to_device(simulation.viscosity)
@@ -330,7 +336,7 @@ def apply_forces_gpu(simulation):
     blocks_per_grid = math.ceil(simulation.number_cells / threads_per_block)
 
     # call the cuda function
-    apply_forces_cuda[blocks_per_grid, threads_per_block](inactive_forces_cuda, active_forces_cuda, locations_cuda,
+    apply_forces_cuda[blocks_per_grid, threads_per_block](jkr_forces_cuda, motility_forces_cuda, locations_cuda,
                                                           radii_cuda, viscosity_cuda, size_cuda, move_time_step_cuda)
 
     # return the new cell locations from the gpu
@@ -388,8 +394,6 @@ def apply_forces_cuda(inactive_forces, active_forces, locations, radii, viscosit
             locations[index][2] = 0.0
         else:
             locations[index][2] = new_location_z
-
-
 
 
 
