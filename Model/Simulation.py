@@ -5,6 +5,7 @@ import math
 import itertools
 
 
+# used to hold all values necessary to the simulation as it moves from one step to the next
 class Simulation:
     def __init__(self, name, path, parallel, size, resolution, num_states, functions, neighbor_distance,
                  time_step_value, beginning_step, end_step, move_time_step, pluri_div_thresh, pluri_to_diff,
@@ -14,64 +15,70 @@ class Simulation:
                  guye_move, motility_force, dox_step, max_radius, move_thresh, output_images, output_csvs,
                  guye_distance, guye_force, jkr_distance):
 
-        # documentation should explain how all instance variables are used
-        self.name = name
-        self.path = path
-        self.parallel = parallel
-        self.size = size
-        self.resolution = resolution
-        self.num_states = num_states
-        self.functions = functions
-        self.neighbor_distance = neighbor_distance
-        self.time_step_value = time_step_value
-        self.beginning_step = beginning_step
-        self.end_step = end_step
-        self.move_time_step = move_time_step
-        self.pluri_div_thresh = pluri_div_thresh
-        self.pluri_to_diff = pluri_to_diff
-        self.diff_div_thresh = diff_div_thresh
-        self.boolean_thresh = boolean_thresh
-        self.death_thresh = death_thresh
-        self.diff_surround = diff_surround
-        self.adhesion_const = adhesion_const
-        self.viscosity = viscosity
-        self.group = group
-        self.slices = slices
-        self.image_quality = image_quality
-        self.background_color = background_color
-        self.bound_color = bound_color
-        self.color_mode = color_mode
-        self.pluri_color = pluri_color
-        self.diff_color = diff_color
-        self.pluri_gata6_high_color = pluri_gata6_high_color
-        self.pluri_nanog_high_color = pluri_nanog_high_color
-        self.pluri_both_high_color = pluri_both_high_color
-        self.lonely_cell = lonely_cell
-        self.contact_inhibit = contact_inhibit
-        self.guye_move = guye_move
-        self.motility_force = motility_force
-        self.dox_step = dox_step
-        self.max_radius = max_radius
-        self.move_thresh = move_thresh
-        self.output_images = output_images
-        self.output_csvs = output_csvs
-        self.guye_distance = guye_distance
-        self.guye_force = guye_force
-        self.jkr_distance = jkr_distance
+        # the following instance variables should be fixed meaning that they don't change from step to step
+        # they are merely used to hold initial parameters from the template file
+        # see documentation for better explanations
+        self.name = name    # the name of the simulation such as Run_43
+        self.path = path    # the directory of where the simulation will output to
+        self.parallel = parallel    # whether the model is used parallel GPU processing or not
+        self.size = size    # the dimensions of the space the cells reside in
+        self.resolution = resolution    # the spatial resolution of the environment, used for diffusion
+        self.num_states = num_states    # the number of states for the finite dynamical system
+        self.functions = functions    # the finite dynamical system functions
+        self.neighbor_distance = neighbor_distance    # the distance threshold for assigning nearby cells as neighbors
+        self.time_step_value = time_step_value    # the real-time value of each step
+        self.beginning_step = beginning_step    # the step the simulation starts on, used for continuations
+        self.end_step = end_step    # the final step of a simulation
+        self.move_time_step = move_time_step    # the time step used for each time the JKR contact function is used
+        self.pluri_div_thresh = pluri_div_thresh    # the division threshold (in steps) of a pluripotent cell
+        self.pluri_to_diff = pluri_to_diff    # the differentiation threshold (in steps) of a pluripotent cell
+        self.diff_div_thresh = diff_div_thresh    # the division threshold (in steps) of a differentiated cell
+        self.boolean_thresh = boolean_thresh    # the boolean threshold (in steps) for updating the FDS
+        self.death_thresh = death_thresh    # the death threshold (in steps) for cell death
+        self.diff_surround = diff_surround    # the number of cells needed to help induce differentiation
+        self.adhesion_const = adhesion_const    # the adhesion constant used for JKR contact
+        self.viscosity = viscosity    # the viscosity of the medium used for stokes friction
+        self.group = group    # the number of cells introduced into the space at once
+        self.slices = slices    # the number of 2D slices of a 3D space
+        self.image_quality = image_quality    # the output image/video dimensions in pixels
+        self.background_color = background_color    # the background space color
+        self.bound_color = bound_color    # the color of the bounds of the space
+        self.color_mode = color_mode    # used to vary which method of coloring used
+        self.pluri_color = pluri_color    # color of pluripotent cell
+        self.diff_color = diff_color    # color of a differentiated cell
+        self.pluri_gata6_high_color = pluri_gata6_high_color    # color of pluripotent gata6 high cell
+        self.pluri_nanog_high_color = pluri_nanog_high_color    # color of pluripotent nanog high cell
+        self.pluri_both_high_color = pluri_both_high_color    # color of pluripotent gata6/nanog high cell
+        self.lonely_cell = lonely_cell    # the threshold of cells need to designate a cell lonely
+        self.contact_inhibit = contact_inhibit    # the contact inhibition threshold of differentiated cells
+        self.guye_move = guye_move    # whether or not to use the Guye method of motility
+        self.motility_force = motility_force    # the active force of a cell moving
+        self.dox_step = dox_step    # the step at which dox is added to the simulation
+        self.max_radius = max_radius    # the maximum radius of a cell
+        self.move_thresh = move_thresh    # the threshold of neighbors for a differentiated cell to move
+        self.output_images = output_images    # whether or not to produce images
+        self.output_csvs = output_csvs    # whether or not to produce csvs with cell information
+        self.guye_distance = guye_distance    # the radius of search for the nearest differentiated neighbor
+        self.guye_force = guye_force    # the movement force for pluripotent cell to a differentiated cell
+        self.jkr_distance = jkr_distance    # the radius of search for JKR adhesive bonds formed between cells
 
         # these arrays hold all values of the cells, each index corresponds to a cell
+        # you may ask why not create an array that holds a bunch of Cell objects...and my answer to that
+        # is in order to parallelize the functions with a GPU you need to convert a collection of variables into
+        # an array that can be interpreted by the GPU so Cell classes will have to be constantly mined for their
+        # instance variables, put into an array, and then reevaluated from an updated array after processing
         self.cell_locations = np.empty((0, 3), dtype=float)
-        self.cell_radii = np.array([], dtype=float)
-        self.cell_motion = np.array([], dtype=bool)
+        self.cell_radii = np.empty((0, 1), dtype=float)
+        self.cell_motion = np.empty((0, 1), dtype=bool)
         self.cell_booleans = np.empty((0, 4), dtype=float)
-        self.cell_states = np.array([], dtype=str)
-        self.cell_diff_counter = np.array([], dtype=int)
-        self.cell_div_counter = np.array([], dtype=int)
-        self.cell_death_counter = np.array([], dtype=int)
-        self.cell_bool_counter = np.array([], dtype=int)
+        self.cell_states = np.empty((0, 1), dtype=str)
+        self.cell_diff_counter = np.empty((0, 1), dtype=int)
+        self.cell_div_counter = np.empty((0, 1), dtype=int)
+        self.cell_death_counter = np.empty((0, 1), dtype=int)
+        self.cell_bool_counter = np.empty((0, 1), dtype=int)
         self.cell_motility_force = np.empty((0, 3), dtype=float)
         self.cell_jkr_force = np.empty((0, 3), dtype=float)
-        self.cell_closest_diff = np.array([], dtype=int)
+        self.cell_closest_diff = np.empty((0, 1), dtype=int)
 
         # holds the current number of cells
         self.number_cells = 0
