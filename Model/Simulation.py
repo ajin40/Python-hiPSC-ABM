@@ -659,7 +659,7 @@ class Simulation:
             edge_counter = 0
 
             # create an 3D array that will divide the space up into a collection of bins
-            bins_size = self.size // distance + np.array([4, 4, 4])
+            bins_size = self.size // distance + np.array([5, 5, 5])
             bins_size = tuple(bins_size.astype(int))
             bins = np.empty(bins_size, dtype=np.object)
 
