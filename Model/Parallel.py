@@ -85,9 +85,9 @@ def check_neighbors_cuda(locations, bins, bins_help, distance, edge_holder, max_
     # checks to see that position is in the array, double-check as GPUs can be weird sometimes
     if index_1 < locations.shape[0]:
         # gets the block location based on how they were inputted
-        location_x = int(locations[index_1][0] / distance[0]) + 1
-        location_y = int(locations[index_1][1] / distance[0]) + 1
-        location_z = int(locations[index_1][2] / distance[0]) + 1
+        location_x = int(locations[index_1][0] / distance[0]) + 2
+        location_y = int(locations[index_1][1] / distance[0]) + 2
+        location_z = int(locations[index_1][2] / distance[0]) + 2
 
         # looks at the blocks surrounding the current block as these are the ones containing the neighbors
         for i in range(-1, 2):
@@ -182,9 +182,9 @@ def jkr_neighbors_cuda(locations, radii, bins, bins_help, distance, edge_holder,
     # checks to see that position is in the array, double-check as GPUs can be weird sometimes
     if index_1 < locations.shape[0]:
         # gets the block location based on how they were inputted
-        location_x = int(locations[index_1][0] / distance[0]) + 1
-        location_y = int(locations[index_1][1] / distance[0]) + 1
-        location_z = int(locations[index_1][2] / distance[0]) + 1
+        location_x = int(locations[index_1][0] / distance[0]) + 2
+        location_y = int(locations[index_1][1] / distance[0]) + 2
+        location_z = int(locations[index_1][2] / distance[0]) + 2
 
         # looks at the blocks surrounding the current block as these are the ones containing the neighbors
         for i in range(-1, 2):

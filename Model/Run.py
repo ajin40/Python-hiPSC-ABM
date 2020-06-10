@@ -25,7 +25,7 @@ simulation = Input.setup("C:\\Python37\\Seed Project\\Model\\template.txt")
 file_name = simulation.path + simulation.name + "_data.csv"
 new_file = open(file_name, "w", newline="")
 csv_write = csv.writer(new_file)
-csv_write.writerow(["Step Time", "Number Cells", "Memory (Mb)", "Check Neighbors"])
+csv_write.writerow(["Step Time", "Number Cells", "Memory (MB)", "Check Neighbors"])
 
 # This will loop over all steps defined in the template file in addition to updating the current step
 # of the simulation.   (base)
@@ -42,9 +42,12 @@ for simulation.current_step in range(simulation.beginning_step, simulation.end_s
 
     # Refreshes the graph used to represent cells as nodes and neighbor connections as edges.   (base)
     check_start = time.time()
+
     simulation.check_neighbors()
+
     check_end = time.time()
     check_time = check_end - check_start
+    print(check_time)
 
     # if any differentiated cells exist within a cell's defined search radius, this will find the closest one.
     simulation.nearest_diff()

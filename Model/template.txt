@@ -6,7 +6,7 @@ This is the template for running a simulation. Good luck!
 General Parameters
 -----------------------------------------------------------------------------------------------------------------------
 What is the name of the simulation? Ex. Run_30
-[ Jack_CPU_Run_1 ]
+[ Test ]
 
 What is the path for the output directory? Ex. C:\Python37\Model_Outputs
 [ C:\Python37\Outputs ]
@@ -58,7 +58,7 @@ running a simulation, type 1. Ex. 1
 [ 1 ]
 
 What will the final step number be? Ex. 30
-[ 3 ]
+[ 192 ]
 
 How long is each time step in seconds? Ex. 3600
 [ 1800 ]
