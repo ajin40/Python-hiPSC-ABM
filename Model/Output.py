@@ -2,6 +2,7 @@ from PIL import Image, ImageDraw
 import cv2
 import csv
 import time
+import memory_profiler
 import numpy as np
 
 
@@ -178,7 +179,23 @@ def simulation_data(simulation):
         and various other stats.
     """
     # opens the file
-    with open(simulation.data, "a", newline="") as file_object:
+    with open(simulation.data_path, "a", newline="") as file_object:
         csv_object = csv.writer(file_object)
-        csv_object.writerow([simulation.current_step, simulation.number_cells, time.time() - simulation.step_time,
-                             memory_profiler.memory_usage(max_usage=True)])
+
+        # get all of the values necessary to write to the data file
+        step = simulation.current_step
+        cells = simulation.number_cells
+        step_time = time.time() - simulation.step_start
+        memory = memory_profiler.memory_usage(max_usage=True)
+        ud = simulation.ud_time
+        cn = simulation.cn_time
+        nd = simulation.nd_time
+        cd = simulation.cd_time
+        cds = simulation.cds_time
+        cm = simulation.cm_time
+        uc = simulation.uc_time
+        ucq = simulation.ucq_time
+        hm = simulation.hm_time
+
+        # write the row with the corresponding values
+        csv_object.writerow([step, cells, step_time, memory, ud, cn, nd, cd, cds, cm, uc, ucq, hm])

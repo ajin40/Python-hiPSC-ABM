@@ -82,6 +82,17 @@ class Simulation:
         self.cell_jkr_force = np.empty((0, 3), dtype=float)
         self.cell_closest_diff = np.empty((0, 1), dtype=int)
 
+        # holds the run time for important functions whenever they are called
+        self.ud_time = 0
+        self.cn_time = 0
+        self.nd_time = 0
+        self.cd_time = 0
+        self.cds_time = 0
+        self.cm_time = 0
+        self.uc_time = 0
+        self.ucq_time = 0
+        self.hm_time = 0
+
         # holds the current number of cells
         self.number_cells = 0
 
@@ -141,8 +152,14 @@ class Simulation:
     def update_diffusion(self):
         """ see Extracellular.py for description
         """
+        start = time.time()
+
         for i in range(len(self.extracellular)):
             self.extracellular[i].update_gradient(self)
+
+        # record the total time of this function
+        end = time.time()
+        self.ud_time = end - start
 
     def random_vector(self):
         """ Computes a random point on a unit sphere centered at the origin
@@ -225,6 +242,8 @@ class Simulation:
         """ Controls how cells are added/removed from
             the simulation.
         """
+        start = time.time()
+
         # give the user an idea of how many cells are being added/removed during a given step
         print("Adding " + str(len(self.cells_to_divide)) + " cells...")
         print("Removing " + str(len(self.cells_to_remove)) + " cells...")
@@ -261,6 +280,10 @@ class Simulation:
         self.cells_to_divide = np.array([], dtype=int)
         self.cells_to_remove = np.array([], dtype=int)
 
+        # record the total time of this function
+        end = time.time()
+        self.ucq_time = end - start
+
     def divide(self, index):
         """ Simulates the division of cell by mitosis
             in addition to adding the cell with given
@@ -296,6 +319,8 @@ class Simulation:
         """ Loops over all indices of cells and updates
             certain parameters
         """
+        start = time.time()
+
         # loop over the cells
         for i in range(self.number_cells):
             # increase the cell radius based on the state and whether or not it has reached the max size
@@ -403,10 +428,16 @@ class Simulation:
                         # allow the cell to move again
                         self.cell_motion[i] = True
 
+        # record the total time of this function
+        end = time.time()
+        self.uc_time = end - start
+
     def cell_death(self):
         """ Simulates cell death based on pluripotency
             and number of neighbors
         """
+        start = time.time()
+
         # loops over all cells
         for i in range(self.number_cells):
             # checks to see if cell is pluripotent
@@ -422,11 +453,17 @@ class Simulation:
                 if self.cell_death_counter[i] >= self.death_thresh:
                     self.cells_to_remove = np.append(self.cells_to_remove, i)
 
+        # record the total time of this function
+        end = time.time()
+        self.cd_time = end - start
+
     def cell_diff_surround(self):
         """ Simulates the phenomenon of differentiated
             cells inducing the differentiation of a
             pluripotent/NANOG high cell
         """
+        start = time.time()
+
         # loops over all cells
         for i in range(self.number_cells):
             # checks to see if cell is pluripotent and GATA6 low
@@ -448,10 +485,16 @@ class Simulation:
                         self.cell_diff_counter[i] += 1
                         break
 
+        # record the total time of this function
+        end = time.time()
+        self.cds_time = end - start
+
     def cell_motility(self):
         """ Gives the cells a motion force, depending on
             set rules for the cell types.
         """
+        start = time.time()
+
         # loop over all of the cells
         for i in range(self.number_cells):
             # set motion to false if the cell is surrounded by many neighbors
@@ -513,11 +556,17 @@ class Simulation:
                         # if not GATA6 high
                         self.cell_motility_force[i] += self.random_vector() * self.motility_force
 
+        # record the total time of this function
+        end = time.time()
+        self.cm_time = end - start
+
     def check_neighbors(self):
         """ checks all of the distances between cells if it
             is less than a fixed value create a connection
             between two cells.
         """
+        start = time.time()
+
         # clear all of the edges in the neighbor graph and get the radius of search length
         self.neighbor_graph.delete_edges(None)
         distance = self.neighbor_distance
@@ -579,11 +628,17 @@ class Simulation:
         self.neighbor_graph.add_edges(edge_holder)
         self.neighbor_graph.simplify()
 
+        # record the total time of this function
+        end = time.time()
+        self.cn_time = end - start
+
     def nearest_diff(self):
         """ looks at cells within a given radius
             a determines the closest differentiated
             cell to a pluripotent cell.
         """
+        start = time.time()
+
         # get the radius of search length
         distance = self.guye_distance
 
@@ -639,6 +694,10 @@ class Simulation:
                 # check to make sure the initial cell doesn't slip through
                 if closest_dist <= distance:
                     self.cell_closest_diff[pivot_index] = closest_index
+
+        # record the total time of this function
+        end = time.time()
+        self.nd_time = end - start
 
     def jkr_neighbors(self):
         """ finds all pairs of cells that are overlapping
@@ -716,6 +775,8 @@ class Simulation:
             given time amount. Resets the force and
             velocity arrays as well.
         """
+        start = time.time()
+
         # get the total amount of times the cells will be incrementally moved during the step
         steps = int(self.time_step_value / self.move_time_step)
 
@@ -732,6 +793,10 @@ class Simulation:
 
         # reset all forces back to zero vectors
         self.cell_motility_force = np.zeros((self.number_cells, 3))
+
+        # record the total time of this function
+        end = time.time()
+        self.hm_time = end - start
 
     def get_forces(self):
         """ goes through all of the cells and quantifies any forces arising

@@ -122,7 +122,9 @@ def setup(template_location):
     # open the file and create a csv object and write a header as the first line
     with open(_data_path, "w", newline="") as file_object:
         csv_object = csv.writer(file_object)
-        csv_object.writerow(["Step Number", "Step Time", "Number Cells", "Memory (MB)", "Check Neighbors"])
+        csv_object.writerow(["Step Number", "Number Cells", "Step Time", "Memory (MB)", "update_diffusion",
+                             "check_neighbors", "nearest_diff", "cell_death", "diff_surround", "cell_motility",
+                             "update_cells", "update_cell_queue", "handle_movement"])
 
     # initializes simulation class which holds all information about the simulation
     simulation = Simulation.Simulation(_name, _path, _parallel, _size, _resolution, _num_states, _functions,
