@@ -6,13 +6,13 @@ This is the template for running a simulation. Good luck!
 General Parameters
 -----------------------------------------------------------------------------------------------------------------------
 What is the name of the simulation? Ex. Run_30
-[ Test ]
+[ Jack_GPU_Run_3 ]
 
 What is the path for the output directory? Ex. C:\Python37\Model_Outputs
 [ C:\Python37\Outputs ]
 
 Do you want the simulation to use parallel GPU processing? Ex. True
-[ False ]
+[ True ]
 
 What is size of the space that the cells reside (in meters). Ex. (x, y, z)
 [ (0.001, 0.001, 0.0) ]

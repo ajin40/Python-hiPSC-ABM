@@ -3,6 +3,7 @@ import random as r
 import igraph
 import math
 import itertools
+import time
 
 
 # used to hold all values necessary to the simulation as it moves from one step to the next
@@ -13,7 +14,7 @@ class Simulation:
                  slices, image_quality, background_color, bound_color, color_mode, pluri_color, diff_color,
                  pluri_gata6_high_color, pluri_nanog_high_color, pluri_both_high_color, lonely_cell, contact_inhibit,
                  guye_move, motility_force, dox_step, max_radius, move_thresh, output_images, output_csvs,
-                 guye_distance, guye_force, jkr_distance):
+                 guye_distance, guye_force, jkr_distance, data_path):
 
         # the following instance variables should be fixed meaning that they don't change from step to step
         # they are merely used to hold initial parameters from the template file
@@ -61,6 +62,7 @@ class Simulation:
         self.guye_distance = guye_distance    # the radius of search for the nearest differentiated neighbor
         self.guye_force = guye_force    # the movement force for pluripotent cell to a differentiated cell
         self.jkr_distance = jkr_distance    # the radius of search for JKR adhesive bonds formed between cells
+        self.data_path = data_path
 
         # these arrays hold all values of the cells, each index corresponds to a cell
         # you may ask why not create an array that holds a bunch of Cell objects...and my answer to that
@@ -88,6 +90,7 @@ class Simulation:
 
         # keeps a running count of the simulation steps
         self.current_step = self.beginning_step
+        self.step_start = 0
 
         # array to hold all of the Extracellular objects
         self.extracellular = np.array([], dtype=np.object)
@@ -119,9 +122,12 @@ class Simulation:
 
     def info(self):
         """ Prints the step number and number of
-            cells. Checks to make sure all arrays
-            match in length.
+            cells in addition to recording the
+            current time
         """
+        # records the real time at which the step started
+        self.step_start = time.time()
+
         # prints info about the current step and number of cells
         print("Step: " + str(self.current_step))
         print("Number of cells: " + str(self.number_cells))
@@ -533,7 +539,7 @@ class Simulation:
             edge_counter = 0
 
             # create an 3D array that will divide the space up into a collection of bins
-            bins_size = self.size // distance + np.array([4, 4, 4])
+            bins_size = self.size // distance + np.array([5, 5, 5])
             bins_size = tuple(bins_size.astype(int))
             bins = np.empty(bins_size, dtype=np.object)
 
@@ -582,7 +588,7 @@ class Simulation:
         distance = self.guye_distance
 
         # create an 3D array that will divide the space up into a collection of bins
-        bins_size = self.size // distance + np.array([4, 4, 4])
+        bins_size = self.size // distance + np.array([5, 5, 5])
         bins_size = tuple(bins_size.astype(int))
         bins = np.empty(bins_size, dtype=np.object)
 

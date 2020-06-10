@@ -1,6 +1,7 @@
 from numba import cuda
 import math
 import numpy as np
+import gc
 
 
 @cuda.jit(device=True)
@@ -25,7 +26,7 @@ def check_neighbors_gpu(simulation, distance, edge_holder, max_neighbors):
     edge_holder_cuda = cuda.to_device(edge_holder)
 
     # divides the space into bins and gives a holder of fixed size for each bin
-    bins_size = simulation.size // distance + np.array([4, 4, 4])
+    bins_size = simulation.size // distance + np.array([5, 5, 5])
     bins_size_help = tuple(bins_size.astype(int))
     bins_size = np.append(bins_size, 100)
     bins_size = tuple(bins_size.astype(int))
@@ -63,6 +64,8 @@ def check_neighbors_gpu(simulation, distance, edge_holder, max_neighbors):
     # sets up the correct allocation of threads and blocks
     threads_per_block = 72
     blocks_per_grid = math.ceil(simulation.number_cells / threads_per_block)
+
+    gc.collect()
 
     # calls the cuda function with the given inputs
     check_neighbors_cuda[blocks_per_grid, threads_per_block](locations_cuda, bins_cuda, bins_help_cuda,
@@ -120,7 +123,7 @@ def jkr_neighbors_gpu(simulation, distance, edge_holder, max_neighbors):
     edge_holder_cuda = cuda.to_device(edge_holder)
 
     # divides the space into bins and gives a holder of fixed size for each bin
-    bins_size = simulation.size // distance + np.array([4, 4, 4])
+    bins_size = simulation.size // distance + np.array([5, 5, 5])
     bins_size_help = tuple(bins_size.astype(int))
     bins_size = np.append(bins_size, 100)
     bins_size = tuple(bins_size.astype(int))
@@ -216,6 +219,10 @@ def get_forces_gpu(simulation, jkr_edges, delete_jkr_edges, poisson, youngs, adh
     """ The GPU parallelized version of forces_to_movement()
         from the Simulation class.
     """
+    # sets up the correct allocation of threads and blocks
+    threads_per_block = 72
+    blocks_per_grid = math.ceil(len(jkr_edges) / threads_per_block)
+
     # convert these arrays into a form able to be read by the GPU
     jkr_edges_cuda = cuda.to_device(jkr_edges)
     delete_jkr_edges_cuda = cuda.to_device(delete_jkr_edges)
@@ -227,10 +234,6 @@ def get_forces_gpu(simulation, jkr_edges, delete_jkr_edges, poisson, youngs, adh
     # send these to the gpu
     locations_cuda = cuda.to_device(simulation.cell_locations)
     radii_cuda = cuda.to_device(simulation.cell_radii)
-
-    # sets up the correct allocation of threads and blocks
-    threads_per_block = 72
-    blocks_per_grid = math.ceil(len(jkr_edges) / threads_per_block)
 
     # call the cuda function
     get_forces_cuda[blocks_per_grid, threads_per_block](jkr_edges_cuda, delete_jkr_edges_cuda, locations_cuda,

@@ -116,6 +116,14 @@ def setup(template_location):
     else:
         _path = _output_direct + separator + _name + separator
 
+    # create a CSV file used to hold information about run time, number of cells, memory, and various other statistics
+    _data_path = _path + _name + "_data.csv"
+
+    # open the file and create a csv object and write a header as the first line
+    with open(_data_path, "w", newline="") as file_object:
+        csv_object = csv.writer(file_object)
+        csv_object.writerow(["Step Number", "Step Time", "Number Cells", "Memory (MB)", "Check Neighbors"])
+
     # initializes simulation class which holds all information about the simulation
     simulation = Simulation.Simulation(_name, _path, _parallel, _size, _resolution, _num_states, _functions,
                                        _neighbor_distance, _time_step_value, _beginning_step, _total_steps,
@@ -126,7 +134,7 @@ def setup(template_location):
                                        _pluri_nanog_high_color, _pluri_both_high_color, _lonely_cell,
                                        _contact_inhibit, _guye_move, _motility_force, _dox_step, _max_radius,
                                        _move_thresh, _output_images, _output_csvs, _guye_radius, _guye_force,
-                                       _jkr_distance)
+                                       _jkr_distance, _data_path)
 
     # loops over the gradients and adds them to the simulation
     for i in range(len(_extracellular)):
@@ -169,7 +177,7 @@ def setup(template_location):
             simulation.current_step = i
 
             # saves a snapshot of the simulation
-            Output.save_file(simulation)
+            Output.step_image(simulation)
 
             # clears the array for the next round of images
             simulation.cell_locations = np.array([], dtype=float)
