@@ -17,8 +17,8 @@ class Simulation:
                  guye_distance, guye_force, jkr_distance, data_path):
 
         # the following instance variables should be fixed meaning that they don't change from step to step
-        # they are merely used to hold initial parameters from the template file
-        # see documentation for better explanations
+        # they are merely used to hold initial parameters from the template file that will needed throughout
+        # the simulation
         self.name = name    # the name of the simulation such as Run_43
         self.path = path    # the directory of where the simulation will output to
         self.parallel = parallel    # whether the model is used parallel GPU processing or not
@@ -62,73 +62,63 @@ class Simulation:
         self.guye_distance = guye_distance    # the radius of search for the nearest differentiated neighbor
         self.guye_force = guye_force    # the movement force for pluripotent cell to a differentiated cell
         self.jkr_distance = jkr_distance    # the radius of search for JKR adhesive bonds formed between cells
-        self.data_path = data_path
+        self.data_path = data_path    # the path for the data file
 
         # these arrays hold all values of the cells, each index corresponds to a cell
         # you may ask why not create an array that holds a bunch of Cell objects...and my answer to that
         # is in order to parallelize the functions with a GPU you need to convert a collection of variables into
         # an array that can be interpreted by the GPU so Cell classes will have to be constantly mined for their
         # instance variables, put into an array, and then reevaluated from an updated array after processing
-        self.cell_locations = np.empty((0, 3), dtype=float)
-        self.cell_radii = np.empty((0, 1), dtype=float)
-        self.cell_motion = np.empty((0, 1), dtype=bool)
-        self.cell_booleans = np.empty((0, 4), dtype=float)
-        self.cell_states = np.empty((0, 1), dtype=str)
-        self.cell_diff_counter = np.empty((0, 1), dtype=int)
-        self.cell_div_counter = np.empty((0, 1), dtype=int)
-        self.cell_death_counter = np.empty((0, 1), dtype=int)
-        self.cell_bool_counter = np.empty((0, 1), dtype=int)
-        self.cell_motility_force = np.empty((0, 3), dtype=float)
-        self.cell_jkr_force = np.empty((0, 3), dtype=float)
-        self.cell_closest_diff = np.empty((0, 1), dtype=int)
+        self.cell_locations = np.empty((0, 3), dtype=float)    # holds every cell's location vector in the space
+        self.cell_radii = np.empty((0, 1), dtype=float)     # holds every cell's radius
+        self.cell_motion = np.empty((0, 1), dtype=bool)    # holds every cell's boolean for being in motion or not
+        self.cell_fds = np.empty((0, 4), dtype=float)    # holds every cell's values for the fds
+        self.cell_states = np.empty((0, 1), dtype=str)    # holds every cell's state pluripotent or differentiated
+        self.cell_diff_counter = np.empty((0, 1), dtype=int)    # holds every cell's differentiation counter
+        self.cell_div_counter = np.empty((0, 1), dtype=int)    # holds every cell's division counter
+        self.cell_death_counter = np.empty((0, 1), dtype=int)    # holds every cell's death counter
+        self.cell_fds_counter = np.empty((0, 1), dtype=int)    # holds every cell's finite dynamical system counter
+        self.cell_motility_force = np.empty((0, 3), dtype=float)    # holds every cell's motility force vector
+        self.cell_jkr_force = np.empty((0, 3), dtype=float)    # holds every cell's JKR force vector
+        self.cell_closest_diff = np.empty((0, 1), dtype=int)    # holds index of closest differentiated neighbor
 
-        # holds the run time for important functions whenever they are called
-        self.ud_time = 0
-        self.cn_time = 0
-        self.nd_time = 0
-        self.cd_time = 0
-        self.cds_time = 0
-        self.cm_time = 0
-        self.uc_time = 0
-        self.ucq_time = 0
-        self.hm_time = 0
+        # holds the run time for key functions as a way tracking efficiency. each step these are outputted to the data
+        # CSV file
+        self.update_diffusion_time = 0
+        self.check_neighbors_time = 0
+        self.nearest_diff_time = 0
+        self.cell_death_time = 0
+        self.cell_diff_surround_time = 0
+        self.cell_motility_time = 0
+        self.cell_update_time = 0
+        self.update_queue_time = 0
+        self.handle_movement_time = 0
 
-        # holds the current number of cells
+        # holds the current number of cells, images, step, and time when a step started
         self.number_cells = 0
-
-        # counts how many times an image is created for making videos
         self.image_counter = 0
-
-        # keeps a running count of the simulation steps
         self.current_step = self.beginning_step
         self.step_start = 0
 
-        # array to hold all of the Extracellular objects
+        # holds all extracellular objects
         self.extracellular = np.array([], dtype=np.object)
 
-        # graph representing cells and neighbors
+        # neighbor graph is used to locate cells that are in close proximity, while the JKR graph holds adhesion bonds
+        # between cells that are either currently overlapping or once overlapped
         self.neighbor_graph = igraph.Graph()
-
-        # graph representing the presence of JKR adhesion bonds between cells
         self.jkr_graph = igraph.Graph()
 
-        # holds indices that will used to divide a cell or remove it
+        # holds all indices of cells that will divide this step or die this step
         self.cells_to_divide = np.array([], dtype=int)
         self.cells_to_remove = np.array([], dtype=int)
 
-        # the minimum radius after division currently 2D
+        # min and max radius lengths are used to calculate linear growth of the radius over time
         self.min_radius = self.max_radius / 2 ** 0.5
-
-        # growth rate based on min/max radius and division thresh for pluripotent cells
         self.pluri_growth = (self.max_radius - self.min_radius) / self.pluri_div_thresh
-
-        # growth rate based on min/max radius and division thresh for pluripotent cells
         self.diff_growth = (self.max_radius - self.min_radius) / self.diff_div_thresh
 
-        # Youngs modulus 1000 Pa
+        # Youngs modulus and Poisson's ratio used for JKR contact
         self.youngs_mod = 1000
-
-        # Poisson's ratio
         self.poisson = 0.5
 
     def info(self):
@@ -152,59 +142,54 @@ class Simulation:
     def update_diffusion(self):
         """ see Extracellular.py for description
         """
-        start = time.time()
+        # start time
+        self.update_diffusion_time = -1 * time.time()
 
+        # go through all of the gradient objects updating their diffusion
         for i in range(len(self.extracellular)):
             self.extracellular[i].update_gradient(self)
 
-        # record the total time of this function
-        end = time.time()
-        self.ud_time = end - start
+        # end time
+        self.update_diffusion_time += time.time()
 
     def random_vector(self):
         """ Computes a random point on a unit sphere centered at the origin
             Returns - point [x,y,z]
         """
-        # gets random angle on the cell
+        # a random angle on the cell
         theta = r.random() * 2 * math.pi
 
-        # gets x,y,z off theta and whether 2D or 3D
+        # determine if simulation is 2D or 3D
         if self.size[2] == 0:
-            # 2D
-            x = math.cos(theta)
-            y = math.sin(theta)
-            return np.array([x, y, 0.0])
+            x, y, z = math.cos(theta), math.sin(theta), 0.0
 
         else:
-            # 3D spherical coordinates
             phi = r.random() * 2 * math.pi
             radius = math.cos(phi)
+            x, y, z = radius * math.cos(theta), radius * math.sin(theta), math.sin(phi)
 
-            x = radius * math.cos(theta)
-            y = radius * math.sin(theta)
-            z = math.sin(phi)
-            return np.array([x, y, z])
+        return np.array([x, y, z])
 
-    def add_cell(self, location, radius, motion, booleans, state, diff_counter, div_counter, death_counter,
-                 bool_counter, motility_force, jkr_force, closest_diff):
+    def add_cell(self, location, radius, motion, fds, state, diff_counter, div_counter, death_counter,
+                 fds_counter, motility_force, jkr_force, closest_diff):
         """ Adds the parameters to each of the arrays
             that act as holders for all information
         """
-        # adds it to the array holding the cell objects
+        # adds it to the array holding the cell objects, 2D array must be handled slightly different
         self.cell_locations = np.append(self.cell_locations, [location], axis=0)
         self.cell_radii = np.append(self.cell_radii, radius)
         self.cell_motion = np.append(self.cell_motion, motion)
-        self.cell_booleans = np.append(self.cell_booleans, [booleans], axis=0)
+        self.cell_fds = np.append(self.cell_fds, [fds], axis=0)
         self.cell_states = np.append(self.cell_states, state)
         self.cell_diff_counter = np.append(self.cell_diff_counter, diff_counter)
         self.cell_div_counter = np.append(self.cell_div_counter, div_counter)
         self.cell_death_counter = np.append(self.cell_death_counter, death_counter)
-        self.cell_bool_counter = np.append(self.cell_bool_counter, bool_counter)
+        self.cell_fds_counter = np.append(self.cell_fds_counter, fds_counter)
         self.cell_motility_force = np.append(self.cell_motility_force, [motility_force], axis=0)
         self.cell_jkr_force = np.append(self.cell_jkr_force, [jkr_force], axis=0)
         self.cell_closest_diff = np.append(self.cell_closest_diff, closest_diff)
 
-        # add it to the following graphs, this is simply done by increasing the graph length by one
+        # add it to the following graphs, which just increases the number of vertices by 1
         self.neighbor_graph.add_vertex()
         self.jkr_graph.add_vertex()
 
@@ -212,20 +197,19 @@ class Simulation:
         self.number_cells += 1
 
     def remove_cell(self, index):
-        """ Will remove a cell from the main cell holder
-            "self.cells" in addition to removing the instance
-            from all graphs
+        """ Will remove a cell from all arrays
+            and graphs.
         """
         # delete the index of each holder array
         self.cell_locations = np.delete(self.cell_locations, index, axis=0)
         self.cell_radii = np.delete(self.cell_radii, index)
         self.cell_motion = np.delete(self.cell_motion, index)
-        self.cell_booleans = np.delete(self.cell_booleans, index, axis=0)
+        self.cell_fds = np.delete(self.cell_fds, index, axis=0)
         self.cell_states = np.delete(self.cell_states, index)
         self.cell_diff_counter = np.delete(self.cell_diff_counter, index)
         self.cell_div_counter = np.delete(self.cell_div_counter, index)
         self.cell_death_counter = np.delete(self.cell_death_counter, index)
-        self.cell_bool_counter = np.delete(self.cell_bool_counter, index)
+        self.cell_fds_counter = np.delete(self.cell_fds_counter, index)
         self.cell_motility_force = np.delete(self.cell_motility_force, index, axis=0)
         self.cell_jkr_force = np.delete(self.cell_jkr_force, index, axis=0)
         self.cell_closest_diff = np.delete(self.cell_closest_diff, index)
@@ -238,11 +222,12 @@ class Simulation:
         # update the number of cells
         self.number_cells -= 1
 
-    def update_cell_queue(self):
+    def update_queue(self):
         """ Controls how cells are added/removed from
             the simulation.
         """
-        start = time.time()
+        # start time
+        self.update_queue_time = -1 * time.time()
 
         # give the user an idea of how many cells are being added/removed during a given step
         print("Adding " + str(len(self.cells_to_divide)) + " cells...")
@@ -280,9 +265,8 @@ class Simulation:
         self.cells_to_divide = np.array([], dtype=int)
         self.cells_to_remove = np.array([], dtype=int)
 
-        # record the total time of this function
-        end = time.time()
-        self.ucq_time = end - start
+        # end time
+        self.update_queue_time += time.time()
 
     def divide(self, index):
         """ Simulates the division of cell by mitosis
@@ -301,11 +285,11 @@ class Simulation:
 
         # keep identical values for motion, booleans, state, differentiation, cell death, and boolean update
         motion = self.cell_motion[index]
-        booleans = self.cell_booleans[index]
+        booleans = self.cell_fds[index]
         state = self.cell_states[index]
         diff_counter = self.cell_diff_counter[index]
         death_counter = self.cell_death_counter[index]
-        bool_counter = self.cell_bool_counter[index]
+        bool_counter = self.cell_fds_counter[index]
 
         # set the force vector to zero
         motility_force = np.zeros(3, dtype=float)
@@ -315,11 +299,12 @@ class Simulation:
         self.add_cell(location, radius, motion, booleans, state, diff_counter, div_counter, death_counter,
                       bool_counter, motility_force, jkr_force, closest_diff)
 
-    def update_cells(self):
+    def cell_update(self):
         """ Loops over all indices of cells and updates
             certain parameters
         """
-        start = time.time()
+        # start time
+        self.cell_update_time = -1 * time.time()
 
         # loop over the cells
         for i in range(self.number_cells):
@@ -364,7 +349,7 @@ class Simulation:
                 # if a certain spot of the grid is less than the max FGF4 it can hold and the cell is NANOG high
                 # increase the FGF4 by 1
                 if self.extracellular[0].diffuse_values[index_x][index_y][index_z] < \
-                        self.extracellular[0].maximum and self.cell_booleans[i][3] == 1:
+                        self.extracellular[0].maximum and self.cell_fds[i][3] == 1:
                     self.extracellular[0].diffuse_values[index_x][index_y][index_z] += 1
 
                 # if the FGF4 amount for the location is greater than 0, set the fgf4_bool value to be 1 for the
@@ -375,19 +360,19 @@ class Simulation:
                     fgf4_bool = 0
 
                 # temporarily hold the FGFR value
-                temp_fgfr = self.cell_booleans[i][0]
+                temp_fgfr = self.cell_fds[i][0]
 
                 # only update the booleans when the counter matches the boolean update rate
-                if self.cell_bool_counter[i] % self.boolean_thresh == 0:
+                if self.cell_fds_counter[i] % self.boolean_thresh == 0:
                     # gets the functions from the simulation
                     function_list = self.functions
 
                     # xn is equal to the value corresponding to its function
                     x1 = fgf4_bool
-                    x2 = self.cell_booleans[i][0]
-                    x3 = self.cell_booleans[i][1]
-                    x4 = self.cell_booleans[i][2]
-                    x5 = self.cell_booleans[i][3]
+                    x2 = self.cell_fds[i][0]
+                    x3 = self.cell_fds[i][1]
+                    x4 = self.cell_fds[i][2]
+                    x5 = self.cell_fds[i][3]
 
                     # evaluate the functions by turning them from strings to math equations
                     new_fgf4 = eval(function_list[0]) % self.num_states
@@ -397,14 +382,14 @@ class Simulation:
                     new_nanog = eval(function_list[4]) % self.num_states
 
                     # updates self.booleans with the new boolean values and returns the new fgf4 value
-                    self.cell_booleans[i] = np.array([new_fgfr, new_erk, new_gata6, new_nanog])
+                    self.cell_fds[i] = np.array([new_fgfr, new_erk, new_gata6, new_nanog])
 
                 # otherwise carry the same value for fgf4
                 else:
                     new_fgf4 = fgf4_bool
 
                 # increase the boolean counter
-                self.cell_bool_counter[i] += 1
+                self.cell_fds_counter[i] += 1
 
                 # if the temporary FGFR value is 0 and the FGF4 value is 1 decrease the amount of FGF4 by 1
                 # this simulates FGFR using FGF4
@@ -413,7 +398,7 @@ class Simulation:
                     self.extracellular[0].diffuse_values[index_x][index_y][index_z] -= 1
 
                 # if the cell is GATA6 high and pluripotent increase the differentiation counter by 1
-                if self.cell_booleans[i][2] == 1 and self.cell_states[i] == "Pluripotent":
+                if self.cell_fds[i][2] == 1 and self.cell_states[i] == "Pluripotent":
                     self.cell_diff_counter[i] += 1
 
                     # if the differentiation counter is greater than the threshold, differentiate
@@ -422,21 +407,21 @@ class Simulation:
                         self.cell_states[i] = "Differentiated"
 
                         # set GATA6 high and NANOG low
-                        self.cell_booleans[i][2] = 1
-                        self.cell_booleans[i][3] = 0
+                        self.cell_fds[i][2] = 1
+                        self.cell_fds[i][3] = 0
 
                         # allow the cell to move again
                         self.cell_motion[i] = True
 
-        # record the total time of this function
-        end = time.time()
-        self.uc_time = end - start
+        # end time
+        self.cell_update_time += time.time()
 
     def cell_death(self):
         """ Simulates cell death based on pluripotency
             and number of neighbors
         """
-        start = time.time()
+        # start time
+        self.cell_death_time = -1 * time.time()
 
         # loops over all cells
         for i in range(self.number_cells):
@@ -453,21 +438,21 @@ class Simulation:
                 if self.cell_death_counter[i] >= self.death_thresh:
                     self.cells_to_remove = np.append(self.cells_to_remove, i)
 
-        # record the total time of this function
-        end = time.time()
-        self.cd_time = end - start
+        # end time
+        self.cell_death_time += time.time()
 
     def cell_diff_surround(self):
         """ Simulates the phenomenon of differentiated
             cells inducing the differentiation of a
             pluripotent/NANOG high cell
         """
-        start = time.time()
+        # start time
+        self.cell_diff_surround_time = -1 * time.time()
 
         # loops over all cells
         for i in range(self.number_cells):
             # checks to see if cell is pluripotent and GATA6 low
-            if self.cell_states[i] == "Pluripotent" and self.cell_booleans[i][2] == 0:
+            if self.cell_states[i] == "Pluripotent" and self.cell_fds[i][2] == 0:
                 # finds neighbors of a cell
                 neighbors = self.neighbor_graph.neighbors(i)
 
@@ -485,15 +470,15 @@ class Simulation:
                         self.cell_diff_counter[i] += 1
                         break
 
-        # record the total time of this function
-        end = time.time()
-        self.cds_time = end - start
+        # end time
+        self.cell_diff_surround_time += time.time()
 
     def cell_motility(self):
         """ Gives the cells a motion force, depending on
             set rules for the cell types.
         """
-        start = time.time()
+        # start time
+        self.cell_motility_time = -1 * time.time()
 
         # loop over all of the cells
         for i in range(self.number_cells):
@@ -536,7 +521,7 @@ class Simulation:
             else:
                 # apply movement if the cell is "in motion"
                 if self.cell_motion[i]:
-                    if self.cell_booleans[i][2] == 1:
+                    if self.cell_fds[i][2] == 1:
                         # continue if using Guye et al. movement and if there exists differentiated cells
                         if self.guye_move and self.cell_closest_diff[i] is not None:
                             # get the differentiated neighbors
@@ -556,16 +541,16 @@ class Simulation:
                         # if not GATA6 high
                         self.cell_motility_force[i] += self.random_vector() * self.motility_force
 
-        # record the total time of this function
-        end = time.time()
-        self.cm_time = end - start
+        # end time
+        self.cell_motility_time += time.time()
 
     def check_neighbors(self):
         """ checks all of the distances between cells if it
             is less than a fixed value create a connection
             between two cells.
         """
-        start = time.time()
+        # start time
+        self.check_neighbors_time = -1 * time.time()
 
         # clear all of the edges in the neighbor graph and get the radius of search length
         self.neighbor_graph.delete_edges(None)
@@ -628,16 +613,16 @@ class Simulation:
         self.neighbor_graph.add_edges(edge_holder)
         self.neighbor_graph.simplify()
 
-        # record the total time of this function
-        end = time.time()
-        self.cn_time = end - start
+        # end time
+        self.check_neighbors_time += time.time()
 
     def nearest_diff(self):
         """ looks at cells within a given radius
             a determines the closest differentiated
             cell to a pluripotent cell.
         """
-        start = time.time()
+        # start time
+        self.nearest_diff_time = -1 * time.time()
 
         # get the radius of search length
         distance = self.guye_distance
@@ -695,9 +680,8 @@ class Simulation:
                 if closest_dist <= distance:
                     self.cell_closest_diff[pivot_index] = closest_index
 
-        # record the total time of this function
-        end = time.time()
-        self.nd_time = end - start
+        # end time
+        self.nearest_diff_time += time.time()
 
     def jkr_neighbors(self):
         """ finds all pairs of cells that are overlapping
@@ -775,7 +759,8 @@ class Simulation:
             given time amount. Resets the force and
             velocity arrays as well.
         """
-        start = time.time()
+        # start time
+        self.handle_movement_time = -1 * time.time()
 
         # get the total amount of times the cells will be incrementally moved during the step
         steps = int(self.time_step_value / self.move_time_step)
@@ -794,9 +779,8 @@ class Simulation:
         # reset all forces back to zero vectors
         self.cell_motility_force = np.zeros((self.number_cells, 3))
 
-        # record the total time of this function
-        end = time.time()
-        self.hm_time = end - start
+        # end time
+        self.handle_movement_time += time.time()
 
     def get_forces(self):
         """ goes through all of the cells and quantifies any forces arising

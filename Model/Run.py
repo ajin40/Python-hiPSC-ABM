@@ -46,11 +46,11 @@ for simulation.current_step in range(simulation.beginning_step, simulation.end_s
 
     # Updates cells by adjusting trackers for differentiation and division based on intracellular, intercellular,
     # and extracellular conditions.   (base)
-    simulation.update_cells()
+    simulation.cell_update()
 
     # Adds/removes cells to/from the simulation either all together or in desired numbers of cells. If done in
     # groups, the handle_movement() function will be used to better represent asynchronous division and death   (base)
-    simulation.update_cell_queue()
+    simulation.update_queue()
 
     # Refreshes the graph used to represent cells as nodes and neighbor connections as edges.   (base)
     simulation.check_neighbors()

@@ -72,11 +72,11 @@ def step_image(simulation):
                 else:
                     if simulation.cell_states[j] == "Differentiated":
                         color = simulation.diff_color
-                    elif simulation.cell_booleans[j][2] == 1 and simulation.cell_booleans[j][3] == 1:
+                    elif simulation.cell_fds[j][2] == 1 and simulation.cell_fds[j][3] == 1:
                         color = simulation.pluri_both_high_color
-                    elif simulation.cell_booleans[j][2] == 1:
+                    elif simulation.cell_fds[j][2] == 1:
                         color = simulation.pluri_gata6_high_color
-                    elif simulation.cell_booleans[j][3] == 1:
+                    elif simulation.cell_fds[j][3] == 1:
                         color = simulation.pluri_nanog_high_color
                     else:
                         color = simulation.pluri_color
@@ -157,15 +157,15 @@ def step_csv(simulation):
             location_z = round(simulation.cell_locations[i][2], 8)
             radius = simulation.cell_radii[i]
             motion = simulation.cell_motion[i]
-            fgfr = simulation.cell_booleans[i][0]
-            erk = simulation.cell_booleans[i][1]
-            gata = simulation.cell_booleans[i][2]
-            nanog = simulation.cell_booleans[i][3]
+            fgfr = simulation.cell_fds[i][0]
+            erk = simulation.cell_fds[i][1]
+            gata = simulation.cell_fds[i][2]
+            nanog = simulation.cell_fds[i][3]
             state = simulation.cell_states[i]
             diff_counter = simulation.cell_diff_counter[i]
             div_counter = simulation.cell_div_counter[i]
             death_counter = simulation.cell_death_counter[i]
-            bool_counter = simulation.cell_bool_counter[i]
+            bool_counter = simulation.cell_fds_counter[i]
 
             # writes the row for the cell
             csv_write.writerow([location_x, location_y, location_z, radius, motion, fgfr, erk, gata, nanog, state,
@@ -187,15 +187,15 @@ def simulation_data(simulation):
         cells = simulation.number_cells
         step_time = time.time() - simulation.step_start
         memory = memory_profiler.memory_usage(max_usage=True)
-        ud = simulation.ud_time
-        cn = simulation.cn_time
-        nd = simulation.nd_time
-        cd = simulation.cd_time
-        cds = simulation.cds_time
-        cm = simulation.cm_time
-        uc = simulation.uc_time
-        ucq = simulation.ucq_time
-        hm = simulation.hm_time
+        ud = simulation.update_diffusion_time
+        cn = simulation.check_neighbors_time
+        nd = simulation.nearest_diff_time
+        cd = simulation.cell_death_time
+        cds = simulation.cell_diff_surround_time
+        cm = simulation.cell_motility_time
+        uc = simulation.cell_update_time
+        ucq = simulation.update_queue_time
+        hm = simulation.handle_movement_time
 
         # write the row with the corresponding values
         csv_object.writerow([step, cells, step_time, memory, ud, cn, nd, cd, cds, cm, uc, ucq, hm])
