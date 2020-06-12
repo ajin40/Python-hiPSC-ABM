@@ -164,9 +164,9 @@ def simulation_data(simulation):
                                     simulation.handle_movement_time])
 
 
-def initialize_files(simulation):
-    """ Opens a csv and video file for the images
-        and data per step to be added to.
+def initialize_csv(simulation):
+    """ Opens a csv file to be written
+        to each step with stats
     """
     # create a CSV file used to hold information about run time, number of cells, memory, and various other statistics
     data_path = simulation.path + simulation.name + "_data.csv"
@@ -177,6 +177,12 @@ def initialize_files(simulation):
     simulation.csv_object.writerow(["Step Number", "Number Cells", "Step Time", "Memory (MB)", "update_diffusion",
                                     "check_neighbors", "nearest_diff", "cell_death", "diff_surround",
                                     "cell_motility", "update_cells", "update_cell_queue", "handle_movement"])
+
+
+def initialize_video(simulation):
+    """ Opens the video file to be written
+        to each step with the image produced
+    """
 
     # creates a video file that can be written to each step
     video_path = simulation.path + simulation.name + '_video.avi'

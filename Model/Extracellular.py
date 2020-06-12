@@ -60,23 +60,17 @@ class Extracellular:
         """ Updates the environment space by "smoothing"
             the concentrations of the space
         """
-        # if desired, run the parallel version of this function
-        if self.parallel:
-            pass
-            # import Parallel
-            # Parallel.update_gradient_gpu(self, simulation)
-        else:
-            # get the number of times this will be run
-            time_steps = int(simulation.time_step_value / self.dt)
+        # get the number of times this will be run
+        time_steps = int(simulation.time_step_value / self.dt)
 
-            # perform the following operations on the diffusion points at each time step
-            for i in range(time_steps):
-                # make the variable name smaller for easier writing
-                a = self.diffuse_values
+        # perform the following operations on the diffusion points at each time step
+        for i in range(time_steps):
+            # make the variable name smaller for easier writing
+            a = self.diffuse_values
 
-                x = (a[2:][1:-1][1:-1] - 2 * a[1:-1][1:-1][1:-1] + a[:-2][1:-1][1:-1]) / self.dx2
-                y = (a[1:-1][2:][1:-1] - 2 * a[1:-1][1:-1][1:-1] + a[1:-1][:-2][1:-1]) / self.dy2
-                z = (a[1:-1][1:-1][2:] - 2 * a[1:-1][1:-1][1:-1] + a[1:-1][1:-1][:-2]) / self.dz2
+            x = (a[2:][1:-1][1:-1] - 2 * a[1:-1][1:-1][1:-1] + a[:-2][1:-1][1:-1]) / self.dx2
+            y = (a[1:-1][2:][1:-1] - 2 * a[1:-1][1:-1][1:-1] + a[1:-1][:-2][1:-1]) / self.dy2
+            z = (a[1:-1][1:-1][2:] - 2 * a[1:-1][1:-1][1:-1] + a[1:-1][1:-1][:-2]) / self.dz2
 
-                # update the array
-                self.diffuse_values[1:-1][1:-1][1:-1] = a[1:-1][1:-1][1:-1] + self.diffuse_const * self.dt * (x + y + z)
+            # update the array
+            self.diffuse_values[1:-1][1:-1][1:-1] = a[1:-1][1:-1][1:-1] + self.diffuse_const * self.dt * (x + y + z)

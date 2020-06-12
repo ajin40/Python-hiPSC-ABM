@@ -20,7 +20,8 @@ import Output
 simulation = Input.setup("C:\\Python37\\Seed Project\\Model\\template.txt")
 
 # opens the data csv file and the video file as these will be continually modified.    (base)
-Output.initialize_files(simulation)
+Output.initialize_csv(simulation)
+Output.initialize_video(simulation)
 
 # Adds the initial concentration amounts to the space for each instance of the extracellular class    (base)
 simulation.initialize_diffusion()
@@ -58,21 +59,14 @@ for simulation.current_step in range(simulation.beginning_step, simulation.end_s
     # groups, the handle_movement() function will be used to better represent asynchronous division and death   (base)
     simulation.update_queue()
 
-    # Refreshes the graph used to represent cells as nodes and neighbor connections as edges.   (base)
-    simulation.check_neighbors()
-
     # Moves the cells to a state of physical equilibrium so that there is minimal overlap of cells, while also
     # applying forces from the previous motility_cells() function.   (base)
     simulation.handle_movement()
 
-    # Creates an 2D image of the space.   (base)
+    # The first function will save a 2D image of the space, the second will create a csv with each row corresponding to
+    # an individual cell, and the last will save performance statistics to running csv.    (base)
     Output.step_image(simulation)
-
-    # Creates a CSV file with each line corresponding to a cell.    (base)
     Output.step_csv(simulation)
-
-    # Adds a line to a running CSV file that includes information about the number of cells, total memory use,
-    # individual step run time, and various other information.    (base)
     Output.simulation_data(simulation)
 
 # ends the simulation by closing any necessary files

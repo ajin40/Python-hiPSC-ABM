@@ -45,7 +45,7 @@ Will this be a continuation of a previous simulation? Ex. True
 [ False ]
 
 Do you want to turn a previous collection of .csv files into images and a video? Ex. False
-[ False ]
+[ True ]
 
 Do you want to turn a previous collection of images into a video? Use after simulation is stopped before end. Ex. False
 [ False ]

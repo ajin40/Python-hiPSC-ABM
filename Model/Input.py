@@ -4,6 +4,7 @@ import os
 import shutil
 import platform
 import csv
+import cv2
 
 import Extracellular
 import Simulation
@@ -155,36 +156,39 @@ def setup(template_location):
     elif _csv_to_images:
         print("Turning CSVs into images...")
 
-        # use list comprehension to get all .csv files in the directory
-        csv_list = [file for file in os.listdir(simulation.path) if file.endswith(".csv")]
+        # create the video file
+        Output.initialize_video(simulation)
 
-        # loop over all CSVs avoiding the first file which is a copy of the template
-        for i in range(simulation.beginning_step, len(csv_list) + 1):
-            # calls the following function to add instances of the cell class to the simulation instance
-            csv_to_simulation(simulation, simulation.path + csv_list[i-1])
-
+        # loop over all csvs defined in the template file
+        for i in range(simulation.beginning_step, simulation.end_step + 1):
             # updates the instance variables as they aren't updated by anything else
             simulation.current_step = i
+
+            # calls the following function to add instances of the cell class to the simulation instance
+            csv_to_simulation(simulation, simulation.path + simulation.name + "_values_" + str(int(i)) + ".csv")
 
             # saves a snapshot of the simulation
             Output.step_image(simulation)
 
             # clears the array for the next round of images
-            simulation.cell_locations = np.array([], dtype=float)
-            simulation.cell_radii = np.array([], dtype=float)
-            simulation.cell_motion = np.array([], dtype=bool)
-            simulation.cell_booleans = np.array([], dtype=object)
-            simulation.cell_states = np.array([], dtype=str)
-            simulation.cell_diff_counter = np.array([], dtype=int)
-            simulation.cell_div_counter = np.array([], dtype=int)
-            simulation.cell_death_counter = np.array([], dtype=int)
-            simulation.cell_bool_counter = np.array([], dtype=int)
-            simulation.cell_motility_force = np.array([], dtype=object)
-            simulation.cell_jkr_force = np.array([], dtype=object)
-            simulation.cell_closest_diff = np.array([], dtype=int)
+            simulation.cell_locations = np.empty((0, 3), dtype=float)
+            simulation.cell_radii = np.empty((0, 1), dtype=float)
+            simulation.cell_motion = np.empty((0, 1), dtype=bool)
+            simulation.cell_fds = np.empty((0, 4), dtype=float)
+            simulation.cell_states = np.empty((0, 1), dtype=str)
+            simulation.cell_diff_counter = np.empty((0, 1), dtype=int)
+            simulation.cell_div_counter = np.empty((0, 1), dtype=int)
+            simulation.cell_death_counter = np.empty((0, 1), dtype=int)
+            simulation.cell_fds_counter = np.empty((0, 1), dtype=int)
+            simulation.cell_motility_force = np.empty((0, 3), dtype=float)
+            simulation.cell_jkr_force = np.empty((0, 3), dtype=float)
+            simulation.cell_closest_diff = np.empty((0, 1), dtype=int)
+
+            # clear the number of cells holder
+            simulation.number_cells = 0
 
         # turns the images into a video
-        Output.image_to_video(simulation)
+        Output.finish_files(simulation)
 
         # exits out as the conversion from .csv to images/video is done
         exit()
@@ -196,14 +200,19 @@ def setup(template_location):
     elif _images_to_video:
         print("Turning images into a video...")
 
-        # use list comprehension to get all .png files in the directory
-        image_list = [file for file in os.listdir(simulation.path) if file.endswith(".png")]
+        # create the video file
+        Output.initialize_video(simulation)
 
-        # update how many images will be made into a video
-        simulation.image_counter = len(image_list)
+        # loop over all images defined in the template file
+        for i in range(simulation.beginning_step, simulation.end_step + 1):
 
-        # turns the images into a video
-        Output.image_to_video(simulation)
+            # calls the following function to add instances of the cell class to the simulation instance
+            csv_to_simulation(simulation, simulation.path + simulation.name + "_values_" + str(int(i)) + ".csv")
+
+            # read the image and write it to the video file
+            image_name = simulation.name + "_image_" + str(int(i)) + "_slice_" + str(0) + ".png"
+            image = cv2.imread(simulation.path + image_name)
+            simulation.video_object.write(image)
 
         # exits out as the conversion from images to video is done
         exit()
