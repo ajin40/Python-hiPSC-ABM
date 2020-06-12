@@ -19,6 +19,12 @@ import Output
 # This is done by reading a template .txt file that contains all initial parameters of the model.   (base)
 simulation = Input.setup("C:\\Python37\\Seed Project\\Model\\template.txt")
 
+# opens the data csv file and the video file as these will be continually modified.    (base)
+Output.initialize_files(simulation)
+
+# Adds the initial concentration amounts to the space for each instance of the extracellular class    (base)
+simulation.initialize_diffusion()
+
 # This will loop over all steps defined in the template file in addition to updating the current step
 # of the simulation.   (base)
 for simulation.current_step in range(simulation.beginning_step, simulation.end_step + 1):
@@ -69,5 +75,5 @@ for simulation.current_step in range(simulation.beginning_step, simulation.end_s
     # individual step run time, and various other information.    (base)
     Output.simulation_data(simulation)
 
-# Looks at all images produced by the simulation and turns them into a video.
-Output.image_to_video(simulation)
+# ends the simulation by closing any necessary files
+Output.finish_files(simulation)

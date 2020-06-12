@@ -108,68 +108,41 @@ def step_image(simulation):
             image_name = simulation.name + "_image_" + str(int(simulation.current_step))+"_slice_"+str(int(i)) + ".png"
             base.save(simulation.path + image_name, 'PNG')
 
+            image = cv2.imread(simulation.path + image_name)
+            simulation.video_object.write(image)
+
             # moves to the next slice location
             lower_slice += thickness
             upper_slice += thickness
 
 
-def image_to_video(simulation):
-    """ Creates a video out of all the png images at
-        the end of the simulation
-    """
-    # only make a video if images exist
-    if simulation.output_images:
-        image_quality = simulation.image_quality
-
-        # creates a base video file to save to
-        video_path = simulation.path + simulation.name + '_video.avi'
-        out = cv2.VideoWriter(video_path, cv2.VideoWriter_fourcc("M", "J", "P", "G"), 1.0, image_quality)
-
-        # loops over all images and writes them to the base video file
-        for i in range(simulation.beginning_step, simulation.beginning_step + simulation.image_counter + 1):
-            path = simulation.path + simulation.name + "_image_" + str(i) + "_slice_0" + ".png"
-            image = cv2.imread(path)
-            out.write(image)
-
-        # releases the file
-        out.release()
-    # tells the use the simulation is over
-    print("Done")
-
-
 def step_csv(simulation):
-    """ Outputs a .csv file of important Cell
-        instance variables from each cell
+    """ Outputs a .csv file containing information
+        about each cell with each row corresponding
+        to a cell
     """
+    # only create this file if desired
     if simulation.output_csvs:
-        # opens .csv file
-        file_name = simulation.path + simulation.name + "_values_" + str(int(simulation.current_step)) + ".csv"
-        new_file = open(file_name, "w", newline="")
-        csv_write = csv.writer(new_file)
-        csv_write.writerow(['X_position', 'Y_position', 'Z_position', 'Radius', 'Motion', 'FGFR', 'ERK', 'GATA6',
-                            'NANOG', 'State', 'Differentiation_counter', 'Division_counter', 'Death_counter',
-                            'Boolean_counter'])
+        # open a new file
+        file_path = simulation.path + simulation.name + "_values_" + str(int(simulation.current_step)) + ".csv"
+        with open(file_path, "w", newline="") as new_file:
+            csv_file = csv.writer(new_file)
 
-        # each row is a different cell
-        for i in range(simulation.number_cells):
-            location_x = round(simulation.cell_locations[i][0], 8)
-            location_y = round(simulation.cell_locations[i][1], 8)
-            location_z = round(simulation.cell_locations[i][2], 8)
-            radius = simulation.cell_radii[i]
-            motion = simulation.cell_motion[i]
-            fgfr = simulation.cell_fds[i][0]
-            erk = simulation.cell_fds[i][1]
-            gata = simulation.cell_fds[i][2]
-            nanog = simulation.cell_fds[i][3]
-            state = simulation.cell_states[i]
-            diff_counter = simulation.cell_diff_counter[i]
-            div_counter = simulation.cell_div_counter[i]
-            death_counter = simulation.cell_death_counter[i]
-            bool_counter = simulation.cell_fds_counter[i]
+            # write the header of the csv
+            csv_file.writerow(['X_position', 'Y_position', 'Z_position', 'Radius', 'Motion', 'FGFR', 'ERK', 'GATA6',
+                               'NANOG', 'State', 'Differentiation_counter', 'Division_counter', 'Death_counter',
+                               'Boolean_counter'])
 
-            # writes the row for the cell
-            csv_write.writerow([location_x, location_y, location_z, radius, motion, fgfr, erk, gata, nanog, state,
-                                diff_counter, div_counter, death_counter, bool_counter])
+            # turn the cell holder arrays into a list of rows to add to the csv file
+            cell_data = list(zip(simulation.cell_locations[:, 0], simulation.cell_locations[:, 1],
+                                 simulation.cell_locations[:, 2], simulation.cell_radii, simulation.cell_motion,
+                                 simulation.cell_fds[:, 0], simulation.cell_fds[:, 1], simulation.cell_fds[:, 2],
+                                 simulation.cell_fds[:, 3], simulation.cell_states, simulation.cell_diff_counter,
+                                 simulation.cell_div_counter, simulation.cell_death_counter,
+                                 simulation.cell_fds_counter))
+
+            # write the list containing the new csv rows
+            csv_file.writerows(cell_data)
 
 
 def simulation_data(simulation):
@@ -178,24 +151,45 @@ def simulation_data(simulation):
         memory, step time, number of cells,
         and various other stats.
     """
-    # opens the file
-    with open(simulation.data_path, "a", newline="") as file_object:
-        csv_object = csv.writer(file_object)
+    # calculate the step time and the memory
+    step_time = time.time() - simulation.step_start
+    memory = memory_profiler.memory_usage(max_usage=True)
 
-        # get all of the values necessary to write to the data file
-        step = simulation.current_step
-        cells = simulation.number_cells
-        step_time = time.time() - simulation.step_start
-        memory = memory_profiler.memory_usage(max_usage=True)
-        ud = simulation.update_diffusion_time
-        cn = simulation.check_neighbors_time
-        nd = simulation.nearest_diff_time
-        cd = simulation.cell_death_time
-        cds = simulation.cell_diff_surround_time
-        cm = simulation.cell_motility_time
-        uc = simulation.cell_update_time
-        ucq = simulation.update_queue_time
-        hm = simulation.handle_movement_time
+    # write the row with the corresponding values
+    simulation.csv_object.writerow([simulation.current_step, simulation.number_cells, step_time, memory,
+                                    simulation.update_diffusion_time, simulation.check_neighbors_time,
+                                    simulation.nearest_diff_time, simulation.cell_death_time,
+                                    simulation.cell_diff_surround_time, simulation.cell_motility_time,
+                                    simulation.cell_update_time, simulation.update_queue_time,
+                                    simulation.handle_movement_time])
 
-        # write the row with the corresponding values
-        csv_object.writerow([step, cells, step_time, memory, ud, cn, nd, cd, cds, cm, uc, ucq, hm])
+
+def initialize_files(simulation):
+    """ Opens a csv and video file for the images
+        and data per step to be added to.
+    """
+    # create a CSV file used to hold information about run time, number of cells, memory, and various other statistics
+    data_path = simulation.path + simulation.name + "_data.csv"
+
+    # open the file and create a csv object and write a header as the first line
+    file_object = open(data_path, "w", newline="")
+    simulation.csv_object = csv.writer(file_object)
+    simulation.csv_object.writerow(["Step Number", "Number Cells", "Step Time", "Memory (MB)", "update_diffusion",
+                                    "check_neighbors", "nearest_diff", "cell_death", "diff_surround",
+                                    "cell_motility", "update_cells", "update_cell_queue", "handle_movement"])
+
+    # creates a video file that can be written to each step
+    video_path = simulation.path + simulation.name + '_video.avi'
+    simulation.video_object = cv2.VideoWriter(video_path, cv2.VideoWriter_fourcc("M", "J", "P", "G"), simulation.fps,
+                                              simulation.image_quality)
+
+
+def finish_files(simulation):
+    """ Closes any necessary files and
+        prints an ending statement
+    """
+    # close out the running video file
+    simulation.video_object.release()
+
+    # end statement
+    print("The simulation is finished. May the force be with you.")

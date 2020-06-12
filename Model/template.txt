@@ -58,7 +58,7 @@ running a simulation, type 1. Ex. 1
 [ 1 ]
 
 What will the final step number be? Ex. 30
-[ 192 ]
+[ 5 ]
 
 How long is each time step in seconds? Ex. 3600
 [ 1800 ]
@@ -180,6 +180,9 @@ Guye force of motility in newtons. Ex. 0.00000001
 
 JKR radius
 [ 0.00001 ]
+
+Frames per second
+[ 1.0 ]
 
 The time has come. Execute Order Sixty-Six? Ex. True
 [ True ]

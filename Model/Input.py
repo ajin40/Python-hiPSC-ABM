@@ -103,6 +103,7 @@ def setup(template_location):
     _guye_radius = float(lines[175][2:-3])
     _guye_force = float(lines[178][2:-3])
     _jkr_distance = float(lines[181][2:-3])
+    _fps = float(lines[184][2:-3])
 
     # if the mode is not a continuation and not turning CSVs into images
     if not _continuation and not _csv_to_images and not _images_to_video:
@@ -116,16 +117,6 @@ def setup(template_location):
     else:
         _path = _output_direct + separator + _name + separator
 
-    # create a CSV file used to hold information about run time, number of cells, memory, and various other statistics
-    _data_path = _path + _name + "_data.csv"
-
-    # open the file and create a csv object and write a header as the first line
-    with open(_data_path, "w", newline="") as file_object:
-        csv_object = csv.writer(file_object)
-        csv_object.writerow(["Step Number", "Number Cells", "Step Time", "Memory (MB)", "update_diffusion",
-                             "check_neighbors", "nearest_diff", "cell_death", "diff_surround", "cell_motility",
-                             "update_cells", "update_cell_queue", "handle_movement"])
-
     # initializes simulation class which holds all information about the simulation
     simulation = Simulation.Simulation(_name, _path, _parallel, _size, _resolution, _num_states, _functions,
                                        _neighbor_distance, _time_step_value, _beginning_step, _total_steps,
@@ -136,7 +127,7 @@ def setup(template_location):
                                        _pluri_nanog_high_color, _pluri_both_high_color, _lonely_cell,
                                        _contact_inhibit, _guye_move, _motility_force, _dox_step, _max_radius,
                                        _move_thresh, _output_images, _output_csvs, _guye_radius, _guye_force,
-                                       _jkr_distance, _data_path)
+                                       _jkr_distance, _fps)
 
     # loops over the gradients and adds them to the simulation
     for i in range(len(_extracellular)):
@@ -145,9 +136,6 @@ def setup(template_location):
                                                         _extracellular[i][1], _extracellular[i][2], _parallel)
         # adds the Extracellular object
         simulation.extracellular = np.append(simulation.extracellular, [new_extracellular])
-
-    # Adds the initial concentration amounts to the space for each instance of the extracellular class    (base)
-    simulation.initialize_diffusion()
 
 #######################################################################################################################
 # Continuation Mode

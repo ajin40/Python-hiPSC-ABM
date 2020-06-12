@@ -14,7 +14,7 @@ class Simulation:
                  slices, image_quality, background_color, bound_color, color_mode, pluri_color, diff_color,
                  pluri_gata6_high_color, pluri_nanog_high_color, pluri_both_high_color, lonely_cell, contact_inhibit,
                  guye_move, motility_force, dox_step, max_radius, move_thresh, output_images, output_csvs,
-                 guye_distance, guye_force, jkr_distance, data_path):
+                 guye_distance, guye_force, jkr_distance, fps):
 
         # the following instance variables should be fixed meaning that they don't change from step to step
         # they are merely used to hold initial parameters from the template file that will needed throughout
@@ -62,7 +62,7 @@ class Simulation:
         self.guye_distance = guye_distance    # the radius of search for the nearest differentiated neighbor
         self.guye_force = guye_force    # the movement force for pluripotent cell to a differentiated cell
         self.jkr_distance = jkr_distance    # the radius of search for JKR adhesive bonds formed between cells
-        self.data_path = data_path    # the path for the data file
+        self.fps = fps    # the frames per second of the video
 
         # these arrays hold all values of the cells, each index corresponds to a cell
         # you may ask why not create an array that holds a bunch of Cell objects...and my answer to that
@@ -121,6 +121,10 @@ class Simulation:
         self.youngs_mod = 1000
         self.poisson = 0.5
 
+        # the csv and video objects that will be updated each step
+        self.csv_object = object()
+        self.video_object = object()
+
     def info(self):
         """ Prints the step number and number of
             cells in addition to recording the
@@ -161,9 +165,11 @@ class Simulation:
 
         # determine if simulation is 2D or 3D
         if self.size[2] == 0:
+            # 2D vector
             x, y, z = math.cos(theta), math.sin(theta), 0.0
 
         else:
+            # 3D vector
             phi = r.random() * 2 * math.pi
             radius = math.cos(phi)
             x, y, z = radius * math.cos(theta), radius * math.sin(theta), math.sin(phi)
