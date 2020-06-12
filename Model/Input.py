@@ -267,31 +267,27 @@ def csv_to_simulation(simulation, csv_file):
     """
     # opens the csv and lists the rows
     with open(csv_file, "r", newline="") as csv_file:
-        csv_rows = list(csv.reader(csv_file))
+        csv_rows = list(csv.reader(csv_file))[1:]
 
-    # loop over all rows in the csv, each line represents a cell
-    for row in csv_rows[1:]:
-        # get the parameters from each row in the csv
-        location_x, location_y, location_z = eval(row[0]), eval(row[1]), eval(row[2])
-        location = np.array([location_x, location_y, location_z])
-        radius = eval(row[3])
-        motion = eval(row[4])
-        fgfr, erk, gata6, nanog = eval(row[5]), eval(row[6]), eval(row[7]), eval(row[8])
-        booleans = np.array([fgfr, erk, gata6, nanog])
-        state = row[9]
-        diff_counter = eval(row[10])
-        div_counter = eval(row[11])
-        death_counter = eval(row[12])
-        bool_counter = eval(row[13])
+    # updates the total amount of cells
+    simulation.number_cells = len(csv_rows)
 
-        # set up the forces and closest differentiated cell with empty values
-        motility_force = np.zeros(3, dtype=float)
-        jkr_force = np.zeros(3, dtype=float)
-        closest_diff = None
+    # turn all of the rows into a matrix
+    cell_data = np.column_stack(csv_rows)
 
-        # add the cell to the holder arrays
-        simulation.add_cell(location, radius, motion, booleans, state, diff_counter, div_counter, death_counter,
-                            bool_counter, motility_force, jkr_force, closest_diff)
+    # each row of the matrix will correspond to a cell value holder. the 2D arrays must be handled differently
+    simulation.cell_locations = cell_data[0:3, :].transpose().astype(float)
+    simulation.cell_radii = cell_data[3].astype(float)
+    simulation.cell_motion = cell_data[4] == "True"
+    simulation.cell_fds = cell_data[5:9, :].transpose().astype(float).astype(int)
+    simulation.cell_states = cell_data[9].astype(str)
+    simulation.cell_diff_counter = cell_data[10].astype(int)
+    simulation.cell_div_counter = cell_data[11].astype(int)
+    simulation.cell_death_counter = cell_data[12].astype(int)
+    simulation.cell_fds_counter = cell_data[12].astype(int)
+    simulation.cell_motility_force = np.zeros((simulation.number_cells, 3), dtype=float)
+    simulation.cell_jkr_force = np.zeros((simulation.number_cells, 3), dtype=float)
+    simulation.cell_closest_diff = np.empty((simulation.number_cells, 3), dtype=None)
 
 
 def check_name(output_path, name, separator):

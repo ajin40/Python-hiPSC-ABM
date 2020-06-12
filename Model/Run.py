@@ -29,7 +29,6 @@ simulation.initialize_diffusion()
 # This will loop over all steps defined in the template file in addition to updating the current step
 # of the simulation.   (base)
 for simulation.current_step in range(simulation.beginning_step, simulation.end_step + 1):
-
     # Prints the current step and number of cells and records current time. Used to give an idea of the progress.
     simulation.info()
 
@@ -39,8 +38,9 @@ for simulation.current_step in range(simulation.beginning_step, simulation.end_s
     # Refreshes the graph used to represent cells as nodes and neighbor connections as edges.   (base)
     simulation.check_neighbors()
 
-    # if any differentiated cells exist within a cell's defined search radius, this will find the closest one.
-    simulation.nearest_diff()
+    # Updates cells by adjusting trackers for differentiation and division based on intracellular, intercellular,
+    # and extracellular conditions.   (base)
+    simulation.cell_update()
 
     # A way of introducing cell death into the model by removing cells if they are without neighbors for so long.
     simulation.cell_death()
@@ -48,20 +48,19 @@ for simulation.current_step in range(simulation.beginning_step, simulation.end_s
     # Represents the phenomena that differentiated neighbors of a pluripotent cell may induce its differentiation.
     simulation.cell_diff_surround()
 
-    # Gets motility forces depending on a variety of factors involving state and presence of neighbors
-    simulation.cell_motility()
-
-    # Updates cells by adjusting trackers for differentiation and division based on intracellular, intercellular,
-    # and extracellular conditions.   (base)
-    simulation.cell_update()
-
     # Adds/removes cells to/from the simulation either all together or in desired numbers of cells. If done in
     # groups, the handle_movement() function will be used to better represent asynchronous division and death   (base)
     simulation.update_queue()
 
+    # if any differentiated cells exist within a cell's defined search radius, this will find the closest one.
+    simulation.nearest_diff()
+
     # Moves the cells to a state of physical equilibrium so that there is minimal overlap of cells, while also
     # applying forces from the previous motility_cells() function.   (base)
     simulation.handle_movement()
+
+    # Gets motility forces depending on a variety of factors involving state and presence of neighbors
+    simulation.cell_motility()
 
     # The first function will save a 2D image of the space, the second will create a csv with each row corresponding to
     # an individual cell, and the last will save performance statistics to running csv.    (base)

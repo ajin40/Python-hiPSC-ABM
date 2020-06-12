@@ -183,7 +183,6 @@ def initialize_video(simulation):
     """ Opens the video file to be written
         to each step with the image produced
     """
-
     # creates a video file that can be written to each step
     video_path = simulation.path + simulation.name + '_video.avi'
     simulation.video_object = cv2.VideoWriter(video_path, cv2.VideoWriter_fourcc("M", "J", "P", "G"), simulation.fps,
