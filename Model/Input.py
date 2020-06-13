@@ -106,20 +106,14 @@ def setup(template_location):
     _jkr_distance = float(lines[181][2:-3])
     _fps = float(lines[184][2:-3])
 
-    # if the mode is not a continuation and not turning CSVs into images
-    if not _continuation and not _csv_to_images and not _images_to_video:
-        # use the check_name function to make sure there aren't any duplicate simulations
-        _path, _name = check_name(_output_direct, _name, separator)
+    # check that the name and path from the template are valid
+    _path = check_name(_output_direct, _name, separator, _continuation, _csv_to_images, _images_to_video)
 
-        # copy the template file to the new directory of the simulation
-        shutil.copy(template_location, _path)
-
-    # otherwise the path becomes the directory specific to the desired simulation
-    else:
-        _path = _output_direct + separator + _name + separator
+    # copy the template to the directory
+    shutil.copy(template_location, _path)
 
     # initializes simulation class which holds all information about the simulation
-    simulation = Simulation.Simulation(_name, _path, _parallel, _size, _resolution, _num_states, _functions,
+    simulation = Simulation.Simulation(_path, _parallel, _size, _resolution, _num_states, _functions,
                                        _neighbor_distance, _time_step_value, _beginning_step, _total_steps,
                                        _move_time_step, _pluri_div_thresh, _pluri_to_diff, _diff_div_thresh,
                                        _boolean_thresh, _death_thresh, _diff_surround, _adhesion_const, _viscosity,
@@ -138,89 +132,20 @@ def setup(template_location):
         # adds the Extracellular object
         simulation.extracellular = np.append(simulation.extracellular, [new_extracellular])
 
-#######################################################################################################################
-# Continuation Mode
-
-    # if this is a continuation of previous simulation, we need to look at previous .csv for cell info
+    # decide which mode the simulation is intended to be run in
+    # continue a previous simulation
     if _continuation:
-        # gets the previous .csv file by subtracting the beginning step by 1
-        previous = simulation.path + simulation.name + "_values_" + str(simulation.beginning_step - 1) + ".csv"
+        continue_mode(simulation)
 
-        # calls the following function to add instances of the cell class to the simulation instance
-        csv_to_simulation(simulation, previous)
-
-#######################################################################################################################
-# Convert CSVs to Images Mode
-
-    # check if this will be turning an output of .csv files into images
+    # turn a collection of csvs into images and a video
     elif _csv_to_images:
-        print("Turning CSVs into images...")
+        csv_to_image_mode(simulation)
 
-        # create the video file
-        Output.initialize_video(simulation)
-
-        # loop over all csvs defined in the template file
-        for i in range(simulation.beginning_step, simulation.end_step + 1):
-            # updates the instance variables as they aren't updated by anything else
-            simulation.current_step = i
-
-            # calls the following function to add instances of the cell class to the simulation instance
-            csv_to_simulation(simulation, simulation.path + simulation.name + "_values_" + str(int(i)) + ".csv")
-
-            # saves a snapshot of the simulation
-            Output.step_image(simulation)
-
-            # clears the array for the next round of images
-            simulation.cell_locations = np.empty((0, 3), dtype=float)
-            simulation.cell_radii = np.empty((0, 1), dtype=float)
-            simulation.cell_motion = np.empty((0, 1), dtype=bool)
-            simulation.cell_fds = np.empty((0, 4), dtype=float)
-            simulation.cell_states = np.empty((0, 1), dtype=str)
-            simulation.cell_diff_counter = np.empty((0, 1), dtype=int)
-            simulation.cell_div_counter = np.empty((0, 1), dtype=int)
-            simulation.cell_death_counter = np.empty((0, 1), dtype=int)
-            simulation.cell_fds_counter = np.empty((0, 1), dtype=int)
-            simulation.cell_motility_force = np.empty((0, 3), dtype=float)
-            simulation.cell_jkr_force = np.empty((0, 3), dtype=float)
-            simulation.cell_closest_diff = np.empty((0, 1), dtype=int)
-
-            # clear the number of cells holder
-            simulation.number_cells = 0
-
-        # turns the images into a video
-        Output.finish_files(simulation)
-
-        # exits out as the conversion from .csv to images/video is done
-        exit()
-
-#######################################################################################################################
-# Images to Video Mode
-
-    # check if this will be turning an output of .csv files into images and a video
+    # turn a collection of images into a video
     elif _images_to_video:
-        print("Turning images into a video...")
+        images_to_video_mode(simulation)
 
-        # create the video file
-        Output.initialize_video(simulation)
-
-        # loop over all images defined in the template file
-        for i in range(simulation.beginning_step, simulation.end_step + 1):
-
-            # calls the following function to add instances of the cell class to the simulation instance
-            csv_to_simulation(simulation, simulation.path + simulation.name + "_values_" + str(int(i)) + ".csv")
-
-            # read the image and write it to the video file
-            image_name = simulation.name + "_image_" + str(int(i)) + "_slice_" + str(0) + ".png"
-            image = cv2.imread(simulation.path + image_name)
-            simulation.video_object.write(image)
-
-        # exits out as the conversion from images to video is done
-        exit()
-
-#######################################################################################################################
-# Normal Mode
-
-    # if this simulation is not a continuation
+    # starts a new simulation
     else:
         # loops over all cells and creates a stem cell object for each one with given parameters
         for i in range(_num_NANOG + _num_GATA6):
@@ -257,13 +182,95 @@ def setup(template_location):
             simulation.add_cell(location, radius, True, booleans, "Pluripotent", diff_counter, div_counter,
                                 death_counter, bool_counter, motility_force, jkr_force, closest_diff)
 
-    # returns the list of simulations
+    # return the modified simulation instance
     return simulation
 
 
+def continue_mode(simulation):
+    """ This is used for when a simulation ended
+        early or had an error. It will read the previous
+        csv restoring that information to the simulation.
+    """
+    # gets the previous .csv file by subtracting the beginning step by 1
+    previous = simulation.path + "_values_" + str(simulation.beginning_step - 1) + ".csv"
+
+    # calls the following function to add instances of the cell class to the simulation instance
+    csv_to_simulation(simulation, previous)
+
+
+def csv_to_image_mode(simulation):
+    """ This is used for turning a collection of
+        csvs into images. If you want to change the
+        colors of the cells or increase the resolution
+        of the images, that can be done here.
+    """
+    print("Turning CSVs into images...")
+
+    # create the video file
+    Output.initialize_video(simulation)
+
+    # loop over all csvs defined in the template file
+    for i in range(simulation.beginning_step, simulation.end_step + 1):
+        # updates the instance variables as they aren't updated by anything else
+        simulation.current_step = i
+
+        # calls the following function to add instances of the cell class to the simulation instance
+        csv_to_simulation(simulation, simulation.path + "_values_" + str(int(i)) + ".csv")
+
+        # saves a snapshot of the simulation
+        Output.step_image(simulation)
+
+        # clears the array for the next round of images
+        simulation.cell_locations = np.empty((0, 3), dtype=float)
+        simulation.cell_radii = np.empty((0, 1), dtype=float)
+        simulation.cell_motion = np.empty((0, 1), dtype=bool)
+        simulation.cell_fds = np.empty((0, 4), dtype=float)
+        simulation.cell_states = np.empty((0, 1), dtype=str)
+        simulation.cell_diff_counter = np.empty((0, 1), dtype=int)
+        simulation.cell_div_counter = np.empty((0, 1), dtype=int)
+        simulation.cell_death_counter = np.empty((0, 1), dtype=int)
+        simulation.cell_fds_counter = np.empty((0, 1), dtype=int)
+        simulation.cell_motility_force = np.empty((0, 3), dtype=float)
+        simulation.cell_jkr_force = np.empty((0, 3), dtype=float)
+        simulation.cell_closest_diff = np.empty((0, 1), dtype=int)
+
+        # clear the number of cells holder
+        simulation.number_cells = 0
+
+    # turns the images into a video
+    Output.finish_files(simulation)
+
+    # exits out as the conversion from .csv to images/video is done
+    exit()
+
+
+def images_to_video_mode(simulation):
+    """ If a simulation ends early or has an
+        error, this will take the images up until
+        it ended and turn them into a video.
+    """
+    print("Turning images into a video...")
+
+    # create the video file
+    Output.initialize_video(simulation)
+
+    # loop over all images defined in the template file
+    for i in range(simulation.beginning_step, simulation.end_step + 1):
+        # calls the following function to add instances of the cell class to the simulation instance
+        csv_to_simulation(simulation, simulation.path + "_values_" + str(int(i)) + ".csv")
+
+        # read the image and write it to the video file
+        image_name = "_image_" + str(int(i)) + "_slice_" + str(0) + ".png"
+        image = cv2.imread(simulation.path + image_name)
+        simulation.video_object.write(image)
+
+    # exits out as the conversion from images to video is done
+    exit()
+
+
 def csv_to_simulation(simulation, csv_file):
-    """ Turns rows of a into instances of the cell
-        class and adds them to the simulation class
+    """ Revalues the array holders for cell values
+        based on the outputs of the csv files.
     """
     # opens the csv and lists the rows
     with open(csv_file, "r", newline="") as csv_file:
@@ -290,29 +297,48 @@ def csv_to_simulation(simulation, csv_file):
     simulation.cell_closest_diff = np.empty((simulation.number_cells, 3), dtype=None)
 
 
-def check_name(output_path, name, separator):
+def check_name(output_direct, name, separator, continuation, csv_to_images, images_to_video):
     """ Renames the file if another simulation
         has the same name
     """
-    # keeps the loop running until one condition is met
-    while True:
-        # if the path does not already exist, make that directory and break out of the loop
-        try:
-            os.mkdir(output_path + separator + name)
-            break
-
-        # prompt to either rename or overwrite
-        except OSError:
-            print("Simulation with identical name: " + name)
-            user = input("Would you like to overwrite that simulation? (y/n): ")
-            if user == "n":
-                name = input("New name: ")
-            if user == "y":
-                # clear current directory to prevent another possible future errors
-                files = os.listdir(output_path + separator + name)
-                for file in files:
-                    os.remove(output_path + separator + name + separator + file)
+    # this will look for an existing directory
+    if continuation or csv_to_images or images_to_video:
+        # keeps the loop running until one condition is met
+        while True:
+            # see if the directory exists
+            try:
+                os.path.isdir(output_direct + separator + name)
                 break
 
+            # if not prompt to change name or end the simulation
+            except OSError:
+                print("No directory exists with name/path: " + output_direct + separator + name)
+                user = input("Would you like to continue? (y/n): ")
+                if user == "n":
+                    exit()
+                elif user == "y":
+                    output_direct = input("What is the correct path? Don't include simulation name. (type new path): ")
+
+    else:
+        # keeps the loop running until one condition is met
+        while True:
+            # if the path does not already exist, make that directory and break out of the loop
+            try:
+                os.mkdir(output_direct + separator + name)
+                break
+
+            # prompt to either rename or overwrite
+            except OSError:
+                print("Simulation with identical name: " + name)
+                user = input("Would you like to overwrite that simulation? (y/n): ")
+                if user == "n":
+                    name = input("New name: ")
+                elif user == "y":
+                    # clear current directory to prevent another possible future errors
+                    files = os.listdir(output_direct + separator + name)
+                    for file in files:
+                        os.remove(output_direct + separator + name + separator + file)
+                    break
+
     # updated path and name if need be
-    return output_path + separator + name + separator, name
+    return output_direct + separator + name + separator

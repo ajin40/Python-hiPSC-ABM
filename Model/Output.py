@@ -10,9 +10,6 @@ def step_image(simulation):
     """ Turns the graph into an image at each timestep
     """
     if simulation.output_images:
-        # increases the image counter by 1 each time this is called
-        simulation.image_counter += 1
-
         # thickness of the image slice in the z direction
         thickness = simulation.size[2] / simulation.slices
 

@@ -8,7 +8,7 @@ import time
 
 # used to hold all values necessary to the simulation as it moves from one step to the next
 class Simulation:
-    def __init__(self, name, path, parallel, size, resolution, num_states, functions, neighbor_distance,
+    def __init__(self, path, parallel, size, resolution, num_states, functions, neighbor_distance,
                  time_step_value, beginning_step, end_step, move_time_step, pluri_div_thresh, pluri_to_diff,
                  diff_div_thresh, boolean_thresh, death_thresh, diff_surround, adhesion_const, viscosity, group,
                  slices, image_quality, background_color, bound_color, color_mode, pluri_color, diff_color,
@@ -19,7 +19,6 @@ class Simulation:
         # the following instance variables should be fixed meaning that they don't change from step to step
         # they are merely used to hold initial parameters from the template file that will needed throughout
         # the simulation
-        self.name = name    # the name of the simulation such as Run_43
         self.path = path    # the directory of where the simulation will output to
         self.parallel = parallel    # whether the model is used parallel GPU processing or not
         self.size = size    # the dimensions of the space the cells reside in
@@ -96,7 +95,6 @@ class Simulation:
 
         # holds the current number of cells, images, step, and time when a step started
         self.number_cells = 0
-        self.image_counter = 0
         self.current_step = self.beginning_step
         self.step_start = 0
 
