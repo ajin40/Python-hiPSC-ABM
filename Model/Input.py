@@ -42,7 +42,7 @@ def setup(template_location):
     _num_GATA6 = int(lines[23][2:-3])
     _num_NANOG = int(lines[26][2:-3])
     _functions = eval(lines[29][2:-3])
-    _num_states = int(lines[32][2:-3])
+    _num_fds_states = int(lines[32][2:-3])
 
     # modes
     _output_images = eval(lines[38][2:-3])
@@ -53,9 +53,9 @@ def setup(template_location):
 
     # timing
     _beginning_step = int(lines[57][2:-3])
-    _total_steps = int(lines[60][2:-3])
+    _end_step = int(lines[60][2:-3])
     _time_step_value = float(lines[63][2:-3])
-    _boolean_thresh = int(lines[66][2:-3])
+    _fds_thresh = int(lines[66][2:-3])
     _pluri_div_thresh = int(lines[69][2:-3])
     _pluri_to_diff = int(lines[72][2:-3])
     _diff_div_thresh = int(lines[75][2:-3])
@@ -96,7 +96,7 @@ def setup(template_location):
     _dox_step = int(lines[166][2:-3])
     _max_radius = float(lines[169][2:-3])
     _move_thresh = int(lines[172][2:-3])
-    _guye_radius = float(lines[175][2:-3])
+    _guye_distance = float(lines[175][2:-3])
     _guye_force = float(lines[178][2:-3])
     _jkr_distance = float(lines[181][2:-3])
     _fps = float(lines[184][2:-3])
@@ -106,16 +106,15 @@ def setup(template_location):
                        template_location)
 
     # initializes simulation class which holds all information about the simulation
-    simulation = Simulation.Simulation(_path, _parallel, _size, _resolution, _num_states, _functions,
-                                       _neighbor_distance, _time_step_value, _beginning_step, _total_steps,
-                                       _move_time_step, _pluri_div_thresh, _pluri_to_diff, _diff_div_thresh,
-                                       _boolean_thresh, _death_thresh, _diff_surround, _adhesion_const, _viscosity,
-                                       _group, _slices, _image_quality, _background_color, _bound_color,
-                                       _color_mode, _pluri_color, _diff_color, _pluri_gata6_high_color,
-                                       _pluri_nanog_high_color, _pluri_both_high_color, _lonely_cell,
-                                       _contact_inhibit, _guye_move, _motility_force, _dox_step, _max_radius,
-                                       _move_thresh, _output_images, _output_csvs, _guye_radius, _guye_force,
-                                       _jkr_distance, _fps)
+    simulation = Simulation.Simulation(_path, _parallel, _size, _resolution, _num_fds_states, _functions,
+                                       _neighbor_distance, _guye_distance, _jkr_distance, _lonely_cell,
+                                       _contact_inhibit, _move_thresh, _time_step_value, _beginning_step, _end_step,
+                                       _move_time_step, _dox_step, _pluri_div_thresh, _pluri_to_diff, _diff_div_thresh,
+                                       _fds_thresh, _death_thresh, _diff_surround, _adhesion_const, _viscosity, _group,
+                                       _output_csvs, _output_images, _image_quality, _fps, _background_color,
+                                       _bound_color, _color_mode, _pluri_color, _diff_color, _pluri_gata6_high_color,
+                                       _pluri_nanog_high_color, _pluri_both_high_color, _guye_move, _motility_force,
+                                       _max_radius)
 
     # loops over the gradients and adds them to the simulation
     for i in range(len(_extracellular)):
@@ -161,7 +160,7 @@ def setup(template_location):
             diff_counter = r.randint(0, _pluri_to_diff)
             div_counter = r.randint(0, _pluri_div_thresh)
             death_counter = r.randint(0, _death_thresh)
-            bool_counter = r.randint(0, _boolean_thresh)
+            bool_counter = r.randint(0, _fds_thresh)
 
             # get the radius based on the randomized growth
             radius = simulation.min_radius + simulation.pluri_growth * div_counter

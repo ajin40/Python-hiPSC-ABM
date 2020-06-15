@@ -7,12 +7,10 @@ import numpy as np
 
 
 def step_image(simulation):
-    """ Turns the graph into an image at each timestep
+    """ Creates an image representation of the
+        space in which the cells reside
     """
     if simulation.output_images:
-        # thickness of the image slice in the z direction
-        thickness = simulation.size[2] / simulation.slices
-
         # get the dilation of the image for the correctly sizing the image
         dilation_x = simulation.image_quality[0] / simulation.size[0]
         dilation_y = simulation.image_quality[1] / simulation.size[1]
@@ -24,63 +22,47 @@ def step_image(simulation):
         corner_4 = [simulation.size[0], 0]
         bounds = np.array([corner_1, corner_2, corner_3, corner_4])
 
-        # starting z value for slice location
-        lower_slice = 0
-        upper_slice = thickness
+        # draws the background of the image
+        base = Image.new("RGB", simulation.image_quality[0:2], simulation.background_color)
+        image = ImageDraw.Draw(base)
 
-        for i in range(simulation.slices):
+        # loops over all of the cells and draws the nucleus and radius
+        for i in range(simulation.number_cells):
+            location = simulation.cell_locations[i]
+            radius = simulation.cell_radii[i]
 
-            # draws the background of the image
-            base = Image.new("RGB", simulation.image_quality[0:2], simulation.background_color)
-            image = ImageDraw.Draw(base)
+            # determine the radius based on the pixel dilation
+            x_radius = dilation_x * radius
+            y_radius = dilation_y * radius
 
-            # loops over all of the cells and draws the nucleus and radius
-            for j in range(simulation.number_cells):
-                location = simulation.cell_locations[j]
-                radius = simulation.cell_radii[j]
+            # get location in 2D with image size dilation
+            x = dilation_x * location[0]
+            y = dilation_y * location[1]
 
-                # determine the radius based on the lower bound of the slice
-                x_radius_lower = dilation_x * max(radius ** 2 - (location[2] - lower_slice) ** 2, 0.0) ** 0.5
-                y_radius_lower = dilation_y * max(radius ** 2 - (location[2] - lower_slice) ** 2, 0.0) ** 0.5
-
-                # determine the radius based on the upper bound of the slice
-                x_radius_upper = dilation_x * max(radius ** 2 - (location[2] - upper_slice) ** 2, 0.0) ** 0.5
-                y_radius_upper = dilation_y * max(radius ** 2 - (location[2] - upper_slice) ** 2, 0.0) ** 0.5
-
-                # check to see which slice will produce the largest radius
-                if x_radius_lower >= x_radius_upper:
-                    x_radius = x_radius_lower
-                    y_radius = y_radius_lower
+            # coloring of the cells based on what mode the user selects
+            # this mode is just showing pluripotent and differentiated cells
+            if simulation.color_mode:
+                if simulation.cell_states[i] == "Pluripotent":
+                    color = simulation.pluri_color
                 else:
-                    x_radius = x_radius_upper
-                    y_radius = y_radius_upper
+                    color = simulation.diff_color
 
-                # get location in 2D with image size dilation
-                x = dilation_x * location[0]
-                y = dilation_y * location[1]
-
-                # coloring of the cells based on what mode the user selects
-                if simulation.color_mode:
-                    if simulation.cell_states[j] == "Pluripotent":
-                        color = simulation.pluri_color
-                    else:
-                        color = simulation.diff_color
-
+            # this mode is showing color based on the finite dynamical system
+            else:
+                if simulation.cell_states[i] == "Differentiated":
+                    color = simulation.diff_color
+                elif simulation.cell_fds[i][2] == 1 and simulation.cell_fds[i][3] == 1:
+                    color = simulation.pluri_both_high_color
+                elif simulation.cell_fds[i][2] == 1:
+                    color = simulation.pluri_gata6_high_color
+                elif simulation.cell_fds[i][3] == 1:
+                    color = simulation.pluri_nanog_high_color
                 else:
-                    if simulation.cell_states[j] == "Differentiated":
-                        color = simulation.diff_color
-                    elif simulation.cell_fds[j][2] == 1 and simulation.cell_fds[j][3] == 1:
-                        color = simulation.pluri_both_high_color
-                    elif simulation.cell_fds[j][2] == 1:
-                        color = simulation.pluri_gata6_high_color
-                    elif simulation.cell_fds[j][3] == 1:
-                        color = simulation.pluri_nanog_high_color
-                    else:
-                        color = simulation.pluri_color
+                    color = simulation.pluri_color
 
-                # draw the circle representing the cell
-                membrane_circle = (x - x_radius, y - y_radius, x + x_radius, y + y_radius)
-                image.ellipse(membrane_circle, fill=color, outline="black")
+            # draw the circle representing the cell
+            membrane_circle = (x - x_radius, y - y_radius, x + x_radius, y + y_radius)
+            image.ellipse(membrane_circle, fill=color, outline="black")
 
             # loops over all of the bounds and draws lines to represent the grid
             for j in range(len(bounds)):
@@ -96,21 +78,18 @@ def step_image(simulation):
                     x1 = dilation_x * bounds[0][0]
                     y1 = dilation_y * bounds[0][1]
 
-                # draw the lines
+                # draw the lines, width is kinda arbitrary
                 lines = (x0, y0, x1, y1)
-                width = int((simulation.image_quality[0] + simulation.image_quality[0]) / 500)
+                width = int((simulation.image_quality[0] + simulation.image_quality[1]) / 500)
                 image.line(lines, fill=simulation.bound_color, width=width)
 
             # saves the image as a .png
-            image_name = "_image_" + str(int(simulation.current_step))+"_slice_"+str(int(i)) + ".png"
-            base.save(simulation.path + image_name, 'PNG')
+            image_path = simulation.path + "_image_" + str(int(simulation.current_step)) + ".png"
+            base.save(image_path, 'PNG')
 
-            image = cv2.imread(simulation.path + image_name)
+            # write it to the video object
+            image = cv2.imread(image_path)
             simulation.video_object.write(image)
-
-            # moves to the next slice location
-            lower_slice += thickness
-            upper_slice += thickness
 
 
 def step_csv(simulation):

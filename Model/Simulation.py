@@ -98,7 +98,7 @@ class Simulation:
         self.step_start = float()
 
         # holds all extracellular objects...this may be edited...later
-        self.extracellular = np.array([], dtype=object)
+        self.extracellular = np.empty((0, 1), dtype=object)
 
         # neighbor graph is used to locate cells that are in close proximity, while the JKR graph holds adhesion bonds
         # between cells that are either currently overlapping or still maintain an adhesive bond
@@ -106,8 +106,8 @@ class Simulation:
         self.jkr_graph = igraph.Graph()
 
         # holds all indices of cells that will divide at a current step or be removed at that step
-        self.cells_to_divide = np.array([], dtype=int)
-        self.cells_to_remove = np.array([], dtype=int)
+        self.cells_to_divide = np.empty((0, 1), dtype=int)
+        self.cells_to_remove = np.empty((0, 1), dtype=int)
 
         # min and max radius lengths are used to calculate linear growth of the radius over time
         self.min_radius = self.max_radius / 2 ** 0.5
@@ -202,17 +202,18 @@ class Simulation:
         self.cell_jkr_force = np.delete(self.cell_jkr_force, index, axis=0)
         self.cell_closest_diff = np.delete(self.cell_closest_diff, index)
 
-        # remove the particular index from the following graphs as these deal in terms of indices not objects
-        # this will actively adjust edges as the indices change, so no worries here
+        # remove the particular index from the following graphs as these deal in terms of indices
+        # this will adjust edges as the indices change, so no worries here
         self.neighbor_graph.delete_vertices(index)
         self.jkr_graph.delete_vertices(index)
 
-        # update the number of cells
+        # revalue the number of cells
         self.number_cells -= 1
 
     def update_queue(self):
-        """ Controls how cells are added/removed from
-            the simulation.
+        """ Introduces and removes cells into the simulation.
+            This also provides control into how many cells
+            are added/removed at a time.
         """
         # start time
         self.update_queue_time = -1 * time.time()
@@ -221,47 +222,54 @@ class Simulation:
         print("Adding " + str(len(self.cells_to_divide)) + " cells...")
         print("Removing " + str(len(self.cells_to_remove)) + " cells...")
 
-        # loops over all objects to add
+        # loops over all indices that are set to divide
         for i in range(len(self.cells_to_divide)):
             self.divide(self.cells_to_divide[i])
 
-            # Cannot add all of the new cell objects, otherwise several cells are likely to be added
-            #   in close proximity to each other at later time steps. Such object addition, coupled
-            #   with handling collisions, make give rise to sudden changes in overall positions of
+            # Cannot add all of the new cells, otherwise several cells are likely to be added in
+            #   close proximity to each other at later time steps. Such addition, coupled with
+            #   handling collisions, make give rise to sudden changes in overall positions of
             #   cells within the simulation. Instead, collisions are handled after 'group' number
-            #   of cell objects are added.
+            #   of cells are added.
+
+            # if self.group is equal to 0, all will be added in at once
             if self.group != 0:
                 if (i + 1) % self.group == 0:
+                    # call the handle movement function, which should reduce cell overlap especially with high density
                     self.handle_movement()
 
-        # loops over all objects to remove
+        # loops over all indices that are set to be removed
         for i in range(len(self.cells_to_remove)):
+            # record the index
             index = self.cells_to_remove[i]
             self.remove_cell(index)
 
-            # adjusts the indices as the holders will shift when a cell is removed
+            # adjusts the indices as deleting part of the array may change the correct indices to remove
             for j in range(i + 1, len(self.cells_to_remove)):
+                # if the current cell being deleted falls after the index, shift the indices by 1
                 if index < self.cells_to_remove[j]:
                     self.cells_to_remove[j] -= 1
 
-            # much like above where many cells are added together, removing all at once may create unrealistic results
+            # if self.group is equal to 0, all will be removed at once
             if self.group != 0:
                 if (i + 1) % self.group == 0:
+                    # call the handle movement function, which should reduce cell overlap especially with high density
                     self.handle_movement()
 
         # clear the arrays for the next step
-        self.cells_to_divide = np.array([], dtype=int)
-        self.cells_to_remove = np.array([], dtype=int)
+        self.cells_to_divide = np.empty((0, 1), dtype=int)
+        self.cells_to_remove = np.empty((0, 1), dtype=int)
 
         # end time
         self.update_queue_time += time.time()
 
     def divide(self, index):
-        """ Simulates the division of cell by mitosis
-            in addition to adding the cell with given
-            initial parameters
+        """ Takes a cell or rather an index in the
+            holder arrays and creates a new cell
+            (index). This also updates factors such
+            as size and counters.
         """
-        # move the cells to a position that is representative of the new locations of daughter cells
+        # move the cells to positions that are representative of the new locations of daughter cells
         division_position = self.random_vector() * (self.max_radius - self.min_radius)
         self.cell_locations[index] += division_position
         location = self.cell_locations[index] - division_position
@@ -280,22 +288,23 @@ class Simulation:
         bool_counter = self.cell_fds_counter[index]
 
         # set the force vector to zero
-        motility_force = np.zeros(3, dtype=float)
-        jkr_force = np.zeros(3, dtype=float)
+        motility_force = np.zeros((1, 3), dtype=float)
+        jkr_force = np.zeros((1, 3), dtype=float)
 
-        # add the cell to the array holders and graphs via the instance method
+        # add the cell to the simulation
         self.add_cell(location, radius, motion, booleans, state, diff_counter, div_counter, death_counter,
                       bool_counter, motility_force, jkr_force, closest_diff)
 
     def cell_update(self):
         """ Loops over all indices of cells and updates
-            certain parameters
+            their values accordingly.
         """
         # start time
         self.cell_update_time = -1 * time.time()
 
         # loop over the cells
         for i in range(self.number_cells):
+            # Growth
             # increase the cell radius based on the state and whether or not it has reached the max size
             if self.cell_radii[i] < self.max_radius:
                 # pluripotent growth
@@ -305,25 +314,29 @@ class Simulation:
                 else:
                     self.cell_radii[i] += self.diff_growth
 
-            # checks to see if the non-moving cell should divide
+            # Division
+            # checks to see if the non-moving cell should divide or increase its division counter
             if not self.cell_motion[i]:
-                # check for contact inhibition of a differentiated cell
+
+                # if it's a differentiated cell, also check for contact inhibition
                 if self.cell_states[i] == "Differentiated" and self.cell_div_counter[i] >= self.diff_div_thresh:
                     neighbors = self.neighbor_graph.neighbors(i)
                     if len(neighbors) < self.contact_inhibit:
                         self.cells_to_divide = np.append(self.cells_to_divide, i)
 
-                # division for pluripotent cell
+                # no contact inhibition for pluripotent cells
                 elif self.cell_states[i] == "Pluripotent" and self.cell_div_counter[i] >= self.pluri_div_thresh:
                     self.cells_to_divide = np.append(self.cells_to_divide, i)
 
-                # if not dividing stochastically increase the division counter
+                # stochastically increase the division counter by either 0, 1, or 2 if nothing else
                 else:
                     self.cell_div_counter[i] += r.randint(0, 2)
 
             # activate the following pathway based on if dox has been induced yet
             if self.current_step >= self.dox_step:
-                # coverts position in space into an integer for array location
+                # Extracellular interaction
+                # take the location of a cell and determine the nearest diffusion point by creating a zone around a
+                # diffusion point an any cells in the zone will base their value off of that
                 x_step = self.extracellular[0].dx
                 y_step = self.extracellular[0].dy
                 z_step = self.extracellular[0].dz
@@ -334,8 +347,8 @@ class Simulation:
                 index_y = math.ceil(half_index_y / 2)
                 index_z = math.ceil(half_index_z / 2)
 
-                # if a certain spot of the grid is less than the max FGF4 it can hold and the cell is NANOG high
-                # increase the FGF4 by 1
+                # if the diffusion point value is less than the max FGF4 it can hold and the cell is NANOG high
+                # increase the FGF4 value by 1
                 if self.extracellular[0].diffuse_values[index_x][index_y][index_z] < \
                         self.extracellular[0].maximum and self.cell_fds[i][3] == 1:
                     self.extracellular[0].diffuse_values[index_x][index_y][index_z] += 1
@@ -347,14 +360,12 @@ class Simulation:
                 else:
                     fgf4_bool = 0
 
+                # Finite dynamical system and state change
                 # temporarily hold the FGFR value
                 temp_fgfr = self.cell_fds[i][0]
 
                 # only update the booleans when the counter matches the boolean update rate
                 if self.cell_fds_counter[i] % self.fds_thresh == 0:
-                    # gets the functions from the simulation
-                    function_list = self.functions
-
                     # xn is equal to the value corresponding to its function
                     x1 = fgf4_bool
                     x2 = self.cell_fds[i][0]
@@ -362,27 +373,27 @@ class Simulation:
                     x4 = self.cell_fds[i][2]
                     x5 = self.cell_fds[i][3]
 
-                    # evaluate the functions by turning them from strings to math equations
-                    new_fgf4 = eval(function_list[0]) % self.num_fds_states
-                    new_fgfr = eval(function_list[1]) % self.num_fds_states
-                    new_erk = eval(function_list[2]) % self.num_fds_states
-                    new_gata6 = eval(function_list[3]) % self.num_fds_states
-                    new_nanog = eval(function_list[4]) % self.num_fds_states
+                    # evaluate the functions by turning them from strings to equations
+                    new_fgf4 = eval(self.functions[0]) % self.num_fds_states
+                    new_fgfr = eval(self.functions[1]) % self.num_fds_states
+                    new_erk = eval(self.functions[2]) % self.num_fds_states
+                    new_gata6 = eval(self.functions[3]) % self.num_fds_states
+                    new_nanog = eval(self.functions[4]) % self.num_fds_states
 
-                    # updates self.booleans with the new boolean values and returns the new fgf4 value
+                    # updates self.booleans with the new boolean values
                     self.cell_fds[i] = np.array([new_fgfr, new_erk, new_gata6, new_nanog])
 
-                # otherwise carry the same value for fgf4
+                # if no fds update, maintain the same fgf4 boolean value
                 else:
                     new_fgf4 = fgf4_bool
 
-                # increase the boolean counter
+                # increase the finite dynamical system counter
                 self.cell_fds_counter[i] += 1
 
                 # if the temporary FGFR value is 0 and the FGF4 value is 1 decrease the amount of FGF4 by 1
                 # this simulates FGFR using FGF4
                 if temp_fgfr == 0 and new_fgf4 == 1 and \
-                        self.extracellular[0].diffuse_values[index_x][index_y][index_z] >= 1:
+                        self.extracellular[0].diffuse_values[index_x][index_y][index_z] > 0:
                     self.extracellular[0].diffuse_values[index_x][index_y][index_z] -= 1
 
                 # if the cell is GATA6 high and pluripotent increase the differentiation counter by 1
@@ -394,18 +405,17 @@ class Simulation:
                         # change the state to differentiated
                         self.cell_states[i] = "Differentiated"
 
-                        # set GATA6 high and NANOG low
-                        self.cell_fds[i][2] = 1
+                        # make sure NANOG is low or rather 0
                         self.cell_fds[i][3] = 0
 
-                        # allow the cell to move again
+                        # allow the cell to actively move again
                         self.cell_motion[i] = True
 
         # end time
         self.cell_update_time += time.time()
 
     def cell_death(self):
-        """ Simulates cell death based on pluripotency
+        """ Cellular death based on pluripotency
             and number of neighbors
         """
         # start time
@@ -415,10 +425,11 @@ class Simulation:
         for i in range(self.number_cells):
             # checks to see if cell is pluripotent
             if self.cell_states[i] == "Pluripotent":
-                # looks at the neighbors and counts them, adding to the death counter if not enough neighbors
+                # looks at the neighbors and counts them, increasing the death counter if not enough neighbors
                 neighbors = self.neighbor_graph.neighbors(i)
                 if len(neighbors) < self.lonely_cell:
                     self.cell_death_counter[i] += 1
+                # if not reset the death counter back to zero
                 else:
                     self.cell_death_counter[i] = 0
 
@@ -462,7 +473,7 @@ class Simulation:
         self.cell_diff_surround_time += time.time()
 
     def cell_motility(self):
-        """ Gives the cells a motion force, depending on
+        """ Gives the cells a motive force, depending on
             set rules for the cell types.
         """
         # start time
@@ -472,14 +483,12 @@ class Simulation:
         for i in range(self.number_cells):
             # set motion to false if the cell is surrounded by many neighbors
             neighbors = self.neighbor_graph.neighbors(i)
-
             if len(neighbors) >= self.move_thresh:
                 self.cell_motion[i] = False
 
             # check whether differentiated or pluripotent
             if self.cell_states[i] == "Differentiated":
-
-                # directed movement if the cell has neighbors
+                # directed movement if the cell has neighbors thresholds are to be determined
                 if 0 < len(neighbors) < 6:
                     # create a vector to hold the sum of normal vectors between a cell and its neighbors
                     vector_holder = np.array([0.0, 0.0, 0.0])
