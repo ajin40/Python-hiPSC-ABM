@@ -10,17 +10,19 @@ import Parallel
 
 # used to hold all values necessary to the simulation as it moves from one step to the next
 class Simulation:
-    def __init__(self, path, parallel, size, resolution, num_fds_states, functions, neighbor_distance, guye_distance,
-                 jkr_distance, lonely_cell, contact_inhibit, move_thresh, time_step_value, beginning_step, end_step,
-                 move_time_step, dox_step, pluri_div_thresh, pluri_to_diff, diff_div_thresh, fds_thresh, death_thresh,
-                 diff_surround, adhesion_const, viscosity, group, output_csvs, output_images, image_quality, fps,
-                 background_color, bound_color, color_mode, pluri_color, diff_color, pluri_gata6_high_color,
-                 pluri_nanog_high_color, pluri_both_high_color, guye_move, motility_force,  max_radius):
+    def __init__(self, path, name, parallel, size, resolution, num_fds_states, functions, neighbor_distance,
+                 guye_distance, jkr_distance, lonely_cell, contact_inhibit, move_thresh, time_step_value,
+                 beginning_step, end_step, move_time_step, dox_step, pluri_div_thresh, pluri_to_diff, diff_div_thresh,
+                 fds_thresh, death_thresh, diff_surround, adhesion_const, viscosity, group, output_csvs, output_images,
+                 image_quality, fps, background_color, bound_color, color_mode, pluri_color, diff_color,
+                 pluri_gata6_high_color, pluri_nanog_high_color, pluri_both_high_color, guye_move, motility_force,
+                 max_radius):
 
         # the following instance variables should remain fixed, meaning that they don't change from step to step.
         # they are merely used to hold initial parameters from the template file that will needed to be consistent
         # throughout the simulation
-        self.path = path    # the directory of where the simulation will output to + the name of the simulation
+        self.path = path    # the directory of where the simulation will output to
+        self.name = name    # the name of the simulation, used to name files in the output directory
         self.parallel = parallel    # whether the model is using parallel GPU processing for certain functions
         self.size = size    # the dimensions of the space (in meters) the cells reside in
         self.resolution = resolution    # the diffusion resolution of the space
@@ -288,8 +290,8 @@ class Simulation:
         bool_counter = self.cell_fds_counter[index]
 
         # set the force vector to zero
-        motility_force = np.zeros((1, 3), dtype=float)
-        jkr_force = np.zeros((1, 3), dtype=float)
+        motility_force = np.zeros(3, dtype=float)
+        jkr_force = np.zeros(3, dtype=float)
 
         # add the cell to the simulation
         self.add_cell(location, radius, motion, booleans, state, diff_counter, div_counter, death_counter,
@@ -881,8 +883,8 @@ class Simulation:
                     else:
                         self.cell_locations[i][j] = new_location[j]
 
-                # reset the jkr forces back to zero
-                self.cell_jkr_force[i] = np.array([0.0, 0.0, 0.0])
+            # reset the jkr forces back to zero
+            self.cell_jkr_force = np.zeros((self.number_cells, 3))
 
     def random_vector(self):
         """ Computes a random point on a unit sphere centered at the origin

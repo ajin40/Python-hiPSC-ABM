@@ -38,9 +38,10 @@ def setup(template_location):
     _parallel = eval(lines[14][2:-3])
     _size = eval(lines[17][2:-3])
     _size = np.array([_size[0], _size[1], _size[2]])
-    _resolution = eval(lines[20][2:-3])
-    _num_GATA6 = int(lines[23][2:-3])
-    _num_NANOG = int(lines[26][2:-3])
+    _num_GATA6 = int(lines[20][2:-3])
+    _num_NANOG = int(lines[23][2:-3])
+
+    # finite dynamical system
     _functions = eval(lines[29][2:-3])
     _num_fds_states = int(lines[32][2:-3])
 
@@ -63,50 +64,49 @@ def setup(template_location):
 
     # intercellular
     _neighbor_distance = float(lines[84][2:-3])
+    _guye_distance = float(lines[87][2:-3])
+    _jkr_distance = float(lines[90][2:-3])
+    _lonely_cell = int(lines[93][2:-3])
+    _contact_inhibit = int(lines[96][2:-3])
+    _move_thresh = int(lines[99][2:-3])
+    _diff_surround = int(lines[102][2:-3])
 
     # extracellular
-    _extracellular = eval(lines[91][2:-3])
+    _extracellular = eval(lines[109][2:-3])
+    _resolution = eval(lines[112][2:-3])
 
-    # movement
-    _move_time_step = float(lines[97][2:-3])
-    _radius = float(lines[100][2:-3])
-    _adhesion_const = float(lines[103][2:-3])
-    _viscosity = float(lines[106][2:-3])
-    _motility_force = float(lines[109][2:-3])
+    # movement/physical
+    _move_time_step = float(lines[118][2:-3])
+    _radius = float(lines[121][2:-3])
+    _adhesion_const = float(lines[124][2:-3])
+    _viscosity = float(lines[127][2:-3])
+    _motility_force = float(lines[130][2:-3])
+    _max_radius = float(lines[133][2:-3])
 
     # imaging
-    _image_quality = eval(lines[115][2:-3])
-    _slices = int(lines[118][2:-3])
-    _background_color = eval(lines[121][2:-3])
-    _bound_color = eval(lines[124][2:-3])
-    _color_mode = eval(lines[127][2:-3])
-    _pluri_color = eval(lines[130][2:-3])
-    _diff_color = eval(lines[133][2:-3])
-    _pluri_gata6_high_color = eval(lines[136][2:-3])
-    _pluri_nanog_high_color = eval(lines[139][2:-3])
-    _pluri_both_high_color = eval(lines[142][2:-3])
+    _image_quality = eval(lines[139][2:-3])
+    _fps = float(lines[142][2:-3])
+    _background_color = eval(lines[145][2:-3])
+    _bound_color = eval(lines[148][2:-3])
+    _color_mode = eval(lines[151][2:-3])
+    _pluri_color = eval(lines[154][2:-3])
+    _diff_color = eval(lines[157][2:-3])
+    _pluri_gata6_high_color = eval(lines[160][2:-3])
+    _pluri_nanog_high_color = eval(lines[163][2:-3])
+    _pluri_both_high_color = eval(lines[166][2:-3])
 
     # miscellaneous/experimental
-    _diff_surround = int(lines[148][2:-3])
-    _stochastic = bool(lines[153][2:-3])
-    _group = int(lines[154][2:-3])
-    _lonely_cell = int(lines[157][2:-3])
-    _contact_inhibit = int(lines[160][2:-3])
-    _guye_move = bool(lines[163][2:-3])
-    _dox_step = int(lines[166][2:-3])
-    _max_radius = float(lines[169][2:-3])
-    _move_thresh = int(lines[172][2:-3])
-    _guye_distance = float(lines[175][2:-3])
-    _guye_force = float(lines[178][2:-3])
-    _jkr_distance = float(lines[181][2:-3])
-    _fps = float(lines[184][2:-3])
+    _dox_step = int(lines[172][2:-3])
+    _stochastic = bool(lines[175][2:-3])
+    _group = int(lines[178][2:-3])
+    _guye_move = bool(lines[181][2:-3])
 
     # check that the name and path from the template are valid
-    _path = check_name(_output_direct, _name, separator, _continuation, _csv_to_images, _images_to_video,
-                       template_location)
+    _path, _name = check_name(_output_direct, _name, separator, _continuation, _csv_to_images, _images_to_video,
+                              template_location)
 
     # initializes simulation class which holds all information about the simulation
-    simulation = Simulation.Simulation(_path, _parallel, _size, _resolution, _num_fds_states, _functions,
+    simulation = Simulation.Simulation(_path, _name, _parallel, _size, _resolution, _num_fds_states, _functions,
                                        _neighbor_distance, _guye_distance, _jkr_distance, _lonely_cell,
                                        _contact_inhibit, _move_thresh, _time_step_value, _beginning_step, _end_step,
                                        _move_time_step, _dox_step, _pluri_div_thresh, _pluri_to_diff, _diff_div_thresh,
@@ -336,4 +336,4 @@ def check_name(output_direct, name, separator, continuation, csv_to_images, imag
         shutil.copy(template_location, output_direct + separator + name)
 
     # updated path and name if need be
-    return output_direct + separator + name + separator + name
+    return output_direct + separator + name + separator, name
