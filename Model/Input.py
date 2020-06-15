@@ -10,27 +10,22 @@ import Extracellular
 import Simulation
 import Output
 
-"""
-Input.py consists of two functions both of which are used to get the simulation started. If new functionality
-is added to the model and subsequently the template file, that can be implemented here. 
-"""
-
 
 def setup(template_location):
-    """ Looks at all of the setup files and turns them into
-        instances of the simulation class, which contain
-        multiple instances of the cell each representing
-        a single cell.
+    """ Reads the template file, determining the
+        mode in which the simulation shall be run
+        and creates a Simulation object corresponding
+        to desired initial parameters
     """
     # keep track of the file separator to use
     if platform.system() == "Windows":
         # windows
         separator = "\\"
     else:
-        # linux/unix/mac
+        # not windows
         separator = "/"
 
-    # open the .txt file that contains the initial parameters
+    # open the .txt template file that contains the initial parameters
     with open(template_location, "r") as template_file:
         lines = template_file.readlines()
 
@@ -107,10 +102,8 @@ def setup(template_location):
     _fps = float(lines[184][2:-3])
 
     # check that the name and path from the template are valid
-    _path = check_name(_output_direct, _name, separator, _continuation, _csv_to_images, _images_to_video)
-
-    # copy the template to the directory
-    shutil.copy(template_location, _path)
+    _path = check_name(_output_direct, _name, separator, _continuation, _csv_to_images, _images_to_video,
+                       template_location)
 
     # initializes simulation class which holds all information about the simulation
     simulation = Simulation.Simulation(_path, _parallel, _size, _resolution, _num_states, _functions,
@@ -297,7 +290,7 @@ def csv_to_simulation(simulation, csv_file):
     simulation.cell_closest_diff = np.empty((simulation.number_cells, 3), dtype=None)
 
 
-def check_name(output_direct, name, separator, continuation, csv_to_images, images_to_video):
+def check_name(output_direct, name, separator, continuation, csv_to_images, images_to_video, template_location):
     """ Renames the file if another simulation
         has the same name
     """
@@ -340,5 +333,8 @@ def check_name(output_direct, name, separator, continuation, csv_to_images, imag
                         os.remove(output_direct + separator + name + separator + file)
                     break
 
+        # copy the template to the directory
+        shutil.copy(template_location, output_direct + separator + name)
+
     # updated path and name if need be
-    return output_direct + separator + name + separator
+    return output_direct + separator + name + separator + name

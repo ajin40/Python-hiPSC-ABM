@@ -102,7 +102,7 @@ def step_image(simulation):
                 image.line(lines, fill=simulation.bound_color, width=width)
 
             # saves the image as a .png
-            image_name = simulation.name + "_image_" + str(int(simulation.current_step))+"_slice_"+str(int(i)) + ".png"
+            image_name = "_image_" + str(int(simulation.current_step))+"_slice_"+str(int(i)) + ".png"
             base.save(simulation.path + image_name, 'PNG')
 
             image = cv2.imread(simulation.path + image_name)
@@ -121,7 +121,7 @@ def step_csv(simulation):
     # only create this file if desired
     if simulation.output_csvs:
         # open a new file
-        file_path = simulation.path + simulation.name + "_values_" + str(int(simulation.current_step)) + ".csv"
+        file_path = simulation.path + "_values_" + str(int(simulation.current_step)) + ".csv"
         with open(file_path, "w", newline="") as new_file:
             csv_file = csv.writer(new_file)
 
@@ -166,7 +166,7 @@ def initialize_csv(simulation):
         to each step with stats
     """
     # create a CSV file used to hold information about run time, number of cells, memory, and various other statistics
-    data_path = simulation.path + simulation.name + "_data.csv"
+    data_path = simulation.path + "_data.csv"
 
     # open the file and create a csv object and write a header as the first line
     file_object = open(data_path, "w", newline="")
@@ -181,7 +181,7 @@ def initialize_video(simulation):
         to each step with the image produced
     """
     # creates a video file that can be written to each step
-    video_path = simulation.path + simulation.name + '_video.avi'
+    video_path = simulation.path + '_video.avi'
     simulation.video_object = cv2.VideoWriter(video_path, cv2.VideoWriter_fourcc("M", "J", "P", "G"), simulation.fps,
                                               simulation.image_quality)
 
