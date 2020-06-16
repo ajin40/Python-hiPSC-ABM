@@ -768,7 +768,10 @@ class Simulation:
             self.jkr_neighbors()
 
             # calculate the forces acting on each cell
+            start = time.time()
             self.get_forces()
+            end = time.time()
+            print(end - start)
 
             # turn the forces into movement
             self.apply_forces()
@@ -798,6 +801,7 @@ class Simulation:
             import Parallel
             delete_jkr_edges = Parallel.get_forces_gpu(self, jkr_edges, delete_jkr_edges, poisson, youngs,
                                                        adhesion_const)
+
         # call the boring non-parallel cpu version
         else:
             # loops over the jkr edges
@@ -857,7 +861,6 @@ class Simulation:
         # call the parallel version if desired
         if self.parallel:
             # prevents the need for having the numba library if it's not installed
-            import Parallel
             Parallel.apply_forces_gpu(self)
 
         # call the boring non-parallel cpu version

@@ -14,6 +14,7 @@ choices, and  purposes regarding the model.
 """
 import Input
 import Output
+import time
 
 # setup() will create an instance of the Simulation class that holds extracellular and cell objects.
 # This is done by reading a template .txt file that contains all initial parameters of the model.   (base)
