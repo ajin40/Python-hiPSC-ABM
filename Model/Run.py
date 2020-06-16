@@ -20,10 +20,17 @@ import time
 # This is done by reading a template .txt file that contains all initial parameters of the model.   (base)
 simulation = Input.setup("C:\\Python37\\Seed Project\\Model\\template.txt")
 
+# opens the data csv file and the video file as these will be continually modified.    (base)
+Output.initialize_csv(simulation)
+Output.initialize_video(simulation)
+
+# Adds the initial concentration amounts to the space for each instance of the extracellular class    (base)
+simulation.initialize_diffusion()
+
 # This will loop over all steps defined in the template file in addition to updating the current step
 # of the simulation.   (base)
 for simulation.current_step in range(simulation.beginning_step, simulation.end_step + 1):
-    # Prints the current step and number of cells. Used to give an idea of the progress.
+    # Prints the current step and number of cells and records current time. Used to give an idea of the progress.
     simulation.info()
 
     # Updates each of the extracellular gradients by "smoothing" the points that represent the concentrations.   (base)
@@ -32,42 +39,35 @@ for simulation.current_step in range(simulation.beginning_step, simulation.end_s
     # Refreshes the graph used to represent cells as nodes and neighbor connections as edges.   (base)
     simulation.check_neighbors()
 
-    # updates the instance variable for each cell that points to the cell objects that are its neighbors
-    simulation.update_neighbors()
-
-    # if any differentiated cells exist within a cell's defined search radius, this will find the closest one.
-    simulation.closest_diff()
-
-    # A way of introducing cell death into the model by removing cells if they are without neighbors for so long.
-    simulation.kill_cells()
-
-    # Represents the phenomena that differentiated neighbors of a pluripotent cell may induce its differentiation.
-    simulation.diff_surround_cells()
-
-    # Gets motility forces depending on a variety of factors involving state and presence of neighbors
-    simulation.motility_cells()
-
     # Updates cells by adjusting trackers for differentiation and division based on intracellular, intercellular,
     # and extracellular conditions.   (base)
-    simulation.update_cells()
+    simulation.cell_update()
+
+    # A way of introducing cell death into the model by removing cells if they are without neighbors for so long.
+    simulation.cell_death()
+
+    # Represents the phenomena that differentiated neighbors of a pluripotent cell may induce its differentiation.
+    simulation.cell_diff_surround()
 
     # Adds/removes cells to/from the simulation either all together or in desired numbers of cells. If done in
     # groups, the handle_movement() function will be used to better represent asynchronous division and death   (base)
-    simulation.update_cell_queue()
+    simulation.update_queue()
 
-    # Refreshes the graph used to represent cells as nodes and neighbor connections as edges.   (base)
-    simulation.check_neighbors()
-
-    # updates the instance variable for each cell that points to the cell objects that are its neighbors
-    simulation.update_neighbors()
+    # if any differentiated cells exist within a cell's defined search radius, this will find the closest one.
+    simulation.nearest_diff()
 
     # Moves the cells to a state of physical equilibrium so that there is minimal overlap of cells, while also
     # applying forces from the previous motility_cells() function.   (base)
     simulation.handle_movement()
 
-    # Saves a snapshot of the simulation at the given step. This may include an image and a CSV file.    (base)
-    Output.save_file(simulation)
-    end = time.time()
+    # Gets motility forces depending on a variety of factors involving state and presence of neighbors
+    simulation.cell_motility()
 
-# Looks at all images produced by the simulation and turns them into a video.
-Output.image_to_video(simulation)
+    # The first function will save a 2D image of the space, the second will create a csv with each row corresponding to
+    # an individual cell, and the last will save performance statistics to running csv.    (base)
+    Output.step_image(simulation)
+    Output.step_csv(simulation)
+    Output.simulation_data(simulation)
+
+# ends the simulation by closing any necessary files
+Output.finish_files(simulation)
