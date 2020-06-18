@@ -306,33 +306,29 @@ def get_forces_cuda(jkr_edges, delete_jkr_edges, locations, radii, forces, poiss
             delete_jkr_edges[edge_index] = edge_index
 
 
-def apply_forces_gpu(simulation):
+def apply_forces_gpu(number_cells, cell_jkr_force, cell_motility_force, cell_locations, cell_radii, viscosity, size,
+                     move_time_step):
     """ The GPU parallelized version of apply_forces()
         from the Simulation class.
     """
     # turn those arrays into gpu arrays
-    jkr_forces_cuda = cuda.to_device(simulation.cell_jkr_force)
-    motility_forces_cuda = cuda.to_device(simulation.cell_motility_force)
-    locations_cuda = cuda.to_device(simulation.cell_locations)
-    radii_cuda = cuda.to_device(simulation.cell_radii)
-    viscosity_cuda = cuda.to_device(simulation.viscosity)
-    size_cuda = cuda.to_device(simulation.size)
-    move_time_step_cuda = cuda.to_device(simulation.move_time_step)
+    jkr_forces_cuda = cuda.to_device(cell_jkr_force)
+    motility_forces_cuda = cuda.to_device(cell_motility_force)
+    locations_cuda = cuda.to_device(cell_locations)
+    radii_cuda = cuda.to_device(cell_radii)
+    viscosity_cuda = cuda.to_device(viscosity)
+    size_cuda = cuda.to_device(size)
+    move_time_step_cuda = cuda.to_device(move_time_step)
 
     # sets up the correct allocation of threads and blocks
     threads_per_block = 72
-    blocks_per_grid = math.ceil(simulation.number_cells / threads_per_block)
+    blocks_per_grid = math.ceil(number_cells / threads_per_block)
 
     # call the cuda function
     apply_forces_cuda[blocks_per_grid, threads_per_block](jkr_forces_cuda, motility_forces_cuda, locations_cuda,
                                                           radii_cuda, viscosity_cuda, size_cuda, move_time_step_cuda)
-
     # return the new cell locations from the gpu
-    new_locations = locations_cuda.copy_to_host()
-
-    # update all of the cell locations and set the JKR forces back to zero vectors
-    simulation.cell_locations = new_locations
-    simulation.cell_jkr_force = np.zeros((simulation.number_cells, 3), dtype=float)
+    return locations_cuda.copy_to_host()
 
 
 @cuda.jit
@@ -382,32 +378,3 @@ def apply_forces_cuda(inactive_forces, active_forces, locations, radii, viscosit
             locations[index][2] = 0.0
         else:
             locations[index][2] = new_location_z
-
-
-# def update_gradient_gpu(extracellular, simulation):
-#     """ This is a near identical function to the
-#         non-parallel one; however, this uses
-#         cupy which is identical to numpy, but
-#         it is run on a cuda gpu instead
-#     """
-#     # get the number of times this will be run
-#     time_steps = int(simulation.time_step_value / extracellular.dt)
-#
-#     # make the variable name smaller for easier writing
-#     a = cp.asarray(extracellular.diffuse_values)
-#
-#     # perform the following operations on the diffusion points at each time step
-#     for i in range(time_steps):
-#
-#         x = (a[2:][1:-1][1:-1] - 2 * a[1:-1][1:-1][1:-1] + a[:-2][1:-1][1:-1]) / extracellular.dx2
-#         y = (a[1:-1][2:][1:-1] - 2 * a[1:-1][1:-1][1:-1] + a[1:-1][:-2][1:-1]) / extracellular.dy2
-#         z = (a[1:-1][1:-1][2:] - 2 * a[1:-1][1:-1][1:-1] + a[1:-1][1:-1][:-2]) / extracellular.dz2
-#
-#         # update the array, assign a variable for ease of writing
-#         new_value = a[1:-1][1:-1][1:-1] + extracellular.diffuse_const * extracellular.dt * (x + y + z)
-#         a[1:-1][1:-1][1:-1] = new_value
-#
-#     # turn it back into a numpy array
-#     extracellular.diffuse_values = cp.asnumpy(a)
-
-

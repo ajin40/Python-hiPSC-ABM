@@ -21,7 +21,7 @@ How many cells will be GATA6 high to begin the simulation? Ex. 247
 [ 0 ]
 
 How many cells will be NANOG high to begin the simulation? Ex. 91
-[ 1000 ]
+[ 10000 ]
 
 -----------------------------------------------------------------------------------------------------------------------
 Finite Dynamical System

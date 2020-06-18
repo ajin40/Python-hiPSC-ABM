@@ -36,11 +36,7 @@ for simulation.current_step in range(simulation.beginning_step, simulation.end_s
     simulation.update_diffusion()
 
     # Refreshes the graph used to represent cells as nodes and neighbor connections as edges.   (base)
-    import time
-    start = time.time()
     simulation.check_neighbors()
-    end = time.time()
-    print(end-start)
 
     # Updates cells by adjusting trackers for differentiation and division based on intracellular, intercellular,
     # and extracellular conditions.   (base)

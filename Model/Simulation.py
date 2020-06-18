@@ -4,7 +4,7 @@ import igraph
 import math
 import itertools
 import time
-from numba import jit
+from numba import jit, prange
 
 import Parallel
 
@@ -747,7 +747,10 @@ class Simulation:
             self.get_forces()
 
             # turn the forces into movement
+            start = time.time()
             self.apply_forces()
+            end = time.time()
+            print(end-start)
 
         # reset all forces back to zero vectors
         self.cell_motility_force = np.zeros((self.number_cells, 3))
@@ -831,36 +834,21 @@ class Simulation:
         """ Turns the active motility/division forces
             and inactive JKR forces into movement
         """
-        # call the parallel version if desired
+        # call the gpu version
         if self.parallel:
             # prevents the need for having the numba library if it's not installed
-            Parallel.apply_forces_gpu(self)
-
-        # call the boring non-parallel cpu version
+            new_locations = Parallel.apply_forces_gpu(self.number_cells, self.cell_jkr_force, self.cell_motility_force,
+                                                      self.cell_locations, self.cell_radii, self.viscosity, self.size,
+                                                      self.move_time_step)
+        # call the cpu version
         else:
-            # loops over cells to move them
-            for i in range(self.number_cells):
-                # stokes law for velocity based on force and fluid viscosity
-                stokes_friction = 6 * math.pi * self.viscosity * self.cell_radii[i]
+            new_locations = apply_forces_cpu(self.number_cells, self.cell_jkr_force, self.cell_motility_force,
+                                             self.cell_locations, self.cell_radii, self.viscosity, self.size,
+                                             self.move_time_step)
 
-                # update the velocity of the cell based on the solution
-                velocity = (self.cell_motility_force[i] + self.cell_jkr_force[i]) / stokes_friction
-
-                # set the possible new location
-                new_location = self.cell_locations[i] + velocity * self.move_time_step
-
-                # loops over all directions of space
-                for j in range(0, 3):
-                    # check if new location is in environment space if not simulation a collision with the bounds
-                    if new_location[j] > self.size[j]:
-                        self.cell_locations[i][j] = self.size[j]
-                    elif new_location[j] < 0:
-                        self.cell_locations[i][j] = 0.0
-                    else:
-                        self.cell_locations[i][j] = new_location[j]
-
-            # reset the jkr forces back to zero
-            self.cell_jkr_force = np.zeros((self.number_cells, 3))
+        # update the locations and reset the jkr forces back to zero
+        self.cell_locations = new_locations
+        self.cell_jkr_force = np.zeros((self.number_cells, 3))
 
     def random_vector(self):
         """ Computes a random point on a unit sphere centered at the origin
@@ -929,3 +917,40 @@ def check_neighbors_cpu(number_cells, distance, edge_holder, bins, bins_help, ce
 
     # return the updated edges
     return edge_holder
+
+
+@jit(nopython=True)
+def get_forces_cpu():
+    pass
+
+
+@jit(nopython=True, parallel=True)
+def apply_forces_cpu(number_cells, cell_jkr_force, cell_motility_force, cell_locations, cell_radii, viscosity, size,
+                     move_time_step):
+    """ This is the Numba optimized version of
+        the apply_forces function that runs
+        solely on the cpu.
+    """
+    # loops over all cells using the explicit parallel loop from Numba
+    for i in prange(number_cells):
+        # stokes law for velocity based on force and fluid viscosity
+        stokes_friction = 6 * math.pi * viscosity * cell_radii[i]
+
+        # update the velocity of the cell based on the solution
+        velocity = (cell_motility_force[i] + cell_jkr_force[i]) / stokes_friction
+
+        # set the possible new location
+        new_location = cell_locations[i] + velocity * move_time_step
+
+        # loops over all directions of space
+        for j in range(0, 3):
+            # check if new location is in environment space if not simulation a collision with the bounds
+            if new_location[j] > size[j]:
+                cell_locations[i][j] = size[j]
+            elif new_location[j] < 0:
+                cell_locations[i][j] = 0.0
+            else:
+                cell_locations[i][j] = new_location[j]
+
+    # return the updated cell locations
+    return cell_locations
