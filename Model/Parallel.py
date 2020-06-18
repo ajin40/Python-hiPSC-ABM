@@ -98,7 +98,7 @@ def check_neighbors_cuda(locations, bins, bins_help, distance, edge_holder, max_
                             place += 1
 
 
-def jkr_neighbors_gpu(simulation, distance, edge_holder, max_neighbors):
+def jkr_neighbors_gpu(number_cells, distance, max_neighbors, edge_holder, bins, bins_help, cell_locations, cell_radii):
     """ The GPU parallelized version of jkr_neighbors()
         from the Simulation class.
     """
@@ -107,22 +107,10 @@ def jkr_neighbors_gpu(simulation, distance, edge_holder, max_neighbors):
     max_neighbors_cuda = cuda.to_device(max_neighbors)
     edge_holder_cuda = cuda.to_device(edge_holder)
 
-    # divides the space into bins and gives a holder of fixed size for each bin
-    bins_size = simulation.size // distance + np.array([5, 5, 5])
-    bins_size_help = tuple(bins_size.astype(int))
-    bins_size = np.append(bins_size, 100)
-    bins_size = tuple(bins_size.astype(int))
-
-    # assigns values of -1 to denote a lack of cells
-    bins = np.ones(bins_size) * -1
-
-    # an array used to accelerate the cuda function by telling the function how many cells are in a given bin
-    bins_help = np.zeros(bins_size_help, dtype=int)
-
     # assigns cells to bins as a general location
-    for i in range(simulation.number_cells):
+    for i in range(number_cells):
         # offset bins by 1 to avoid missing cells
-        block_location = simulation.cell_locations[i] // distance + np.array([2, 2, 2])
+        block_location = cell_locations[i] // distance + np.array([2, 2, 2])
         block_location = block_location.astype(int)
         x, y, z = block_location[0], block_location[1], block_location[2]
 
@@ -141,12 +129,12 @@ def jkr_neighbors_gpu(simulation, distance, edge_holder, max_neighbors):
     bins_help_cuda = cuda.to_device(bins_help)
 
     # turn the array into a form readable by the GPU
-    locations_cuda = cuda.to_device(simulation.cell_locations)
-    radii_cuda = cuda.to_device(simulation.cell_radii)
+    locations_cuda = cuda.to_device(cell_locations)
+    radii_cuda = cuda.to_device(cell_radii)
 
     # sets up the correct allocation of threads and blocks
     threads_per_block = 72
-    blocks_per_grid = math.ceil(simulation.number_cells / threads_per_block)
+    blocks_per_grid = math.ceil(number_cells / threads_per_block)
 
     # calls the cuda function with the given inputs
     jkr_neighbors_cuda[blocks_per_grid, threads_per_block](locations_cuda, radii_cuda, bins_cuda, bins_help_cuda,
