@@ -200,36 +200,32 @@ def jkr_neighbors_cuda(locations, radii, bins, bins_help, distance, edge_holder,
                             place += 1
 
 
-def get_forces_gpu(simulation, jkr_edges, delete_jkr_edges, poisson, youngs, adhesion_const):
-    """ The GPU parallelized version of forces_to_movement()
+def get_forces_gpu(jkr_edges, delete_jkr_edges, poisson, youngs_mod, adhesion_const, cell_locations,
+                   cell_radii, cell_jkr_force):
+    """ The GPU parallelized version of get_forces()
         from the Simulation class.
     """
-    # sets up the correct allocation of threads and blocks
-    threads_per_block = 72
-    blocks_per_grid = math.ceil(len(jkr_edges) / threads_per_block)
-
     # convert these arrays into a form able to be read by the GPU
     jkr_edges_cuda = cuda.to_device(jkr_edges)
     delete_jkr_edges_cuda = cuda.to_device(delete_jkr_edges)
     poisson_cuda = cuda.to_device(poisson)
-    youngs_cuda = cuda.to_device(youngs)
+    youngs_cuda = cuda.to_device(youngs_mod)
     adhesion_const_cuda = cuda.to_device(adhesion_const)
-    forces_cuda = cuda.to_device(simulation.cell_jkr_force)
+    forces_cuda = cuda.to_device(cell_jkr_force)
+    locations_cuda = cuda.to_device(cell_locations)
+    radii_cuda = cuda.to_device(cell_radii)
 
-    # send these to the gpu
-    locations_cuda = cuda.to_device(simulation.cell_locations)
-    radii_cuda = cuda.to_device(simulation.cell_radii)
+    # sets up the correct allocation of threads and blocks
+    threads_per_block = 72
+    blocks_per_grid = math.ceil(len(jkr_edges) / threads_per_block)
 
     # call the cuda function
     get_forces_cuda[blocks_per_grid, threads_per_block](jkr_edges_cuda, delete_jkr_edges_cuda, locations_cuda,
                                                         radii_cuda, forces_cuda, poisson_cuda, youngs_cuda,
                                                         adhesion_const_cuda)
-    # get these back from the gpu
-    simulation.cell_jkr_force = forces_cuda.copy_to_host()
-    delete_jkr_edges_output = delete_jkr_edges_cuda.copy_to_host()
 
-    # return the edges to be deleted
-    return delete_jkr_edges_output
+    # return the new forces and the edges to be deleted
+    return forces_cuda.copy_to_host(), delete_jkr_edges_cuda.copy_to_host()
 
 
 @cuda.jit
