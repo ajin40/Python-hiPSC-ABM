@@ -4,6 +4,7 @@ import igraph
 import math
 import itertools
 import time
+from numba import jit
 
 import Parallel
 
@@ -560,51 +561,26 @@ class Simulation:
         length = self.number_cells * max_neighbors
         edge_holder = np.zeros((length, 2), dtype=int)
 
-        # call the parallel version if desired
+        # divides the space into bins and gives a holder of fixed size for each bin
+        bins_size = self.size // distance + np.array([5, 5, 5])
+        bins_size_help = tuple(bins_size.astype(int))
+        bins_size = np.append(bins_size, 100)
+        bins_size = tuple(bins_size.astype(int))
+
+        # assigns values of -1 to denote a lack of cells
+        bins = np.ones(bins_size) * -1
+
+        # an array used to accelerate the cuda function by telling the function how many cells are in a given bin
+        bins_help = np.zeros(bins_size_help, dtype=int)
+
+        # call the gpu version
         if self.parallel:
-            edge_holder = Parallel.check_neighbors_gpu(self, distance, edge_holder, max_neighbors)
-
-        # call the boring non-parallel cpu version
+            edge_holder = Parallel.check_neighbors_gpu(self.number_cells, distance, max_neighbors, edge_holder, bins,
+                                                       bins_help, self.cell_locations)
+        # call the cpu version
         else:
-            # a counter used to know where the next edge will be placed in the edges_holder
-            edge_counter = 0
-
-            # create an 3D array that will divide the space up into a collection of bins
-            bins_size = self.size // distance + np.array([5, 5, 5])
-            bins_size = tuple(bins_size.astype(int))
-            bins = np.empty(bins_size, dtype=np.object)
-
-            # each bin will be a numpy array that will hold indices of cells
-            for i, j, k in itertools.product(range(bins_size[0]), range(bins_size[1]), range(bins_size[2])):
-                bins[i][j][k] = np.array([], dtype=np.int)
-
-            # loops over all cells appending their index value in the corresponding bin
-            for pivot_index in range(self.number_cells):
-                # offset the bin location by 1 to help when searching over bins and reduce potential error of cells
-                # that may be slightly outside the space
-                bin_location = self.cell_locations[pivot_index] // distance + np.array([2, 2, 2])
-                bin_location = bin_location.astype(int)
-                x, y, z = bin_location[0], bin_location[1], bin_location[2]
-
-                # adds the cell to the corresponding bin
-                bins[x][y][z] = np.append(bins[x][y][z], pivot_index)
-
-                for i, j, k in itertools.product(range(-1, 2), repeat=3):
-                    # get the array that is holding the indices of a cells in a block
-                    indices_in_bin = bins[x + i][y + j][z + k]
-
-                    # looks at the cells in a block and decides if they are neighbors
-                    for l in range(len(indices_in_bin)):
-                        # get the index of the current cell in question
-                        current_index = indices_in_bin[l]
-
-                        # check to see if that cell is within the search radius
-                        if np.linalg.norm(self.cell_locations[current_index] - self.cell_locations[pivot_index]) \
-                                <= distance and pivot_index != current_index:
-                            # update the edge array and increase the place for the next addition
-                            edge_holder[edge_counter][0] = pivot_index
-                            edge_holder[edge_counter][1] = current_index
-                            edge_counter += 1
+            edge_holder = check_neighbors_cpu(self.number_cells, distance, edge_holder, bins, bins_help,
+                                              self.cell_locations)
 
         # add the new edges and remove any duplicate edges or loops
         self.neighbor_graph.add_edges(edge_holder)
@@ -768,10 +744,7 @@ class Simulation:
             self.jkr_neighbors()
 
             # calculate the forces acting on each cell
-            start = time.time()
             self.get_forces()
-            end = time.time()
-            print(end - start)
 
             # turn the forces into movement
             self.apply_forces()
@@ -908,3 +881,51 @@ class Simulation:
             x, y, z = radius * math.cos(theta), radius * math.sin(theta), math.sin(phi)
 
         return np.array([x, y, z])
+
+
+@jit(nopython=True)
+def check_neighbors_cpu(number_cells, distance, edge_holder, bins, bins_help, cell_locations):
+    """ This is the Numba optimized version of
+        the check_neighbors function that runs
+        solely on the cpu.
+    """
+    # holds the total amount of edges as the function runs, used for indexing
+    edge_counter = 0
+
+    # loops over all cells, with the current cell being the pivot of the search method
+    for pivot_index in range(number_cells):
+        # offset bins by 2 to avoid missing cells
+        block_location = cell_locations[pivot_index] // distance + np.array([2, 2, 2])
+        x, y, z = int(block_location[0]), int(block_location[1]), int(block_location[2])
+
+        # gets the index where the cell should be placed
+        place = bins_help[x][y][z]
+
+        # adds the cell index to the bins array
+        bins[x][y][z][place] = pivot_index
+
+        # increase the count of cell in the bin by 1
+        bins_help[x][y][z] += 1
+
+        # loop over the bins that surround the current bin
+        for i in range(-1, 2):
+            for j in range(-1, 2):
+                for k in range(-1, 2):
+                    # get the count of cells in a bin
+                    bin_count = bins_help[x + i][y + j][z + k]
+
+                    # go through the bin determining if a cell is a neighbor
+                    for l in range(bin_count):
+                        # get the index of the current cell in question
+                        current_index = int(bins[x + i][y + j][z + k][l])
+
+                        # check to see if that cell is within the search radius
+                        vector = cell_locations[current_index] - cell_locations[pivot_index]
+                        if np.linalg.norm(vector) <= distance and pivot_index != current_index:
+                            # update the edge array and increase the index for the next addition
+                            edge_holder[edge_counter][0] = pivot_index
+                            edge_holder[edge_counter][1] = current_index
+                            edge_counter += 1
+
+    # return the updated edges
+    return edge_holder
