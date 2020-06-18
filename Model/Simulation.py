@@ -568,7 +568,7 @@ class Simulation:
         bins_size = tuple(bins_size.astype(int))
 
         # assigns values of -1 to denote a lack of cells
-        bins = np.ones(bins_size) * -1
+        bins = np.empty(bins_size, dtype=int)
 
         # an array used to accelerate the cuda function by telling the function how many cells are in a given bin
         bins_help = np.zeros(bins_size_help, dtype=int)
@@ -676,7 +676,7 @@ class Simulation:
         bins_size = tuple(bins_size.astype(int))
 
         # assigns values of -1 to denote a lack of cells
-        bins = np.ones(bins_size) * -1
+        bins = np.empty(bins_size, dtype=int)
 
         # an array used to accelerate the cuda function by telling the function how many cells are in a given bin
         bins_help = np.zeros(bins_size_help, dtype=int)

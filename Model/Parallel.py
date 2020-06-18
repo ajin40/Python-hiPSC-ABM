@@ -1,4 +1,4 @@
-from numba import cuda
+from numba import jit, cuda
 import math
 import numpy as np
 
@@ -15,21 +15,15 @@ def magnitude(location_one, location_two):
     return total ** 0.5
 
 
-def check_neighbors_gpu(number_cells, distance, max_neighbors, edge_holder, bins, bins_help, cell_locations):
-    """ The GPU parallelized version of check_neighbors()
-        from the Simulation class.
+@jit(nopython=True)
+def put_cells_in_bins(number_cells, distance, bins, bins_help, cell_locations):
+    """ Helps speed up the process of assigning
+        cells to bins via numba
     """
-    # turn the following into arrays that can be interpreted by the gpu
-    distance_cuda = cuda.to_device(distance)
-    max_neighbors_cuda = cuda.to_device(max_neighbors)
-    edge_holder_cuda = cuda.to_device(edge_holder)
-
-    # assigns cells to bins as a general location
     for i in range(number_cells):
         # offset bins by 1 to avoid missing cells
         block_location = cell_locations[i] // distance + np.array([2, 2, 2])
-        block_location = block_location.astype(int)
-        x, y, z = block_location[0], block_location[1], block_location[2]
+        x, y, z = int(block_location[0]), int(block_location[1]), int(block_location[2])
 
         # tries to place the cell in the holder for the bin. if the holder's value is other than -1 it will move
         # to the next spot to see if it's empty
@@ -40,6 +34,21 @@ def check_neighbors_gpu(number_cells, distance, max_neighbors, edge_holder, bins
 
         # updates the total amount cells in a bin
         bins_help[x][y][z] += 1
+
+    return bins, bins_help
+
+
+def check_neighbors_gpu(number_cells, distance, max_neighbors, edge_holder, bins, bins_help, cell_locations):
+    """ The GPU parallelized version of check_neighbors()
+        from the Simulation class.
+    """
+    # turn the following into arrays that can be interpreted by the gpu
+    distance_cuda = cuda.to_device(distance)
+    max_neighbors_cuda = cuda.to_device(max_neighbors)
+    edge_holder_cuda = cuda.to_device(edge_holder)
+
+    # assign the cells to bins
+    bins, bins_help = put_cells_in_bins(number_cells, distance, bins, bins_help, cell_locations)
 
     # turn the bins array and the blocks_help array into a format to be sent to the gpu
     bins_cuda = cuda.to_device(bins)
@@ -107,22 +116,8 @@ def jkr_neighbors_gpu(number_cells, distance, max_neighbors, edge_holder, bins, 
     max_neighbors_cuda = cuda.to_device(max_neighbors)
     edge_holder_cuda = cuda.to_device(edge_holder)
 
-    # assigns cells to bins as a general location
-    for i in range(number_cells):
-        # offset bins by 1 to avoid missing cells
-        block_location = cell_locations[i] // distance + np.array([2, 2, 2])
-        block_location = block_location.astype(int)
-        x, y, z = block_location[0], block_location[1], block_location[2]
-
-        # tries to place the cell in the holder for the bin. if the holder's value is other than -1 it will move
-        # to the next spot to see if it's empty
-        place = bins_help[x][y][z]
-
-        # gives the cell's array location
-        bins[x][y][z][place] = i
-
-        # updates the total amount cells in a bin
-        bins_help[x][y][z] += 1
+    # assign the cells to bins
+    bins, bins_help = put_cells_in_bins(number_cells, distance, bins, bins_help, cell_locations)
 
     # turn the bins array and the blocks_help array into a format to be sent to the gpu
     bins_cuda = cuda.to_device(bins)
