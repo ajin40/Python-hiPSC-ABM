@@ -36,7 +36,11 @@ for simulation.current_step in range(simulation.beginning_step, simulation.end_s
     simulation.update_diffusion()
 
     # Refreshes the graph used to represent cells as nodes and neighbor connections as edges.   (base)
+    import time
+    start = time.time()
     simulation.check_neighbors()
+    end = time.time()
+    print(end-start)
 
     # Updates cells by adjusting trackers for differentiation and division based on intracellular, intercellular,
     # and extracellular conditions.   (base)
@@ -53,7 +57,6 @@ for simulation.current_step in range(simulation.beginning_step, simulation.end_s
     simulation.update_queue()
 
     # if any differentiated cells exist within a cell's defined search radius, this will find the closest one.
-    import time
     start = time.time()
     simulation.nearest()
     end = time.time()
