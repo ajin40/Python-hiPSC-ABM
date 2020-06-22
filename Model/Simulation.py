@@ -4,6 +4,7 @@ import igraph
 import math
 import itertools
 import time
+from numba import jit, prange
 
 import Parallel
 
@@ -560,51 +561,26 @@ class Simulation:
         length = self.number_cells * max_neighbors
         edge_holder = np.zeros((length, 2), dtype=int)
 
-        # call the parallel version if desired
+        # divides the space into bins and gives a holder of fixed size for each bin
+        bins_size = self.size // distance + np.array([5, 5, 5])
+        bins_size_help = tuple(bins_size.astype(int))
+        bins_size = np.append(bins_size, 100)
+        bins_size = tuple(bins_size.astype(int))
+
+        # assigns values of -1 to denote a lack of cells
+        bins = np.empty(bins_size, dtype=int)
+
+        # an array used to accelerate the cuda function by telling the function how many cells are in a given bin
+        bins_help = np.zeros(bins_size_help, dtype=int)
+
+        # call the gpu version
         if self.parallel:
-            edge_holder = Parallel.check_neighbors_gpu(self, distance, edge_holder, max_neighbors)
-
-        # call the boring non-parallel cpu version
+            edge_holder = Parallel.check_neighbors_gpu(self.number_cells, distance, max_neighbors, edge_holder, bins,
+                                                       bins_help, self.cell_locations)
+        # call the cpu version
         else:
-            # a counter used to know where the next edge will be placed in the edges_holder
-            edge_counter = 0
-
-            # create an 3D array that will divide the space up into a collection of bins
-            bins_size = self.size // distance + np.array([5, 5, 5])
-            bins_size = tuple(bins_size.astype(int))
-            bins = np.empty(bins_size, dtype=np.object)
-
-            # each bin will be a numpy array that will hold indices of cells
-            for i, j, k in itertools.product(range(bins_size[0]), range(bins_size[1]), range(bins_size[2])):
-                bins[i][j][k] = np.array([], dtype=np.int)
-
-            # loops over all cells appending their index value in the corresponding bin
-            for pivot_index in range(self.number_cells):
-                # offset the bin location by 1 to help when searching over bins and reduce potential error of cells
-                # that may be slightly outside the space
-                bin_location = self.cell_locations[pivot_index] // distance + np.array([2, 2, 2])
-                bin_location = bin_location.astype(int)
-                x, y, z = bin_location[0], bin_location[1], bin_location[2]
-
-                # adds the cell to the corresponding bin
-                bins[x][y][z] = np.append(bins[x][y][z], pivot_index)
-
-                for i, j, k in itertools.product(range(-1, 2), repeat=3):
-                    # get the array that is holding the indices of a cells in a block
-                    indices_in_bin = bins[x + i][y + j][z + k]
-
-                    # looks at the cells in a block and decides if they are neighbors
-                    for l in range(len(indices_in_bin)):
-                        # get the index of the current cell in question
-                        current_index = indices_in_bin[l]
-
-                        # check to see if that cell is within the search radius
-                        if np.linalg.norm(self.cell_locations[current_index] - self.cell_locations[pivot_index]) \
-                                <= distance and pivot_index != current_index:
-                            # update the edge array and increase the place for the next addition
-                            edge_holder[edge_counter][0] = pivot_index
-                            edge_holder[edge_counter][1] = current_index
-                            edge_counter += 1
+            edge_holder = check_neighbors_cpu(self.number_cells, distance, edge_holder, bins, bins_help,
+                                              self.cell_locations)
 
         # add the new edges and remove any duplicate edges or loops
         self.neighbor_graph.add_edges(edge_holder)
@@ -693,59 +669,26 @@ class Simulation:
         length = self.number_cells * max_neighbors
         edge_holder = np.zeros((length, 2), dtype=int)
 
-        # call the parallel version if desired
+        # divides the space into bins and gives a holder of fixed size for each bin
+        bins_size = self.size // distance + np.array([5, 5, 5])
+        bins_size_help = tuple(bins_size.astype(int))
+        bins_size = np.append(bins_size, 100)
+        bins_size = tuple(bins_size.astype(int))
+
+        # assigns values of -1 to denote a lack of cells
+        bins = np.empty(bins_size, dtype=int)
+
+        # an array used to accelerate the cuda function by telling the function how many cells are in a given bin
+        bins_help = np.zeros(bins_size_help, dtype=int)
+
+        # call the gpu version
         if self.parallel:
-            # prevents the need for having the numba library if it's not installed
-            import Parallel
-            edge_holder = Parallel.jkr_neighbors_gpu(self, distance, edge_holder, max_neighbors)
-
-        # call the boring non-parallel cpu version
+            edge_holder = Parallel.jkr_neighbors_gpu(self.number_cells, distance, max_neighbors, edge_holder, bins,
+                                                     bins_help, self.cell_locations, self.cell_radii)
+        # call the cpu version
         else:
-            # a counter used to know where the next edge will be placed in the edges_holder
-            edge_counter = 0
-
-            # create an 3D array that will divide the space up into a collection of bins
-            bins_size = self.size // distance + np.array([5, 5, 5])
-            bins_size = tuple(bins_size.astype(int))
-            bins = np.empty(bins_size, dtype=np.object)
-
-            # each bin will be a numpy array that will hold indices of cells
-            for i, j, k in itertools.product(range(bins_size[0]), range(bins_size[1]), range(bins_size[2])):
-                bins[i][j][k] = np.array([], dtype=np.int)
-
-            # loops over all cells appending their index value in the corresponding bin
-            for pivot_index in range(self.number_cells):
-                # offset the bin location by 1 to help when searching over bins and reduce potential error of cells
-                # that may be slightly outside the space
-                bin_location = self.cell_locations[pivot_index] // distance + np.array([2, 2, 2])
-                bin_location = bin_location.astype(int)
-                x, y, z = bin_location[0], bin_location[1], bin_location[2]
-
-                # adds the cell to the corresponding bin
-                bins[x][y][z] = np.append(bins[x][y][z], pivot_index)
-
-                # loop over all nearby bins
-                for i, j, k in itertools.product(range(-1, 2), repeat=3):
-                    # get the array that is holding the indices of a cells in a block
-                    indices_in_bin = bins[x + i][y + j][z + k]
-
-                    # looks at the cells in a block and decides if they are neighbors
-                    for l in range(len(indices_in_bin)):
-                        # get the index of the current cell in question
-                        current_index = indices_in_bin[l]
-
-                        # get the magnitude of the vector between the cells
-                        mag = np.linalg.norm(self.cell_locations[current_index] - self.cell_locations[pivot_index])
-
-                        # compute the overlap of the cell space
-                        overlap = self.cell_radii[current_index] + self.cell_radii[pivot_index] - mag
-
-                        # if overlap present and not the same cell
-                        if overlap >= 0 and pivot_index != current_index:
-                            # update the edge array and increase the place for the next addition
-                            edge_holder[edge_counter][0] = pivot_index
-                            edge_holder[edge_counter][1] = current_index
-                            edge_counter += 1
+            edge_holder = jkr_neighbors_cpu(self.number_cells, distance, edge_holder, bins, bins_help,
+                                            self.cell_locations, self.cell_radii)
 
         # add the new edges and remove any duplicate edges or loops
         self.jkr_graph.add_edges(edge_holder)
@@ -768,10 +711,7 @@ class Simulation:
             self.jkr_neighbors()
 
             # calculate the forces acting on each cell
-            start = time.time()
             self.get_forces()
-            end = time.time()
-            print(end - start)
 
             # turn the forces into movement
             self.apply_forces()
@@ -786,108 +726,44 @@ class Simulation:
         """ goes through all of the cells and quantifies any forces arising
             from adhesion or repulsion between the cells
         """
-        # get the values for Youngs modulus and Poisson's ratio
-        poisson = self.poisson
-        youngs = self.youngs_mod
-        adhesion_const = self.adhesion_const
-
         # get the updated edges of the jkr graph
-        jkr_edges = self.jkr_graph.get_edgelist()
-        delete_jkr_edges = np.zeros(len(jkr_edges), dtype=int)
+        jkr_edges = np.array(self.jkr_graph.get_edgelist())
+        delete_edges = np.zeros(len(jkr_edges), dtype=int)
 
-        # call the parallel version if desired
+        # call the gpu version
         if self.parallel and len(jkr_edges) > 0:
-            # prevents the need for having the numba library if it's not installed
-            import Parallel
-            delete_jkr_edges = Parallel.get_forces_gpu(self, jkr_edges, delete_jkr_edges, poisson, youngs,
-                                                       adhesion_const)
-
-        # call the boring non-parallel cpu version
+            forces, delete_edges = Parallel.get_forces_gpu(jkr_edges, delete_edges, self.poisson, self.youngs_mod,
+                                                           self.adhesion_const, self.cell_locations, self.cell_radii,
+                                                           self.cell_jkr_force)
+        # call the cpu version
         else:
-            # loops over the jkr edges
-            for i in range(len(jkr_edges)):
-                # get the indices of the nodes in the edge
-                index_1 = jkr_edges[i][0]
-                index_2 = jkr_edges[i][1]
+            forces, delete_edges = get_forces_cpu(jkr_edges, delete_edges, self.poisson, self.youngs_mod,
+                                                  self.adhesion_const, self.cell_locations, self.cell_radii,
+                                                  self.cell_jkr_force)
 
-                # hold the vector between the centers of the cells and the magnitude of this vector
-                disp_vector = self.cell_locations[index_1] - self.cell_locations[index_2]
-                magnitude = np.linalg.norm(disp_vector)
-
-                if magnitude == 0:
-                    normal = np.array([0.0, 0.0, 0.0])
-                else:
-                    normal = disp_vector / np.linalg.norm(disp_vector)
-
-                # get the total overlap of the cells used later in calculations
-                overlap = self.cell_radii[index_1] + self.cell_radii[index_2] - magnitude
-
-                # gets two values used for JKR
-                e_hat = (((1 - poisson ** 2) / youngs) + ((1 - poisson ** 2) / youngs)) ** -1
-                r_hat = ((1 / self.cell_radii[index_1]) + (1 / self.cell_radii[index_2])) ** -1
-
-                # used to calculate the max adhesive distance after bond has been already formed
-                overlap_ = (((math.pi * adhesion_const) / e_hat) ** (2 / 3)) * (r_hat ** (1 / 3))
-
-                # get the nondimensionalized overlap, used for later calculations and checks
-                # also for the use of a polynomial approximation of the force
-                d = overlap / overlap_
-
-                # check to see if the cells will have a force interaction
-                if d > -0.360562:
-
-                    # plug the value of d into the nondimensionalized equation for the JKR force
-                    f = (-0.0204 * d ** 3) + (0.4942 * d ** 2) + (1.0801 * d) - 1.324
-
-                    # convert from the nondimensionalization to find the adhesive force
-                    jkr_force = f * math.pi * self.adhesion_const * r_hat
-
-                    # adds the adhesive force as a vector in opposite directions to each cell's force holder
-                    self.cell_jkr_force[index_1] += jkr_force * normal
-                    self.cell_jkr_force[index_2] -= jkr_force * normal
-
-                # remove the edge if the it fails to meet the criteria for distance, JKR simulating that
-                # the bond is broken
-                else:
-                    delete_jkr_edges[i] = i
-
-        # update the jkr graph after the arrays have been updated by either the parallel or non-parallel function
-        self.jkr_graph.delete_edges(delete_jkr_edges)
+        # update the jkr graph to remove an edges that have be broken and update the cell jkr forces
+        self.jkr_graph.delete_edges(delete_edges)
+        self.cell_jkr_force = forces
 
     def apply_forces(self):
         """ Turns the active motility/division forces
             and inactive JKR forces into movement
         """
-        # call the parallel version if desired
+        # call the gpu version
         if self.parallel:
             # prevents the need for having the numba library if it's not installed
-            Parallel.apply_forces_gpu(self)
-
-        # call the boring non-parallel cpu version
+            new_locations = Parallel.apply_forces_gpu(self.number_cells, self.cell_jkr_force, self.cell_motility_force,
+                                                      self.cell_locations, self.cell_radii, self.viscosity, self.size,
+                                                      self.move_time_step)
+        # call the cpu version
         else:
-            # loops over cells to move them
-            for i in range(self.number_cells):
-                # stokes law for velocity based on force and fluid viscosity
-                stokes_friction = 6 * math.pi * self.viscosity * self.cell_radii[i]
+            new_locations = apply_forces_cpu(self.number_cells, self.cell_jkr_force, self.cell_motility_force,
+                                             self.cell_locations, self.cell_radii, self.viscosity, self.size,
+                                             self.move_time_step)
 
-                # update the velocity of the cell based on the solution
-                velocity = (self.cell_motility_force[i] + self.cell_jkr_force[i]) / stokes_friction
-
-                # set the possible new location
-                new_location = self.cell_locations[i] + velocity * self.move_time_step
-
-                # loops over all directions of space
-                for j in range(0, 3):
-                    # check if new location is in environment space if not simulation a collision with the bounds
-                    if new_location[j] > self.size[j]:
-                        self.cell_locations[i][j] = self.size[j]
-                    elif new_location[j] < 0:
-                        self.cell_locations[i][j] = 0.0
-                    else:
-                        self.cell_locations[i][j] = new_location[j]
-
-            # reset the jkr forces back to zero
-            self.cell_jkr_force = np.zeros((self.number_cells, 3))
+        # update the locations and reset the jkr forces back to zero
+        self.cell_locations = new_locations
+        self.cell_jkr_force = np.zeros((self.number_cells, 3))
 
     def random_vector(self):
         """ Computes a random point on a unit sphere centered at the origin
@@ -908,3 +784,194 @@ class Simulation:
             x, y, z = radius * math.cos(theta), radius * math.sin(theta), math.sin(phi)
 
         return np.array([x, y, z])
+
+
+@jit(nopython=True)
+def check_neighbors_cpu(number_cells, distance, edge_holder, bins, bins_help, cell_locations):
+    """ This is the Numba optimized version of
+        the check_neighbors function that runs
+        solely on the cpu.
+    """
+    # holds the total amount of edges as the function runs, used for indexing
+    edge_counter = 0
+
+    # loops over all cells, with the current cell being the pivot of the search method
+    for pivot_index in range(number_cells):
+        # offset bins by 2 to avoid missing cells
+        block_location = cell_locations[pivot_index] // distance + np.array([2, 2, 2])
+        x, y, z = int(block_location[0]), int(block_location[1]), int(block_location[2])
+
+        # gets the index where the cell should be placed
+        place = bins_help[x][y][z]
+
+        # adds the cell index to the bins array
+        bins[x][y][z][place] = pivot_index
+
+        # increase the count of cell in the bin by 1
+        bins_help[x][y][z] += 1
+
+        # loop over the bins that surround the current bin
+        for i in range(-1, 2):
+            for j in range(-1, 2):
+                for k in range(-1, 2):
+                    # get the count of cells in a bin
+                    bin_count = bins_help[x + i][y + j][z + k]
+
+                    # go through the bin determining if a cell is a neighbor
+                    for l in range(bin_count):
+                        # get the index of the current cell in question
+                        current_index = int(bins[x + i][y + j][z + k][l])
+
+                        # check to see if that cell is within the search radius
+                        vector = cell_locations[current_index] - cell_locations[pivot_index]
+                        if np.linalg.norm(vector) <= distance and pivot_index != current_index:
+                            # update the edge array and increase the index for the next addition
+                            edge_holder[edge_counter][0] = pivot_index
+                            edge_holder[edge_counter][1] = current_index
+                            edge_counter += 1
+
+    # return the updated edges
+    return edge_holder
+
+
+@jit(nopython=True)
+def jkr_neighbors_cpu(number_cells, distance, edge_holder, bins, bins_help, cell_locations, cell_radii):
+    """ This is the Numba optimized version of
+        the jkr_neighbors function that runs
+        solely on the cpu.
+    """
+    # holds the total amount of edges as the function runs, used for indexing
+    edge_counter = 0
+
+    # loops over all cells, with the current cell being the pivot of the search method
+    for pivot_index in range(number_cells):
+        # offset bins by 2 to avoid missing cells
+        block_location = cell_locations[pivot_index] // distance + np.array([2, 2, 2])
+        x, y, z = int(block_location[0]), int(block_location[1]), int(block_location[2])
+
+        # gets the index where the cell should be placed
+        place = bins_help[x][y][z]
+
+        # adds the cell index to the bins array
+        bins[x][y][z][place] = pivot_index
+
+        # increase the count of cell in the bin by 1
+        bins_help[x][y][z] += 1
+
+        # loop over the bins that surround the current bin
+        for i in range(-1, 2):
+            for j in range(-1, 2):
+                for k in range(-1, 2):
+                    # get the count of cells in a bin
+                    bin_count = bins_help[x + i][y + j][z + k]
+
+                    # go through the bin determining if a cell is a neighbor
+                    for l in range(bin_count):
+                        # get the index of the current cell in question
+                        current_index = int(bins[x + i][y + j][z + k][l])
+
+                        # get the magnitude of the distance between the cells
+                        vector = cell_locations[current_index] - cell_locations[pivot_index]
+                        mag = np.linalg.norm(vector)
+
+                        # calculate the cell overlap
+                        overlap = cell_radii[current_index] + cell_radii[pivot_index] - mag
+
+                        # if there is overlap and not the same cell add the edge
+                        if overlap >= 0 and pivot_index != current_index:
+                            # update the edge array and increase the index for the next addition
+                            edge_holder[edge_counter][0] = pivot_index
+                            edge_holder[edge_counter][1] = current_index
+                            edge_counter += 1
+
+    # return the updated edges
+    return edge_holder
+
+
+@jit(nopython=True, parallel=True)
+def get_forces_cpu(jkr_edges, delete_jkr_edges, poisson, youngs_mod, adhesion_const, cell_locations,
+                   cell_radii, cell_jkr_force):
+    """ This is the Numba optimized version of
+        the get_forces function that runs
+        solely on the cpu.
+    """
+    # loops over the jkr edges
+    for i in prange(len(jkr_edges)):
+        # get the indices of the nodes in the edge
+        index_1 = jkr_edges[i][0]
+        index_2 = jkr_edges[i][1]
+
+        # hold the vector between the centers of the cells and the magnitude of this vector
+        disp_vector = cell_locations[index_1] - cell_locations[index_2]
+        magnitude = np.linalg.norm(disp_vector)
+        normal = np.array([0.0, 0.0, 0.0])
+
+        # the parallel jit prefers reductions so it's better to initialize the value and revalue it
+        if magnitude != 0:
+            normal += disp_vector / magnitude
+
+        # get the total overlap of the cells used later in calculations
+        overlap = cell_radii[index_1] + cell_radii[index_2] - magnitude
+
+        # gets two values used for JKR
+        e_hat = (((1 - poisson ** 2) / youngs_mod) + ((1 - poisson ** 2) / youngs_mod)) ** -1
+        r_hat = ((1 / cell_radii[index_1]) + (1 / cell_radii[index_2])) ** -1
+
+        # used to calculate the max adhesive distance after bond has been already formed
+        overlap_ = (((math.pi * adhesion_const) / e_hat) ** (2 / 3)) * (r_hat ** (1 / 3))
+
+        # get the nondimensionalized overlap, used for later calculations and checks
+        # also for the use of a polynomial approximation of the force
+        d = overlap / overlap_
+
+        # check to see if the cells will have a force interaction
+        if d > -0.360562:
+            # plug the value of d into the nondimensionalized equation for the JKR force
+            f = (-0.0204 * d ** 3) + (0.4942 * d ** 2) + (1.0801 * d) - 1.324
+
+            # convert from the nondimensionalization to find the adhesive force
+            jkr_force = f * math.pi * adhesion_const * r_hat
+
+            # adds the adhesive force as a vector in opposite directions to each cell's force holder
+            cell_jkr_force[index_1] += jkr_force * normal
+            cell_jkr_force[index_2] -= jkr_force * normal
+
+        # remove the edge if the it fails to meet the criteria for distance, JKR simulating that
+        # the bond is broken
+        else:
+            delete_jkr_edges[i] = i
+
+    # return the updated jkr forces and the edges to be deleted
+    return cell_jkr_force, delete_jkr_edges
+
+
+@jit(nopython=True, parallel=True)
+def apply_forces_cpu(number_cells, cell_jkr_force, cell_motility_force, cell_locations, cell_radii, viscosity, size,
+                     move_time_step):
+    """ This is the Numba optimized version of
+        the apply_forces function that runs
+        solely on the cpu.
+    """
+    # loops over all cells using the explicit parallel loop from Numba
+    for i in prange(number_cells):
+        # stokes law for velocity based on force and fluid viscosity
+        stokes_friction = 6 * math.pi * viscosity * cell_radii[i]
+
+        # update the velocity of the cell based on the solution
+        velocity = (cell_motility_force[i] + cell_jkr_force[i]) / stokes_friction
+
+        # set the possible new location
+        new_location = cell_locations[i] + velocity * move_time_step
+
+        # loops over all directions of space
+        for j in range(0, 3):
+            # check if new location is in environment space if not simulation a collision with the bounds
+            if new_location[j] > size[j]:
+                cell_locations[i][j] = size[j]
+            elif new_location[j] < 0:
+                cell_locations[i][j] = 0.0
+            else:
+                cell_locations[i][j] = new_location[j]
+
+    # return the updated cell locations
+    return cell_locations

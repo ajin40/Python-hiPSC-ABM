@@ -1,7 +1,6 @@
-from numba import cuda
+from numba import jit, cuda
 import math
 import numpy as np
-import gc
 
 
 @cuda.jit(device=True)
@@ -16,33 +15,15 @@ def magnitude(location_one, location_two):
     return total ** 0.5
 
 
-def check_neighbors_gpu(simulation, distance, edge_holder, max_neighbors):
-    """ The GPU parallelized version of check_neighbors()
-        from the Simulation class.
+@jit(nopython=True)
+def put_cells_in_bins(number_cells, distance, bins, bins_help, cell_locations):
+    """ Helps speed up the process of assigning
+        cells to bins via numba
     """
-    # turn the following into arrays that can be interpreted by the gpu
-    distance_cuda = cuda.to_device(distance)
-    max_neighbors_cuda = cuda.to_device(max_neighbors)
-    edge_holder_cuda = cuda.to_device(edge_holder)
-
-    # divides the space into bins and gives a holder of fixed size for each bin
-    bins_size = simulation.size // distance + np.array([5, 5, 5])
-    bins_size_help = tuple(bins_size.astype(int))
-    bins_size = np.append(bins_size, 100)
-    bins_size = tuple(bins_size.astype(int))
-
-    # assigns values of -1 to denote a lack of cells
-    bins = np.ones(bins_size) * -1
-
-    # an array used to accelerate the cuda function by telling the function how many cells are in a given bin
-    bins_help = np.zeros(bins_size_help, dtype=int)
-
-    # assigns cells to bins as a general location
-    for i in range(simulation.number_cells):
+    for i in range(number_cells):
         # offset bins by 1 to avoid missing cells
-        block_location = simulation.cell_locations[i] // distance + np.array([2, 2, 2])
-        block_location = block_location.astype(int)
-        x, y, z = block_location[0], block_location[1], block_location[2]
+        block_location = cell_locations[i] // distance + np.array([2, 2, 2])
+        x, y, z = int(block_location[0]), int(block_location[1]), int(block_location[2])
 
         # tries to place the cell in the holder for the bin. if the holder's value is other than -1 it will move
         # to the next spot to see if it's empty
@@ -54,18 +35,31 @@ def check_neighbors_gpu(simulation, distance, edge_holder, max_neighbors):
         # updates the total amount cells in a bin
         bins_help[x][y][z] += 1
 
+    return bins, bins_help
+
+
+def check_neighbors_gpu(number_cells, distance, max_neighbors, edge_holder, bins, bins_help, cell_locations):
+    """ The GPU parallelized version of check_neighbors()
+        from the Simulation class.
+    """
+    # turn the following into arrays that can be interpreted by the gpu
+    distance_cuda = cuda.to_device(distance)
+    max_neighbors_cuda = cuda.to_device(max_neighbors)
+    edge_holder_cuda = cuda.to_device(edge_holder)
+
+    # assign the cells to bins
+    bins, bins_help = put_cells_in_bins(number_cells, distance, bins, bins_help, cell_locations)
+
     # turn the bins array and the blocks_help array into a format to be sent to the gpu
     bins_cuda = cuda.to_device(bins)
     bins_help_cuda = cuda.to_device(bins_help)
 
     # turn the array into a form readable by the GPU
-    locations_cuda = cuda.to_device(simulation.cell_locations)
+    locations_cuda = cuda.to_device(cell_locations)
 
     # sets up the correct allocation of threads and blocks
     threads_per_block = 72
-    blocks_per_grid = math.ceil(simulation.number_cells / threads_per_block)
-
-    gc.collect()
+    blocks_per_grid = math.ceil(number_cells / threads_per_block)
 
     # calls the cuda function with the given inputs
     check_neighbors_cuda[blocks_per_grid, threads_per_block](locations_cuda, bins_cuda, bins_help_cuda,
@@ -113,7 +107,7 @@ def check_neighbors_cuda(locations, bins, bins_help, distance, edge_holder, max_
                             place += 1
 
 
-def jkr_neighbors_gpu(simulation, distance, edge_holder, max_neighbors):
+def jkr_neighbors_gpu(number_cells, distance, max_neighbors, edge_holder, bins, bins_help, cell_locations, cell_radii):
     """ The GPU parallelized version of jkr_neighbors()
         from the Simulation class.
     """
@@ -122,46 +116,20 @@ def jkr_neighbors_gpu(simulation, distance, edge_holder, max_neighbors):
     max_neighbors_cuda = cuda.to_device(max_neighbors)
     edge_holder_cuda = cuda.to_device(edge_holder)
 
-    # divides the space into bins and gives a holder of fixed size for each bin
-    bins_size = simulation.size // distance + np.array([5, 5, 5])
-    bins_size_help = tuple(bins_size.astype(int))
-    bins_size = np.append(bins_size, 100)
-    bins_size = tuple(bins_size.astype(int))
-
-    # assigns values of -1 to denote a lack of cells
-    bins = np.ones(bins_size) * -1
-
-    # an array used to accelerate the cuda function by telling the function how many cells are in a given bin
-    bins_help = np.zeros(bins_size_help, dtype=int)
-
-    # assigns cells to bins as a general location
-    for i in range(simulation.number_cells):
-        # offset bins by 1 to avoid missing cells
-        block_location = simulation.cell_locations[i] // distance + np.array([2, 2, 2])
-        block_location = block_location.astype(int)
-        x, y, z = block_location[0], block_location[1], block_location[2]
-
-        # tries to place the cell in the holder for the bin. if the holder's value is other than -1 it will move
-        # to the next spot to see if it's empty
-        place = bins_help[x][y][z]
-
-        # gives the cell's array location
-        bins[x][y][z][place] = i
-
-        # updates the total amount cells in a bin
-        bins_help[x][y][z] += 1
+    # assign the cells to bins
+    bins, bins_help = put_cells_in_bins(number_cells, distance, bins, bins_help, cell_locations)
 
     # turn the bins array and the blocks_help array into a format to be sent to the gpu
     bins_cuda = cuda.to_device(bins)
     bins_help_cuda = cuda.to_device(bins_help)
 
     # turn the array into a form readable by the GPU
-    locations_cuda = cuda.to_device(simulation.cell_locations)
-    radii_cuda = cuda.to_device(simulation.cell_radii)
+    locations_cuda = cuda.to_device(cell_locations)
+    radii_cuda = cuda.to_device(cell_radii)
 
     # sets up the correct allocation of threads and blocks
     threads_per_block = 72
-    blocks_per_grid = math.ceil(simulation.number_cells / threads_per_block)
+    blocks_per_grid = math.ceil(number_cells / threads_per_block)
 
     # calls the cuda function with the given inputs
     jkr_neighbors_cuda[blocks_per_grid, threads_per_block](locations_cuda, radii_cuda, bins_cuda, bins_help_cuda,
@@ -215,36 +183,32 @@ def jkr_neighbors_cuda(locations, radii, bins, bins_help, distance, edge_holder,
                             place += 1
 
 
-def get_forces_gpu(simulation, jkr_edges, delete_jkr_edges, poisson, youngs, adhesion_const):
-    """ The GPU parallelized version of forces_to_movement()
+def get_forces_gpu(jkr_edges, delete_jkr_edges, poisson, youngs_mod, adhesion_const, cell_locations,
+                   cell_radii, cell_jkr_force):
+    """ The GPU parallelized version of get_forces()
         from the Simulation class.
     """
-    # sets up the correct allocation of threads and blocks
-    threads_per_block = 72
-    blocks_per_grid = math.ceil(len(jkr_edges) / threads_per_block)
-
     # convert these arrays into a form able to be read by the GPU
     jkr_edges_cuda = cuda.to_device(jkr_edges)
     delete_jkr_edges_cuda = cuda.to_device(delete_jkr_edges)
     poisson_cuda = cuda.to_device(poisson)
-    youngs_cuda = cuda.to_device(youngs)
+    youngs_cuda = cuda.to_device(youngs_mod)
     adhesion_const_cuda = cuda.to_device(adhesion_const)
-    forces_cuda = cuda.to_device(simulation.cell_jkr_force)
+    forces_cuda = cuda.to_device(cell_jkr_force)
+    locations_cuda = cuda.to_device(cell_locations)
+    radii_cuda = cuda.to_device(cell_radii)
 
-    # send these to the gpu
-    locations_cuda = cuda.to_device(simulation.cell_locations)
-    radii_cuda = cuda.to_device(simulation.cell_radii)
+    # sets up the correct allocation of threads and blocks
+    threads_per_block = 72
+    blocks_per_grid = math.ceil(len(jkr_edges) / threads_per_block)
 
     # call the cuda function
     get_forces_cuda[blocks_per_grid, threads_per_block](jkr_edges_cuda, delete_jkr_edges_cuda, locations_cuda,
                                                         radii_cuda, forces_cuda, poisson_cuda, youngs_cuda,
                                                         adhesion_const_cuda)
-    # get these back from the gpu
-    simulation.cell_jkr_force = forces_cuda.copy_to_host()
-    delete_jkr_edges_output = delete_jkr_edges_cuda.copy_to_host()
 
-    # return the edges to be deleted
-    return delete_jkr_edges_output
+    # return the new forces and the edges to be deleted
+    return forces_cuda.copy_to_host(), delete_jkr_edges_cuda.copy_to_host()
 
 
 @cuda.jit
@@ -321,33 +285,29 @@ def get_forces_cuda(jkr_edges, delete_jkr_edges, locations, radii, forces, poiss
             delete_jkr_edges[edge_index] = edge_index
 
 
-def apply_forces_gpu(simulation):
+def apply_forces_gpu(number_cells, cell_jkr_force, cell_motility_force, cell_locations, cell_radii, viscosity, size,
+                     move_time_step):
     """ The GPU parallelized version of apply_forces()
         from the Simulation class.
     """
     # turn those arrays into gpu arrays
-    jkr_forces_cuda = cuda.to_device(simulation.cell_jkr_force)
-    motility_forces_cuda = cuda.to_device(simulation.cell_motility_force)
-    locations_cuda = cuda.to_device(simulation.cell_locations)
-    radii_cuda = cuda.to_device(simulation.cell_radii)
-    viscosity_cuda = cuda.to_device(simulation.viscosity)
-    size_cuda = cuda.to_device(simulation.size)
-    move_time_step_cuda = cuda.to_device(simulation.move_time_step)
+    jkr_forces_cuda = cuda.to_device(cell_jkr_force)
+    motility_forces_cuda = cuda.to_device(cell_motility_force)
+    locations_cuda = cuda.to_device(cell_locations)
+    radii_cuda = cuda.to_device(cell_radii)
+    viscosity_cuda = cuda.to_device(viscosity)
+    size_cuda = cuda.to_device(size)
+    move_time_step_cuda = cuda.to_device(move_time_step)
 
     # sets up the correct allocation of threads and blocks
     threads_per_block = 72
-    blocks_per_grid = math.ceil(simulation.number_cells / threads_per_block)
+    blocks_per_grid = math.ceil(number_cells / threads_per_block)
 
     # call the cuda function
     apply_forces_cuda[blocks_per_grid, threads_per_block](jkr_forces_cuda, motility_forces_cuda, locations_cuda,
                                                           radii_cuda, viscosity_cuda, size_cuda, move_time_step_cuda)
-
     # return the new cell locations from the gpu
-    new_locations = locations_cuda.copy_to_host()
-
-    # update all of the cell locations and set the JKR forces back to zero vectors
-    simulation.cell_locations = new_locations
-    simulation.cell_jkr_force = np.zeros((simulation.number_cells, 3), dtype=float)
+    return locations_cuda.copy_to_host()
 
 
 @cuda.jit
@@ -397,33 +357,3 @@ def apply_forces_cuda(inactive_forces, active_forces, locations, radii, viscosit
             locations[index][2] = 0.0
         else:
             locations[index][2] = new_location_z
-
-
-
-# def update_gradient_gpu(extracellular, simulation):
-#     """ This is a near identical function to the
-#         non-parallel one; however, this uses
-#         cupy which is identical to numpy, but
-#         it is run on a cuda gpu instead
-#     """
-#     # get the number of times this will be run
-#     time_steps = int(simulation.time_step_value / extracellular.dt)
-#
-#     # make the variable name smaller for easier writing
-#     a = cp.asarray(extracellular.diffuse_values)
-#
-#     # perform the following operations on the diffusion points at each time step
-#     for i in range(time_steps):
-#
-#         x = (a[2:][1:-1][1:-1] - 2 * a[1:-1][1:-1][1:-1] + a[:-2][1:-1][1:-1]) / extracellular.dx2
-#         y = (a[1:-1][2:][1:-1] - 2 * a[1:-1][1:-1][1:-1] + a[1:-1][:-2][1:-1]) / extracellular.dy2
-#         z = (a[1:-1][1:-1][2:] - 2 * a[1:-1][1:-1][1:-1] + a[1:-1][1:-1][:-2]) / extracellular.dz2
-#
-#         # update the array, assign a variable for ease of writing
-#         new_value = a[1:-1][1:-1][1:-1] + extracellular.diffuse_const * extracellular.dt * (x + y + z)
-#         a[1:-1][1:-1][1:-1] = new_value
-#
-#     # turn it back into a numpy array
-#     extracellular.diffuse_values = cp.asnumpy(a)
-
-
