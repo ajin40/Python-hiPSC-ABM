@@ -53,7 +53,11 @@ for simulation.current_step in range(simulation.beginning_step, simulation.end_s
     simulation.update_queue()
 
     # if any differentiated cells exist within a cell's defined search radius, this will find the closest one.
-    simulation.nearest_diff()
+    import time
+    start = time.time()
+    simulation.nearest()
+    end = time.time()
+    print(end-start)
 
     # Moves the cells to a state of physical equilibrium so that there is minimal overlap of cells, while also
     # applying forces from the previous motility_cells() function.   (base)

@@ -168,11 +168,14 @@ def setup(template_location):
             # set up the forces and closest differentiated cell with empty values
             motility_force = np.zeros(3, dtype=float)
             jkr_force = np.zeros(3, dtype=float)
-            closest_diff = None
+            nearest_gata6 = np.nan
+            nearest_nanog = np.nan
+            nearest_diff = np.nan
 
             # adds object to simulation instance
             simulation.add_cell(location, radius, True, booleans, "Pluripotent", diff_counter, div_counter,
-                                death_counter, bool_counter, motility_force, jkr_force, closest_diff)
+                                death_counter, bool_counter, motility_force, jkr_force, nearest_gata6, nearest_nanog,
+                                nearest_diff)
 
     # return the modified simulation instance
     return simulation

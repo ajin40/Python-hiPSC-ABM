@@ -2,7 +2,6 @@ import numpy as np
 import random as r
 import igraph
 import math
-import itertools
 import time
 from numba import jit, prange
 
@@ -12,7 +11,7 @@ import Parallel
 # used to hold all values necessary to the simulation as it moves from one step to the next
 class Simulation:
     def __init__(self, path, name, parallel, size, resolution, num_fds_states, functions, neighbor_distance,
-                 guye_distance, jkr_distance, lonely_cell, contact_inhibit, move_thresh, time_step_value,
+                 nearest_distance, jkr_distance, lonely_cell, contact_inhibit, move_thresh, time_step_value,
                  beginning_step, end_step, move_time_step, dox_step, pluri_div_thresh, pluri_to_diff, diff_div_thresh,
                  fds_thresh, death_thresh, diff_surround, adhesion_const, viscosity, group, output_csvs, output_images,
                  image_quality, fps, background_color, bound_color, color_mode, pluri_color, diff_color,
@@ -30,7 +29,7 @@ class Simulation:
         self.num_fds_states = num_fds_states    # the number of states for the finite dynamical system
         self.functions = functions    # the finite dynamical system functions as strings in an array
         self.neighbor_distance = neighbor_distance    # the distance threshold for assigning nearby cells as neighbors
-        self.guye_distance = guye_distance    # the radius of search for the nearest differentiated neighbor
+        self.nearest_distance = nearest_distance    # the radius of search for the nearest cell of desired type
         self.jkr_distance = jkr_distance    # the radius of search for JKR adhesive bonds formed between cells
         self.lonely_cell = lonely_cell    # if the number of neighbors is below this threshold, a cell is lonely
         self.contact_inhibit = contact_inhibit    # if the number of neighbors is below this threshold, no inhibition
@@ -81,7 +80,9 @@ class Simulation:
         self.cell_fds_counter = np.empty((0, 1), dtype=int)    # holds every cell's finite dynamical system counter
         self.cell_motility_force = np.empty((0, 3), dtype=float)    # holds every cell's motility force vector
         self.cell_jkr_force = np.empty((0, 3), dtype=float)    # holds every cell's JKR force vector
-        self.cell_closest_diff = np.empty((0, 1), dtype=int)    # holds index of closest differentiated neighbor
+        self.cell_nearest_gata6 = np.empty((0, 1), dtype=None)    # holds index of nearest gata6 high neighbor
+        self.cell_nearest_nanog = np.empty((0, 1), dtype=None)    # holds index of nearest nanog high neighbor
+        self.cell_nearest_diff = np.empty((0, 1), dtype=None)    # holds index of nearest differentiated neighbor
 
         # holds the run time for key functions as a way tracking efficiency. each step these are outputted to the data
         # CSV file. this just initializes the variables as floats
@@ -157,7 +158,7 @@ class Simulation:
         self.update_diffusion_time += time.time()
 
     def add_cell(self, location, radius, motion, fds, state, diff_counter, div_counter, death_counter, fds_counter,
-                 motility_force, jkr_force, closest_diff):
+                 motility_force, jkr_force, nearest_gata6, nearest_nanog, nearest_diff):
         """ Adds each of the new cell's values to
             the array holders, graphs, and total
             number of cells.
@@ -175,7 +176,9 @@ class Simulation:
         self.cell_fds_counter = np.append(self.cell_fds_counter, fds_counter)
         self.cell_motility_force = np.append(self.cell_motility_force, [motility_force], axis=0)
         self.cell_jkr_force = np.append(self.cell_jkr_force, [jkr_force], axis=0)
-        self.cell_closest_diff = np.append(self.cell_closest_diff, closest_diff)
+        self.cell_nearest_gata6 = np.append(self.cell_nearest_gata6, nearest_gata6)
+        self.cell_nearest_nanog = np.append(self.cell_nearest_nanog, nearest_nanog)
+        self.cell_nearest_diff = np.append(self.cell_nearest_diff, nearest_diff)
 
         # add it to the following graphs, this is done implicitly by increasing the length of the vertex list by
         # one, which the indices directly correspond to the cell holder arrays
@@ -203,7 +206,9 @@ class Simulation:
         self.cell_fds_counter = np.delete(self.cell_fds_counter, index)
         self.cell_motility_force = np.delete(self.cell_motility_force, index, axis=0)
         self.cell_jkr_force = np.delete(self.cell_jkr_force, index, axis=0)
-        self.cell_closest_diff = np.delete(self.cell_closest_diff, index)
+        self.cell_nearest_gata6 = np.delete(self.cell_nearest_gata6, index)
+        self.cell_nearest_nanog = np.delete(self.cell_nearest_nanog, index)
+        self.cell_nearest_diff = np.delete(self.cell_nearest_diff, index)
 
         # remove the particular index from the following graphs as these deal in terms of indices
         # this will adjust edges as the indices change, so no worries here
@@ -280,7 +285,9 @@ class Simulation:
         # reduce radius to minimum size, set the division counter to zero, and None as the nearest differentiated cell
         self.cell_radii[index] = radius = self.min_radius
         self.cell_div_counter[index] = div_counter = 0
-        self.cell_closest_diff[index] = closest_diff = None
+        self.cell_nearest_gata6[index] = nearest_gata6 = np.nan
+        self.cell_nearest_nanog[index] = nearest_nanog = np.nan
+        self.cell_nearest_diff[index] = nearest_diff = np.nan
 
         # keep identical values for motion, booleans, state, differentiation, cell death, and boolean update
         motion = self.cell_motion[index]
@@ -296,7 +303,7 @@ class Simulation:
 
         # add the cell to the simulation
         self.add_cell(location, radius, motion, booleans, state, diff_counter, div_counter, death_counter,
-                      bool_counter, motility_force, jkr_force, closest_diff)
+                      bool_counter, motility_force, jkr_force, nearest_gata6, nearest_nanog, nearest_diff)
 
     def cell_update(self):
         """ Loops over all indices of cells and updates
@@ -489,6 +496,22 @@ class Simulation:
             if len(neighbors) >= self.move_thresh:
                 self.cell_motion[i] = False
 
+            # if NANOG high
+            if self.cell_fds[i][3] == 1:
+                counter = 0
+                for j in range(len(neighbors)):
+                    neighbor_index = neighbors[j]
+                    if self.cell_fds[neighbor_index][3] == 1:
+                        counter += 1
+
+
+
+
+
+
+
+
+
             # check whether differentiated or pluripotent
             if self.cell_states[i] == "Differentiated":
                 # directed movement if the cell has neighbors thresholds are to be determined
@@ -589,7 +612,7 @@ class Simulation:
         # end time
         self.check_neighbors_time += time.time()
 
-    def nearest_diff(self):
+    def nearest(self):
         """ looks at cells within a given radius
             a determines the closest differentiated
             cell to a pluripotent cell.
@@ -598,60 +621,30 @@ class Simulation:
         self.nearest_diff_time = -1 * time.time()
 
         # get the radius of search length
-        distance = self.guye_distance
+        distance = self.nearest_distance
 
-        # create an 3D array that will divide the space up into a collection of bins
+        # divides the space into bins and gives a holder of fixed size for each bin
         bins_size = self.size // distance + np.array([5, 5, 5])
+        bins_size_help = tuple(bins_size.astype(int))
+        bins_size = np.append(bins_size, 100)
         bins_size = tuple(bins_size.astype(int))
-        bins = np.empty(bins_size, dtype=np.object)
 
-        # each bin will be a numpy array that will hold indices of cells
-        for i, j, k in itertools.product(range(bins_size[0]), range(bins_size[1]), range(bins_size[2])):
-            bins[i][j][k] = np.array([], dtype=np.int)
+        # assigns values of -1 to denote a lack of cells
+        bins = np.empty(bins_size, dtype=int)
 
-        # loops over all pluripotent cells appending their index value in the corresponding bin
-        for pivot_index in range(self.number_cells):
-            if self.cell_states[pivot_index] == "Pluripotent":
-                # offset the bin location by 1 to help when searching over bins and reduce potential error of
-                # cells that may be slightly outside the space
-                bin_location = self.cell_locations[pivot_index] // distance + np.array([2, 2, 2])
-                bin_location = bin_location.astype(int)
-                x, y, z = bin_location[0], bin_location[1], bin_location[2]
+        # an array used to accelerate the cuda function by telling the function how many cells are in a given bin
+        bins_help = np.zeros(bins_size_help, dtype=int)
 
-                # adds the cell to the corresponding bin
-                bins[x][y][z] = np.append(bins[x][y][z], pivot_index)
+        # find the nearest gata6 high cell
+        new_gata6, new_nanog, new_diff = nearest_cpu(self.number_cells, distance, bins, bins_help,
+                                                     self.cell_locations, self.cell_nearest_gata6,
+                                                     self.cell_nearest_nanog, self.cell_nearest_diff, self.cell_states,
+                                                     self.cell_fds)
 
-        # loops over all differentiated cells looking for the surrounding differentiated cells
-        for pivot_index in range(self.number_cells):
-            if self.cell_states[pivot_index] == "Differentiated":
-                bin_location = self.cell_locations[pivot_index] // distance + np.array([2, 2, 2])
-                bin_location = bin_location.astype(int)
-                x, y, z = bin_location[0], bin_location[1], bin_location[2]
-                # create an arbitrary distance that any cell close enough will replace
-                closest_index = None
-                closest_dist = distance * 2
-
-                # look at the surrounding bins
-                for i, j, k in itertools.product(range(-1, 2), repeat=3):
-                    # get the array that is holding the indices of a cells in a block
-                    indices_in_bin = bins[x + i][y + j][z + k]
-
-                    # looks at the cells in a block and decides if they are neighbors
-                    for l in range(len(indices_in_bin)):
-                        # get the index of the current cell in question
-                        current_index = indices_in_bin[l]
-
-                        # check to see if that cell is within the search radius and not the same cell
-                        m = np.linalg.norm(self.cell_locations[current_index] - self.cell_locations[pivot_index])
-                        if m <= distance and current_index != pivot_index:
-                            # if it's closer than the last cell, update the closest magnitude and index
-                            if m < closest_dist:
-                                closest_index = current_index
-                                closest_dist = m
-
-                # check to make sure the initial cell doesn't slip through
-                if closest_dist <= distance:
-                    self.cell_closest_diff[pivot_index] = closest_index
+        # revalue the array holding the indices of nearest cells of given type
+        self.cell_nearest_gata6 = new_gata6
+        self.cell_nearest_nanog = new_nanog
+        self.cell_nearest_diff = new_diff
 
         # end time
         self.nearest_diff_time += time.time()
@@ -975,3 +968,80 @@ def apply_forces_cpu(number_cells, cell_jkr_force, cell_motility_force, cell_loc
 
     # return the updated cell locations
     return cell_locations
+
+
+@jit(nopython=False)
+def nearest_cpu(number_cells, distance, bins, bins_help, cell_locations, nearest_gata6, nearest_nanog, nearest_diff,
+                cell_states, cell_fds):
+    """ This is the Numba optimized
+        version of the nearest function.
+    """
+    for i in range(number_cells):
+        # offset bins by 1 to avoid missing cells
+        block_location = cell_locations[i] // distance + np.array([2, 2, 2])
+        x, y, z = int(block_location[0]), int(block_location[1]), int(block_location[2])
+
+        # tries to place the cell in the holder for the bin. if the holder's value is other than -1 it will move
+        # to the next spot to see if it's empty
+        place = bins_help[x][y][z]
+
+        # gives the cell's array location
+        bins[x][y][z][place] = i
+
+        # updates the total amount cells in a bin
+        bins_help[x][y][z] += 1
+
+    # loops over all cells, with the current cell being the pivot of the search method
+    for pivot_index in range(number_cells):
+        # offset bins by 2 to avoid missing cells
+        block_location = cell_locations[pivot_index] // distance + np.array([2, 2, 2])
+        x, y, z = int(block_location[0]), int(block_location[1]), int(block_location[2])
+
+        # initialize this variables with essentially nothing values
+        nearest_gata6_index, nearest_nanog_index, nearest_diff_index = np.nan, np.nan, np.nan
+        nearest_gata6_dist, nearest_nanog_dist, nearest_diff_dist = distance * 2, distance * 2, distance * 2
+
+        # loop over the bins that surround the current bin
+        for i in range(-1, 2):
+            for j in range(-1, 2):
+                for k in range(-1, 2):
+                    # get the array that is holding the indices of a cells in a block
+                    indices_in_bin = bins[x + i][y + j][z + k]
+
+                    # looks at the cells in a block and decides if they are neighbors
+                    for l in range(len(indices_in_bin)):
+                        # get the index of the current cell in question
+                        current_index = indices_in_bin[l]
+
+                        # check to see if that cell is within the search radius and not the same cell
+                        m = np.linalg.norm(cell_locations[current_index] - cell_locations[pivot_index])
+                        if m <= distance and current_index != pivot_index:
+
+                            # update the nearest gata6 high cell
+                            if cell_fds[current_index][2] == 1:
+                                # if it's closer than the last cell, update the closest magnitude and index
+                                if m < nearest_gata6_dist:
+                                    nearest_gata6_index = current_index
+                                    nearest_gata6_dist = m
+
+                            # update the nearest nanog high cell
+                            elif cell_fds[current_index][3] == 1:
+                                # if it's closer than the last cell, update the closest magnitude and index
+                                if m < nearest_nanog_dist:
+                                    nearest_nanog_index = current_index
+                                    nearest_nanog_dist = m
+
+                            # update the nearest differentiated cell
+                            elif cell_states[current_index] == "Differentiated":
+                                # if it's closer than the last cell, update the closest magnitude and index
+                                if m < nearest_diff_dist:
+                                    nearest_diff_index = current_index
+                                    nearest_diff_dist = m
+
+        # update the nearest cell of desired type index
+        nearest_gata6[pivot_index] = nearest_gata6_index
+        nearest_nanog[pivot_index] = nearest_nanog_index
+        nearest_diff[pivot_index] = nearest_diff_index
+
+    # return the updated edges
+    return nearest_gata6, nearest_nanog, nearest_diff
