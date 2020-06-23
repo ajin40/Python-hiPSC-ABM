@@ -16,7 +16,7 @@ class Simulation:
                  fds_thresh, death_thresh, diff_surround, adhesion_const, viscosity, group, output_csvs, output_images,
                  image_quality, fps, background_color, bound_color, color_mode, pluri_color, diff_color,
                  pluri_gata6_high_color, pluri_nanog_high_color, pluri_both_high_color, guye_move, motility_force,
-                 max_radius):
+                 max_radius, fgf4_negative_move, random_move):
 
         # the following instance variables should remain fixed, meaning that they don't change from step to step.
         # they are merely used to hold initial parameters from the template file that will needed to be consistent
@@ -63,6 +63,8 @@ class Simulation:
         self.guye_move = guye_move    # whether or not to use the Guye method of cell motility
         self.motility_force = motility_force    # the active force (in Newtons) of a cell actively moving
         self.max_radius = max_radius    # the maximum radius (in meters) of a cell
+        self.fgf4_negative_move = fgf4_negative_move
+        self.random_move = random_move
 
         # these arrays hold all values of the cells, each index corresponds to a cell.
         # you may ask why not create an array that holds a bunch of Cell objects...and my answer to that
@@ -496,73 +498,65 @@ class Simulation:
             if len(neighbors) >= self.move_thresh:
                 self.cell_motion[i] = False
 
-            # if NANOG high
-            if self.cell_fds[i][3] == 1:
-                counter = 0
-                for j in range(len(neighbors)):
-                    neighbor_index = neighbors[j]
-                    if self.cell_fds[neighbor_index][3] == 1:
-                        counter += 1
-
-
-
-
-
-
-
-
-
-            # check whether differentiated or pluripotent
-            if self.cell_states[i] == "Differentiated":
-                # directed movement if the cell has neighbors thresholds are to be determined
-                if 0 < len(neighbors) < 6:
-                    # create a vector to hold the sum of normal vectors between a cell and its neighbors
-                    vector_holder = np.array([0.0, 0.0, 0.0])
-
-                    # loop over the neighbors getting the normal and adding to the holder
-                    for j in range(len(neighbors)):
-                        vector = self.cell_locations[neighbors[j]] - self.cell_locations[i]
-                        vector_holder += vector
-
-                    # get the magnitude of the sum of normals
-                    magnitude = np.linalg.norm(vector_holder)
-
-                    # if for some case, its zero set the new normal vector to zero
-                    if magnitude == 0:
-                        normal = np.array([0.0, 0.0, 0.0])
-                    else:
-                        normal = vector_holder / magnitude
-
-                    # move in direction opposite to cells
-                    self.cell_motility_force[i] += self.motility_force * normal * -1
-
-                # if there aren't any neighbors and still in motion then move randomly
-                elif self.cell_motion[i]:
-                    self.cell_motility_force[i] += self.random_vector() * self.motility_force
-
-            # for pluripotent cells
             else:
-                # apply movement if the cell is "in motion"
-                if self.cell_motion[i]:
-                    if self.cell_fds[i][2] == 1:
-                        # continue if using Guye et al. movement and if there exists differentiated cells
-                        if self.guye_move and self.cell_closest_diff[i] is not None:
-                            # get the differentiated neighbors
-                            guye_neighbor = self.cell_closest_diff[i]
+                # if pluripotent
+                if self.cell_states[i] == "Pluripotent":
+                    # if nanog high
+                    if self.cell_fds[i][3] == 1:
+                        # if there is a gata6 high cell nearby, move away from it
+                        if not np.isnan(self.cell_nearest_gata6[i]):
+                            nearest_index = self.cell_nearest_gata6[i]
+                            normal = normal_vector(self.cell_locations[i], self.cell_locations[nearest_index])
+                            self.cell_motility_force = normal * self.motility_force * -1
 
-                            vector = self.cell_locations[guye_neighbor] - self.cell_locations[i]
-                            magnitude = np.linalg.norm(vector)
+                        # if there is a nanog high cell nearby, move to it
+                        elif not np.isnan(self.cell_nearest_nanog[i]):
+                            nearest_index = self.cell_nearest_nanog[i]
+                            normal = normal_vector(self.cell_locations[i], self.cell_locations[nearest_index])
+                            self.cell_motility_force = normal * self.motility_force
 
-                            # move in the direction of the closest differentiated neighbor
-                            normal = vector / magnitude
-                            self.cell_motility_force[i] += normal * self.motility_force
-
+                        # if nothing else, move randomly
                         else:
-                            # if not Guye et al. movement, move randomly
-                            self.cell_motility_force[i] += self.random_vector() * self.motility_force
+                            self.cell_motility_force = self.random_vector() * self.motility_force
+
+                    # if gata6 high
+                    elif self.cell_fds[i][2] == 1:
+                        # if fgf4_negative movement
+                        if self.fgf4_negative_move:
+                            # if there is a nearby nanog cell, move away from it
+                            if not np.isnan(self.cell_nearest_nanog[i]):
+                                nearest_index = self.cell_nearest_nanog[i]
+                                normal = normal_vector(self.cell_locations[i], self.cell_locations[nearest_index])
+                                self.cell_motility_force = normal * self.motility_force * -1
+                            # move randomly instead
+                            else:
+                                self.cell_motility_force = self.random_vector() * self.motility_force
+
+                        # if guye movement
+                        elif self.guye_move:
+                            # if a nearby differentiated cell, move to it
+                            if not np.isnan(self.cell_nearest_diff[i]):
+                                nearest_index = self.cell_nearest_diff[i]
+                                normal = normal_vector(self.cell_locations[i], self.cell_locations[nearest_index])
+                                self.cell_motility_force = normal * self.motility_force
+                            # move randomly instead
+                            else:
+                                self.cell_motility_force = self.random_vector() * self.motility_force
+
+                        # if random movement
+                        elif self.random_move:
+                            self.cell_motility_force = self.random_vector() * self.motility_force
+
+                # differentiated
+                else:
+                    # if there is a nearby nanog cell, move away from it
+                    if not np.isnan(self.cell_nearest_nanog[i]):
+                        nearest_index = self.cell_nearest_nanog[i]
+                        normal = normal_vector(self.cell_locations[i], self.cell_locations[nearest_index])
+                        self.cell_motility_force = normal * self.motility_force * -1
+                    # move randomly instead
                     else:
-                        # if not GATA6 high
-                        self.cell_motility_force[i] += self.random_vector() * self.motility_force
+                        self.cell_motility_force = self.random_vector() * self.motility_force
 
         # end time
         self.cell_motility_time += time.time()
@@ -777,6 +771,17 @@ class Simulation:
             x, y, z = radius * math.cos(theta), radius * math.sin(theta), math.sin(phi)
 
         return np.array([x, y, z])
+
+def normal_vector(location_1, location_2):
+    """ Get the normal vector between
+        two points
+    """
+    vector = location_2 - location_1
+    magnitude = np.linalg.norm(vector)
+    if magnitude == 0:
+        return np.array([0, 0, 0])
+    else:
+        return vector / magnitude
 
 
 @jit(nopython=False)
@@ -1044,5 +1049,3 @@ def apply_forces_cpu(number_cells, cell_jkr_force, cell_motility_force, cell_loc
 
     # return the updated cell locations
     return cell_locations
-
-

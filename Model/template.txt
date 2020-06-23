@@ -178,8 +178,14 @@ Stochastic FGFR + ERK values? Ex. True
 How many cells are added/removed to the simulation at once, per time step? Type 0 if all at once. Ex. 5
 [ 0 ]
 
-Look for the nearest differentiated cell and move closer to it? Based on Guye et al. Ex. True
+Use the Guye movement method?. Ex. True
 [ True ]
+
+Use the fgf4-negative movement method?. Ex. False
+[ False ]
+
+Use the random movement method?. Ex. True
+[ False ]
 
 The time has come. Execute Order Sixty-Six? Ex. True
 [ True ]
