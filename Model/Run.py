@@ -23,9 +23,6 @@ simulation = Input.setup("C:\\Python37\\Seed Project\\Model\\template.txt")
 Output.initialize_csv(simulation)
 Output.initialize_video(simulation)
 
-# Adds the initial concentration amounts to the space for each instance of the extracellular class    (base)
-simulation.initialize_diffusion()
-
 # This will loop over all steps defined in the template file in addition to updating the current step
 # of the simulation.   (base)
 for simulation.current_step in range(simulation.beginning_step, simulation.end_step + 1):
@@ -36,11 +33,7 @@ for simulation.current_step in range(simulation.beginning_step, simulation.end_s
     simulation.update_diffusion()
 
     # Refreshes the graph used to represent cells as nodes and neighbor connections as edges.   (base)
-    import time
-    start = time.time()
     simulation.check_neighbors()
-    end = time.time()
-    print(end-start)
 
     # Updates cells by adjusting trackers for differentiation and division based on intracellular, intercellular,
     # and extracellular conditions.   (base)
@@ -57,10 +50,7 @@ for simulation.current_step in range(simulation.beginning_step, simulation.end_s
     simulation.update_queue()
 
     # if any differentiated cells exist within a cell's defined search radius, this will find the closest one.
-    start = time.time()
     simulation.nearest()
-    end = time.time()
-    print(end-start)
 
     # Moves the cells to a state of physical equilibrium so that there is minimal overlap of cells, while also
     # applying forces from the previous motility_cells() function.   (base)

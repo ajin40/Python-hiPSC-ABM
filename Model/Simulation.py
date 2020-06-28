@@ -16,7 +16,7 @@ class Simulation:
                  fds_thresh, death_thresh, diff_surround, adhesion_const, viscosity, group, output_csvs, output_images,
                  image_quality, fps, background_color, bound_color, color_mode, pluri_color, diff_color,
                  pluri_gata6_high_color, pluri_nanog_high_color, pluri_both_high_color, guye_move, motility_force,
-                 max_radius, fgf4_negative_move, random_move):
+                 max_radius, fgf4_negative_move, random_move, eunbi_method, dox_to_gata6, diff_thresh_eunbi):
 
         # the following instance variables should remain fixed, meaning that they don't change from step to step.
         # they are merely used to hold initial parameters from the template file that will needed to be consistent
@@ -75,7 +75,7 @@ class Simulation:
         self.cell_radii = np.empty((0, 1), dtype=float)     # holds every cell's radius
         self.cell_motion = np.empty((0, 1), dtype=bool)    # holds every cell's boolean for being in motion or not
         self.cell_fds = np.empty((0, 4), dtype=float)    # holds every cell's values for the fds, currently 4
-        self.cell_states = np.empty((0, 1), dtype=str)    # holds every cell's state pluripotent or differentiated
+        self.cell_states = np.empty((0, 1), dtype='<U14')    # holds every cell's state pluripotent or differentiated
         self.cell_diff_counter = np.empty((0, 1), dtype=int)    # holds every cell's differentiation counter
         self.cell_div_counter = np.empty((0, 1), dtype=int)    # holds every cell's division counter
         self.cell_death_counter = np.empty((0, 1), dtype=int)    # holds every cell's death counter
@@ -85,6 +85,13 @@ class Simulation:
         self.cell_nearest_gata6 = np.empty((0, 1), dtype=None)    # holds index of nearest gata6 high neighbor
         self.cell_nearest_nanog = np.empty((0, 1), dtype=None)    # holds index of nearest nanog high neighbor
         self.cell_nearest_diff = np.empty((0, 1), dtype=None)    # holds index of nearest differentiated neighbor
+
+        # for Eunbi's method
+        self.cell_nanog_counter = np.empty((0, 1), dtype=int)
+        self.cell_gata6_counter = np.empty((0, 1), dtype=int)
+        self.eunbi_method = eunbi_method
+        self.dox_to_gata6 = dox_to_gata6
+        self.diff_thresh_eunbi = diff_thresh_eunbi
 
         # holds the run time for key functions as a way tracking efficiency. each step these are outputted to the data
         # CSV file. this just initializes the variables as floats
@@ -344,33 +351,45 @@ class Simulation:
                 else:
                     self.cell_div_counter[i] += r.randint(0, 2)
 
-            # activate the following pathway based on if dox has been induced yet
-            if self.current_step >= self.dox_step:
-                # Extracellular interaction
-                # take the location of a cell and determine the nearest diffusion point by creating a zone around a
-                # diffusion point an any cells in the zone will base their value off of that
-                x_step = self.extracellular[0].dx
-                y_step = self.extracellular[0].dy
-                z_step = self.extracellular[0].dz
-                half_index_x = self.cell_locations[i][0] // (x_step / 2)
-                half_index_y = self.cell_locations[i][1] // (y_step / 2)
-                half_index_z = self.cell_locations[i][2] // (z_step / 2)
-                index_x = math.ceil(half_index_x / 2)
-                index_y = math.ceil(half_index_y / 2)
-                index_z = math.ceil(half_index_z / 2)
+            # Extracellular interaction
+            # take the location of a cell and determine the nearest diffusion point by creating a zone around a
+            # diffusion point an any cells in the zone will base their value off of that
+            x_step = self.extracellular[0].dx
+            y_step = self.extracellular[0].dy
+            z_step = self.extracellular[0].dz
+            # half_index_x = self.cell_locations[i][0] // (x_step / 2)
+            # half_index_y = self.cell_locations[i][1] // (y_step / 2)
+            # half_index_z = self.cell_locations[i][2] // (z_step / 2)
+            # index_x = math.ceil(half_index_x / 2)
+            # index_y = math.ceil(half_index_y / 2)
+            # index_z = math.ceil(half_index_z / 2)
 
-                # if the diffusion point value is less than the max FGF4 it can hold and the cell is NANOG high
-                # increase the FGF4 value by 1
-                if self.extracellular[0].diffuse_values[index_x][index_y][index_z] < \
-                        self.extracellular[0].maximum and self.cell_fds[i][3] == 1:
+            index_x = int(self.cell_locations[i][0] / x_step)
+            index_y = int(self.cell_locations[i][1] / y_step)
+            index_z = int(self.cell_locations[i][2] / z_step)
+
+            # if the diffusion point value is less than the max FGF4 it can hold and the cell is NANOG high
+            # increase the FGF4 value by 1
+            if self.cell_fds[i][3] == 1:
+                if self.size[2] == 0:
+                    self.extracellular[0].diffuse_values[index_x][index_y] += 1
+                else:
                     self.extracellular[0].diffuse_values[index_x][index_y][index_z] += 1
 
+            # activate the following pathway based on if dox has been induced yet
+            if self.current_step >= self.dox_step:
                 # if the FGF4 amount for the location is greater than 0, set the fgf4_bool value to be 1 for the
                 # functions
-                if self.extracellular[0].diffuse_values[index_x][index_y][index_z] > 0:
-                    fgf4_bool = 1
+                if self.size[2] == 0:
+                    if self.extracellular[0].diffuse_values[index_x][index_y] > 0:
+                        fgf4_bool = 1
+                    else:
+                        fgf4_bool = 0
                 else:
-                    fgf4_bool = 0
+                    if self.extracellular[0].diffuse_values[index_x][index_y][index_z] > 0:
+                        fgf4_bool = 1
+                    else:
+                        fgf4_bool = 0
 
                 # Finite dynamical system and state change
                 # temporarily hold the FGFR value
@@ -404,9 +423,13 @@ class Simulation:
 
                 # if the temporary FGFR value is 0 and the FGF4 value is 1 decrease the amount of FGF4 by 1
                 # this simulates FGFR using FGF4
-                if temp_fgfr == 0 and new_fgf4 == 1 and \
-                        self.extracellular[0].diffuse_values[index_x][index_y][index_z] > 0:
-                    self.extracellular[0].diffuse_values[index_x][index_y][index_z] -= 1
+                if temp_fgfr == 0 and new_fgf4 == 1:
+                    if self.size[2] == 0:
+                        if self.extracellular[0].diffuse_values[index_x][index_y] > 1:
+                            self.extracellular[0].diffuse_values[index_x][index_y] -= 1
+                    else:
+                        if self.extracellular[0].diffuse_values[index_x][index_y][index_z] > 1:
+                            self.extracellular[0].diffuse_values[index_x][index_y][index_z] -= 1
 
                 # if the cell is GATA6 high and pluripotent increase the differentiation counter by 1
                 if self.cell_fds[i][2] == 1 and self.cell_states[i] == "Pluripotent":
@@ -499,25 +522,28 @@ class Simulation:
                 self.cell_motion[i] = False
 
             else:
+                # set motion to be True
+                self.cell_motion[i] = True
+
                 # if pluripotent
                 if self.cell_states[i] == "Pluripotent":
                     # if nanog high
                     if self.cell_fds[i][3] == 1:
                         # if there is a gata6 high cell nearby, move away from it
                         if not np.isnan(self.cell_nearest_gata6[i]):
-                            nearest_index = self.cell_nearest_gata6[i]
+                            nearest_index = int(self.cell_nearest_gata6[i])
                             normal = normal_vector(self.cell_locations[i], self.cell_locations[nearest_index])
-                            self.cell_motility_force = normal * self.motility_force * -1
+                            self.cell_motility_force[i] = normal * self.motility_force * -1
 
                         # if there is a nanog high cell nearby, move to it
                         elif not np.isnan(self.cell_nearest_nanog[i]):
-                            nearest_index = self.cell_nearest_nanog[i]
+                            nearest_index = int(self.cell_nearest_nanog[i])
                             normal = normal_vector(self.cell_locations[i], self.cell_locations[nearest_index])
-                            self.cell_motility_force = normal * self.motility_force
+                            self.cell_motility_force[i] = normal * self.motility_force
 
                         # if nothing else, move randomly
                         else:
-                            self.cell_motility_force = self.random_vector() * self.motility_force
+                            self.cell_motility_force[i] = self.random_vector() * self.motility_force
 
                     # if gata6 high
                     elif self.cell_fds[i][2] == 1:
@@ -525,38 +551,38 @@ class Simulation:
                         if self.fgf4_negative_move:
                             # if there is a nearby nanog cell, move away from it
                             if not np.isnan(self.cell_nearest_nanog[i]):
-                                nearest_index = self.cell_nearest_nanog[i]
+                                nearest_index = int(self.cell_nearest_nanog[i])
                                 normal = normal_vector(self.cell_locations[i], self.cell_locations[nearest_index])
-                                self.cell_motility_force = normal * self.motility_force * -1
+                                self.cell_motility_force[i] = normal * self.motility_force * -1
                             # move randomly instead
                             else:
-                                self.cell_motility_force = self.random_vector() * self.motility_force
+                                self.cell_motility_force[i] = self.random_vector() * self.motility_force
 
                         # if guye movement
                         elif self.guye_move:
                             # if a nearby differentiated cell, move to it
                             if not np.isnan(self.cell_nearest_diff[i]):
-                                nearest_index = self.cell_nearest_diff[i]
+                                nearest_index = int(self.cell_nearest_diff[i])
                                 normal = normal_vector(self.cell_locations[i], self.cell_locations[nearest_index])
-                                self.cell_motility_force = normal * self.motility_force
+                                self.cell_motility_force[i] = normal * self.motility_force
                             # move randomly instead
                             else:
-                                self.cell_motility_force = self.random_vector() * self.motility_force
+                                self.cell_motility_force[i] = self.random_vector() * self.motility_force
 
                         # if random movement
                         elif self.random_move:
-                            self.cell_motility_force = self.random_vector() * self.motility_force
+                            self.cell_motility_force[i] = self.random_vector() * self.motility_force
 
                 # differentiated
                 else:
                     # if there is a nearby nanog cell, move away from it
                     if not np.isnan(self.cell_nearest_nanog[i]):
-                        nearest_index = self.cell_nearest_nanog[i]
+                        nearest_index = int(self.cell_nearest_nanog[i])
                         normal = normal_vector(self.cell_locations[i], self.cell_locations[nearest_index])
-                        self.cell_motility_force = normal * self.motility_force * -1
+                        self.cell_motility_force[i] = normal * self.motility_force * -1
                     # move randomly instead
                     else:
-                        self.cell_motility_force = self.random_vector() * self.motility_force
+                        self.cell_motility_force[i] = self.random_vector() * self.motility_force
 
         # end time
         self.cell_motility_time += time.time()
@@ -771,6 +797,7 @@ class Simulation:
             x, y, z = radius * math.cos(theta), radius * math.sin(theta), math.sin(phi)
 
         return np.array([x, y, z])
+
 
 def normal_vector(location_1, location_2):
     """ Get the normal vector between

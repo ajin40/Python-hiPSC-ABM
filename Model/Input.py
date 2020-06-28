@@ -99,9 +99,12 @@ def setup(template_location):
     _dox_step = int(lines[172][2:-3])
     _stochastic = bool(lines[175][2:-3])
     _group = int(lines[178][2:-3])
-    _guye_move = bool(lines[181][2:-3])
-    _fgf4_negative_move = bool(lines[184][2:-3])
-    _random_move = bool(lines[187][2:-3])
+    _guye_move = eval(lines[181][2:-3])
+    _fgf4_negative_move = eval(lines[184][2:-3])
+    _random_move = eval(lines[187][2:-3])
+    _eunbi_method = eval(lines[190][2:-3])
+    _dox_to_gata6 = eval(lines[193][2:-3])
+    _diff_thresh_eunbi = eval(lines[196][2:-3])
 
     # check that the name and path from the template are valid
     _path, _name = check_name(_output_direct, _name, separator, _continuation, _csv_to_images, _images_to_video,
@@ -116,13 +119,14 @@ def setup(template_location):
                                        _output_csvs, _output_images, _image_quality, _fps, _background_color,
                                        _bound_color, _color_mode, _pluri_color, _diff_color, _pluri_gata6_high_color,
                                        _pluri_nanog_high_color, _pluri_both_high_color, _guye_move, _motility_force,
-                                       _max_radius, _fgf4_negative_move, _random_move)
+                                       _max_radius, _fgf4_negative_move, _random_move, _eunbi_method, _dox_to_gata6,
+                                       _diff_thresh_eunbi)
 
     # loops over the gradients and adds them to the simulation
     for i in range(len(_extracellular)):
         # initializes the extracellular class
-        new_extracellular = Extracellular.Extracellular(_size, _resolution, _extracellular[i][0],
-                                                        _extracellular[i][1], _extracellular[i][2], _parallel)
+        new_extracellular = Extracellular.Extracellular(_size, _resolution, _extracellular[i], _parallel)
+
         # adds the Extracellular object
         simulation.extracellular = np.append(simulation.extracellular, [new_extracellular])
 

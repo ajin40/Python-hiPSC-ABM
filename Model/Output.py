@@ -1,4 +1,5 @@
 from PIL import Image, ImageDraw
+from matplotlib.cm import ScalarMappable
 import cv2
 import csv
 import time
@@ -15,16 +16,24 @@ def step_image(simulation):
         dilation_x = simulation.image_quality[0] / simulation.size[0]
         dilation_y = simulation.image_quality[1] / simulation.size[1]
 
-        # bounds of the simulation used for drawing lines
-        corner_1 = [0, 0]
-        corner_2 = [0, simulation.size[1]]
-        corner_3 = [simulation.size[0], simulation.size[1]]
-        corner_4 = [simulation.size[0], 0]
-        bounds = np.array([corner_1, corner_2, corner_3, corner_4])
-
         # draws the background of the image
         base = Image.new("RGB", simulation.image_quality[0:2], simulation.background_color)
         image = ImageDraw.Draw(base)
+
+        # get the fgf4 gradient array and normalize the concentrations
+        fgf4_array = simulation.extracellular[0].diffuse_values
+        max_value = np.amax(fgf4_array)
+        if max_value != 0:
+            fgf4_array *= max_value ** -1
+
+        # create a color map object that is used to turn the fgf4 array into a rgba array
+        cmap_object = ScalarMappable(cmap='jet')
+        fgf4_as_rgba = cmap_object.to_rgba(fgf4_array, bytes=True)
+
+        # create an image from the fgf4 rgba array
+        cmap_base = Image.fromarray(fgf4_as_rgba, mode="RGBA")
+        cmap_base = cmap_base.resize(simulation.image_quality[0:2], resample=Image.NEAREST)
+        cmap_image = ImageDraw.Draw(cmap_base)
 
         # loops over all of the cells and draws the nucleus and radius
         for i in range(simulation.number_cells):
@@ -60,32 +69,19 @@ def step_image(simulation):
                 else:
                     color = simulation.pluri_color
 
-            # draw the circle representing the cell
+            # draw the circle representing the cell to both the normal image and the colormap image
             membrane_circle = (x - x_radius, y - y_radius, x + x_radius, y + y_radius)
             image.ellipse(membrane_circle, fill=color, outline="black")
+            cmap_image.ellipse(membrane_circle, fill='white', outline='black')
 
-            # loops over all of the bounds and draws lines to represent the grid
-            for j in range(len(bounds)):
-                # get the bound sizing
-                x0 = dilation_x * bounds[j][0]
-                y0 = dilation_y * bounds[j][1]
-
-                # get the bounds as lines
-                if j < len(bounds) - 1:
-                    x1 = dilation_x * bounds[j + 1][0]
-                    y1 = dilation_y * bounds[j + 1][1]
-                else:
-                    x1 = dilation_x * bounds[0][0]
-                    y1 = dilation_y * bounds[0][1]
-
-                # draw the lines, width is kinda arbitrary
-                lines = (x0, y0, x1, y1)
-                width = int((simulation.image_quality[0] + simulation.image_quality[1]) / 500)
-                image.line(lines, fill=simulation.bound_color, width=width)
+        # paste the images to a new background image
+        background = Image.new('RGBA', (base.width + cmap_base.width, base.height))
+        background.paste(base, (0, 0))
+        background.paste(cmap_base, (base.width, 0))
 
         # saves the image as a .png
         image_path = simulation.path + simulation.name + "_image_" + str(int(simulation.current_step)) + ".png"
-        base.save(image_path, 'PNG')
+        background.save(image_path, 'PNG')
 
         # write it to the video object
         add_image = cv2.imread(image_path)

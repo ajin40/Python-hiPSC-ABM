@@ -6,13 +6,13 @@ This is the template for running a simulation. Good luck!
 General Parameters
 -----------------------------------------------------------------------------------------------------------------------
 What is the name of the simulation? Ex. Run_30
-[ Test ]
+[ Test_1 ]
 
 What is the path for the output directory? Ex. C:\Python37\Model_Outputs
 [ C:\Python37\Outputs ]
 
 Do you want the simulation to use parallel GPU processing? (It's really cool)  Ex. True
-[ False ]
+[ True ]
 
 What is the x, y, z size of the space that the cells reside (in meters)? Ex. (0.001, 0.001, 0.0)
 [ (0.001, 0.001, 0.0) ]
@@ -21,13 +21,13 @@ How many cells will be GATA6 high to begin the simulation? Ex. 247
 [ 0 ]
 
 How many cells will be NANOG high to begin the simulation? Ex. 91
-[ 1000 ]
+[ 1500 ]
 
 -----------------------------------------------------------------------------------------------------------------------
 Finite Dynamical System
 -----------------------------------------------------------------------------------------------------------------------
 Define the finite dynamical system functions below. Ex. ("x5", "x4 * x2",...)
-[ ("x5", "x1 * x4 + x1 + x4", "x2", "x5 + 1", "(x3+1) * (x4+1)") ]
+[ ("x5", "x1 * x4", "x2", "1 + x5 + x5 * x4", "(x3+1) * (x4+1)") ]
 
 Number of states within the finite dynamical system. Currently 2 because the system is a Boolean network. Ex. 2
 [ 2 ]
@@ -58,13 +58,13 @@ running a simulation, type 1. Ex. 1
 [ 1 ]
 
 What will the final step number be? Ex. 30
-[ 5 ]
+[ 192 ]
 
 How long is each time step in seconds? Ex. 3600
 [ 1800 ]
 
 How often are the Boolean values for each cell updated? Ex. 10
-[ 1 ]
+[ 10 ]
 
 Number of steps required for a pluripotent cell to divide. Ex. 36
 [ 36 ]
@@ -84,8 +84,8 @@ Intercellular
 Distance that constitutes a neighbor in meters. More distance more neighbors Ex. 0.000015
 [ 0.000015 ]
 
-Guye radius of search for differentiated cells in meters. Ex. 0.00003
-[ 0.00003 ]
+Radius of search for nearest cells of a desired type. Ex. 0.00003
+[ 0.000020 ]
 
 JKR radius of search for differentiated cells in meters. Ex. 0.00001
 [ 0.00001 ]
@@ -106,11 +106,11 @@ Threshold of differentiated cells for increasing differentiation. If lower than 
 Extracellular
 -----------------------------------------------------------------------------------------------------------------------
 List the extracellular gradients as a 2D array...this needs to be changed...later
-Ex. [Diffusion constant, Average initial concentration per step, Maximum concentration on a step]
-[ [[4, 4, 5]] ]
+Ex. [Diffusion Constant_1, Diffusion Constant_2...]
+[ [0.0000000001] ]
 
 What is the dx, dy, dz diffusion resolution of the space? Ex. (1.0, 1.0, 0.0)
-[ (1.0, 1.0, 1.0) ]
+[ (0.00001, 0.00001, 1.0) ]
 
 -----------------------------------------------------------------------------------------------------------------------
 Movement/Physical Parameters
@@ -176,16 +176,25 @@ Stochastic FGFR + ERK values? Ex. True
 [ True ]
 
 How many cells are added/removed to the simulation at once, per time step? Type 0 if all at once. Ex. 5
-[ 0 ]
+[ 10 ]
 
-Use the Guye movement method?. Ex. True
+Use the Guye movement method? Ex. True
 [ True ]
 
 Use the fgf4-negative movement method?. Ex. False
 [ False ]
 
-Use the random movement method?. Ex. True
+Use the random movement method? Ex. True
 [ False ]
+
+Use Eunbi's feedback regulation method? Ex. True
+[ True ]
+
+How much gata6 is added each step to a cell's gata6 counter? Ex. 4
+[ 3 ]
+
+What is the differentiation threshold for Eunbi's feedback regulation method? Ex. 190
+[ 190 ]
 
 The time has come. Execute Order Sixty-Six? Ex. True
 [ True ]
