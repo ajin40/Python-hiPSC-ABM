@@ -17,7 +17,7 @@ def step_image(simulation):
         dilation_y = simulation.image_quality[1] / simulation.size[1]
 
         # draws the background of the image
-        base = Image.new("RGB", simulation.image_quality[0:2], simulation.background_color)
+        base = Image.new("RGBA", simulation.image_quality[0:2], simulation.background_color)
         image = ImageDraw.Draw(base)
 
         # get the fgf4 gradient array and normalize the concentrations
@@ -33,6 +33,7 @@ def step_image(simulation):
         # create an image from the fgf4 rgba array
         cmap_base = Image.fromarray(fgf4_as_rgba, mode="RGBA")
         cmap_base = cmap_base.resize(simulation.image_quality[0:2], resample=Image.NEAREST)
+        cmap_base = cmap_base.transpose(Image.TRANSPOSE)
         cmap_image = ImageDraw.Draw(cmap_base)
 
         # loops over all of the cells and draws the nucleus and radius
@@ -72,7 +73,7 @@ def step_image(simulation):
             # draw the circle representing the cell to both the normal image and the colormap image
             membrane_circle = (x - x_radius, y - y_radius, x + x_radius, y + y_radius)
             image.ellipse(membrane_circle, fill=color, outline="black")
-            cmap_image.ellipse(membrane_circle, fill='white', outline='black')
+            cmap_image.ellipse(membrane_circle, outline='white', width=4)
 
         # paste the images to a new background image
         background = Image.new('RGBA', (base.width + cmap_base.width, base.height))
@@ -158,7 +159,7 @@ def initialize_video(simulation):
     # creates a video file that can be written to each step
     video_path = simulation.path + simulation.name + '_video.avi'
     simulation.video_object = cv2.VideoWriter(video_path, cv2.VideoWriter_fourcc("M", "J", "P", "G"), simulation.fps,
-                                              simulation.image_quality)
+                                              (simulation.image_quality[0] * 2, simulation.image_quality[1]))
 
 
 def finish_files(simulation):

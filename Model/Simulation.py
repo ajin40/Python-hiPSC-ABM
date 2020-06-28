@@ -357,16 +357,12 @@ class Simulation:
             x_step = self.extracellular[0].dx
             y_step = self.extracellular[0].dy
             z_step = self.extracellular[0].dz
-            # half_index_x = self.cell_locations[i][0] // (x_step / 2)
-            # half_index_y = self.cell_locations[i][1] // (y_step / 2)
-            # half_index_z = self.cell_locations[i][2] // (z_step / 2)
-            # index_x = math.ceil(half_index_x / 2)
-            # index_y = math.ceil(half_index_y / 2)
-            # index_z = math.ceil(half_index_z / 2)
-
-            index_x = int(self.cell_locations[i][0] / x_step)
-            index_y = int(self.cell_locations[i][1] / y_step)
-            index_z = int(self.cell_locations[i][2] / z_step)
+            half_index_x = self.cell_locations[i][0] // (x_step / 2)
+            half_index_y = self.cell_locations[i][1] // (y_step / 2)
+            half_index_z = self.cell_locations[i][2] // (z_step / 2)
+            index_x = math.ceil(half_index_x / 2)
+            index_y = math.ceil(half_index_y / 2)
+            index_z = math.ceil(half_index_z / 2)
 
             # if the diffusion point value is less than the max FGF4 it can hold and the cell is NANOG high
             # increase the FGF4 value by 1
@@ -743,20 +739,21 @@ class Simulation:
         jkr_edges = np.array(self.jkr_graph.get_edgelist())
         delete_edges = np.zeros(len(jkr_edges), dtype=int)
 
-        # call the gpu version
-        if self.parallel and len(jkr_edges) > 0:
-            forces, delete_edges = Parallel.get_forces_gpu(jkr_edges, delete_edges, self.poisson, self.youngs_mod,
-                                                           self.adhesion_const, self.cell_locations, self.cell_radii,
-                                                           self.cell_jkr_force)
-        # call the cpu version
-        else:
-            forces, delete_edges = get_forces_cpu(jkr_edges, delete_edges, self.poisson, self.youngs_mod,
-                                                  self.adhesion_const, self.cell_locations, self.cell_radii,
-                                                  self.cell_jkr_force)
+        if len(jkr_edges) > 0:
+            # call the gpu version
+            if self.parallel:
+                forces, delete_edges = Parallel.get_forces_gpu(jkr_edges, delete_edges, self.poisson, self.youngs_mod,
+                                                               self.adhesion_const, self.cell_locations,
+                                                               self.cell_radii, self.cell_jkr_force)
+            # call the cpu version
+            else:
+                forces, delete_edges = get_forces_cpu(jkr_edges, delete_edges, self.poisson, self.youngs_mod,
+                                                      self.adhesion_const, self.cell_locations, self.cell_radii,
+                                                      self.cell_jkr_force)
 
-        # update the jkr graph to remove an edges that have be broken and update the cell jkr forces
-        self.jkr_graph.delete_edges(delete_edges)
-        self.cell_jkr_force = forces
+            # update the jkr graph to remove an edges that have be broken and update the cell jkr forces
+            self.jkr_graph.delete_edges(delete_edges)
+            self.cell_jkr_force = forces
 
     def apply_forces(self):
         """ Turns the active motility/division forces
