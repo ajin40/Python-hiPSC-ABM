@@ -362,25 +362,16 @@ class Simulation:
             # if the diffusion point value is less than the max FGF4 it can hold and the cell is NANOG high
             # increase the FGF4 value by 1
             if self.cell_fds[i][3] == 1:
-                if self.size[2] == 0:
-                    self.extracellular[0].diffuse_values[index_x][index_y] += 1
-                else:
-                    self.extracellular[0].diffuse_values[index_x][index_y][index_z] += 1
+                self.extracellular[0].diffuse_values[index_x][index_y][index_z] += 1
 
             # activate the following pathway based on if dox has been induced yet
             if self.current_step >= self.dox_step:
                 # if the FGF4 amount for the location is greater than 0, set the fgf4_bool value to be 1 for the
                 # functions
-                if self.size[2] == 0:
-                    if self.extracellular[0].diffuse_values[index_x][index_y] > 0:
-                        fgf4_bool = 1
-                    else:
-                        fgf4_bool = 0
+                if self.extracellular[0].diffuse_values[index_x][index_y][index_z] > 0:
+                    fgf4_bool = 1
                 else:
-                    if self.extracellular[0].diffuse_values[index_x][index_y][index_z] > 0:
-                        fgf4_bool = 1
-                    else:
-                        fgf4_bool = 0
+                    fgf4_bool = 0
 
                 # Finite dynamical system and state change
                 # temporarily hold the FGFR value
@@ -415,12 +406,8 @@ class Simulation:
                 # if the temporary FGFR value is 0 and the FGF4 value is 1 decrease the amount of FGF4 by 1
                 # this simulates FGFR using FGF4
                 if temp_fgfr == 0 and new_fgf4 == 1:
-                    if self.size[2] == 0:
-                        if self.extracellular[0].diffuse_values[index_x][index_y] > 1:
-                            self.extracellular[0].diffuse_values[index_x][index_y] -= 1
-                    else:
-                        if self.extracellular[0].diffuse_values[index_x][index_y][index_z] > 1:
-                            self.extracellular[0].diffuse_values[index_x][index_y][index_z] -= 1
+                    if self.extracellular[0].diffuse_values[index_x][index_y][index_z] > 1:
+                        self.extracellular[0].diffuse_values[index_x][index_y][index_z] -= 1
 
                 # if the cell is GATA6 high and pluripotent increase the differentiation counter by 1
                 if self.cell_fds[i][2] == 1 and self.cell_states[i] == "Pluripotent":

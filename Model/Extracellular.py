@@ -24,26 +24,17 @@ class Extracellular:
         self.dy2 = self.dy ** 2
         self.dz2 = self.dz ** 2
 
-        # calculate the following based on the space being 2D or 3D
-        # 2D
-        if size[2] == 0:
-            # get the time step value for diffusion updates
+        # get the time step value for diffusion updates depending on whether 2D or 3D
+        if self.size[2] == 0:
             self.dt = (self.dx2 * self.dy2) / (2 * diffuse_const * (self.dx2 + self.dy2))
-
-            # the points at which the diffusion values are calculated
-            x_steps = int(self.size[0] / self.dx) + 1
-            y_steps = int(self.size[1] / self.dy) + 1
-            self.diffuse_values = np.zeros((x_steps, y_steps))
-
         else:
-            # get the time step value for diffusion updates
             self.dt = (self.dx2 * self.dy2 * self.dz2) / (2 * diffuse_const * (self.dx2 + self.dy2 + self.dz2))
 
-            # the points at which the diffusion values are calculated
-            x_steps = int(self.size[0] / self.dx) + 1
-            y_steps = int(self.size[1] / self.dy) + 1
-            z_steps = int(self.size[2] / self.dz) + 1
-            self.diffuse_values = np.zeros((x_steps, y_steps, z_steps))
+        # the points at which the diffusion values are calculated
+        x_steps = int(self.size[0] / self.dx) + 1
+        y_steps = int(self.size[1] / self.dy) + 1
+        z_steps = int(self.size[2] / self.dz) + 1
+        self.diffuse_values = np.zeros((x_steps, y_steps, z_steps))
 
     def update_gradient(self, simulation):
         """ Updates the environment space by "smoothing"
@@ -76,4 +67,3 @@ class Extracellular:
 
                 # update the array
                 self.diffuse_values[1:-1][1:-1][1:-1] = a[1:-1][1:-1][1:-1] + self.diffuse_const * self.dt * (x + y + z)
-

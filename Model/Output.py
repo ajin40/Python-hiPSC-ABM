@@ -20,8 +20,9 @@ def step_image(simulation):
         base = Image.new("RGBA", simulation.image_quality[0:2], simulation.background_color)
         image = ImageDraw.Draw(base)
 
-        # get the fgf4 gradient array and normalize the concentrations
+        # get the fgf4 gradient array, resize to a 2D array, and normalize the concentrations
         fgf4_array = simulation.extracellular[0].diffuse_values
+        fgf4_array = np.reshape(fgf4_array, (fgf4_array.shape[0], fgf4_array.shape[1]))
         max_value = np.amax(fgf4_array)
         if max_value != 0:
             fgf4_array *= max_value ** -1
