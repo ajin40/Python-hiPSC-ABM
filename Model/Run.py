@@ -19,10 +19,6 @@ import Output
 # This is done by reading a template .txt file that contains all initial parameters of the model.   (base)
 simulation = Input.setup("C:\\Python37\\Seed Project\\Model\\template.txt")
 
-# opens the data csv file and the video file as these will be continually modified.    (base)
-Output.initialize_csv(simulation)
-Output.initialize_video(simulation)
-
 # This will loop over all steps defined in the template file in addition to updating the current step
 # of the simulation.   (base)
 for simulation.current_step in range(simulation.beginning_step, simulation.end_step + 1):
@@ -38,12 +34,6 @@ for simulation.current_step in range(simulation.beginning_step, simulation.end_s
     # Updates cells by adjusting trackers for differentiation and division based on intracellular, intercellular,
     # and extracellular conditions.   (base)
     simulation.cell_update()
-
-    # A way of introducing cell death into the model by removing cells if they are without neighbors for so long.
-    simulation.cell_death()
-
-    # Represents the phenomena that differentiated neighbors of a pluripotent cell may induce its differentiation.
-    simulation.cell_diff_surround()
 
     # Adds/removes cells to/from the simulation either all together or in desired numbers of cells. If done in
     # groups, the handle_movement() function will be used to better represent asynchronous division and death   (base)

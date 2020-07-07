@@ -16,7 +16,7 @@ class Simulation:
                  fds_thresh, death_thresh, diff_surround, adhesion_const, viscosity, group, output_csvs, output_images,
                  image_quality, fps, background_color, bound_color, color_mode, pluri_color, diff_color,
                  pluri_gata6_high_color, pluri_nanog_high_color, pluri_both_high_color, guye_move, motility_force,
-                 max_radius, fgf4_negative_move, random_move, eunbi_method, dox_to_gata6, diff_thresh_eunbi):
+                 max_radius):
 
         # the following instance variables should remain fixed, meaning that they don't change from step to step.
         # they are merely used to hold initial parameters from the template file that will needed to be consistent
@@ -63,8 +63,6 @@ class Simulation:
         self.guye_move = guye_move    # whether or not to use the Guye method of cell motility
         self.motility_force = motility_force    # the active force (in Newtons) of a cell actively moving
         self.max_radius = max_radius    # the maximum radius (in meters) of a cell
-        self.fgf4_negative_move = fgf4_negative_move
-        self.random_move = random_move
 
         # these arrays hold all values of the cells, each index corresponds to a cell.
         # you may ask why not create an array that holds a bunch of Cell objects...and my answer to that
@@ -85,13 +83,6 @@ class Simulation:
         self.cell_nearest_gata6 = np.empty((0, 1), dtype=None)    # holds index of nearest gata6 high neighbor
         self.cell_nearest_nanog = np.empty((0, 1), dtype=None)    # holds index of nearest nanog high neighbor
         self.cell_nearest_diff = np.empty((0, 1), dtype=None)    # holds index of nearest differentiated neighbor
-
-        # for Eunbi's method
-        self.cell_nanog_counter = np.empty((0, 1), dtype=int)
-        self.cell_gata6_counter = np.empty((0, 1), dtype=int)
-        self.eunbi_method = eunbi_method
-        self.dox_to_gata6 = dox_to_gata6
-        self.diff_thresh_eunbi = diff_thresh_eunbi
 
         # holds the run time for key functions as a way tracking efficiency. each step these are outputted to the data
         # CSV file. this just initializes the variables as floats
@@ -318,6 +309,10 @@ class Simulation:
         """ Loops over all indices of cells and updates
             their values accordingly.
         """
+        self.cell_death()
+
+        self.cell_diff_surround()
+
         # start time
         self.cell_update_time = -1 * time.time()
 
@@ -542,32 +537,32 @@ class Simulation:
                             self.cell_motility_force[i] = self.random_vector() * self.motility_force
 
                     # if gata6 high
-                    elif self.cell_fds[i][2] == 1:
-                        # if fgf4_negative movement
-                        if self.fgf4_negative_move:
-                            # if there is a nearby nanog cell, move away from it
-                            if not np.isnan(self.cell_nearest_nanog[i]):
-                                nearest_index = int(self.cell_nearest_nanog[i])
-                                normal = normal_vector(self.cell_locations[i], self.cell_locations[nearest_index])
-                                self.cell_motility_force[i] = normal * self.motility_force * -1
-                            # move randomly instead
-                            else:
-                                self.cell_motility_force[i] = self.random_vector() * self.motility_force
-
-                        # if guye movement
-                        elif self.guye_move:
-                            # if a nearby differentiated cell, move to it
-                            if not np.isnan(self.cell_nearest_diff[i]):
-                                nearest_index = int(self.cell_nearest_diff[i])
-                                normal = normal_vector(self.cell_locations[i], self.cell_locations[nearest_index])
-                                self.cell_motility_force[i] = normal * self.motility_force
-                            # move randomly instead
-                            else:
-                                self.cell_motility_force[i] = self.random_vector() * self.motility_force
-
-                        # if random movement
-                        elif self.random_move:
-                            self.cell_motility_force[i] = self.random_vector() * self.motility_force
+                    # elif self.cell_fds[i][2] == 1:
+                    #     # if fgf4_negative movement
+                    #     if self.fgf4_negative_move:
+                    #         # if there is a nearby nanog cell, move away from it
+                    #         if not np.isnan(self.cell_nearest_nanog[i]):
+                    #             nearest_index = int(self.cell_nearest_nanog[i])
+                    #             normal = normal_vector(self.cell_locations[i], self.cell_locations[nearest_index])
+                    #             self.cell_motility_force[i] = normal * self.motility_force * -1
+                    #         # move randomly instead
+                    #         else:
+                    #             self.cell_motility_force[i] = self.random_vector() * self.motility_force
+                    #
+                    #     # if guye movement
+                    #     elif self.guye_move:
+                    #         # if a nearby differentiated cell, move to it
+                    #         if not np.isnan(self.cell_nearest_diff[i]):
+                    #             nearest_index = int(self.cell_nearest_diff[i])
+                    #             normal = normal_vector(self.cell_locations[i], self.cell_locations[nearest_index])
+                    #             self.cell_motility_force[i] = normal * self.motility_force
+                    #         # move randomly instead
+                    #         else:
+                    #             self.cell_motility_force[i] = self.random_vector() * self.motility_force
+                    #
+                    #     # if random movement
+                    #     elif self.random_move:
+                    #         self.cell_motility_force[i] = self.random_vector() * self.motility_force
 
                 # differentiated
                 else:
@@ -596,7 +591,7 @@ class Simulation:
         distance = self.neighbor_distance
 
         # provide an idea of the maximum number of neighbors for a cells
-        max_neighbors = 15
+        max_neighbors = 20
         length = self.number_cells * max_neighbors
         edge_holder = np.zeros((length, 2), dtype=int)
 
@@ -895,6 +890,7 @@ def check_neighbors_cpu(number_cells, distance, edge_holder, bins, bins_help, ce
 
     # loops over all cells, with the current cell being the pivot of the search method
     for pivot_index in range(number_cells):
+
         # offset bins by 2 to avoid missing cells
         block_location = cell_locations[pivot_index] // distance + np.array([2, 2, 2])
         x, y, z = int(block_location[0]), int(block_location[1]), int(block_location[2])

@@ -6,7 +6,7 @@ This is the template for running a simulation. Good luck!
 General Parameters
 -----------------------------------------------------------------------------------------------------------------------
 What is the name of the simulation? Ex. Run_30
-[ Test_3 ]
+[ Test_9 ]
 
 What is the path for the output directory? Ex. C:\Python37\Model_Outputs
 [ C:\Python37\Outputs ]
@@ -21,7 +21,7 @@ How many cells will be GATA6 high to begin the simulation? Ex. 247
 [ 0 ]
 
 How many cells will be NANOG high to begin the simulation? Ex. 91
-[ 1500 ]
+[ 1000 ]
 
 -----------------------------------------------------------------------------------------------------------------------
 Finite Dynamical System
@@ -42,7 +42,7 @@ Do you want CSV files produced at each step much like the images? Ex. False
 [ True ]
 
 Will this be a continuation of a previous simulation? Ex. True
-[ False ]
+[ True ]
 
 Do you want to turn a previous collection of .csv files into images and a video? Ex. False
 [ False ]
@@ -55,10 +55,10 @@ Timing
 -----------------------------------------------------------------------------------------------------------------------
 If this simulation is a continuation of a previous simulation, what will be the next step? If this is the first time
 running a simulation, type 1. Ex. 1
-[ 1 ]
+[ 3 ]
 
 What will the final step number be? Ex. 30
-[ 60 ]
+[ 4 ]
 
 How long is each time step in seconds? Ex. 3600
 [ 1800 ]

@@ -100,11 +100,6 @@ def setup(template_location):
     _stochastic = bool(lines[175][2:-3])
     _group = int(lines[178][2:-3])
     _guye_move = eval(lines[181][2:-3])
-    _fgf4_negative_move = eval(lines[184][2:-3])
-    _random_move = eval(lines[187][2:-3])
-    _eunbi_method = eval(lines[190][2:-3])
-    _dox_to_gata6 = eval(lines[193][2:-3])
-    _diff_thresh_eunbi = eval(lines[196][2:-3])
 
     # check that the name and path from the template are valid
     _path, _name = check_name(_output_direct, _name, separator, _continuation, _csv_to_images, _images_to_video,
@@ -119,16 +114,15 @@ def setup(template_location):
                                        _output_csvs, _output_images, _image_quality, _fps, _background_color,
                                        _bound_color, _color_mode, _pluri_color, _diff_color, _pluri_gata6_high_color,
                                        _pluri_nanog_high_color, _pluri_both_high_color, _guye_move, _motility_force,
-                                       _max_radius, _fgf4_negative_move, _random_move, _eunbi_method, _dox_to_gata6,
-                                       _diff_thresh_eunbi)
+                                       _max_radius)
 
     # loops over the gradients and adds them to the simulation
     for i in range(len(_extracellular)):
-        # initializes the extracellular class
+        # initializes the Extracellular class
         new_extracellular = Extracellular.Extracellular(_size, _resolution, _extracellular[i], _parallel)
 
         # adds the Extracellular object
-        simulation.extracellular = np.append(simulation.extracellular, [new_extracellular])
+        simulation.extracellular = np.append(simulation.extracellular, new_extracellular)
 
     # decide which mode the simulation is intended to be run in
     # continue a previous simulation
@@ -145,6 +139,10 @@ def setup(template_location):
 
     # starts a new simulation
     else:
+        # opens the data csv file and the video file as these will be continually modified.
+        Output.initialize_csv(simulation)
+        Output.initialize_video(simulation)
+
         # loops over all cells and creates a stem cell object for each one with given parameters
         for i in range(_num_NANOG + _num_GATA6):
             # gives random location in the space
@@ -193,10 +191,23 @@ def continue_mode(simulation):
         csv restoring that information to the simulation.
     """
     # gets the previous .csv file by subtracting the beginning step by 1
-    previous = simulation.path + "_values_" + str(simulation.beginning_step - 1) + ".csv"
+    previous_file = simulation.path + simulation.name + "_values_" + str(simulation.beginning_step - 1) + ".csv"
 
     # calls the following function to add instances of the cell class to the simulation instance
-    csv_to_simulation(simulation, previous)
+    csv_to_simulation(simulation, previous_file)
+
+    # create a CSV file used to hold information about run time, number of cells, memory, and various other statistics
+    data_path = simulation.path + simulation.name + "_data.csv"
+
+    # open the file, appending to it rather than writing
+    file_object = open(data_path, "a", newline="")
+    simulation.csv_object = csv.writer(file_object)
+
+    # add all of the previous images to a new video object no append exists
+    Output.initialize_video(simulation)
+    for i in range(1, simulation.beginning_step):
+        image = cv2.imread(simulation.path + simulation.name + "_image_" + str(i) + ".png")
+        simulation.video_object.write(image)
 
 
 def csv_to_image_mode(simulation):
@@ -273,12 +284,15 @@ def csv_to_simulation(simulation, csv_file):
     """ Revalues the array holders for cell values
         based on the outputs of the csv files.
     """
-    # opens the csv and lists the rows
+    # opens the csv and create a list of the rows
     with open(csv_file, "r", newline="") as csv_file:
+        # skip the first row as this is a header
         csv_rows = list(csv.reader(csv_file))[1:]
 
-    # updates the total amount of cells
+    # updates the number of cells and adds that amount of vertices to the graphs
     simulation.number_cells = len(csv_rows)
+    simulation.neighbor_graph.add_vertices(simulation.number_cells)
+    simulation.jkr_graph.add_vertices(simulation.number_cells)
 
     # turn all of the rows into a matrix
     cell_data = np.column_stack(csv_rows)
@@ -295,24 +309,26 @@ def csv_to_simulation(simulation, csv_file):
     simulation.cell_fds_counter = cell_data[12].astype(int)
     simulation.cell_motility_force = np.zeros((simulation.number_cells, 3), dtype=float)
     simulation.cell_jkr_force = np.zeros((simulation.number_cells, 3), dtype=float)
-    simulation.cell_closest_diff = np.empty((simulation.number_cells, 3), dtype=None)
+    simulation.cell_nearest_gata6 = np.empty((simulation.number_cells, 3), dtype=None)
+    simulation.cell_nearest_nanog = np.empty((simulation.number_cells, 3), dtype=None)
+    simulation.cell_nearest_diff = np.empty((simulation.number_cells, 3), dtype=None)
 
 
 def check_name(output_direct, name, separator, continuation, csv_to_images, images_to_video, template_location):
     """ Renames the file if another simulation
-        has the same name
+        has the same name or checks to make
+        sure such a simulation exists
     """
     # this will look for an existing directory
     if continuation or csv_to_images or images_to_video:
         # keeps the loop running until one condition is met
         while True:
             # see if the directory exists
-            try:
-                os.path.isdir(output_direct + separator + name)
+            if os.path.isdir(output_direct + separator + name):
                 break
 
             # if not prompt to change name or end the simulation
-            except OSError:
+            else:
                 print("No directory exists with name/path: " + output_direct + separator + name)
                 user = input("Would you like to continue? (y/n): ")
                 if user == "n":
