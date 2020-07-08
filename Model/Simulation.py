@@ -16,7 +16,7 @@ class Simulation:
                  fds_thresh, death_thresh, diff_surround, adhesion_const, viscosity, group, output_csvs, output_images,
                  image_quality, fps, background_color, bound_color, color_mode, pluri_color, diff_color,
                  pluri_gata6_high_color, pluri_nanog_high_color, pluri_both_high_color, guye_move, motility_force,
-                 max_radius):
+                 max_radius, diffuse_radius):
 
         # the following instance variables should remain fixed, meaning that they don't change from step to step.
         # they are merely used to hold initial parameters from the template file that will needed to be consistent
@@ -66,6 +66,7 @@ class Simulation:
         self.guye_move = guye_move    # whether or not to use the Guye method of cell motility
         self.motility_force = motility_force    # the active force (in Newtons) of a cell actively moving
         self.max_radius = max_radius    # the maximum radius (in meters) of a cell
+        self.diffuse_radius = diffuse_radius    # the radius of search of diffusiong points
 
         # these arrays hold all values of the cells, each index corresponds to a cell.
         # you may ask why not create an array that holds a bunch of Cell objects...and my answer to that
@@ -178,6 +179,36 @@ class Simulation:
                                                           self.dy2, self.dz2, self.diffuse, self.size)
         # end time
         self.update_diffusion_time += time.time()
+
+    def setup_diffusion_bins(self):
+        """ This function will put the diffusion points
+            into corresponding bins that will be used to
+            find values of diffusion within a radius
+        """
+        # set up the appropriate size for the diffusion bins and the help array
+        bins_size = self.size // self.diffuse_radius + np.array([5, 5, 5])
+        bins_size_help = tuple(bins_size.astype(int))
+        bins_size = np.append(bins_size, 100)
+        bins_size = tuple(bins_size.astype(int))
+
+        # create the diffusion bins and the help array
+        self.diffuse_bins = np.empty(bins_size, dtype=int)
+        self.diffuse_bins_help = np.zeros(bins_size_help, dtype=int)
+
+        # loop over all diffusion points
+        for i in range(self.fgf4_values.size[0]):
+            for j in range(self.fgf4_values.size[1]):
+                for k in range(self.fgf4_values.size[2]):
+                    # get the location in the bin array
+                    bin_location = self.diffuse_locations[i][j][k] // self.diffuse_radius + np.array([2, 2, 2])
+                    x, y, z = int(bin_location[0]), int(bin_location[1]), int(bin_location[2])
+
+                    # get the index of the where the point will be added
+                    place = self.diffuse_bins_help[x][y][z]
+
+                    # add the diffusion point to a corresponding bin and increase the place index
+                    self.diffuse_bins[x][y][z][place] = np.array([i, j, k])
+                    self.diffuse_bins_help[x][y][z] += 1
 
     def add_cell(self, location, radius, motion, fds, state, diff_counter, div_counter, death_counter, fds_counter,
                  motility_force, jkr_force, nearest_gata6, nearest_nanog, nearest_diff):
