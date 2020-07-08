@@ -124,6 +124,13 @@ class Simulation:
         z_steps = int(self.size[2] / self.dz) + 1
         self.fgf4_values = np.zeros((x_steps, y_steps, z_steps))
 
+        # the following are used for locating the diffusion points
+        x, y, z = np.meshgrid(np.arange(x_steps), np.arange(y_steps), np.arange(z_steps), indexing='ij')
+        x, y, z = x * dx, y * dy, z * dz
+        self.diffuse_locations = np.stack((x, y, z), axis=3)
+        self.diffuse_bins = object()
+        self.diffuse_bins_help = object()
+
         # holds all indices of cells that will divide at a current step or be removed at that step
         self.cells_to_divide = np.empty((0, 1), dtype=int)
         self.cells_to_remove = np.empty((0, 1), dtype=int)
