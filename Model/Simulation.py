@@ -218,7 +218,7 @@ class Simulation:
         """
         self.cell_highest_fgf4 = highest_fgf4_cpu(self.diffuse_radius, self.diffuse_bins, self.diffuse_bins_help,
                                                   self.diffuse_locations, self.cell_locations, self.number_cells,
-                                                  self.cell_highest_fgf4)
+                                                  self.cell_highest_fgf4, self.fgf4_values)
 
     def add_cell(self, location, radius, motion, fds, state, diff_counter, div_counter, death_counter, fds_counter,
                  motility_force, jkr_force, nearest_gata6, nearest_nanog, nearest_diff, highest_fgf4):
@@ -859,7 +859,7 @@ def normal_vector(location_1, location_2):
 
 @jit(nopython=True)
 def highest_fgf4_cpu(diffuse_radius, diffuse_bins, diffuse_bins_help, diffuse_locations, cell_locations, number_cells,
-                     highest_fgf4):
+                     highest_fgf4, fgf4_values):
     """ This is the Numba optimized version of
         the highest_fgf4 function.
     """
@@ -872,7 +872,7 @@ def highest_fgf4_cpu(diffuse_radius, diffuse_bins, diffuse_bins_help, diffuse_lo
         highest_index_x = np.nan
         highest_index_y = np.nan
         highest_index_z = np.nan
-        highest_distance = diffuse_radius
+        highest_value = 0
 
         # loop over the bins that surround the current bin
         for i in range(-1, 2):
@@ -890,11 +890,12 @@ def highest_fgf4_cpu(diffuse_radius, diffuse_bins, diffuse_bins_help, diffuse_lo
 
                         # check to see if that cell is within the search radius and not the same cell
                         m = np.linalg.norm(diffuse_locations[x_][y_][z_] - cell_locations[pivot_index])
-                        if m < highest_distance:
-                            highest_index_x = x_
-                            highest_index_y = y_
-                            highest_index_z = z_
-                            highest_distance = m
+                        if m < diffuse_radius:
+                            if fgf4_values[x_][y_][z_] > highest_value:
+                                highest_index_x = x_
+                                highest_index_y = y_
+                                highest_index_z = z_
+                                highest_value = fgf4_values[x_][y_][z_]
 
         # update the highest fgf4 diffusion point
         highest_fgf4[pivot_index][0] = highest_index_x

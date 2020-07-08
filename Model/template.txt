@@ -181,7 +181,7 @@ Use the Guye movement method? Ex. True
 [ True ]
 
 What is the radius of search for the fgf4 movement with diffusion? Ex. 0.000030
-[ 0.000030 ]
+[ 0.000060 ]
 
 The time has come. Execute Order Sixty-Six? Ex. True
 [ True ]
