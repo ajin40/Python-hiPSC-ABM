@@ -6,7 +6,7 @@ This is the template for running a simulation. Good luck!
 General Parameters
 -----------------------------------------------------------------------------------------------------------------------
 What is the name of the simulation? Ex. Run_30
-[ Test_9 ]
+[ Test_5 ]
 
 What is the path for the output directory? Ex. C:\Python37\Model_Outputs
 [ C:\Python37\Outputs ]
@@ -58,13 +58,13 @@ running a simulation, type 1. Ex. 1
 [ 1 ]
 
 What will the final step number be? Ex. 30
-[ 60 ]
+[ 192 ]
 
 How long is each time step in seconds? Ex. 3600
 [ 1800 ]
 
 How often are the Boolean values for each cell updated? Ex. 10
-[ 10 ]
+[ 1 ]
 
 Number of steps required for a pluripotent cell to divide. Ex. 36
 [ 36 ]
@@ -106,7 +106,7 @@ Threshold of differentiated cells for increasing differentiation. If lower than 
 Extracellular
 -----------------------------------------------------------------------------------------------------------------------
 What is the diffusion constant of the extracellular molecules? Ex. 0.0000000001
-[ 0.0000000001 ]
+[ 0.00000000001 ]
 
 What is the dx, dy, dz diffusion resolution of the space? Ex. (1.0, 1.0, 0.0)
 [ (0.00001, 0.00001, 1.0) ]
@@ -181,7 +181,10 @@ Use the Guye movement method? Ex. True
 [ True ]
 
 What is the radius of search for the fgf4 movement with diffusion? Ex. 0.000030
-[ 0.000060 ]
+[ 0.000045 ]
+
+What is the max value of fgf4 at a diffusion point? Ex. 20
+[ 10 ]
 
 The time has come. Execute Order Sixty-Six? Ex. True
 [ True ]

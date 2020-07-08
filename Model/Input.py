@@ -101,6 +101,7 @@ def setup(template_location):
     _group = int(lines[177][2:-3])
     _guye_move = eval(lines[180][2:-3])
     _diffuse_radius = float(lines[183][2:-3])
+    _max_fgf4 = float(lines[186][2:-3])
 
     # check that the name and path from the template are valid
     _path, _name = check_name(_output_direct, _name, separator, _continuation, _csv_to_images, _images_to_video,
@@ -115,7 +116,7 @@ def setup(template_location):
                                        _output_csvs, _output_images, _image_quality, _fps, _background_color,
                                        _bound_color, _color_mode, _pluri_color, _diff_color, _pluri_gata6_high_color,
                                        _pluri_nanog_high_color, _pluri_both_high_color, _guye_move, _motility_force,
-                                       _max_radius, _diffuse_radius)
+                                       _max_radius, _diffuse_radius, _max_fgf4)
 
     # decide which mode the simulation is intended to be run in
     # continue a previous simulation

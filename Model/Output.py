@@ -23,12 +23,10 @@ def step_image(simulation):
         # get the fgf4 gradient array, resize to a 2D array, and normalize the concentrations
         fgf4_array = simulation.fgf4_values
         fgf4_array = np.reshape(fgf4_array, (fgf4_array.shape[0], fgf4_array.shape[1]))
-        max_value = np.amax(fgf4_array)
-        if max_value != 0:
-            fgf4_array *= max_value ** -1
+        fgf4_array /= simulation.max_fgf4
 
         # create a color map object that is used to turn the fgf4 array into a rgba array
-        cmap_object = ScalarMappable(cmap='jet')
+        cmap_object = ScalarMappable(cmap='Blues')
         fgf4_as_rgba = cmap_object.to_rgba(fgf4_array, bytes=True)
 
         # create an image from the fgf4 rgba array
@@ -74,7 +72,7 @@ def step_image(simulation):
             # draw the circle representing the cell to both the normal image and the colormap image
             membrane_circle = (x - x_radius, y - y_radius, x + x_radius, y + y_radius)
             image.ellipse(membrane_circle, fill=color, outline="black")
-            cmap_image.ellipse(membrane_circle, outline='white', width=4)
+            cmap_image.ellipse(membrane_circle, outline='gray', width=1)
 
         # paste the images to a new background image
         background = Image.new('RGBA', (base.width + cmap_base.width, base.height))
