@@ -10,7 +10,7 @@ import Parallel
 
 # used to hold all values necessary to the simulation as it moves from one step to the next
 class Simulation:
-    def __init__(self, path, name, parallel, size, resolution, num_fds_states, functions, neighbor_distance,
+    def __init__(self, path, name, parallel, size, dx, dy, dz, diffuse, num_fds_states, functions, neighbor_distance,
                  nearest_distance, jkr_distance, lonely_cell, contact_inhibit, move_thresh, time_step_value,
                  beginning_step, end_step, move_time_step, dox_step, pluri_div_thresh, pluri_to_diff, diff_div_thresh,
                  fds_thresh, death_thresh, diff_surround, adhesion_const, viscosity, group, output_csvs, output_images,
@@ -25,7 +25,10 @@ class Simulation:
         self.name = name    # the name of the simulation, used to name files in the output directory
         self.parallel = parallel    # whether the model is using parallel GPU processing for certain functions
         self.size = size    # the dimensions of the space (in meters) the cells reside in
-        self.resolution = resolution    # the diffusion resolution of the space
+        self.dx = dx    # the diffusion resolution along the x-axis
+        self.dy = dy  # the diffusion resolution along the y-axis
+        self.dz = dz  # the diffusion resolution along the z-axis
+        self.diffuse = diffuse   # the diffusion constant
         self.num_fds_states = num_fds_states    # the number of states for the finite dynamical system
         self.functions = functions    # the finite dynamical system functions as strings in an array
         self.neighbor_distance = neighbor_distance    # the distance threshold for assigning nearby cells as neighbors
@@ -101,13 +104,25 @@ class Simulation:
         self.current_step = self.beginning_step
         self.step_start = float()
 
-        # holds all extracellular objects...this may be edited...later
-        self.extracellular = np.empty((0, 1), dtype=object)
-
         # neighbor graph is used to locate cells that are in close proximity, while the JKR graph holds adhesion bonds
         # between cells that are either currently overlapping or still maintain an adhesive bond
         self.neighbor_graph = igraph.Graph()
         self.jkr_graph = igraph.Graph()
+
+        # squaring the approximation of the differential
+        self.dx2, self.dy2, self.dz2 = self.dx ** 2, self.dy ** 2, self.dz ** 2
+
+        # get the time step value for diffusion updates depending on whether 2D or 3D
+        if self.size[2] == 0:
+            self.dt = (self.dx2 * self.dy2) / (2 * self.diffuse * (self.dx2 + self.dy2))
+        else:
+            self.dt = (self.dx2 * self.dy2 * self.dz2) / (2 * self.diffuse * (self.dx2 + self.dy2 + self.dz2))
+
+        # the points at which the diffusion values are calculated
+        x_steps = int(self.size[0] / self.dx) + 1
+        y_steps = int(self.size[1] / self.dy) + 1
+        z_steps = int(self.size[2] / self.dz) + 1
+        self.fgf4_values = np.zeros((x_steps, y_steps, z_steps))
 
         # holds all indices of cells that will divide at a current step or be removed at that step
         self.cells_to_divide = np.empty((0, 1), dtype=int)
@@ -138,22 +153,22 @@ class Simulation:
         print("Step: " + str(self.current_step))
         print("Number of cells: " + str(self.number_cells))
 
-    def initialize_diffusion(self):
-        """ see Extracellular.py for description
-        """
-        for i in range(len(self.extracellular)):
-            self.extracellular[i].initialize_gradient()
-
     def update_diffusion(self):
-        """ see Extracellular.py for description
+        """ calls update_diffusion_cpu for all specified
+            extracellular gradients, which will update
+            the diffusion of the extracellular molecule
         """
         # start time
         self.update_diffusion_time = -1 * time.time()
 
-        # go through all of the Extracellular objects updating their diffusion
-        for i in range(len(self.extracellular)):
-            self.extracellular[i].update_gradient(self)
+        # list the gradients that need to be updated and get the number of time steps for the diffusion calculation
+        gradients_to_update = [self.fgf4_values]
+        time_steps = int(self.time_step_value / self.dt)
 
+        # go through all gradients and update the diffusion of each
+        for i in range(len(gradients_to_update)):
+            gradients_to_update[i] = update_diffusion_cpu(gradients_to_update[i], time_steps, self.dt, self.dx2,
+                                                          self.dy2, self.dz2, self.diffuse, self.size)
         # end time
         self.update_diffusion_time += time.time()
 
@@ -349,12 +364,9 @@ class Simulation:
             # Extracellular interaction
             # take the location of a cell and determine the nearest diffusion point by creating a zone around a
             # diffusion point an any cells in the zone will base their value off of that
-            x_step = self.extracellular[0].dx
-            y_step = self.extracellular[0].dy
-            z_step = self.extracellular[0].dz
-            half_index_x = self.cell_locations[i][0] // (x_step / 2)
-            half_index_y = self.cell_locations[i][1] // (y_step / 2)
-            half_index_z = self.cell_locations[i][2] // (z_step / 2)
+            half_index_x = self.cell_locations[i][0] // (self.dx / 2)
+            half_index_y = self.cell_locations[i][1] // (self.dy / 2)
+            half_index_z = self.cell_locations[i][2] // (self.dz / 2)
             index_x = math.ceil(half_index_x / 2)
             index_y = math.ceil(half_index_y / 2)
             index_z = math.ceil(half_index_z / 2)
@@ -362,13 +374,13 @@ class Simulation:
             # if the diffusion point value is less than the max FGF4 it can hold and the cell is NANOG high
             # increase the FGF4 value by 1
             if self.cell_fds[i][3] == 1:
-                self.extracellular[0].diffuse_values[index_x][index_y][index_z] += 1
+                self.fgf4_values[index_x][index_y][index_z] += 1
 
             # activate the following pathway based on if dox has been induced yet
             if self.current_step >= self.dox_step:
                 # if the FGF4 amount for the location is greater than 0, set the fgf4_bool value to be 1 for the
                 # functions
-                if self.extracellular[0].diffuse_values[index_x][index_y][index_z] > 0:
+                if self.fgf4_values[index_x][index_y][index_z] > 0:
                     fgf4_bool = 1
                 else:
                     fgf4_bool = 0
@@ -406,8 +418,8 @@ class Simulation:
                 # if the temporary FGFR value is 0 and the FGF4 value is 1 decrease the amount of FGF4 by 1
                 # this simulates FGFR using FGF4
                 if temp_fgfr == 0 and new_fgf4 == 1:
-                    if self.extracellular[0].diffuse_values[index_x][index_y][index_z] > 1:
-                        self.extracellular[0].diffuse_values[index_x][index_y][index_z] -= 1
+                    if self.fgf4_values[index_x][index_y][index_z] > 1:
+                        self.fgf4_values[index_x][index_y][index_z] -= 1
 
                 # if the cell is GATA6 high and pluripotent increase the differentiation counter by 1
                 if self.cell_fds[i][2] == 1 and self.cell_states[i] == "Pluripotent":
@@ -1056,3 +1068,40 @@ def apply_forces_cpu(number_cells, cell_jkr_force, cell_motility_force, cell_loc
 
     # return the updated cell locations
     return cell_locations
+
+
+@jit(nopython=True)
+def update_diffusion_cpu(gradient, time_steps, dt, dx2, dy2, dz2, diffuse, size):
+    """ This is the Numba optimized version of
+        the update_diffusion function that runs
+        solely on the cpu.
+    """
+    # perform the following operations on the diffusion points at each time step, depending on 2D or 3D
+    # 2D
+    if size[2] == 0:
+        for i in range(time_steps):
+            # make the variable name smaller for easier writing
+            a = gradient
+
+            # perform the first part of the calculation
+            x = (a[2:, 1:-1] - 2 * a[1:-1, 1:-1] + a[:-2, 1:-1]) / dx2
+            y = (a[1:-1, 2:] - 2 * a[1:-1, 1:-1] + a[1:-1, :-2]) / dy2
+
+            # update the array
+            gradient[1:-1, 1:-1] = a[1:-1, 1:-1] + diffuse * dt * (x + y)
+    # 3D
+    else:
+        for i in range(time_steps):
+            # make the variable name smaller for easier writing
+            a = gradient
+
+            # perform the first part of the calculation
+            x = (a[2:][1:-1][1:-1] - 2 * a[1:-1][1:-1][1:-1] + a[:-2][1:-1][1:-1]) / dx2
+            y = (a[1:-1][2:][1:-1] - 2 * a[1:-1][1:-1][1:-1] + a[1:-1][:-2][1:-1]) / dy2
+            z = (a[1:-1][1:-1][2:] - 2 * a[1:-1][1:-1][1:-1] + a[1:-1][1:-1][:-2]) / dz2
+
+            # update the array
+            gradient[1:-1][1:-1][1:-1] = a[1:-1][1:-1][1:-1] + diffuse * dt * (x + y + z)
+
+    # return the gradient back to the simulation
+    return gradient

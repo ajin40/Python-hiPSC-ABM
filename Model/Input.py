@@ -6,7 +6,6 @@ import platform
 import csv
 import cv2
 
-import Extracellular
 import Simulation
 import Output
 
@@ -72,42 +71,43 @@ def setup(template_location):
     _diff_surround = int(lines[102][2:-3])
 
     # extracellular
-    _extracellular = eval(lines[109][2:-3])
-    _resolution = eval(lines[112][2:-3])
+    _diffuse = float(lines[108][2:-3])
+    _resolution = eval(lines[111][2:-3])
+    _dx, _dy, _dz = _resolution[0], _resolution[1], _resolution[2]
 
     # movement/physical
-    _move_time_step = float(lines[118][2:-3])
-    _radius = float(lines[121][2:-3])
-    _adhesion_const = float(lines[124][2:-3])
-    _viscosity = float(lines[127][2:-3])
-    _motility_force = float(lines[130][2:-3])
-    _max_radius = float(lines[133][2:-3])
+    _move_time_step = float(lines[117][2:-3])
+    _radius = float(lines[120][2:-3])
+    _adhesion_const = float(lines[123][2:-3])
+    _viscosity = float(lines[126][2:-3])
+    _motility_force = float(lines[129][2:-3])
+    _max_radius = float(lines[132][2:-3])
 
     # imaging
-    _image_quality = eval(lines[139][2:-3])
-    _fps = float(lines[142][2:-3])
-    _background_color = eval(lines[145][2:-3])
-    _bound_color = eval(lines[148][2:-3])
-    _color_mode = eval(lines[151][2:-3])
-    _pluri_color = eval(lines[154][2:-3])
-    _diff_color = eval(lines[157][2:-3])
-    _pluri_gata6_high_color = eval(lines[160][2:-3])
-    _pluri_nanog_high_color = eval(lines[163][2:-3])
-    _pluri_both_high_color = eval(lines[166][2:-3])
+    _image_quality = eval(lines[138][2:-3])
+    _fps = float(lines[141][2:-3])
+    _background_color = eval(lines[144][2:-3])
+    _bound_color = eval(lines[147][2:-3])
+    _color_mode = eval(lines[150][2:-3])
+    _pluri_color = eval(lines[153][2:-3])
+    _diff_color = eval(lines[156][2:-3])
+    _pluri_gata6_high_color = eval(lines[159][2:-3])
+    _pluri_nanog_high_color = eval(lines[162][2:-3])
+    _pluri_both_high_color = eval(lines[165][2:-3])
 
     # miscellaneous/experimental
-    _dox_step = int(lines[172][2:-3])
-    _stochastic = bool(lines[175][2:-3])
-    _group = int(lines[178][2:-3])
-    _guye_move = eval(lines[181][2:-3])
+    _dox_step = int(lines[171][2:-3])
+    _stochastic = bool(lines[174][2:-3])
+    _group = int(lines[177][2:-3])
+    _guye_move = eval(lines[180][2:-3])
 
     # check that the name and path from the template are valid
     _path, _name = check_name(_output_direct, _name, separator, _continuation, _csv_to_images, _images_to_video,
                               template_location)
 
     # initializes simulation class which holds all information about the simulation
-    simulation = Simulation.Simulation(_path, _name, _parallel, _size, _resolution, _num_fds_states, _functions,
-                                       _neighbor_distance, _guye_distance, _jkr_distance, _lonely_cell,
+    simulation = Simulation.Simulation(_path, _name, _parallel, _size, _dx, _dy, _dz, _diffuse, _num_fds_states,
+                                       _functions, _neighbor_distance, _guye_distance, _jkr_distance, _lonely_cell,
                                        _contact_inhibit, _move_thresh, _time_step_value, _beginning_step, _end_step,
                                        _move_time_step, _dox_step, _pluri_div_thresh, _pluri_to_diff, _diff_div_thresh,
                                        _fds_thresh, _death_thresh, _diff_surround, _adhesion_const, _viscosity, _group,
@@ -115,14 +115,6 @@ def setup(template_location):
                                        _bound_color, _color_mode, _pluri_color, _diff_color, _pluri_gata6_high_color,
                                        _pluri_nanog_high_color, _pluri_both_high_color, _guye_move, _motility_force,
                                        _max_radius)
-
-    # loops over the gradients and adds them to the simulation
-    for i in range(len(_extracellular)):
-        # initializes the Extracellular class
-        new_extracellular = Extracellular.Extracellular(_size, _resolution, _extracellular[i], _parallel)
-
-        # adds the Extracellular object
-        simulation.extracellular = np.append(simulation.extracellular, new_extracellular)
 
     # decide which mode the simulation is intended to be run in
     # continue a previous simulation
