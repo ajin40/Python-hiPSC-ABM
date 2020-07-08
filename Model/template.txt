@@ -58,7 +58,7 @@ running a simulation, type 1. Ex. 1
 [ 1 ]
 
 What will the final step number be? Ex. 30
-[ 4 ]
+[ 60 ]
 
 How long is each time step in seconds? Ex. 3600
 [ 1800 ]
@@ -179,6 +179,9 @@ How many cells are added/removed to the simulation at once, per time step? Type 
 
 Use the Guye movement method? Ex. True
 [ True ]
+
+What is the radius of search for the fgf4 movement with diffusion? Ex. 0.000030
+[ 0.000030 ]
 
 The time has come. Execute Order Sixty-Six? Ex. True
 [ True ]

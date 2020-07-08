@@ -100,6 +100,7 @@ def setup(template_location):
     _stochastic = bool(lines[174][2:-3])
     _group = int(lines[177][2:-3])
     _guye_move = eval(lines[180][2:-3])
+    _diffuse_radius = float(lines[183][2:-3])
 
     # check that the name and path from the template are valid
     _path, _name = check_name(_output_direct, _name, separator, _continuation, _csv_to_images, _images_to_video,
@@ -114,7 +115,7 @@ def setup(template_location):
                                        _output_csvs, _output_images, _image_quality, _fps, _background_color,
                                        _bound_color, _color_mode, _pluri_color, _diff_color, _pluri_gata6_high_color,
                                        _pluri_nanog_high_color, _pluri_both_high_color, _guye_move, _motility_force,
-                                       _max_radius)
+                                       _max_radius, _diffuse_radius)
 
     # decide which mode the simulation is intended to be run in
     # continue a previous simulation
@@ -167,11 +168,12 @@ def setup(template_location):
             nearest_gata6 = np.nan
             nearest_nanog = np.nan
             nearest_diff = np.nan
+            highest_fgf4 = np.array([np.nan, np.nan, np.nan])
 
             # adds object to simulation instance
             simulation.add_cell(location, radius, True, booleans, "Pluripotent", diff_counter, div_counter,
                                 death_counter, bool_counter, motility_force, jkr_force, nearest_gata6, nearest_nanog,
-                                nearest_diff)
+                                nearest_diff, highest_fgf4)
 
     # return the modified simulation instance
     return simulation

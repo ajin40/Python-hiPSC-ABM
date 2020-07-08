@@ -87,6 +87,7 @@ class Simulation:
         self.cell_nearest_gata6 = np.empty((0, 1), dtype=None)    # holds index of nearest gata6 high neighbor
         self.cell_nearest_nanog = np.empty((0, 1), dtype=None)    # holds index of nearest nanog high neighbor
         self.cell_nearest_diff = np.empty((0, 1), dtype=None)    # holds index of nearest differentiated neighbor
+        self.cell_highest_fgf4 = np.empty((0, 3), dtype=None)    # holds the location of highest fgf4 point
 
         # holds the run time for key functions as a way tracking efficiency. each step these are outputted to the data
         # CSV file. this just initializes the variables as floats
@@ -189,6 +190,7 @@ class Simulation:
         bins_size = self.size // self.diffuse_radius + np.array([5, 5, 5])
         bins_size_help = tuple(bins_size.astype(int))
         bins_size = np.append(bins_size, 100)
+        bins_size = np.append(bins_size, 3)
         bins_size = tuple(bins_size.astype(int))
 
         # create the diffusion bins and the help array
@@ -196,9 +198,9 @@ class Simulation:
         self.diffuse_bins_help = np.zeros(bins_size_help, dtype=int)
 
         # loop over all diffusion points
-        for i in range(self.fgf4_values.size[0]):
-            for j in range(self.fgf4_values.size[1]):
-                for k in range(self.fgf4_values.size[2]):
+        for i in range(self.fgf4_values.shape[0]):
+            for j in range(self.fgf4_values.shape[1]):
+                for k in range(self.fgf4_values.shape[2]):
                     # get the location in the bin array
                     bin_location = self.diffuse_locations[i][j][k] // self.diffuse_radius + np.array([2, 2, 2])
                     x, y, z = int(bin_location[0]), int(bin_location[1]), int(bin_location[2])
@@ -210,8 +212,16 @@ class Simulation:
                     self.diffuse_bins[x][y][z][place] = np.array([i, j, k])
                     self.diffuse_bins_help[x][y][z] += 1
 
+    def highest_fgf4(self):
+        """ Search for the highest concentration of
+            fgf4 within a fixed radius
+        """
+        self.cell_highest_fgf4 = highest_fgf4_cpu(self.diffuse_radius, self.diffuse_bins, self.diffuse_bins_help,
+                                                  self.diffuse_locations, self.cell_locations, self.number_cells,
+                                                  self.cell_highest_fgf4)
+
     def add_cell(self, location, radius, motion, fds, state, diff_counter, div_counter, death_counter, fds_counter,
-                 motility_force, jkr_force, nearest_gata6, nearest_nanog, nearest_diff):
+                 motility_force, jkr_force, nearest_gata6, nearest_nanog, nearest_diff, highest_fgf4):
         """ Adds each of the new cell's values to
             the array holders, graphs, and total
             number of cells.
@@ -232,6 +242,7 @@ class Simulation:
         self.cell_nearest_gata6 = np.append(self.cell_nearest_gata6, nearest_gata6)
         self.cell_nearest_nanog = np.append(self.cell_nearest_nanog, nearest_nanog)
         self.cell_nearest_diff = np.append(self.cell_nearest_diff, nearest_diff)
+        self.cell_highest_fgf4 = np.append(self.cell_highest_fgf4, [highest_fgf4], axis=0)
 
         # add it to the following graphs, this is done implicitly by increasing the length of the vertex list by
         # one, which the indices directly correspond to the cell holder arrays
@@ -341,6 +352,7 @@ class Simulation:
         self.cell_nearest_gata6[index] = nearest_gata6 = np.nan
         self.cell_nearest_nanog[index] = nearest_nanog = np.nan
         self.cell_nearest_diff[index] = nearest_diff = np.nan
+        self.cell_highest_fgf4[index] = highest_fgf4 = np.array([np.nan, np.nan, np.nan])
 
         # keep identical values for motion, booleans, state, differentiation, cell death, and boolean update
         motion = self.cell_motion[index]
@@ -356,7 +368,7 @@ class Simulation:
 
         # add the cell to the simulation
         self.add_cell(location, radius, motion, booleans, state, diff_counter, div_counter, death_counter,
-                      bool_counter, motility_force, jkr_force, nearest_gata6, nearest_nanog, nearest_diff)
+                      bool_counter, motility_force, jkr_force, nearest_gata6, nearest_nanog, nearest_diff, highest_fgf4)
 
     def cell_update(self):
         """ Loops over all indices of cells and updates
@@ -557,21 +569,29 @@ class Simulation:
                 if self.cell_states[i] == "Pluripotent":
                     # if nanog high
                     if self.cell_fds[i][3] == 1:
-                        # if there is a gata6 high cell nearby, move away from it
-                        if not np.isnan(self.cell_nearest_gata6[i]):
-                            nearest_index = int(self.cell_nearest_gata6[i])
-                            normal = normal_vector(self.cell_locations[i], self.cell_locations[nearest_index])
-                            self.cell_motility_force[i] = normal * self.motility_force * -1
+                        if not (self.cell_highest_fgf4[i] == np.array([np.nan, np.nan, np.nan])).all():
+                            x = int(self.cell_highest_fgf4[i][0])
+                            y = int(self.cell_highest_fgf4[i][1])
+                            z = int(self.cell_highest_fgf4[i][2])
+                            normal = normal_vector(self.cell_locations[i], self.diffuse_locations[x][y][z])
 
-                        # if there is a nanog high cell nearby, move to it
-                        elif not np.isnan(self.cell_nearest_nanog[i]):
-                            nearest_index = int(self.cell_nearest_nanog[i])
-                            normal = normal_vector(self.cell_locations[i], self.cell_locations[nearest_index])
                             self.cell_motility_force[i] = normal * self.motility_force
 
-                        # if nothing else, move randomly
-                        else:
-                            self.cell_motility_force[i] = self.random_vector() * self.motility_force
+                        # if there is a gata6 high cell nearby, move away from it
+                        # if not np.isnan(self.cell_nearest_gata6[i]):
+                        #     nearest_index = int(self.cell_nearest_gata6[i])
+                        #     normal = normal_vector(self.cell_locations[i], self.cell_locations[nearest_index])
+                        #     self.cell_motility_force[i] = normal * self.motility_force * -1
+                        #
+                        # # if there is a nanog high cell nearby, move to it
+                        # elif not np.isnan(self.cell_nearest_nanog[i]):
+                        #     nearest_index = int(self.cell_nearest_nanog[i])
+                        #     normal = normal_vector(self.cell_locations[i], self.cell_locations[nearest_index])
+                        #     self.cell_motility_force[i] = normal * self.motility_force
+                        #
+                        # # if nothing else, move randomly
+                        # else:
+                        #     self.cell_motility_force[i] = self.random_vector() * self.motility_force
 
                     # if gata6 high
                     # elif self.cell_fds[i][2] == 1:
@@ -668,11 +688,8 @@ class Simulation:
         # start time
         self.nearest_diff_time = -1 * time.time()
 
-        # get the radius of search length
-        distance = self.nearest_distance
-
         # divides the space into bins and gives a holder of fixed size for each bin
-        bins_size = self.size // distance + np.array([5, 5, 5])
+        bins_size = self.size // self.nearest_distance + np.array([5, 5, 5])
         bins_size_help = tuple(bins_size.astype(int))
         bins_size = np.append(bins_size, 100)
         bins_size = tuple(bins_size.astype(int))
@@ -684,7 +701,7 @@ class Simulation:
         bins_help = np.zeros(bins_size_help, dtype=int)
 
         # find the nearest gata6 high cell
-        new_gata6, new_nanog, new_diff = nearest_cpu(self.number_cells, distance, bins, bins_help,
+        new_gata6, new_nanog, new_diff = nearest_cpu(self.number_cells, self.nearest_distance, bins, bins_help,
                                                      self.cell_locations, self.cell_nearest_gata6,
                                                      self.cell_nearest_nanog, self.cell_nearest_diff, self.cell_states,
                                                      self.cell_fds)
@@ -838,6 +855,54 @@ def normal_vector(location_1, location_2):
         return np.array([0, 0, 0])
     else:
         return vector / magnitude
+
+
+@jit(nopython=True)
+def highest_fgf4_cpu(diffuse_radius, diffuse_bins, diffuse_bins_help, diffuse_locations, cell_locations, number_cells,
+                     highest_fgf4):
+    """ This is the Numba optimized version of
+        the highest_fgf4 function.
+    """
+    for pivot_index in range(number_cells):
+        # offset bins by 2 to avoid missing cells
+        block_location = cell_locations[pivot_index] // diffuse_radius + np.array([2, 2, 2])
+        x, y, z = int(block_location[0]), int(block_location[1]), int(block_location[2])
+
+        # create an initial value to check for the highest fgf4 point in a radius
+        highest_index_x = np.nan
+        highest_index_y = np.nan
+        highest_index_z = np.nan
+        highest_distance = diffuse_radius
+
+        # loop over the bins that surround the current bin
+        for i in range(-1, 2):
+            for j in range(-1, 2):
+                for k in range(-1, 2):
+                    # get the count of cells in a bin
+                    bin_count = diffuse_bins_help[x + i][y + j][z + k]
+
+                    # go through the bin determining if a cell is a neighbor
+                    for l in range(bin_count):
+                        # get the index of the current cell in question
+                        x_ = int(diffuse_bins[x + i][y + j][z + k][l][0])
+                        y_ = int(diffuse_bins[x + i][y + j][z + k][l][1])
+                        z_ = int(diffuse_bins[x + i][y + j][z + k][l][2])
+
+                        # check to see if that cell is within the search radius and not the same cell
+                        m = np.linalg.norm(diffuse_locations[x_][y_][z_] - cell_locations[pivot_index])
+                        if m < highest_distance:
+                            highest_index_x = x_
+                            highest_index_y = y_
+                            highest_index_z = z_
+                            highest_distance = m
+
+        # update the highest fgf4 diffusion point
+        highest_fgf4[pivot_index][0] = highest_index_x
+        highest_fgf4[pivot_index][1] = highest_index_y
+        highest_fgf4[pivot_index][2] = highest_index_z
+
+    # return the array back
+    return highest_fgf4
 
 
 @jit(nopython=False)
