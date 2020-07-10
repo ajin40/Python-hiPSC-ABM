@@ -1,12 +1,11 @@
 """
 
 This is the Python file that you run to begin the simulation. Before you begin, make sure you have
-updated "Input.setup(...)" such that it represents the string that is the path pointing to the .txt file
-a.k.a. the template file used for simulation information. All lines indicated with "(base)" are
-necessary to for the model to work. Removing such lines may cause the model to either run incorrectly
-or not at all. Feel free to modify or delete any functions that are not labeled in this fashion. Add
-any necessary functions here to customize the model to your liking. Functions underneath the for loop
-are run each step, while functions before or after will be run before or after all steps are executed.
+ updated "Simulation.Simulation(...)" such that it represents the string that is the path pointing to the
+ .txt file a.k.a. the template file used for simulation information. All lines indicated with "(base)" are
+ necessary to for the model to work. Removing such lines may cause the model to either run incorrectly
+ or not at all. Functions underneath the for loop are run each step, while functions before or after
+ will be run before or after all steps are executed.
 
 """
 import Output

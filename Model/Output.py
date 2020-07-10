@@ -130,8 +130,7 @@ def simulation_data(simulation):
     # write the row with the corresponding values
     simulation.csv_object.writerow([simulation.current_step, simulation.number_cells, step_time, memory,
                                     simulation.update_diffusion_time, simulation.check_neighbors_time,
-                                    simulation.nearest_diff_time, simulation.cell_death_time,
-                                    simulation.cell_diff_surround_time, simulation.cell_motility_time,
+                                    simulation.nearest_diff_time, simulation.cell_motility_time,
                                     simulation.cell_update_time, simulation.update_queue_time,
                                     simulation.handle_movement_time])
 
@@ -147,8 +146,8 @@ def initialize_csv(simulation):
     file_object = open(data_path, "w", newline="")
     simulation.csv_object = csv.writer(file_object)
     simulation.csv_object.writerow(["Step Number", "Number Cells", "Step Time", "Memory (MB)", "update_diffusion",
-                                    "check_neighbors", "nearest_diff", "cell_death", "diff_surround",
-                                    "cell_motility", "update_cells", "update_cell_queue", "handle_movement"])
+                                    "check_neighbors", "nearest_diff", "cell_motility", "update_cells",
+                                    "update_cell_queue", "handle_movement"])
 
 
 def initialize_video(simulation):

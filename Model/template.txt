@@ -180,6 +180,12 @@ What is the radius of search for the fgf4 movement with diffusion? Ex. 0.000030
 What is the max value of fgf4 at a diffusion point? Ex. 20
 [ 1 ]
 
+Use Eunbi's method of motion based on the NetLogo model? Ex. True
+[ True ]
+
+Use FGF4 concentrations for NANOG high movements? Ex. False
+[ False ]
+
 The time has come. Execute Order Sixty-Six? Ex. True
 [ True ]
 -----------------------------------------------------------------------------------------------------------------------
