@@ -6,74 +6,97 @@ import time
 from numba import jit, prange
 
 import Parallel
+import Input
 
 
 # used to hold all values necessary to the simulation as it moves from one step to the next
 class Simulation:
-    def __init__(self, path, name, parallel, size, dx, dy, dz, diffuse, num_fds_states, functions, neighbor_distance,
-                 nearest_distance, jkr_distance, lonely_cell, contact_inhibit, move_thresh, time_step_value,
-                 beginning_step, end_step, move_time_step, dox_step, pluri_div_thresh, pluri_to_diff, diff_div_thresh,
-                 fds_thresh, death_thresh, diff_surround, adhesion_const, viscosity, group, output_csvs, output_images,
-                 image_quality, fps, background_color, bound_color, color_mode, pluri_color, diff_color,
-                 pluri_gata6_high_color, pluri_nanog_high_color, pluri_both_high_color, guye_move, motility_force,
-                 max_radius, diffuse_radius, max_fgf4):
+    def __init__(self, template_location):
+        # open the .txt template file that contains the initial parameters
+        with open(template_location) as template_file:
+            lines = template_file.readlines()
 
-        # the following instance variables should remain fixed, meaning that they don't change from step to step.
-        # they are merely used to hold initial parameters from the template file that will needed to be consistent
-        # throughout the simulation
-        self.path = path    # the directory of where the simulation will output to
-        self.name = name    # the name of the simulation, used to name files in the output directory
-        self.parallel = parallel    # whether the model is using parallel GPU processing for certain functions
-        self.size = size    # the dimensions of the space (in meters) the cells reside in
-        self.dx = dx    # the diffusion resolution along the x-axis
-        self.dy = dy  # the diffusion resolution along the y-axis
-        self.dz = dz  # the diffusion resolution along the z-axis
-        self.diffuse = diffuse   # the diffusion constant
-        self.num_fds_states = num_fds_states    # the number of states for the finite dynamical system
-        self.functions = functions    # the finite dynamical system functions as strings in an array
-        self.neighbor_distance = neighbor_distance    # the distance threshold for assigning nearby cells as neighbors
-        self.nearest_distance = nearest_distance    # the radius of search for the nearest cell of desired type
-        self.jkr_distance = jkr_distance    # the radius of search for JKR adhesive bonds formed between cells
-        self.lonely_cell = lonely_cell    # if the number of neighbors is below this threshold, a cell is lonely
-        self.contact_inhibit = contact_inhibit    # if the number of neighbors is below this threshold, no inhibition
-        self.move_thresh = move_thresh    # if the number of neighbors is above this threshold, motion is inhibited
-        self.time_step_value = time_step_value    # the real-time value of each step
-        self.beginning_step = beginning_step    # the step the simulation starts on, used for certain modes
-        self.end_step = end_step    # the last step of a simulation
-        self.move_time_step = move_time_step    # the time step used for each time the JKR contact function is used
-        self.dox_step = dox_step    # the step at which dox is introduced into the simulation
-        self.pluri_div_thresh = pluri_div_thresh    # the division threshold (in steps) of a pluripotent cell
-        self.pluri_to_diff = pluri_to_diff    # the differentiation threshold (in steps) of a pluripotent cell
-        self.diff_div_thresh = diff_div_thresh    # the division threshold (in steps) of a differentiated cell
-        self.fds_thresh = fds_thresh    # the threshold (in steps) for updating the finite dynamical system
-        self.death_thresh = death_thresh    # the death threshold (in steps) for cell death
-        self.diff_surround = diff_surround    # the number of differentiated cells needed to help induce differentiation
-        self.adhesion_const = adhesion_const    # the adhesion constant between cells used for JKR contact
-        self.viscosity = viscosity    # the viscosity of the medium used for stokes friction
-        self.group = group    # the number of cells introduced into or removed from the space at once
-        self.output_csvs = output_csvs    # whether or not to produce csvs with cell information
-        self.output_images = output_images    # whether or not to produce images
-        self.image_quality = image_quality    # the output image/video dimensions in pixels
-        self.fps = fps    # the frames per second of the video produced
-        self.background_color = background_color    # the background space color
-        self.bound_color = bound_color    # the color of the bounds of the space
-        self.color_mode = color_mode    # used to vary which method of coloring used
-        self.pluri_color = pluri_color    # color of a pluripotent cell
-        self.diff_color = diff_color    # color of a differentiated cell
-        self.pluri_gata6_high_color = pluri_gata6_high_color    # color of a pluripotent gata6 high cell
-        self.pluri_nanog_high_color = pluri_nanog_high_color    # color of a pluripotent nanog high cell
-        self.pluri_both_high_color = pluri_both_high_color    # color of a pluripotent gata6/nanog high cell
-        self.guye_move = guye_move    # whether or not to use the Guye method of cell motility
-        self.motility_force = motility_force    # the active force (in Newtons) of a cell actively moving
-        self.max_radius = max_radius    # the maximum radius (in meters) of a cell
-        self.diffuse_radius = diffuse_radius    # the radius of search of diffusion points
-        self.max_fgf4 = max_fgf4    # the maximum amount of fgf4 at a diffusion point
+        # the following lines correspond to lines of template file, so anything implemented to the template file
+        # can be added to the class initialization.
+        # general parameters
+        self.name = lines[8][2:-3]  # the name of the simulation, used to name files in the output directory
+        self.output_direct = lines[11][2:-3]   # the output directory where simulation is placed
+        self.parallel = eval(lines[14][2:-3]) # whether the model is using parallel GPU processing for certain functions
+        self.size = np.array(eval(lines[17][2:-3]))  # the dimensions of the space (in meters) the cells reside in
+        self.num_GATA6 = int(lines[20][2:-3])   # the number of GATA6 high cells to begin the simulation
+        self.num_NANOG = int(lines[23][2:-3])   # the number of NANOG high cells to being the simulation
+
+        # finite dynamical system
+        self.functions = eval(lines[29][2:-3])  # the finite dynamical system functions as strings in an array
+        self.num_fds_states = int(lines[32][2:-3])  # the number of states for the finite dynamical system
+
+        # modes
+        self.output_csvs = eval(lines[41][2:-3])  # whether or not to produce csvs with cell information
+        self.output_images = eval(lines[38][2:-3])   # whether or not to produce images
+        self.continuation = eval(lines[44][2:-3])   # continuation of a previous simulation
+        self.csv_to_images = eval(lines[47][2:-3])  # turn a collection of csvs to images
+        self.images_to_video = eval(lines[50][2:-3])    # turn a collection of images into a video
+
+        # timing
+        self.beginning_step = int(lines[57][2:-3])  # the step the simulation starts on, used for certain modes
+        self.end_step = int(lines[60][2:-3])   # the last step of a simulation
+        self.time_step_value = float(lines[63][2:-3])   # the real-time value of each step
+        self.fds_thresh = int(lines[66][2:-3])  # the threshold (in steps) for updating the finite dynamical system
+        self.pluri_div_thresh = int(lines[69][2:-3])  # the division threshold (in steps) of a pluripotent cell
+        self.pluri_to_diff = int(lines[72][2:-3])  # the differentiation threshold (in steps) of a pluripotent cell
+        self.diff_div_thresh = int(lines[75][2:-3])  # the division threshold (in steps) of a differentiated cell
+        self.death_thresh = int(lines[78][2:-3])  # the death threshold (in steps) for cell death
+
+        # intercellular
+        self.neighbor_distance = float(lines[84][2:-3]) # the distance threshold for assigning nearby cells as neighbors
+        self.nearest_distance = float(lines[87][2:-3])  # the radius of search for the nearest cell of desired type
+        self.jkr_distance = float(lines[90][2:-3])  # the radius of search for JKR adhesive bonds formed between cells
+        self.lonely_cell = int(lines[93][2:-3])  # if the number of neighbors is below this threshold, a cell is lonely
+        self.contact_inhibit = int(lines[96][2:-3])  # if the number of neighbors is below this threshold, no inhibition
+        self.move_thresh = int(lines[99][2:-3])  # if the number of neighbors is above this threshold, inhibit motion
+        self.diff_surround = int(lines[102][2:-3])  # the number of diff cells needed to help induce differentiation
+
+        # extracellular
+        self.diffuse = float(lines[108][2:-3])  # the diffusion constant
+        self.dx = eval(lines[111][2:-3])[0]  # the diffusion resolution along the x-axis
+        self.dy = eval(lines[111][2:-3])[1]  # the diffusion resolution along the y-axis
+        self.dz = eval(lines[111][2:-3])[2]  # the diffusion resolution along the z-axis
+
+        # movement/physical
+        self.move_time_step = float(lines[117][2:-3])  # the time step used for each time the JKR function
+        self.adhesion_const = float(lines[120][2:-3])  # the adhesion constant between cells used for JKR contact
+        self.viscosity = float(lines[123][2:-3])   # the viscosity of the medium used for stokes friction
+        self.motility_force = float(lines[126][2:-3])   # the active force (in Newtons) of a cell actively moving
+        self.max_radius = float(lines[129][2:-3])    # the maximum radius (in meters) of a cell
+
+        # imaging
+        self.image_quality = eval(lines[135][2:-3])    # the output image/video dimensions in pixels
+        self.fps = float(lines[138][2:-3])   # the frames per second of the video produced
+        self.background_color = eval(lines[141][2:-3])    # the background space color
+        self.color_mode = eval(lines[144][2:-3])   # used to vary which method of coloring used
+        self.pluri_color = eval(lines[147][2:-3])   # color of a pluripotent cell
+        self.diff_color = eval(lines[150][2:-3])   # color of a differentiated cell
+        self.pluri_gata6_high_color = eval(lines[153][2:-3])    # color of a pluripotent gata6 high cell
+        self.pluri_nanog_high_color = eval(lines[156][2:-3])    # color of a pluripotent nanog high cell
+        self.pluri_both_high_color = eval(lines[159][2:-3])    # color of a pluripotent gata6/nanog high cell
+
+        # miscellaneous/experimental
+        self.dox_step = int(lines[165][2:-3])  # the step at which dox is introduced into the simulation
+        self.stochastic = bool(lines[168][2:-3])
+        self.group = int(lines[171][2:-3])   # the number of cells introduced into or removed from the space at once
+        self.guye_move = eval(lines[174][2:-3])    # whether or not to use the Guye method of cell motility
+        self.diffuse_radius = float(lines[177][2:-3])   # the radius of search of diffusion points
+        self.max_fgf4 = float(lines[180][2:-3])  # the maximum amount of fgf4 at a diffusion point
+
+        # check that the name and path from the template are valid
+        self.path = Input.check_name(self, template_location)
+
+        # holds the current number of cells, step, and time when a step started (used for tracking efficiency)
+        self.number_cells = 0
+        self.current_step = self.beginning_step
+        self.step_start = float()
 
         # these arrays hold all values of the cells, each index corresponds to a cell.
-        # you may ask why not create an array that holds a bunch of Cell objects...and my answer to that
-        # is in order to parallelize the functions with a GPU you need to convert a collection of variables into
-        # an array that can be interpreted by the GPU so Cell classes will have to be constantly mined for their
-        # instance variables, put into an array, and then reevaluated from an updated array after processing
         self.cell_locations = np.empty((0, 3), dtype=float)    # holds every cell's location vector in the space
         self.cell_radii = np.empty((0, 1), dtype=float)     # holds every cell's radius
         self.cell_motion = np.empty((0, 1), dtype=bool)    # holds every cell's boolean for being in motion or not
@@ -85,32 +108,23 @@ class Simulation:
         self.cell_fds_counter = np.empty((0, 1), dtype=int)    # holds every cell's finite dynamical system counter
         self.cell_motility_force = np.empty((0, 3), dtype=float)    # holds every cell's motility force vector
         self.cell_jkr_force = np.empty((0, 3), dtype=float)    # holds every cell's JKR force vector
-        self.cell_nearest_gata6 = np.empty((0, 1), dtype=None)    # holds index of nearest gata6 high neighbor
-        self.cell_nearest_nanog = np.empty((0, 1), dtype=None)    # holds index of nearest nanog high neighbor
-        self.cell_nearest_diff = np.empty((0, 1), dtype=None)    # holds index of nearest differentiated neighbor
-        self.cell_highest_fgf4 = np.empty((0, 3), dtype=None)    # holds the location of highest fgf4 point
+        self.cell_nearest_gata6 = np.empty((0, 1))  # holds index of nearest gata6 high neighbor
+        self.cell_nearest_nanog = np.empty((0, 1))  # holds index of nearest nanog high neighbor
+        self.cell_nearest_diff = np.empty((0, 1))  # holds index of nearest differentiated neighbor
+        self.cell_highest_fgf4 = np.empty((0, 3))  # holds the location of highest fgf4 point
 
-        # holds the run time for key functions as a way tracking efficiency. each step these are outputted to the data
-        # CSV file. this just initializes the variables as floats
+        # holds the run time for key functions to track efficiency. each step these are outputted to the CSV file.
         self.update_diffusion_time = float()
         self.check_neighbors_time = float()
         self.nearest_diff_time = float()
-        self.cell_death_time = float()
-        self.cell_diff_surround_time = float()
         self.cell_motility_time = float()
         self.cell_update_time = float()
         self.update_queue_time = float()
         self.handle_movement_time = float()
 
-        # holds the current number of cells, step, and time when a step started (used for tracking efficiency)
-        self.number_cells = 0
-        self.current_step = self.beginning_step
-        self.step_start = float()
-
         # neighbor graph is used to locate cells that are in close proximity, while the JKR graph holds adhesion bonds
         # between cells that are either currently overlapping or still maintain an adhesive bond
-        self.neighbor_graph = igraph.Graph()
-        self.jkr_graph = igraph.Graph()
+        self.neighbor_graph, self.jkr_graph = igraph.Graph(), igraph.Graph()
 
         # squaring the approximation of the differential
         self.dx2, self.dy2, self.dz2 = self.dx ** 2, self.dy ** 2, self.dz ** 2
@@ -122,39 +136,32 @@ class Simulation:
             self.dt = (self.dx2 * self.dy2 * self.dz2) / (2 * self.diffuse * (self.dx2 + self.dy2 + self.dz2))
 
         # the points at which the diffusion values are calculated
-        x_steps = int(self.size[0] / self.dx) + 1
-        y_steps = int(self.size[1] / self.dy) + 1
-        z_steps = int(self.size[2] / self.dz) + 1
+        x_steps = (int(self.size[0] / self.dx) + 1)
+        y_steps = (int(self.size[1] / self.dy) + 1)
+        z_steps = (int(self.size[2] / self.dz) + 1)
         self.fgf4_values = np.zeros((x_steps, y_steps, z_steps))
 
-        # the following are used for locating the diffusion points
-        x, y, z = np.meshgrid(np.arange(x_steps), np.arange(y_steps), np.arange(z_steps), indexing='ij')
-        x, y, z = x * dx, y * dy, z * dz
-        self.diffuse_locations = np.stack((x, y, z), axis=3)
-        self.diffuse_bins = object()
-        self.diffuse_bins_help = object()
-
         # holds all indices of cells that will divide at a current step or be removed at that step
-        self.cells_to_divide = np.empty((0, 1), dtype=int)
-        self.cells_to_remove = np.empty((0, 1), dtype=int)
+        self.cells_to_divide, self.cells_to_remove = np.empty((0, 1), dtype=int), np.empty((0, 1), dtype=int)
 
-        # min and max radius lengths are used to calculate linear growth of the radius over time
+        # min and max radius lengths are used to calculate linear growth of the radius over time in 2D
         self.min_radius = self.max_radius / 2 ** 0.5
         self.pluri_growth = (self.max_radius - self.min_radius) / self.pluri_div_thresh
         self.diff_growth = (self.max_radius - self.min_radius) / self.diff_div_thresh
 
         # Youngs modulus and Poisson's ratio used for JKR contact
-        self.youngs_mod = 1000
-        self.poisson = 0.5
+        self.youngs_mod, self.poisson = 1000, 0.5
 
         # the csv and video objects that will be updated each step
         self.csv_object = object()
         self.video_object = object()
 
+        # given all of the above parameters, run the corresponding mode
+        Input.setup_simulation(self)
+
     def info(self):
-        """ Records the beginning time of the step then
-            prints the current step number and the
-            total number of cells at the start of a step
+        """ Gives an idea of how the simulation is running
+            and records the beginning of the step in real time
         """
         # records the real time value of when a step begins
         self.step_start = time.time()
@@ -162,6 +169,40 @@ class Simulation:
         # prints the current step number and the number of cells
         print("Step: " + str(self.current_step))
         print("Number of cells: " + str(self.number_cells))
+
+    # def setup_diffusion_bins(self):
+    #     """ This function will put the diffusion points
+    #         into corresponding bins that will be used to
+    #         find values of diffusion within a radius
+    #     """
+    #     # set up the appropriate size for the diffusion bins and the help array
+    #     bins_size = self.size // self.diffuse_radius + np.array([5, 5, 5])
+    #     bins_size_help = tuple(bins_size.astype(int))
+    #     bins_size = np.append(bins_size, 100)
+    #     bins_size = np.append(bins_size, 3)
+    #     bins_size = tuple(bins_size.astype(int))
+    #
+    #     # the following are used for locating the diffusion points
+    #     x, y, z = np.meshgrid(np.arange(x_steps), np.arange(y_steps), np.arange(z_steps), indexing='ij')
+    #     x, y, z = x * self.dx, y * self.dy, z * self.dz
+    #     self.diffuse_locations = np.stack((x, y, z), axis=3)
+    #     self.diffuse_bins = np.empty(bins_size, dtype=int)
+    #     self.diffuse_bins_help = np.zeros(bins_size_help, dtype=int)
+    #
+    #     # loop over all diffusion points
+    #     for i in range(0, self.fgf4_values.shape[0]):
+    #         for j in range(0, self.fgf4_values.shape[1]):
+    #             for k in range(0, self.fgf4_values.shape[2]):
+    #                 # get the location in the bin array
+    #                 bin_location = self.diffuse_locations[i][j][k] // self.diffuse_radius + np.array([2, 2, 2])
+    #                 x, y, z = int(bin_location[0]), int(bin_location[1]), int(bin_location[2])
+    #
+    #                 # get the index of the where the point will be added
+    #                 place = self.diffuse_bins_help[x][y][z]
+    #
+    #                 # add the diffusion point to a corresponding bin and increase the place index
+    #                 self.diffuse_bins[x][y][z][place] = np.array([i, j, k])
+    #                 self.diffuse_bins_help[x][y][z] += 1
 
     def update_diffusion(self):
         """ calls update_diffusion_cpu for all specified
@@ -182,44 +223,13 @@ class Simulation:
         # end time
         self.update_diffusion_time += time.time()
 
-    def setup_diffusion_bins(self):
-        """ This function will put the diffusion points
-            into corresponding bins that will be used to
-            find values of diffusion within a radius
-        """
-        # set up the appropriate size for the diffusion bins and the help array
-        bins_size = self.size // self.diffuse_radius + np.array([5, 5, 5])
-        bins_size_help = tuple(bins_size.astype(int))
-        bins_size = np.append(bins_size, 100)
-        bins_size = np.append(bins_size, 3)
-        bins_size = tuple(bins_size.astype(int))
-
-        # create the diffusion bins and the help array
-        self.diffuse_bins = np.empty(bins_size, dtype=int)
-        self.diffuse_bins_help = np.zeros(bins_size_help, dtype=int)
-
-        # loop over all diffusion points
-        for i in range(self.fgf4_values.shape[0]):
-            for j in range(self.fgf4_values.shape[1]):
-                for k in range(self.fgf4_values.shape[2]):
-                    # get the location in the bin array
-                    bin_location = self.diffuse_locations[i][j][k] // self.diffuse_radius + np.array([2, 2, 2])
-                    x, y, z = int(bin_location[0]), int(bin_location[1]), int(bin_location[2])
-
-                    # get the index of the where the point will be added
-                    place = self.diffuse_bins_help[x][y][z]
-
-                    # add the diffusion point to a corresponding bin and increase the place index
-                    self.diffuse_bins[x][y][z][place] = np.array([i, j, k])
-                    self.diffuse_bins_help[x][y][z] += 1
-
-    def highest_fgf4(self):
-        """ Search for the highest concentration of
-            fgf4 within a fixed radius
-        """
-        self.cell_highest_fgf4 = highest_fgf4_cpu(self.diffuse_radius, self.diffuse_bins, self.diffuse_bins_help,
-                                                  self.diffuse_locations, self.cell_locations, self.number_cells,
-                                                  self.cell_highest_fgf4, self.fgf4_values)
+    # def highest_fgf4(self):
+    #     """ Search for the highest concentration of
+    #         fgf4 within a fixed radius
+    #     """
+    #     self.cell_highest_fgf4 = highest_fgf4_cpu(self.diffuse_radius, self.diffuse_bins, self.diffuse_bins_help,
+    #                                               self.diffuse_locations, self.cell_locations, self.number_cells,
+    #                                               self.cell_highest_fgf4, self.fgf4_values)
 
     def add_cell(self, location, radius, motion, fds, state, diff_counter, div_counter, death_counter, fds_counter,
                  motility_force, jkr_force, nearest_gata6, nearest_nanog, nearest_diff, highest_fgf4):
@@ -256,7 +266,7 @@ class Simulation:
     def remove_cell(self, index):
         """ Given the index of a cell to remove,
             this will remove that from each array,
-            graph, and total number of cells
+            graphs, and total number of cells
         """
         # delete the index of each holder array, the 2D arrays require the axis=0 parameter to essentially delete
         # that row of the matrix much like when appending a new row
@@ -274,6 +284,7 @@ class Simulation:
         self.cell_nearest_gata6 = np.delete(self.cell_nearest_gata6, index)
         self.cell_nearest_nanog = np.delete(self.cell_nearest_nanog, index)
         self.cell_nearest_diff = np.delete(self.cell_nearest_diff, index)
+        self.cell_highest_fgf4 = np.delete(self.cell_highest_fgf4, index, axis=0)
 
         # remove the particular index from the following graphs as these deal in terms of indices
         # this will adjust edges as the indices change, so no worries here
@@ -337,10 +348,9 @@ class Simulation:
         self.update_queue_time += time.time()
 
     def divide(self, index):
-        """ Takes a cell or rather an index in the
-            holder arrays and creates a new cell
-            (index). This also updates factors such
-            as size and counters.
+        """ Takes a cell or rather an index in the holder
+            arrays and adds a new cell (index). This also
+            updates factors such as size and counters.
         """
         # move the cells to positions that are representative of the new locations of daughter cells
         division_position = self.random_vector() * (self.max_radius - self.min_radius)
@@ -350,17 +360,17 @@ class Simulation:
         # reduce radius to minimum size, set the division counter to zero, and None as the nearest differentiated cell
         self.cell_radii[index] = radius = self.min_radius
         self.cell_div_counter[index] = div_counter = 0
+        self.cell_death_counter[index] = death_counter = 0
         self.cell_nearest_gata6[index] = nearest_gata6 = np.nan
         self.cell_nearest_nanog[index] = nearest_nanog = np.nan
         self.cell_nearest_diff[index] = nearest_diff = np.nan
         self.cell_highest_fgf4[index] = highest_fgf4 = np.array([np.nan, np.nan, np.nan])
 
-        # keep identical values for motion, booleans, state, differentiation, cell death, and boolean update
+        # keep identical values for motion, booleans, state, differentiation, and boolean update
         motion = self.cell_motion[index]
         booleans = self.cell_fds[index]
         state = self.cell_states[index]
         diff_counter = self.cell_diff_counter[index]
-        death_counter = self.cell_death_counter[index]
         bool_counter = self.cell_fds_counter[index]
 
         # set the force vector to zero
@@ -375,15 +385,46 @@ class Simulation:
         """ Loops over all indices of cells and updates
             their values accordingly.
         """
-        self.cell_death()
-
-        self.cell_diff_surround()
-
         # start time
         self.cell_update_time = -1 * time.time()
 
         # loop over the cells
         for i in range(self.number_cells):
+            # Cell death
+            # checks to see if cell is pluripotent
+            if self.cell_states[i] == "Pluripotent":
+                # looks at the neighbors and counts them, increasing the death counter if not enough neighbors
+                neighbors = self.neighbor_graph.neighbors(i)
+                if len(neighbors) < self.lonely_cell:
+                    self.cell_death_counter[i] += 1
+                # if not reset the death counter back to zero
+                else:
+                    self.cell_death_counter[i] = 0
+
+                # removes cell if it meets the parameters
+                if self.cell_death_counter[i] >= self.death_thresh:
+                    self.cells_to_remove = np.append(self.cells_to_remove, i)
+
+            # Differentiated surround
+            # checks to see if cell is pluripotent and GATA6 low
+            if self.cell_states[i] == "Pluripotent" and self.cell_fds[i][2] == 0:
+                # finds neighbors of a cell
+                neighbors = self.neighbor_graph.neighbors(i)
+
+                # holds the current number differentiated neighbors
+                num_diff_neighbors = 0
+
+                # loops over the neighbors of a cell
+                for j in range(len(neighbors)):
+                    # checks to see if current neighbor is differentiated if so add it to the counter
+                    if self.cell_states[neighbors[j]] == "Differentiated":
+                        num_diff_neighbors += 1
+
+                    # if the number of differentiated meets the threshold, increase the counter and break the loop
+                    if num_diff_neighbors >= self.diff_surround:
+                        self.cell_diff_counter[i] += 1
+                        break
+
             # Growth
             # increase the cell radius based on the state and whether or not it has reached the max size
             if self.cell_radii[i] < self.max_radius:
@@ -490,64 +531,6 @@ class Simulation:
         # end time
         self.cell_update_time += time.time()
 
-    def cell_death(self):
-        """ Cellular death based on pluripotency
-            and number of neighbors
-        """
-        # start time
-        self.cell_death_time = -1 * time.time()
-
-        # loops over all cells
-        for i in range(self.number_cells):
-            # checks to see if cell is pluripotent
-            if self.cell_states[i] == "Pluripotent":
-                # looks at the neighbors and counts them, increasing the death counter if not enough neighbors
-                neighbors = self.neighbor_graph.neighbors(i)
-                if len(neighbors) < self.lonely_cell:
-                    self.cell_death_counter[i] += 1
-                # if not reset the death counter back to zero
-                else:
-                    self.cell_death_counter[i] = 0
-
-                # removes cell if it meets the parameters
-                if self.cell_death_counter[i] >= self.death_thresh:
-                    self.cells_to_remove = np.append(self.cells_to_remove, i)
-
-        # end time
-        self.cell_death_time += time.time()
-
-    def cell_diff_surround(self):
-        """ Simulates the phenomenon of differentiated
-            cells inducing the differentiation of a
-            pluripotent/NANOG high cell
-        """
-        # start time
-        self.cell_diff_surround_time = -1 * time.time()
-
-        # loops over all cells
-        for i in range(self.number_cells):
-            # checks to see if cell is pluripotent and GATA6 low
-            if self.cell_states[i] == "Pluripotent" and self.cell_fds[i][2] == 0:
-                # finds neighbors of a cell
-                neighbors = self.neighbor_graph.neighbors(i)
-
-                # holds the current number differentiated neighbors
-                num_diff_neighbors = 0
-
-                # loops over the neighbors of a cell
-                for j in range(len(neighbors)):
-                    # checks to see if current neighbor is differentiated if so add it to the counter
-                    if self.cell_states[neighbors[j]] == "Differentiated":
-                        num_diff_neighbors += 1
-
-                    # if the number of differentiated meets the threshold, increase the counter and break the loop
-                    if num_diff_neighbors >= self.diff_surround:
-                        self.cell_diff_counter[i] += 1
-                        break
-
-        # end time
-        self.cell_diff_surround_time += time.time()
-
     def cell_motility(self):
         """ Gives the cells a motive force, depending on
             set rules for the cell types.
@@ -562,67 +545,142 @@ class Simulation:
             if len(neighbors) >= self.move_thresh:
                 self.cell_motion[i] = False
 
+            # check whether differentiated or pluripotent
+            if self.cell_states[i] == "Differentiated":
+                # directed movement if the cell has neighbors thresholds are to be determined
+                if 0 < len(neighbors) < 6:
+                    # create a vector to hold the sum of normal vectors between a cell and its neighbors
+                    vector_holder = np.array([0.0, 0.0, 0.0])
+
+                    # loop over the neighbors getting the normal and adding to the holder
+                    for j in range(len(neighbors)):
+                        vector = self.cell_locations[neighbors[j]] - self.cell_locations[i]
+                        vector_holder += vector
+
+                    # get the magnitude of the sum of normals
+                    magnitude = np.linalg.norm(vector_holder)
+
+                    # if for some case, its zero set the new normal vector to zero
+                    if magnitude == 0:
+                        normal = np.array([0.0, 0.0, 0.0])
+                    else:
+                        normal = vector_holder / magnitude
+
+                    # move in direction opposite to cells
+                    self.cell_motility_force[i] += self.motility_force * normal * -1
+
+                # if there aren't any neighbors and still in motion then move randomly
+                elif self.cell_motion[i]:
+                    self.cell_motility_force[i] += self.random_vector() * self.motility_force
+
+            # for pluripotent cells
             else:
-                # set motion to be True
-                self.cell_motion[i] = True
+                # apply movement if the cell is "in motion"
+                if self.cell_motion[i]:
+                    if self.cell_fds[i][2] == 1:
+                        # continue if using Guye et al. movement and if there exists differentiated cells
+                        if self.guye_move and not np.isnan(self.cell_nearest_diff[i]):
+                            # get the differentiated neighbors
+                            guye_neighbor = self.cell_nearest_diff[i]
 
-                # if pluripotent
-                if self.cell_states[i] == "Pluripotent":
-                    # if nanog high
-                    if self.cell_fds[i][3] == 1:
-                        # makes sure not the numpy nan type, proceed if actual value
-                        if (self.cell_highest_fgf4[i] != np.array([np.nan, np.nan, np.nan])).all():
-                            # get the location of the diffusion point and move toward it
-                            x = int(self.cell_highest_fgf4[i][0])
-                            y = int(self.cell_highest_fgf4[i][1])
-                            z = int(self.cell_highest_fgf4[i][2])
-                            normal = normal_vector(self.cell_locations[i], self.diffuse_locations[x][y][z])
-                            self.cell_motility_force[i] = normal * self.motility_force
+                            vector = self.cell_locations[guye_neighbor] - self.cell_locations[i]
+                            magnitude = np.linalg.norm(vector)
 
-                        # # if there is a gata6 high cell nearby, move away from it
-                        # if not np.isnan(self.cell_nearest_gata6[i]):
-                        #     nearest_index = int(self.cell_nearest_gata6[i])
-                        #     normal = normal_vector(self.cell_locations[i], self.cell_locations[nearest_index])
-                        #     self.cell_motility_force[i] = normal * self.motility_force * -1
-                        #
-                        # # if there is a nanog high cell nearby, move to it
-                        # elif not np.isnan(self.cell_nearest_nanog[i]):
-                        #     nearest_index = int(self.cell_nearest_nanog[i])
-                        #     normal = normal_vector(self.cell_locations[i], self.cell_locations[nearest_index])
-                        #     self.cell_motility_force[i] = normal * self.motility_force
+                            # move in the direction of the closest differentiated neighbor
+                            normal = vector / magnitude
+                            self.cell_motility_force[i] += normal * self.motility_force
 
-                        # if nothing else, move randomly
                         else:
-                            self.cell_motility_force[i] = self.random_vector() * self.motility_force
+                            # if not Guye et al. movement, move randomly
+                            self.cell_motility_force[i] += self.random_vector() * self.motility_force
+                    else:
+                        # if not GATA6 high
+                        self.cell_motility_force[i] += self.random_vector() * self.motility_force
 
-                    # if gata6 high
-                    elif self.cell_fds[i][2] == 1:
-                        # if guye movement
-                        if self.guye_move:
-                            # if a nearby differentiated cell, move to it
-                            if not np.isnan(self.cell_nearest_diff[i]):
-                                nearest_index = int(self.cell_nearest_diff[i])
-                                normal = normal_vector(self.cell_locations[i], self.cell_locations[nearest_index])
-                                self.cell_motility_force[i] = normal * self.motility_force
-                            # move randomly instead
-                            else:
-                                self.cell_motility_force[i] = self.random_vector() * self.motility_force
-
-                        # if nothing else, move randomly
-                        else:
-                            self.cell_motility_force[i] = self.random_vector() * self.motility_force
-
-                # differentiated
-                else:
-                    # if there is a nearby nanog cell, move away from it
-                    # if not np.isnan(self.cell_nearest_nanog[i]):
-                    #     nearest_index = int(self.cell_nearest_nanog[i])
-                    #     normal = normal_vector(self.cell_locations[i], self.cell_locations[nearest_index])
-                    #     self.cell_motility_force[i] = normal * self.motility_force * -1
-                    # move randomly instead
-                    # else:
-                    #     self.cell_motility_force[i] = self.random_vector() * self.motility_force
-                    self.cell_motility_force[i] = self.random_vector() * self.motility_force
+        # # loop over all of the cells
+        # for i in range(self.number_cells):
+        #     # set motion to false if the cell is surrounded by many neighbors
+        #     neighbors = self.neighbor_graph.neighbors(i)
+        #     if len(neighbors) >= self.move_thresh:
+        #         self.cell_motion[i] = False
+        #
+        #     else:
+        #         # set motion to be True
+        #         self.cell_motion[i] = True
+        #
+        #         # if pluripotent
+        #         if self.cell_states[i] == "Pluripotent":
+        #             # if nanog high
+        #             if self.cell_fds[i][3] == 1:
+        #                 # makes sure not the numpy nan type, proceed if actual value
+        #                 if (np.isnan(self.cell_highest_fgf4[i]) == np.zeros(3, dtype=bool)).all():
+        #                     # get the location of the diffusion point and move toward it
+        #                     x = int(self.cell_highest_fgf4[i][0])
+        #                     y = int(self.cell_highest_fgf4[i][1])
+        #                     z = int(self.cell_highest_fgf4[i][2])
+        #                     normal = normal_vector(self.cell_locations[i], self.diffuse_locations[x][y][z])
+        #                     self.cell_motility_force[i] = normal * self.motility_force
+        #
+        #                 # # if there is a gata6 high cell nearby, move away from it
+        #                 # if not np.isnan(self.cell_nearest_gata6[i]):
+        #                 #     nearest_index = int(self.cell_nearest_gata6[i])
+        #                 #     normal = normal_vector(self.cell_locations[i], self.cell_locations[nearest_index])
+        #                 #     self.cell_motility_force[i] = normal * self.motility_force * -1
+        #                 #
+        #                 # # if there is a nanog high cell nearby, move to it
+        #                 # elif not np.isnan(self.cell_nearest_nanog[i]):
+        #                 #     nearest_index = int(self.cell_nearest_nanog[i])
+        #                 #     normal = normal_vector(self.cell_locations[i], self.cell_locations[nearest_index])
+        #                 #     self.cell_motility_force[i] = normal * self.motility_force
+        #
+        #                 # if nothing else, move randomly
+        #                 else:
+        #                     self.cell_motility_force[i] = self.random_vector() * self.motility_force
+        #
+        #             # if gata6 high
+        #             elif self.cell_fds[i][2] == 1:
+        #                 # if guye movement
+        #                 if self.guye_move:
+        #                     # if a nearby differentiated cell, move to it
+        #                     if not np.isnan(self.cell_nearest_diff[i]):
+        #                         nearest_index = int(self.cell_nearest_diff[i])
+        #                         normal = normal_vector(self.cell_locations[i], self.cell_locations[nearest_index])
+        #                         self.cell_motility_force[i] = normal * self.motility_force
+        #                     # move randomly instead
+        #                     else:
+        #                         self.cell_motility_force[i] = self.random_vector() * self.motility_force
+        #
+        #                 # if nothing else, move randomly
+        #                 else:
+        #                     self.cell_motility_force[i] = self.random_vector() * self.motility_force
+        #
+        #         # differentiated
+        #         else:
+        #             # if there is a nearby nanog cell, move away from it
+        #             # if not np.isnan(self.cell_nearest_nanog[i]):
+        #             #     nearest_index = int(self.cell_nearest_nanog[i])
+        #             #     normal = normal_vector(self.cell_locations[i], self.cell_locations[nearest_index])
+        #             #     self.cell_motility_force[i] = normal * self.motility_force * -1
+        #             # move randomly instead
+        #             # else:
+        #             #     self.cell_motility_force[i] = self.random_vector() * self.motility_force
+        #             # self.cell_motility_force[i] = self.random_vector() * self.motility_force
+        #             if (np.isnan(self.cell_lowest_repel[i]) == np.zeros(3, dtype=bool)).all():
+        #                 # get the location of the diffusion point and move toward it
+        #                 x = int(self.cell_lowest_repel[i][0])
+        #                 y = int(self.cell_lowest_repel[i][1])
+        #                 z = int(self.cell_lowest_repel[i][2])
+        #                 normal = normal_vector(self.cell_locations[i], self.diffuse_locations[x][y][z])
+        #                 self.cell_motility_force[i] = normal * self.motility_force
+        #
+        #     if self.cell_states[i] != "Pluripotent":
+        #         if (np.isnan(self.cell_lowest_repel[i]) == np.zeros(3, dtype=bool)).all():
+        #             # get the location of the diffusion point and move toward it
+        #             x = int(self.cell_lowest_repel[i][0])
+        #             y = int(self.cell_lowest_repel[i][1])
+        #             z = int(self.cell_lowest_repel[i][2])
+        #             normal = normal_vector(self.cell_locations[i], self.diffuse_locations[x][y][z])
+        #             self.cell_motility_force[i] = normal * self.motility_force
 
         # end time
         self.cell_motility_time += time.time()
@@ -883,11 +941,11 @@ def highest_fgf4_cpu(diffuse_radius, diffuse_bins, diffuse_bins_help, diffuse_lo
                         # check to see if that cell is within the search radius and not the same cell
                         m = np.linalg.norm(diffuse_locations[x_][y_][z_] - cell_locations[pivot_index])
                         if m < diffuse_radius:
-                            if fgf4_values[x_][y_][z_] > highest_value:
+                            if fgf4_values[x_ + 1][y_ + 1][z_] > highest_value:
                                 highest_index_x = x_
                                 highest_index_y = y_
                                 highest_index_z = z_
-                                highest_value = fgf4_values[x_][y_][z_]
+                                highest_value = fgf4_values[x_ + 1][y_ + 1][z_]
 
         # update the highest fgf4 diffusion point
         highest_fgf4[pivot_index][0] = highest_index_x
@@ -896,6 +954,55 @@ def highest_fgf4_cpu(diffuse_radius, diffuse_bins, diffuse_bins_help, diffuse_lo
 
     # return the array back
     return highest_fgf4
+
+
+@jit(nopython=True)
+def lowest_repellent_cpu(diffuse_radius, diffuse_bins, diffuse_bins_help, diffuse_locations, cell_locations,
+                         number_cells, lowest_repellent, repellent, max_repel):
+    """ This is the Numba optimized version of
+        the lowest_repellent function.
+    """
+    for pivot_index in range(number_cells):
+        # offset bins by 2 to avoid missing cells
+        block_location = cell_locations[pivot_index] // diffuse_radius + np.array([2, 2, 2])
+        x, y, z = int(block_location[0]), int(block_location[1]), int(block_location[2])
+
+        # create an initial value to check for the highest fgf4 point in a radius
+        lowest_index_x = np.nan
+        lowest_index_y = np.nan
+        lowest_index_z = np.nan
+        lowest_value = max_repel * 2
+
+        # loop over the bins that surround the current bin
+        for i in range(-1, 2):
+            for j in range(-1, 2):
+                for k in range(-1, 2):
+                    # get the count of cells in a bin
+                    bin_count = diffuse_bins_help[x + i][y + j][z + k]
+
+                    # go through the bin determining if a cell is a neighbor
+                    for l in range(bin_count):
+                        # get the index of the current cell in question
+                        x_ = int(diffuse_bins[x + i][y + j][z + k][l][0])
+                        y_ = int(diffuse_bins[x + i][y + j][z + k][l][1])
+                        z_ = int(diffuse_bins[x + i][y + j][z + k][l][2])
+
+                        # check to see if that cell is within the search radius and not the same cell
+                        m = np.linalg.norm(diffuse_locations[x_][y_][z_] - cell_locations[pivot_index])
+                        if m < diffuse_radius:
+                            if lowest_value > repellent[x_][y_][z_]:
+                                lowest_index_x = x_
+                                lowest_index_y = y_
+                                lowest_index_z = z_
+                                lowest_value = repellent[x_][y_][z_]
+
+        # update the highest fgf4 diffusion point
+        lowest_repellent[pivot_index][0] = lowest_index_x
+        lowest_repellent[pivot_index][1] = lowest_index_y
+        lowest_repellent[pivot_index][2] = lowest_index_z
+
+    # return the array back
+    return lowest_repellent
 
 
 @jit(nopython=True)
@@ -1172,32 +1279,26 @@ def update_diffusion_cpu(gradient, time_steps, dt, dx2, dy2, dz2, diffuse, size)
         the update_diffusion function that runs
         solely on the cpu.
     """
-    # perform the following operations on the diffusion points at each time step, depending on 2D or 3D
-    # 2D
+    # finite differences to solve the 2D Laplacian
     if size[2] == 0:
         for i in range(time_steps):
-            # make the variable name smaller for easier writing
-            a = gradient
-
             # perform the first part of the calculation
-            x = (a[2:, 1:-1] - 2 * a[1:-1, 1:-1] + a[:-2, 1:-1]) / dx2
-            y = (a[1:-1, 2:] - 2 * a[1:-1, 1:-1] + a[1:-1, :-2]) / dy2
+            x = (gradient[2:, 1:-1] - 2 * gradient[1:-1, 1:-1] + gradient[:-2, 1:-1]) / dx2
+            y = (gradient[1:-1, 2:] - 2 * gradient[1:-1, 1:-1] + gradient[1:-1, :-2]) / dy2
 
-            # update the array
-            gradient[1:-1, 1:-1] = a[1:-1, 1:-1] + diffuse * dt * (x + y)
-    # 3D
+            # update the gradient array
+            gradient[1:-1, 1:-1] = gradient[1:-1, 1:-1] + diffuse * dt * (x + y)
+
+    # finite differences to solve the 3D Laplacian
     else:
         for i in range(time_steps):
-            # make the variable name smaller for easier writing
-            a = gradient
-
             # perform the first part of the calculation
-            x = (a[2:][1:-1][1:-1] - 2 * a[1:-1][1:-1][1:-1] + a[:-2][1:-1][1:-1]) / dx2
-            y = (a[1:-1][2:][1:-1] - 2 * a[1:-1][1:-1][1:-1] + a[1:-1][:-2][1:-1]) / dy2
-            z = (a[1:-1][1:-1][2:] - 2 * a[1:-1][1:-1][1:-1] + a[1:-1][1:-1][:-2]) / dz2
+            x = (gradient[2:, 1:-1, 1:-1] - 2 * gradient[1:-1, 1:-1, 1:-1] + gradient[:-2, 1:-1, 1:-1]) / dx2
+            y = (gradient[1:-1, 2:, 1:-1] - 2 * gradient[1:-1, 1:-1, 1:-1] + gradient[1:-1, :-2, 1:-1]) / dy2
+            z = (gradient[1:-1, 1:-1, 2:] - 2 * gradient[1:-1, 1:-1, 1:-1] + gradient[1:-1, 1:-1, :-2]) / dz2
 
-            # update the array
-            gradient[1:-1][1:-1][1:-1] = a[1:-1][1:-1][1:-1] + diffuse * dt * (x + y + z)
+            # update the gradient array
+            gradient[1:-1, 1:-1, 1:-1] = gradient[1:-1, 1:-1, 1:-1] + diffuse * dt * (x + y + z)
 
     # return the gradient back to the simulation
     return gradient

@@ -6,7 +6,7 @@ This is the template for running a simulation. Good luck!
 General Parameters
 -----------------------------------------------------------------------------------------------------------------------
 What is the name of the simulation? Ex. Run_30
-[ Test_5 ]
+[ Test_12 ]
 
 What is the path for the output directory? Ex. C:\Python37\Model_Outputs
 [ C:\Python37\Outputs ]
@@ -70,7 +70,7 @@ Number of steps required for a pluripotent cell to divide. Ex. 36
 [ 36 ]
 
 Number of steps required for a pluripotent cell to differentiate. Ex. 36
-[ 192 ]
+[ 144 ]
 
 Number of steps required for a differentiated cell to divide. Ex. 24
 [ 72 ]
@@ -117,9 +117,6 @@ Movement/Physical Parameters
 Time step value for handling collisions in seconds. Should be a smaller than the overall time step value. Ex. 30
 [ 200 ]
 
-What is the average radius for all cells in meters? Ex. 0.000005
-[ 0.000005 ]
-
 JKR work of adhesion value in kg/s from P Pathmanathan et al. Ex. 0.000107
 [ 0.000107 ]
 
@@ -143,9 +140,6 @@ Frames per second of the video containing all of the step images. Ex. 1.0
 
 Background color as RGB. Ex. (255, 255, 255)
 [ (0, 0, 0) ]
-
-Boundary color as RGB. Ex. (0, 0, 0)
-[ (255, 255, 255) ]
 
 Are you coloring based on pluripotent/differentiated or GATA6/NANOG high/low? True for pluri/diff. Ex. False
 [ True ]
@@ -181,10 +175,10 @@ Use the Guye movement method? Ex. True
 [ True ]
 
 What is the radius of search for the fgf4 movement with diffusion? Ex. 0.000030
-[ 0.000045 ]
+[ 0.000015 ]
 
 What is the max value of fgf4 at a diffusion point? Ex. 20
-[ 10 ]
+[ 1 ]
 
 The time has come. Execute Order Sixty-Six? Ex. True
 [ True ]

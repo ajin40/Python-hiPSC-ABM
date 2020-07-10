@@ -1,134 +1,31 @@
-import numpy as np
 import random as r
-import os
-import shutil
-import platform
+import numpy as np
 import csv
 import cv2
+import os
+import platform
+import shutil
 
-import Simulation
 import Output
 
 
-def setup(template_location):
+def setup_simulation(simulation):
     """ Reads the template file, determining the
         mode in which the simulation shall be run
         and creates a Simulation object corresponding
         to desired initial parameters
     """
-    # keep track of the file separator to use
-    if platform.system() == "Windows":
-        # windows
-        separator = "\\"
-    else:
-        # not windows
-        separator = "/"
-
-    # open the .txt template file that contains the initial parameters
-    with open(template_location, "r") as template_file:
-        lines = template_file.readlines()
-
-    # looks at certain lines of the template file and converts them from strings to their desired type
-    # the sections correspond to the sections in the template file
-
-    # general parameters
-    _name = lines[8][2:-3]
-    _output_direct = lines[11][2:-3]
-    _parallel = eval(lines[14][2:-3])
-    _size = eval(lines[17][2:-3])
-    _size = np.array([_size[0], _size[1], _size[2]])
-    _num_GATA6 = int(lines[20][2:-3])
-    _num_NANOG = int(lines[23][2:-3])
-
-    # finite dynamical system
-    _functions = eval(lines[29][2:-3])
-    _num_fds_states = int(lines[32][2:-3])
-
-    # modes
-    _output_images = eval(lines[38][2:-3])
-    _output_csvs = eval(lines[41][2:-3])
-    _continuation = eval(lines[44][2:-3])
-    _csv_to_images = eval(lines[47][2:-3])
-    _images_to_video = eval(lines[50][2:-3])
-
-    # timing
-    _beginning_step = int(lines[57][2:-3])
-    _end_step = int(lines[60][2:-3])
-    _time_step_value = float(lines[63][2:-3])
-    _fds_thresh = int(lines[66][2:-3])
-    _pluri_div_thresh = int(lines[69][2:-3])
-    _pluri_to_diff = int(lines[72][2:-3])
-    _diff_div_thresh = int(lines[75][2:-3])
-    _death_thresh = int(lines[78][2:-3])
-
-    # intercellular
-    _neighbor_distance = float(lines[84][2:-3])
-    _guye_distance = float(lines[87][2:-3])
-    _jkr_distance = float(lines[90][2:-3])
-    _lonely_cell = int(lines[93][2:-3])
-    _contact_inhibit = int(lines[96][2:-3])
-    _move_thresh = int(lines[99][2:-3])
-    _diff_surround = int(lines[102][2:-3])
-
-    # extracellular
-    _diffuse = float(lines[108][2:-3])
-    _resolution = eval(lines[111][2:-3])
-    _dx, _dy, _dz = _resolution[0], _resolution[1], _resolution[2]
-
-    # movement/physical
-    _move_time_step = float(lines[117][2:-3])
-    _radius = float(lines[120][2:-3])
-    _adhesion_const = float(lines[123][2:-3])
-    _viscosity = float(lines[126][2:-3])
-    _motility_force = float(lines[129][2:-3])
-    _max_radius = float(lines[132][2:-3])
-
-    # imaging
-    _image_quality = eval(lines[138][2:-3])
-    _fps = float(lines[141][2:-3])
-    _background_color = eval(lines[144][2:-3])
-    _bound_color = eval(lines[147][2:-3])
-    _color_mode = eval(lines[150][2:-3])
-    _pluri_color = eval(lines[153][2:-3])
-    _diff_color = eval(lines[156][2:-3])
-    _pluri_gata6_high_color = eval(lines[159][2:-3])
-    _pluri_nanog_high_color = eval(lines[162][2:-3])
-    _pluri_both_high_color = eval(lines[165][2:-3])
-
-    # miscellaneous/experimental
-    _dox_step = int(lines[171][2:-3])
-    _stochastic = bool(lines[174][2:-3])
-    _group = int(lines[177][2:-3])
-    _guye_move = eval(lines[180][2:-3])
-    _diffuse_radius = float(lines[183][2:-3])
-    _max_fgf4 = float(lines[186][2:-3])
-
-    # check that the name and path from the template are valid
-    _path, _name = check_name(_output_direct, _name, separator, _continuation, _csv_to_images, _images_to_video,
-                              template_location)
-
-    # initializes simulation class which holds all information about the simulation
-    simulation = Simulation.Simulation(_path, _name, _parallel, _size, _dx, _dy, _dz, _diffuse, _num_fds_states,
-                                       _functions, _neighbor_distance, _guye_distance, _jkr_distance, _lonely_cell,
-                                       _contact_inhibit, _move_thresh, _time_step_value, _beginning_step, _end_step,
-                                       _move_time_step, _dox_step, _pluri_div_thresh, _pluri_to_diff, _diff_div_thresh,
-                                       _fds_thresh, _death_thresh, _diff_surround, _adhesion_const, _viscosity, _group,
-                                       _output_csvs, _output_images, _image_quality, _fps, _background_color,
-                                       _bound_color, _color_mode, _pluri_color, _diff_color, _pluri_gata6_high_color,
-                                       _pluri_nanog_high_color, _pluri_both_high_color, _guye_move, _motility_force,
-                                       _max_radius, _diffuse_radius, _max_fgf4)
-
     # decide which mode the simulation is intended to be run in
     # continue a previous simulation
-    if _continuation:
+    if simulation.continuation:
         continue_mode(simulation)
 
     # turn a collection of csvs into images and a video
-    elif _csv_to_images:
+    elif simulation.csv_to_images:
         csv_to_image_mode(simulation)
 
     # turn a collection of images into a video
-    elif _images_to_video:
+    elif simulation.images_to_video:
         images_to_video_mode(simulation)
 
     # starts a new simulation
@@ -138,27 +35,29 @@ def setup(template_location):
         Output.initialize_video(simulation)
 
         # loops over all cells and creates a stem cell object for each one with given parameters
-        for i in range(_num_NANOG + _num_GATA6):
+        for i in range(simulation.num_NANOG + simulation.num_GATA6):
             # gives random location in the space
-            location = np.array([r.random() * _size[0], r.random() * _size[1], r.random() * _size[2]])
+            location = np.array([r.random() * simulation.size[0],
+                                 r.random() * simulation.size[1],
+                                 r.random() * simulation.size[2]])
 
             # give the cells starting states for the finite dynamical system
-            if i < _num_NANOG:
-                if _stochastic:
+            if i < simulation.num_NANOG:
+                if simulation.stochastic:
                     booleans = np.array([r.randint(0, 1), r.randint(0, 1), 0, 1])
                 else:
                     booleans = np.array([0, 0, 0, 1])
             else:
-                if _stochastic:
+                if simulation.stochastic:
                     booleans = np.array([r.randint(0, 1), r.randint(0, 1), 1, 0])
                 else:
                     booleans = np.array([0, 0, 1, 0])
 
             # randomize the starting counters for differentiation, division, and death
-            diff_counter = r.randint(0, _pluri_to_diff)
-            div_counter = r.randint(0, _pluri_div_thresh)
-            death_counter = r.randint(0, _death_thresh)
-            bool_counter = r.randint(0, _fds_thresh)
+            diff_counter = r.randint(0, simulation.pluri_to_diff)
+            div_counter = r.randint(0, simulation.pluri_div_thresh)
+            death_counter = r.randint(0, simulation.death_thresh)
+            bool_counter = r.randint(0, simulation.fds_thresh)
 
             # get the radius based on the randomized growth
             radius = simulation.min_radius + simulation.pluri_growth * div_counter
@@ -309,22 +208,30 @@ def csv_to_simulation(simulation, csv_file):
     simulation.cell_nearest_diff = np.empty((simulation.number_cells, 3), dtype=None)
 
 
-def check_name(output_direct, name, separator, continuation, csv_to_images, images_to_video, template_location):
+def check_name(simulation, template_location):
     """ Renames the file if another simulation
         has the same name or checks to make
         sure such a simulation exists
     """
+    # keep track of the file separator to use
+    if platform.system() == "Windows":
+        # windows
+        separator = "\\"
+    else:
+        # not windows
+        separator = "/"
+
     # this will look for an existing directory
-    if continuation or csv_to_images or images_to_video:
+    if simulation.continuation or simulation.csv_to_images or simulation.images_to_video:
         # keeps the loop running until one condition is met
         while True:
             # see if the directory exists
-            if os.path.isdir(output_direct + separator + name):
+            if os.path.isdir(simulation.output_direct + separator + simulation.name):
                 break
 
             # if not prompt to change name or end the simulation
             else:
-                print("No directory exists with name/path: " + output_direct + separator + name)
+                print("No directory exists with name/path: " + simulation.output_direct + separator + simulation.name)
                 user = input("Would you like to continue? (y/n): ")
                 if user == "n":
                     exit()
@@ -336,24 +243,23 @@ def check_name(output_direct, name, separator, continuation, csv_to_images, imag
         while True:
             # if the path does not already exist, make that directory and break out of the loop
             try:
-                os.mkdir(output_direct + separator + name)
+                os.mkdir(simulation.output_direct + separator + simulation.name)
                 break
 
             # prompt to either rename or overwrite
             except OSError:
-                print("Simulation with identical name: " + name)
+                print("Simulation with identical name: " + simulation.name)
                 user = input("Would you like to overwrite that simulation? (y/n): ")
                 if user == "n":
-                    name = input("New name: ")
+                    simulation.name = input("New name: ")
                 elif user == "y":
                     # clear current directory to prevent another possible future errors
-                    files = os.listdir(output_direct + separator + name)
+                    files = os.listdir(simulation.output_direct + separator + simulation.name)
                     for file in files:
-                        os.remove(output_direct + separator + name + separator + file)
+                        os.remove(simulation.output_direct + separator + simulation.name + separator + file)
                     break
 
         # copy the template to the directory
-        shutil.copy(template_location, output_direct + separator + name)
+        shutil.copy(template_location, simulation.output_direct + separator + simulation.name)
 
-    # updated path and name if need be
-    return output_direct + separator + name + separator, name
+    return simulation.output_direct + separator + simulation.name + separator

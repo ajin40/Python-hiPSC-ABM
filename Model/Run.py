@@ -9,12 +9,12 @@ any necessary functions here to customize the model to your liking. Functions un
 are run each step, while functions before or after will be run before or after all steps are executed.
 
 """
-import Input
 import Output
+import Simulation
 
 # setup() will create an instance of the Simulation class that holds all relevant information of the model.
 # this is done by reading a template .txt file that contains all initial parameters of the model.   (base)
-simulation = Input.setup("C:\\Python37\\Seed Project\\Model\\template.txt")
+simulation = Simulation.Simulation("C:\\Python37\\Seed Project\\Model\\template.txt")
 
 # Will locate the diffusion points for the extracellular gradient to bins, used for chemotactic movement
 # called once as the locations don't change. not currently in use.
