@@ -17,7 +17,7 @@ simulation = Simulation.Simulation("C:\\Python37\\Seed Project\\Model\\template.
 
 # Will locate the diffusion points for the extracellular gradient to bins, used for chemotactic movement
 # called once as the locations don't change. not currently in use.
-# simulation.setup_diffusion_bins()
+simulation.setup_diffusion_bins()
 
 # This will loop over all steps defined in the template file in addition to updating the current step
 # of the simulation.   (base)
@@ -44,7 +44,7 @@ for simulation.current_step in range(simulation.beginning_step, simulation.end_s
 
     # Locate the diffusion point (within a fixed radius) that has the highest FGF4 concentration.
     # not currently in use.
-    # simulation.highest_fgf4()
+    simulation.highest_fgf4()
 
     # Gets motility forces depending on a variety of factors involving state and presence of neighbors
     simulation.cell_motility()

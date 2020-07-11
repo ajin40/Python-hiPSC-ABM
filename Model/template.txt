@@ -12,7 +12,7 @@ What is the path for the output directory? Ex. C:\Python37\Model_Outputs
 [ C:\Python37\Outputs ]
 
 Do you want the simulation to use parallel GPU processing? (It's really cool)  Ex. True
-[ True ]
+[ False ]
 
 What is the x, y, z size of the space that the cells reside (in meters)? Ex. (0.001, 0.001, 0.0)
 [ (0.001, 0.001, 0.0) ]

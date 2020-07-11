@@ -179,39 +179,41 @@ class Simulation:
         print("Step: " + str(self.current_step))
         print("Number of cells: " + str(self.number_cells))
 
-    # def setup_diffusion_bins(self):
-    #     """ This function will put the diffusion points
-    #         into corresponding bins that will be used to
-    #         find values of diffusion within a radius
-    #     """
-    #     # set up the appropriate size for the diffusion bins and the help array
-    #     bins_size = self.size // self.diffuse_radius + np.array([5, 5, 5])
-    #     bins_size_help = tuple(bins_size.astype(int))
-    #     bins_size = np.append(bins_size, 100)
-    #     bins_size = np.append(bins_size, 3)
-    #     bins_size = tuple(bins_size.astype(int))
-    #
-    #     # the following are used for locating the diffusion points
-    #     x, y, z = np.meshgrid(np.arange(x_steps), np.arange(y_steps), np.arange(z_steps), indexing='ij')
-    #     x, y, z = x * self.dx, y * self.dy, z * self.dz
-    #     self.diffuse_locations = np.stack((x, y, z), axis=3)
-    #     self.diffuse_bins = np.empty(bins_size, dtype=int)
-    #     self.diffuse_bins_help = np.zeros(bins_size_help, dtype=int)
-    #
-    #     # loop over all diffusion points
-    #     for i in range(0, self.fgf4_values.shape[0]):
-    #         for j in range(0, self.fgf4_values.shape[1]):
-    #             for k in range(0, self.fgf4_values.shape[2]):
-    #                 # get the location in the bin array
-    #                 bin_location = self.diffuse_locations[i][j][k] // self.diffuse_radius + np.array([2, 2, 2])
-    #                 x, y, z = int(bin_location[0]), int(bin_location[1]), int(bin_location[2])
-    #
-    #                 # get the index of the where the point will be added
-    #                 place = self.diffuse_bins_help[x][y][z]
-    #
-    #                 # add the diffusion point to a corresponding bin and increase the place index
-    #                 self.diffuse_bins[x][y][z][place] = np.array([i, j, k])
-    #                 self.diffuse_bins_help[x][y][z] += 1
+    def setup_diffusion_bins(self):
+        """ This function will put the diffusion points
+            into corresponding bins that will be used to
+            find values of diffusion within a radius
+        """
+        # reduce length of variable name for ease of writing
+        steps = self.fgf4_values.shape
+
+        # set up the locations of the diffusion points
+        x, y, z = np.meshgrid(np.arange(steps[0]), np.arange(steps[1]), np.arange(steps[2]), indexing='ij')
+        x, y, z = x * self.dx, y * self.dy, z * self.dz
+        self.diffuse_locations = np.stack((x, y, z), axis=3)
+
+        # set up the appropriate size for the diffusion bins and the help array, 100 is the bin limit
+        bins_size = self.size // self.diffuse_radius + np.array([5, 5, 5])
+        bins_size_help = tuple(bins_size.astype(int))
+        bins_size = np.append(bins_size, [100, 3])
+        bins_size = tuple(bins_size.astype(int))
+        self.diffuse_bins = np.empty(bins_size, dtype=int)
+        self.diffuse_bins_help = np.zeros(bins_size_help, dtype=int)
+
+        # loop over all diffusion points
+        for i in range(0, steps[0]):
+            for j in range(0, steps[1]):
+                for k in range(0, steps[2]):
+                    # get the location in the bin array
+                    bin_location = self.diffuse_locations[i][j][k] // self.diffuse_radius + np.array([2, 2, 2])
+                    x, y, z = int(bin_location[0]), int(bin_location[1]), int(bin_location[2])
+
+                    # get the index of the where the point will be added
+                    place = self.diffuse_bins_help[x][y][z]
+
+                    # add the diffusion point to a corresponding bin and increase the place index
+                    self.diffuse_bins[x][y][z][place] = np.array([i, j, k])
+                    self.diffuse_bins_help[x][y][z] += 1
 
     def update_diffusion(self):
         """ calls update_diffusion_cpu for all specified
@@ -232,13 +234,13 @@ class Simulation:
         # end time
         self.update_diffusion_time += time.time()
 
-    # def highest_fgf4(self):
-    #     """ Search for the highest concentration of
-    #         fgf4 within a fixed radius
-    #     """
-    #     self.cell_highest_fgf4 = highest_fgf4_cpu(self.diffuse_radius, self.diffuse_bins, self.diffuse_bins_help,
-    #                                               self.diffuse_locations, self.cell_locations, self.number_cells,
-    #                                               self.cell_highest_fgf4, self.fgf4_values)
+    def highest_fgf4(self):
+        """ Search for the highest concentration of
+            fgf4 within a fixed radius
+        """
+        self.cell_highest_fgf4 = highest_fgf4_cpu(self.diffuse_radius, self.diffuse_bins, self.diffuse_bins_help,
+                                                  self.diffuse_locations, self.cell_locations, self.number_cells,
+                                                  self.cell_highest_fgf4, self.fgf4_values)
 
     def add_cell(self, location, radius, motion, fds, state, diff_counter, div_counter, death_counter, fds_counter,
                  motility_force, jkr_force, nearest_gata6, nearest_nanog, nearest_diff, highest_fgf4):
@@ -555,24 +557,8 @@ class Simulation:
 
             # check whether differentiated or pluripotent
             if self.cell_states[i] == "Differentiated":
-                # directed movement if the cell has neighbors thresholds are to be determined
-                if 0 < len(neighbors) < 6:
-                    # create a vector to hold the sum of normal vectors between a cell and its neighbors
-                    vector_holder = np.array([0.0, 0.0, 0.0])
-
-                    # loop over the neighbors getting the normal and adding to the holder
-                    for j in range(len(neighbors)):
-                        vector = self.cell_locations[neighbors[j]] - self.cell_locations[i]
-                        vector_holder += vector
-
-                    # get the normal vector
-                    normal = normal_vector(vector_holder)
-
-                    # move in direction opposite to cells
-                    self.cell_motility_force[i] += self.motility_force * normal * -1
-
                 # if there aren't any neighbors and still in motion then move randomly
-                elif self.cell_motion[i]:
+                if self.cell_motion[i]:
                     # move based on Eunbi's model
                     if self.eunbi_move:
                         # if there is a nearby nanog cell, move away from it
@@ -580,12 +566,30 @@ class Simulation:
                             nearest_index = int(self.cell_nearest_nanog[i])
                             normal = normal_vector(self.cell_locations[i] - self.cell_locations[nearest_index])
                             self.cell_motility_force[i] = normal * self.motility_force * -1
+
                         # move randomly instead
                         else:
                             self.cell_motility_force[i] = self.random_vector() * self.motility_force
+
+                    # directed movement if the cell has neighbors thresholds are to be determined
+                    elif 0 < len(neighbors) < 6:
+                        # create a vector to hold the sum of normal vectors between a cell and its neighbors
+                        vector_holder = np.array([0.0, 0.0, 0.0])
+
+                        # loop over the neighbors getting the normal and adding to the holder
+                        for j in range(len(neighbors)):
+                            vector = self.cell_locations[neighbors[j]] - self.cell_locations[i]
+                            vector_holder += vector
+
+                        # get the normal vector
+                        normal = normal_vector(vector_holder)
+
+                        # move in direction opposite to cells
+                        self.cell_motility_force[i] += self.motility_force * normal * -1
+
                     # move randomly instead
                     else:
-                        self.cell_motility_force[i] += self.random_vector() * self.motility_force
+                        self.cell_motility_force[i] = self.random_vector() * self.motility_force
 
             # for pluripotent cells
             else:
@@ -640,7 +644,6 @@ class Simulation:
                     # if nothing else, move randomly
                     else:
                         self.cell_motility_force[i] = self.random_vector() * self.motility_force
-
         # end time
         self.cell_motility_time += time.time()
 
@@ -654,35 +657,35 @@ class Simulation:
 
         # clear all of the edges in the neighbor graph and get the radius of search length
         self.neighbor_graph.delete_edges(None)
-        distance = self.neighbor_distance
 
-        # provide an idea of the maximum number of neighbors for a cells
+        # provide an idea of the maximum number of neighbors for a cell
         max_neighbors = 20
-        length = self.number_cells * max_neighbors
-        edge_holder = np.zeros((length, 2), dtype=int)
+        edge_holder = np.zeros((self.number_cells, max_neighbors, 2), dtype=int)
 
-        # divides the space into bins and gives a holder of fixed size for each bin
-        bins_size = self.size // distance + np.array([5, 5, 5])
+        # divides the space into bins and gives a holder of fixed size for each bin, the addition of 5 offsets
+        # the space to prevent any errors, and 100 is the max cells for a bin which can be changed given errors
+        bins_size = self.size // self.neighbor_distance + np.array([5, 5, 5])
         bins_size_help = tuple(bins_size.astype(int))
         bins_size = np.append(bins_size, 100)
         bins_size = tuple(bins_size.astype(int))
 
-        # assigns values of -1 to denote a lack of cells
+        # an empty array used to represent the bins the cells are put into
         bins = np.empty(bins_size, dtype=int)
 
-        # an array used to accelerate the cuda function by telling the function how many cells are in a given bin
+        # an array used to accelerate the function by eliminating the lookup for number of cells in a bin
         bins_help = np.zeros(bins_size_help, dtype=int)
 
         # call the gpu version
         if self.parallel:
-            edge_holder = Parallel.check_neighbors_gpu(self.number_cells, distance, max_neighbors, edge_holder, bins,
-                                                       bins_help, self.cell_locations)
+            edge_holder = Parallel.check_neighbors_gpu(self.number_cells, self.neighbor_distance, max_neighbors,
+                                                       edge_holder, bins, bins_help, self.cell_locations)
         # call the cpu version
         else:
-            edge_holder = check_neighbors_cpu(self.number_cells, distance, edge_holder, bins, bins_help,
+            edge_holder = check_neighbors_cpu(self.number_cells, self.neighbor_distance, edge_holder, bins, bins_help,
                                               self.cell_locations)
 
-        # add the new edges and remove any duplicate edges or loops
+        # reshape the array for the igraph library, add the new edges, and remove any duplicate edges or loops
+        edge_holder = edge_holder.reshape((-1, 2))
         self.neighbor_graph.add_edges(edge_holder)
         self.neighbor_graph.simplify()
 
@@ -691,25 +694,26 @@ class Simulation:
 
     def nearest(self):
         """ looks at cells within a given radius
-            a determines the closest differentiated
-            cell to a pluripotent cell.
+            a determines the closest cells of
+            all types.
         """
         # start time
         self.nearest_diff_time = -1 * time.time()
 
-        # divides the space into bins and gives a holder of fixed size for each bin
+        # divides the space into bins and gives a holder of fixed size for each bin, the addition of 5 offsets
+        # the space to prevent any errors, and 100 is the max cells for a bin which can be changed given errors
         bins_size = self.size // self.nearest_distance + np.array([5, 5, 5])
         bins_size_help = tuple(bins_size.astype(int))
         bins_size = np.append(bins_size, 100)
         bins_size = tuple(bins_size.astype(int))
 
-        # assigns values of -1 to denote a lack of cells
+        # an empty array used to represent the bins the cells are put into
         bins = np.empty(bins_size, dtype=int)
 
-        # an array used to accelerate the cuda function by telling the function how many cells are in a given bin
+        # an array used to accelerate the function by eliminating the lookup for number of cells in a bin
         bins_help = np.zeros(bins_size_help, dtype=int)
 
-        # find the nearest gata6 high cell
+        # find the nearest cell of each type with the external method, no gpu function yet
         new_gata6, new_nanog, new_diff = nearest_cpu(self.number_cells, self.nearest_distance, bins, bins_help,
                                                      self.cell_locations, self.cell_nearest_gata6,
                                                      self.cell_nearest_nanog, self.cell_nearest_diff, self.cell_states,
@@ -914,67 +918,17 @@ def highest_fgf4_cpu(diffuse_radius, diffuse_bins, diffuse_bins_help, diffuse_lo
 
 
 @jit(nopython=True)
-def lowest_repellent_cpu(diffuse_radius, diffuse_bins, diffuse_bins_help, diffuse_locations, cell_locations,
-                         number_cells, lowest_repellent, repellent, max_repel):
-    """ This is the Numba optimized version of
-        the lowest_repellent function.
-    """
-    for pivot_index in range(number_cells):
-        # offset bins by 2 to avoid missing cells
-        block_location = cell_locations[pivot_index] // diffuse_radius + np.array([2, 2, 2])
-        x, y, z = int(block_location[0]), int(block_location[1]), int(block_location[2])
-
-        # create an initial value to check for the highest fgf4 point in a radius
-        lowest_index_x = np.nan
-        lowest_index_y = np.nan
-        lowest_index_z = np.nan
-        lowest_value = max_repel * 2
-
-        # loop over the bins that surround the current bin
-        for i in range(-1, 2):
-            for j in range(-1, 2):
-                for k in range(-1, 2):
-                    # get the count of cells in a bin
-                    bin_count = diffuse_bins_help[x + i][y + j][z + k]
-
-                    # go through the bin determining if a cell is a neighbor
-                    for l in range(bin_count):
-                        # get the index of the current cell in question
-                        x_ = int(diffuse_bins[x + i][y + j][z + k][l][0])
-                        y_ = int(diffuse_bins[x + i][y + j][z + k][l][1])
-                        z_ = int(diffuse_bins[x + i][y + j][z + k][l][2])
-
-                        # check to see if that cell is within the search radius and not the same cell
-                        m = np.linalg.norm(diffuse_locations[x_][y_][z_] - cell_locations[pivot_index])
-                        if m < diffuse_radius:
-                            if lowest_value > repellent[x_][y_][z_]:
-                                lowest_index_x = x_
-                                lowest_index_y = y_
-                                lowest_index_z = z_
-                                lowest_value = repellent[x_][y_][z_]
-
-        # update the highest fgf4 diffusion point
-        lowest_repellent[pivot_index][0] = lowest_index_x
-        lowest_repellent[pivot_index][1] = lowest_index_y
-        lowest_repellent[pivot_index][2] = lowest_index_z
-
-    # return the array back
-    return lowest_repellent
-
-
-@jit(nopython=True)
 def nearest_cpu(number_cells, distance, bins, bins_help, cell_locations, nearest_gata6, nearest_nanog, nearest_diff,
                 cell_states, cell_fds):
     """ This is the Numba optimized
         version of the nearest function.
     """
     for i in range(number_cells):
-        # offset bins by 1 to avoid missing cells
+        # offset bins by 2 to avoid missing cells
         block_location = cell_locations[i] // distance + np.array([2, 2, 2])
         x, y, z = int(block_location[0]), int(block_location[1]), int(block_location[2])
 
-        # tries to place the cell in the holder for the bin. if the holder's value is other than -1 it will move
-        # to the next spot to see if it's empty
+        # use the help array to place the cells in corresponding bins
         place = bins_help[x][y][z]
 
         # gives the cell's array location
@@ -984,12 +938,12 @@ def nearest_cpu(number_cells, distance, bins, bins_help, cell_locations, nearest
         bins_help[x][y][z] += 1
 
     # loops over all cells, with the current cell being the pivot of the search method
-    for pivot_index in range(number_cells):
+    for focus in range(number_cells):
         # offset bins by 2 to avoid missing cells
-        block_location = cell_locations[pivot_index] // distance + np.array([2, 2, 2])
+        block_location = cell_locations[focus] // distance + np.array([2, 2, 2])
         x, y, z = int(block_location[0]), int(block_location[1]), int(block_location[2])
 
-        # initialize this variables with essentially nothing values
+        # initialize these variables with essentially nothing values and the distance as an initial comparison
         nearest_gata6_index, nearest_nanog_index, nearest_diff_index = np.nan, np.nan, np.nan
         nearest_gata6_dist, nearest_nanog_dist, nearest_diff_dist = distance * 2, distance * 2, distance * 2
 
@@ -1003,36 +957,36 @@ def nearest_cpu(number_cells, distance, bins, bins_help, cell_locations, nearest
                     # go through the bin determining if a cell is a neighbor
                     for l in range(bin_count):
                         # get the index of the current cell in question
-                        current_index = int(bins[x + i][y + j][z + k][l])
+                        current = int(bins[x + i][y + j][z + k][l])
 
                         # check to see if that cell is within the search radius and not the same cell
-                        m = np.linalg.norm(cell_locations[current_index] - cell_locations[pivot_index])
-                        if m <= distance and current_index != pivot_index:
+                        magnitude = np.linalg.norm(cell_locations[current] - cell_locations[focus])
+                        if magnitude <= distance and focus != current:
                             # update the nearest gata6 high cell
-                            if cell_fds[current_index][2] == 1:
+                            if cell_fds[current][2] == 1:
                                 # if it's closer than the last cell, update the closest magnitude and index
-                                if m < nearest_gata6_dist:
-                                    nearest_gata6_index = current_index
-                                    nearest_gata6_dist = m
+                                if magnitude < nearest_gata6_dist:
+                                    nearest_gata6_index = current
+                                    nearest_gata6_dist = magnitude
 
                             # update the nearest nanog high cell
-                            elif cell_fds[current_index][3] == 1:
+                            elif cell_fds[current][3] == 1:
                                 # if it's closer than the last cell, update the closest magnitude and index
-                                if m < nearest_nanog_dist:
-                                    nearest_nanog_index = current_index
-                                    nearest_nanog_dist = m
+                                if magnitude < nearest_nanog_dist:
+                                    nearest_nanog_index = current
+                                    nearest_nanog_dist = magnitude
 
                             # update the nearest differentiated cell
-                            elif cell_states[current_index] == "Differentiated":
+                            elif cell_states[current] == "Differentiated":
                                 # if it's closer than the last cell, update the closest magnitude and index
-                                if m < nearest_diff_dist:
-                                    nearest_diff_index = current_index
-                                    nearest_diff_dist = m
+                                if magnitude < nearest_diff_dist:
+                                    nearest_diff_index = current
+                                    nearest_diff_dist = magnitude
 
         # update the nearest cell of desired type index
-        nearest_gata6[pivot_index] = nearest_gata6_index
-        nearest_nanog[pivot_index] = nearest_nanog_index
-        nearest_diff[pivot_index] = nearest_diff_index
+        nearest_gata6[focus] = nearest_gata6_index
+        nearest_nanog[focus] = nearest_nanog_index
+        nearest_diff[focus] = nearest_diff_index
 
     # return the updated edges
     return nearest_gata6, nearest_nanog, nearest_diff
@@ -1044,21 +998,20 @@ def check_neighbors_cpu(number_cells, distance, edge_holder, bins, bins_help, ce
         the check_neighbors function that runs
         solely on the cpu.
     """
-    # holds the total amount of edges as the function runs, used for indexing
-    edge_counter = 0
-
-    # loops over all cells, with the current cell being the pivot of the search method
-    for pivot_index in range(number_cells):
+    # loops over all cells, with the current cell being the focus of the search method
+    for focus in range(number_cells):
+        # holds the total amount of edges for a given cell
+        edge_counter = 0
 
         # offset bins by 2 to avoid missing cells
-        block_location = cell_locations[pivot_index] // distance + np.array([2, 2, 2])
+        block_location = cell_locations[focus] // distance + np.array([2, 2, 2])
         x, y, z = int(block_location[0]), int(block_location[1]), int(block_location[2])
 
         # gets the index where the cell should be placed
         place = bins_help[x][y][z]
 
         # adds the cell index to the bins array
-        bins[x][y][z][place] = pivot_index
+        bins[x][y][z][place] = focus
 
         # increase the count of cell in the bin by 1
         bins_help[x][y][z] += 1
@@ -1067,20 +1020,20 @@ def check_neighbors_cpu(number_cells, distance, edge_holder, bins, bins_help, ce
         for i in range(-1, 2):
             for j in range(-1, 2):
                 for k in range(-1, 2):
-                    # get the count of cells in a bin
+                    # get the count of cells for the current bin
                     bin_count = bins_help[x + i][y + j][z + k]
 
-                    # go through the bin determining if a cell is a neighbor
+                    # go through that bin determining if a cell is a neighbor
                     for l in range(bin_count):
                         # get the index of the current cell in question
-                        current_index = int(bins[x + i][y + j][z + k][l])
+                        current = int(bins[x + i][y + j][z + k][l])
 
                         # check to see if that cell is within the search radius
-                        vector = cell_locations[current_index] - cell_locations[pivot_index]
-                        if np.linalg.norm(vector) <= distance and pivot_index != current_index:
+                        vector = cell_locations[current] - cell_locations[focus]
+                        if np.linalg.norm(vector) <= distance and focus != current:
                             # update the edge array and increase the index for the next addition
-                            edge_holder[edge_counter][0] = pivot_index
-                            edge_holder[edge_counter][1] = current_index
+                            edge_holder[focus][edge_counter][0] = focus
+                            edge_holder[focus][edge_counter][1] = current
                             edge_counter += 1
 
     # return the updated edges
