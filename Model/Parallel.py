@@ -1,3 +1,12 @@
+"""
+
+If you are daring enough to write Numba CUDA kernels, you can do that here. In the Simulation
+ class, there are a lot of instance methods and some of them are slow. As a way of speeding up
+ the code most of those methods will either call a cpu optimized version of the function or
+ a CUDA kernel meant to run on a GPU. The external methods for CPU are found in Simulation.py
+ but the GPU functions are in this to keep it separate.
+
+"""
 from numba import jit, cuda
 import math
 import numpy as np
@@ -6,7 +15,7 @@ import numpy as np
 @cuda.jit(device=True)
 def magnitude(location_one, location_two):
     """ This is a cuda device function for
-        finding magnitude give two vectors
+        finding magnitude given two vectors
     """
     total = 0
     for i in range(0, 3):

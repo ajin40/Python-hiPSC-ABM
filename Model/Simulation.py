@@ -89,13 +89,14 @@ class Simulation:
 
         # miscellaneous/experimental
         self.dox_step = int(lines[165][2:-3])  # the step at which dox is introduced into the simulation
-        self.stochastic = eval(lines[168][2:-3])
+        self.stochastic = eval(lines[168][2:-3])    # if initial fds variables are stochastic
         self.group = int(lines[171][2:-3])   # the number of cells introduced into or removed from the space at once
         self.guye_move = eval(lines[174][2:-3])    # whether or not to use the Guye method of cell motility
         self.diffuse_radius = float(lines[177][2:-3])   # the radius of search of diffusion points
         self.max_fgf4 = float(lines[180][2:-3])  # the maximum amount of fgf4 at a diffusion point
         self.eunbi_move = eval(lines[183][2:-3])    # use Eunbi's model for movement
         self.fgf4_move = eval(lines[186][2:-3])     # use FGF4 concentrations for NANOG high movements
+        self.output_gradient = eval(lines[189][2:-3])   # output an image of the extracellular gradient
 
         # check that the name and path from the template are valid
         self.path = Input.check_name(self, template_location)
@@ -737,7 +738,7 @@ class Simulation:
 
         # divides the space into bins and gives a holder of fixed size for each bin, the addition of 5 offsets
         # the space to prevent any errors, and 100 is the max cells for a bin which can be changed given errors
-        bins_size = self.size // self.neighbor_distance + np.array([5, 5, 5])
+        bins_size = self.size // self.jkr_distance + np.array([5, 5, 5])
         bins_size_help = tuple(bins_size.astype(int))
         bins_size = np.append(bins_size, 100)
         bins_size = tuple(bins_size.astype(int))

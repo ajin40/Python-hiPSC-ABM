@@ -1,3 +1,10 @@
+"""
+
+Output.py serves as a way of separating the following functions from the Simulation class. These
+functions will prepare the files to store data about the efficiency of the model, information
+at each step for all of the cells, images from each step, and a video.
+
+"""
 from PIL import Image, ImageDraw
 from matplotlib.cm import ScalarMappable
 import cv2
@@ -9,8 +16,10 @@ import numpy as np
 
 def step_image(simulation):
     """ Creates an image representation of the
-        space in which the cells reside
+        space in which the cells reside and
+        the extracellular gradient.
     """
+    # continue if images are desired
     if simulation.output_images:
         # get the dilation of the image for the correctly sizing the image
         dilation_x = simulation.image_quality[0] / simulation.size[0]
@@ -25,15 +34,17 @@ def step_image(simulation):
         fgf4_array = np.reshape(fgf4_array, (fgf4_array.shape[0], fgf4_array.shape[1]))
         fgf4_array /= simulation.max_fgf4
 
-        # create a color map object that is used to turn the fgf4 array into a rgba array
-        cmap_object = ScalarMappable(cmap='Blues')
-        fgf4_as_rgba = cmap_object.to_rgba(fgf4_array, bytes=True)
+        # create a gradient image if desired
+        if simulation.output_gradient:
+            # create a color map object that is used to turn the fgf4 array into a rgba array
+            cmap_object = ScalarMappable(cmap='Blues')
+            fgf4_as_rgba = cmap_object.to_rgba(fgf4_array, bytes=True)
 
-        # create an image from the fgf4 rgba array
-        cmap_base = Image.fromarray(fgf4_as_rgba, mode="RGBA")
-        cmap_base = cmap_base.resize(simulation.image_quality[0:2], resample=Image.NEAREST)
-        cmap_base = cmap_base.transpose(Image.TRANSPOSE)
-        cmap_image = ImageDraw.Draw(cmap_base)
+            # create an image from the fgf4 rgba array
+            cmap_base = Image.fromarray(fgf4_as_rgba, mode="RGBA")
+            cmap_base = cmap_base.resize(simulation.image_quality[0:2], resample=Image.NEAREST)
+            cmap_base = cmap_base.transpose(Image.TRANSPOSE)
+            cmap_image = ImageDraw.Draw(cmap_base)
 
         # loops over all of the cells and draws the nucleus and radius
         for i in range(simulation.number_cells):
@@ -72,16 +83,27 @@ def step_image(simulation):
             # draw the circle representing the cell to both the normal image and the colormap image
             membrane_circle = (x - x_radius, y - y_radius, x + x_radius, y + y_radius)
             image.ellipse(membrane_circle, fill=color, outline="black")
-            cmap_image.ellipse(membrane_circle, outline='gray', width=1)
 
-        # paste the images to a new background image
-        background = Image.new('RGBA', (base.width + cmap_base.width, base.height))
-        background.paste(base, (0, 0))
-        background.paste(cmap_base, (base.width, 0))
+            # draw on gradient image if desired
+            if simulation.output_gradient:
+                cmap_image.ellipse(membrane_circle, outline='gray', width=1)
 
-        # saves the image as a .png
+        # get the image path
         image_path = simulation.path + simulation.name + "_image_" + str(int(simulation.current_step)) + ".png"
-        background.save(image_path, 'PNG')
+
+        # draw on gradient image if desired
+        if simulation.output_gradient:
+            # paste the images to a new background image
+            background = Image.new('RGBA', (base.width + cmap_base.width, base.height))
+            background.paste(base, (0, 0))
+            background.paste(cmap_base, (base.width, 0))
+
+            # save the image
+            background.save(image_path, 'PNG')
+
+        else:
+            # save the image
+            base.save(image_path, 'PNG')
 
         # write it to the video object
         add_image = cv2.imread(image_path)
@@ -103,7 +125,7 @@ def step_csv(simulation):
             # write the header of the csv
             csv_file.writerow(['X_position', 'Y_position', 'Z_position', 'Radius', 'Motion', 'FGFR', 'ERK', 'GATA6',
                                'NANOG', 'State', 'Differentiation_counter', 'Division_counter', 'Death_counter',
-                               'Boolean_counter'])
+                               'FDS_counter'])
 
             # turn the cell holder arrays into a list of rows to add to the csv file
             cell_data = list(zip(simulation.cell_locations[:, 0], simulation.cell_locations[:, 1],
@@ -156,8 +178,15 @@ def initialize_video(simulation):
     """
     # creates a video file that can be written to each step
     video_path = simulation.path + simulation.name + '_video.avi'
+
+    # determine the appropriate size of the video in pixels
+    if simulation.output_gradient:
+        image_size = (simulation.image_quality[0] * 2, simulation.image_quality[1])
+    else:
+        image_size = (simulation.image_quality[0], simulation.image_quality[1])
+
     simulation.video_object = cv2.VideoWriter(video_path, cv2.VideoWriter_fourcc("M", "J", "P", "G"), simulation.fps,
-                                              (simulation.image_quality[0] * 2, simulation.image_quality[1]))
+                                              image_size)
 
 
 def finish_files(simulation):

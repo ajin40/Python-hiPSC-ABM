@@ -45,7 +45,7 @@ Will this be a continuation of a previous simulation? Ex. True
 [ False ]
 
 Do you want to turn a previous collection of .csv files into images and a video? Ex. False
-[ False ]
+[ True ]
 
 Do you want to turn a previous collection of images into a video? Use after simulation is stopped before end. Ex. False
 [ False ]
@@ -58,7 +58,7 @@ running a simulation, type 1. Ex. 1
 [ 1 ]
 
 What will the final step number be? Ex. 30
-[ 192 ]
+[ 5 ]
 
 How long is each time step in seconds? Ex. 3600
 [ 1800 ]
@@ -184,6 +184,9 @@ Use Eunbi's method of motion based on the NetLogo model? Ex. True
 [ True ]
 
 Use FGF4 concentrations for NANOG high movements? Ex. False
+[ False ]
+
+Show the gradient color-map next to the image of the cell space? Ex. True
 [ False ]
 
 The time has come. Execute Order Sixty-Six? Ex. True

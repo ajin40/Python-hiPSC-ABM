@@ -1,3 +1,11 @@
+"""
+
+This file will handle the mode that is selected in the template file and/or the Simulation initialization.
+ Also there is a function to deal with incorrect names of simulations or names that already exist. If no
+ special modes are selected, the model will assume a normal simulation in which it will add cells to the
+ simulation.
+
+"""
 import random as r
 import numpy as np
 import csv
@@ -10,10 +18,9 @@ import Output
 
 
 def setup_simulation(simulation):
-    """ Reads the template file, determining the
-        mode in which the simulation shall be run
-        and creates a Simulation object corresponding
-        to desired initial parameters
+    """ Once all of the initial parameters of the simulation
+        are fulfilled, this will take that information and
+        run the simulation in one of the few modes.
     """
     # decide which mode the simulation is intended to be run in
     # continue a previous simulation
@@ -121,7 +128,7 @@ def csv_to_image_mode(simulation):
         simulation.current_step = i
 
         # calls the following function to add instances of the cell class to the simulation instance
-        csv_to_simulation(simulation, simulation.path + "_values_" + str(int(i)) + ".csv")
+        csv_to_simulation(simulation, simulation.path + simulation.name + "_values_" + str(int(i)) + ".csv")
 
         # saves a snapshot of the simulation
         Output.step_image(simulation)
@@ -162,12 +169,9 @@ def images_to_video_mode(simulation):
 
     # loop over all images defined in the template file
     for i in range(simulation.beginning_step, simulation.end_step + 1):
-        # calls the following function to add instances of the cell class to the simulation instance
-        csv_to_simulation(simulation, simulation.path + "_values_" + str(int(i)) + ".csv")
-
         # read the image and write it to the video file
-        image_name = "_image_" + str(int(i)) + "_slice_" + str(0) + ".png"
-        image = cv2.imread(simulation.path + image_name)
+        image_name = "_image_" + str(int(i)) + ".png"
+        image = cv2.imread(simulation.path + simulation.name + image_name)
         simulation.video_object.write(image)
 
     # exits out as the conversion from images to video is done
@@ -179,7 +183,7 @@ def csv_to_simulation(simulation, csv_file):
         based on the outputs of the csv files.
     """
     # opens the csv and create a list of the rows
-    with open(csv_file, "r", newline="") as csv_file:
+    with open(csv_file, newline="") as csv_file:
         # skip the first row as this is a header
         csv_rows = list(csv.reader(csv_file))[1:]
 
@@ -203,9 +207,10 @@ def csv_to_simulation(simulation, csv_file):
     simulation.cell_fds_counter = cell_data[12].astype(int)
     simulation.cell_motility_force = np.zeros((simulation.number_cells, 3), dtype=float)
     simulation.cell_jkr_force = np.zeros((simulation.number_cells, 3), dtype=float)
-    simulation.cell_nearest_gata6 = np.empty((simulation.number_cells, 3), dtype=None)
-    simulation.cell_nearest_nanog = np.empty((simulation.number_cells, 3), dtype=None)
-    simulation.cell_nearest_diff = np.empty((simulation.number_cells, 3), dtype=None)
+    simulation.cell_nearest_gata6 = np.empty((simulation.number_cells, 3))
+    simulation.cell_nearest_nanog = np.empty((simulation.number_cells, 3))
+    simulation.cell_nearest_diff = np.empty((simulation.number_cells, 3))
+    simulation.cell_highest_fgf4 = np.empty((simulation.number_cells, 3))
 
 
 def check_name(simulation, template_location):

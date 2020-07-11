@@ -3,3 +3,5 @@ Pillow
 numpy
 python-igraph
 numba
+memory_profiler
+matplotlib
