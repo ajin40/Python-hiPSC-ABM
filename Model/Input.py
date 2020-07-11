@@ -241,7 +241,8 @@ def check_name(simulation, template_location):
                 if user == "n":
                     exit()
                 elif user == "y":
-                    output_direct = input("What is the correct path? Don't include simulation name. (type new path): ")
+                    simulation.output_direct = input("What is the correct path? Don't include simulation name."
+                                                     " (type new path): ")
 
     else:
         # keeps the loop running until one condition is met
