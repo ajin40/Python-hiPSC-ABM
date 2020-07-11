@@ -105,19 +105,15 @@ def jkr_neighbors_gpu(number_cells, distance, max_neighbors, edge_holder, bins, 
     """ The GPU parallelized version of jkr_neighbors()
         from the Simulation class.
     """
+    # assign the cells to bins this is done all together compared to the cpu version
+    bins, bins_help = put_cells_in_bins(number_cells, distance, bins, bins_help, cell_locations)
+
     # turn the following into arrays that can be interpreted by the gpu
+    bins_cuda = cuda.to_device(bins)
+    bins_help_cuda = cuda.to_device(bins_help)
     distance_cuda = cuda.to_device(distance)
     max_neighbors_cuda = cuda.to_device(max_neighbors)
     edge_holder_cuda = cuda.to_device(edge_holder)
-
-    # assign the cells to bins
-    bins, bins_help = put_cells_in_bins(number_cells, distance, bins, bins_help, cell_locations)
-
-    # turn the bins array and the blocks_help array into a format to be sent to the gpu
-    bins_cuda = cuda.to_device(bins)
-    bins_help_cuda = cuda.to_device(bins_help)
-
-    # turn the array into a form readable by the GPU
     locations_cuda = cuda.to_device(cell_locations)
     radii_cuda = cuda.to_device(cell_radii)
 
@@ -134,47 +130,47 @@ def jkr_neighbors_gpu(number_cells, distance, max_neighbors, edge_holder, bins, 
 
 
 @cuda.jit
-def jkr_neighbors_cuda(locations, radii, bins, bins_help, distance, edge_holder, max_neighbors):
+def jkr_neighbors_cuda(locations, radii, bins, bins_help, distance, edge_holder):
     """ This is the parallelized function for checking
         neighbors that is run numerous times.
     """
-    # a provides the location on the array as it runs, essentially loops over the cells
-    index_1 = cuda.grid(1)
-
-    # identify the location on the edge holder where the function will begin writing edges
-    place = cuda.grid(1) * max_neighbors[0]
+    # get the index in the array
+    focus = cuda.grid(1)
 
     # checks to see that position is in the array, double-check as GPUs can be weird sometimes
-    if index_1 < locations.shape[0]:
+    if focus < locations.shape[0]:
+        # holds the total amount of edges for a given cell
+        edge_counter = 0
+
         # gets the block location based on how they were inputted
-        location_x = int(locations[index_1][0] / distance[0]) + 2
-        location_y = int(locations[index_1][1] / distance[0]) + 2
-        location_z = int(locations[index_1][2] / distance[0]) + 2
+        x = int(locations[focus][0] / distance[0]) + 2
+        y = int(locations[focus][1] / distance[0]) + 2
+        z = int(locations[focus][2] / distance[0]) + 2
 
         # looks at the blocks surrounding the current block as these are the ones containing the neighbors
         for i in range(-1, 2):
             for j in range(-1, 2):
                 for k in range(-1, 2):
-                    # gets the number of cells in each block thanks to the helper array, int to prevent problems
-                    number_cells = int(bins_help[location_x + i][location_y + j][location_z + k])
+                    # gets the number of cells in each bin, int to prevent problems
+                    bin_count = int(bins_help[x + i][y + j][z + k])
 
                     # loops over the cell indices in the current block
-                    for l in range(number_cells):
+                    for l in range(bin_count):
                         # gets the index of the potential neighbor
-                        index_2 = int(bins[location_x + i][location_y + j][location_z + k][l])
+                        current = int(bins[x + i][y + j][z + k][l])
 
                         # get the magnitude via the device function
-                        mag = magnitude(locations[index_1], locations[index_2])
+                        mag = magnitude(locations[focus], locations[current])
 
                         # calculate the cell overlap
-                        overlap = radii[index_1] + radii[index_2] - mag
+                        overlap = radii[focus] + radii[current] - mag
 
                         # if overlap and not the same cell add it to the edges
-                        if overlap >= 0 and index_1 != index_2:
+                        if overlap >= 0 and focus != current:
                             # assign the array location showing that this cell is a neighbor
-                            edge_holder[place][0] = index_1
-                            edge_holder[place][1] = index_2
-                            place += 1
+                            edge_holder[focus][edge_counter][0] = focus
+                            edge_holder[focus][edge_counter][0] = current
+                            edge_counter += 1
 
 
 def get_forces_gpu(jkr_edges, delete_jkr_edges, poisson, youngs_mod, adhesion_const, cell_locations,

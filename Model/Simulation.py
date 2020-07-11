@@ -658,7 +658,7 @@ class Simulation:
         # clear all of the edges in the neighbor graph and get the radius of search length
         self.neighbor_graph.delete_edges(None)
 
-        # provide an idea of the maximum number of neighbors for a cell
+        # provide the maximum number of neighbors for a cell
         max_neighbors = 20
         edge_holder = np.zeros((self.number_cells, max_neighbors, 2), dtype=int)
 
@@ -728,40 +728,37 @@ class Simulation:
         self.nearest_diff_time += time.time()
 
     def jkr_neighbors(self):
-        """ finds all pairs of cells that are overlapping
-            by 0 or more and adds this to the running
-            JKR graph.
+        """ finds all pairs of cells that are either touching
+            or overlapping adds this to the running JKR graph.
         """
-        # get the radius of search length
-        distance = self.jkr_distance
-
-        # provide an idea of the maximum number of neighbors for a cells
+        # provide an idea of the maximum number of neighbors for a cell
         max_neighbors = 15
-        length = self.number_cells * max_neighbors
-        edge_holder = np.zeros((length, 2), dtype=int)
+        edge_holder = np.zeros((self.number_cells, max_neighbors, 2), dtype=int)
 
-        # divides the space into bins and gives a holder of fixed size for each bin
-        bins_size = self.size // distance + np.array([5, 5, 5])
+        # divides the space into bins and gives a holder of fixed size for each bin, the addition of 5 offsets
+        # the space to prevent any errors, and 100 is the max cells for a bin which can be changed given errors
+        bins_size = self.size // self.neighbor_distance + np.array([5, 5, 5])
         bins_size_help = tuple(bins_size.astype(int))
         bins_size = np.append(bins_size, 100)
         bins_size = tuple(bins_size.astype(int))
 
-        # assigns values of -1 to denote a lack of cells
+        # an empty array used to represent the bins the cells are put into
         bins = np.empty(bins_size, dtype=int)
 
-        # an array used to accelerate the cuda function by telling the function how many cells are in a given bin
+        # an array used to accelerate the function by eliminating the lookup for number of cells in a bin
         bins_help = np.zeros(bins_size_help, dtype=int)
 
         # call the gpu version
         if self.parallel:
-            edge_holder = Parallel.jkr_neighbors_gpu(self.number_cells, distance, max_neighbors, edge_holder, bins,
-                                                     bins_help, self.cell_locations, self.cell_radii)
+            edge_holder = Parallel.jkr_neighbors_gpu(self.number_cells, self.jkr_distance, max_neighbors, edge_holder,
+                                                     bins, bins_help, self.cell_locations, self.cell_radii)
         # call the cpu version
         else:
-            edge_holder = jkr_neighbors_cpu(self.number_cells, distance, edge_holder, bins, bins_help,
+            edge_holder = jkr_neighbors_cpu(self.number_cells, self.jkr_distance, edge_holder, bins, bins_help,
                                             self.cell_locations, self.cell_radii)
 
-        # add the new edges and remove any duplicate edges or loops
+        # reshape the array for the igraph library, add the new edges, and remove any duplicate edges or loops
+        edge_holder = edge_holder.reshape((-1, 2))
         self.jkr_graph.add_edges(edge_holder)
         self.jkr_graph.simplify()
 
@@ -774,7 +771,7 @@ class Simulation:
         self.handle_movement_time = -1 * time.time()
 
         # get the total amount of times the cells will be incrementally moved during the step
-        steps = int(self.time_step_value / self.move_time_step)
+        steps = math.ceil(self.time_step_value / self.move_time_step)
 
         # run the following functions consecutively for the given amount of steps
         for i in range(steps):
@@ -801,6 +798,7 @@ class Simulation:
         jkr_edges = np.array(self.jkr_graph.get_edgelist())
         delete_edges = np.zeros(len(jkr_edges), dtype=int)
 
+        # do not continue if no edges, will cause errors if arrays are empty
         if len(jkr_edges) > 0:
             # call the gpu version
             if self.parallel:
@@ -1046,20 +1044,20 @@ def jkr_neighbors_cpu(number_cells, distance, edge_holder, bins, bins_help, cell
         the jkr_neighbors function that runs
         solely on the cpu.
     """
-    # holds the total amount of edges as the function runs, used for indexing
-    edge_counter = 0
-
     # loops over all cells, with the current cell being the pivot of the search method
-    for pivot_index in range(number_cells):
+    for focus in range(number_cells):
+        # holds the total amount of edges for a given cell
+        edge_counter = 0
+
         # offset bins by 2 to avoid missing cells
-        block_location = cell_locations[pivot_index] // distance + np.array([2, 2, 2])
+        block_location = cell_locations[focus] // distance + np.array([2, 2, 2])
         x, y, z = int(block_location[0]), int(block_location[1]), int(block_location[2])
 
         # gets the index where the cell should be placed
         place = bins_help[x][y][z]
 
         # adds the cell index to the bins array
-        bins[x][y][z][place] = pivot_index
+        bins[x][y][z][place] = focus
 
         # increase the count of cell in the bin by 1
         bins_help[x][y][z] += 1
@@ -1074,20 +1072,19 @@ def jkr_neighbors_cpu(number_cells, distance, edge_holder, bins, bins_help, cell
                     # go through the bin determining if a cell is a neighbor
                     for l in range(bin_count):
                         # get the index of the current cell in question
-                        current_index = int(bins[x + i][y + j][z + k][l])
+                        current = int(bins[x + i][y + j][z + k][l])
 
                         # get the magnitude of the distance between the cells
-                        vector = cell_locations[current_index] - cell_locations[pivot_index]
-                        mag = np.linalg.norm(vector)
+                        magnitude = np.linalg.norm(cell_locations[current] - cell_locations[focus])
 
                         # calculate the cell overlap
-                        overlap = cell_radii[current_index] + cell_radii[pivot_index] - mag
+                        overlap = cell_radii[current] + cell_radii[focus] - magnitude
 
                         # if there is overlap and not the same cell add the edge
-                        if overlap >= 0 and pivot_index != current_index:
+                        if overlap >= 0 and focus != current:
                             # update the edge array and increase the index for the next addition
-                            edge_holder[edge_counter][0] = pivot_index
-                            edge_holder[edge_counter][1] = current_index
+                            edge_holder[focus][edge_counter][0] = focus
+                            edge_holder[focus][edge_counter][1] = current
                             edge_counter += 1
 
     # return the updated edges
@@ -1101,7 +1098,7 @@ def get_forces_cpu(jkr_edges, delete_jkr_edges, poisson, youngs_mod, adhesion_co
         the get_forces function that runs
         solely on the cpu.
     """
-    # loops over the jkr edges
+    # loops over the jkr edges in parallel
     for i in prange(len(jkr_edges)):
         # get the indices of the nodes in the edge
         index_1 = jkr_edges[i][0]
@@ -1112,7 +1109,7 @@ def get_forces_cpu(jkr_edges, delete_jkr_edges, poisson, youngs_mod, adhesion_co
         magnitude = np.linalg.norm(disp_vector)
         normal = np.array([0.0, 0.0, 0.0])
 
-        # the parallel jit prefers reductions so it's better to initialize the value and revalue it
+        # the parallel jit prefers reductions so it's better to initialize the value of the normal and revalue it
         if magnitude != 0:
             normal += disp_vector / magnitude
 
