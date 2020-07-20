@@ -46,7 +46,7 @@ def put_cells_in_bins(number_cells, distance, bins, bins_help, cell_locations):
     return bins, bins_help
 
 
-def check_neighbors_gpu(number_cells, distance, max_neighbors, edge_holder, bins, bins_help, cell_locations):
+def check_neighbors_gpu(number_cells, distance, edge_holder, bins, bins_help, cell_locations):
     """ The GPU parallelized version of check_neighbors()
         from the Simulation class.
     """
@@ -57,7 +57,6 @@ def check_neighbors_gpu(number_cells, distance, max_neighbors, edge_holder, bins
     bins_cuda = cuda.to_device(bins)
     bins_help_cuda = cuda.to_device(bins_help)
     distance_cuda = cuda.to_device(distance)
-    max_neighbors_cuda = cuda.to_device(max_neighbors)
     edge_holder_cuda = cuda.to_device(edge_holder)
     locations_cuda = cuda.to_device(cell_locations)
 
@@ -67,7 +66,7 @@ def check_neighbors_gpu(number_cells, distance, max_neighbors, edge_holder, bins
 
     # calls the cuda function with the given inputs
     check_neighbors_cuda[blocks_per_grid, threads_per_block](locations_cuda, bins_cuda, bins_help_cuda,
-                                                             distance_cuda, edge_holder_cuda, max_neighbors_cuda)
+                                                             distance_cuda, edge_holder_cuda)
     # return the edges array
     return edge_holder_cuda.copy_to_host()
 
@@ -106,11 +105,11 @@ def check_neighbors_cuda(locations, bins, bins_help, distance, edge_holder):
                         if magnitude(locations[focus], locations[current]) <= distance[0] and focus != current:
                             # assign the array location showing that this cell is a neighbor
                             edge_holder[focus][edge_counter][0] = focus
-                            edge_holder[focus][edge_counter][0] = current
+                            edge_holder[focus][edge_counter][1] = current
                             edge_counter += 1
 
 
-def jkr_neighbors_gpu(number_cells, distance, max_neighbors, edge_holder, bins, bins_help, cell_locations, cell_radii):
+def jkr_neighbors_gpu(number_cells, distance, edge_holder, bins, bins_help, cell_locations, cell_radii):
     """ The GPU parallelized version of jkr_neighbors()
         from the Simulation class.
     """
@@ -121,7 +120,6 @@ def jkr_neighbors_gpu(number_cells, distance, max_neighbors, edge_holder, bins, 
     bins_cuda = cuda.to_device(bins)
     bins_help_cuda = cuda.to_device(bins_help)
     distance_cuda = cuda.to_device(distance)
-    max_neighbors_cuda = cuda.to_device(max_neighbors)
     edge_holder_cuda = cuda.to_device(edge_holder)
     locations_cuda = cuda.to_device(cell_locations)
     radii_cuda = cuda.to_device(cell_radii)
@@ -132,7 +130,7 @@ def jkr_neighbors_gpu(number_cells, distance, max_neighbors, edge_holder, bins, 
 
     # calls the cuda function with the given inputs
     jkr_neighbors_cuda[blocks_per_grid, threads_per_block](locations_cuda, radii_cuda, bins_cuda, bins_help_cuda,
-                                                           distance_cuda, edge_holder_cuda, max_neighbors_cuda)
+                                                           distance_cuda, edge_holder_cuda)
 
     # return the edges array
     return edge_holder_cuda.copy_to_host()
@@ -178,7 +176,7 @@ def jkr_neighbors_cuda(locations, radii, bins, bins_help, distance, edge_holder)
                         if overlap >= 0 and focus != current:
                             # assign the array location showing that this cell is a neighbor
                             edge_holder[focus][edge_counter][0] = focus
-                            edge_holder[focus][edge_counter][0] = current
+                            edge_holder[focus][edge_counter][1] = current
                             edge_counter += 1
 
 

@@ -610,7 +610,7 @@ class Simulation:
                             self.cell_motility_force[i] += normal * self.motility_force
 
                     # NANOG high cell
-                    if self.cell_fds[i][3] == 1:
+                    elif self.cell_fds[i][3] == 1:
                         # move based on fgf4 concentrations
                         if self.fgf4_move:
                             # makes sure not the numpy nan type, proceed if actual value
@@ -678,8 +678,8 @@ class Simulation:
 
         # call the gpu version
         if self.parallel:
-            edge_holder = Parallel.check_neighbors_gpu(self.number_cells, self.neighbor_distance, max_neighbors,
-                                                       edge_holder, bins, bins_help, self.cell_locations)
+            edge_holder = Parallel.check_neighbors_gpu(self.number_cells, self.neighbor_distance, edge_holder, bins,
+                                                       bins_help, self.cell_locations)
         # call the cpu version
         else:
             edge_holder = check_neighbors_cpu(self.number_cells, self.neighbor_distance, edge_holder, bins, bins_help,
@@ -751,8 +751,8 @@ class Simulation:
 
         # call the gpu version
         if self.parallel:
-            edge_holder = Parallel.jkr_neighbors_gpu(self.number_cells, self.jkr_distance, max_neighbors, edge_holder,
-                                                     bins, bins_help, self.cell_locations, self.cell_radii)
+            edge_holder = Parallel.jkr_neighbors_gpu(self.number_cells, self.jkr_distance, edge_holder, bins,
+                                                     bins_help, self.cell_locations, self.cell_radii)
         # call the cpu version
         else:
             edge_holder = jkr_neighbors_cpu(self.number_cells, self.jkr_distance, edge_holder, bins, bins_help,
