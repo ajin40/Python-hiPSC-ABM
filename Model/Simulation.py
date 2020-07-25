@@ -365,7 +365,24 @@ class Simulation:
             updates factors such as size and counters.
         """
         # move the cells to positions that are representative of the new locations of daughter cells
-        division_position = self.random_vector() * (self.max_radius - self.min_radius)
+        # division_position = self.random_vector() * (self.max_radius - self.min_radius)
+
+        # create a vector to hold the sum of normal vectors between a cell and its neighbors
+        vector_holder = np.array([0.0, 0.0, 0.0])
+
+        # loop over the neighbors getting the normal and adding to the holder
+        neighbors = self.neighbor_graph.neighbors(index)
+        if len(neighbors) != 0:
+            for j in range(len(neighbors)):
+                vector = self.cell_locations[neighbors[j]] - self.cell_locations[index]
+                vector_holder += vector
+
+            a = normal_vector(vector_holder) * (self.max_radius - self.min_radius)
+            division_position = np.array([a[1], -1 * a[0], 0])
+
+        else:
+            division_position = self.random_vector() * (self.max_radius - self.min_radius)
+
         self.cell_locations[index] += division_position
         location = self.cell_locations[index] - division_position
 
@@ -434,7 +451,7 @@ class Simulation:
 
                     # if the number of differentiated meets the threshold, increase the counter and break the loop
                     if num_diff_neighbors >= self.diff_surround:
-                        self.cell_diff_counter[i] += 1
+                        self.cell_diff_counter[i] += r.randint(0, 2)
                         break
 
             # Growth
@@ -527,7 +544,7 @@ class Simulation:
 
                 # if the cell is GATA6 high and pluripotent increase the differentiation counter by 1
                 if self.cell_fds[i][2] == 1 and self.cell_states[i] == "Pluripotent":
-                    self.cell_diff_counter[i] += 1
+                    self.cell_diff_counter[i] += r.randint(0, 2)
 
                     # if the differentiation counter is greater than the threshold, differentiate
                     if self.cell_diff_counter[i] >= self.pluri_to_diff:
@@ -558,6 +575,39 @@ class Simulation:
 
             # check whether differentiated or pluripotent
             if self.cell_states[i] == "Differentiated":
+                # this will move differentiated cells together
+                if 0 < len(neighbors):
+                    # create a vector to hold the sum of normal vectors between a cell and its neighbors
+                    vector_holder = np.array([0.0, 0.0, 0.0])
+
+                    # loop over the neighbors getting the normal and adding to the holder
+                    for j in range(len(neighbors)):
+                        if self.cell_states[neighbors[j]] == "Differentiated":
+                            vector = self.cell_locations[neighbors[j]] - self.cell_locations[i]
+                            vector_holder += vector
+
+                    # get the normal vector
+                    normal = normal_vector(vector_holder)
+
+                    # move in direction of the differentiated cells
+                    self.cell_motility_force[i] += self.motility_force * normal * 0.5
+
+                if 0 < len(neighbors):
+                    # create a vector to hold the sum of normal vectors between a cell and its neighbors
+                    vector_holder = np.array([0.0, 0.0, 0.0])
+
+                    # loop over the neighbors getting the normal and adding to the holder
+                    for j in range(len(neighbors)):
+                        if self.cell_states[neighbors[j]] == "Pluripotent":
+                            vector = self.cell_locations[neighbors[j]] - self.cell_locations[i]
+                            vector_holder += vector
+
+                    # get the normal vector
+                    normal = normal_vector(vector_holder)
+
+                    # move in direction opposite to pluripotent cells
+                    self.cell_motility_force[i] += self.motility_force * normal * -1 * 0.5
+
                 # if there aren't any neighbors and still in motion then move randomly
                 if self.cell_motion[i]:
                     # move based on Eunbi's model
@@ -566,31 +616,15 @@ class Simulation:
                         if not np.isnan(self.cell_nearest_nanog[i]):
                             nearest_index = int(self.cell_nearest_nanog[i])
                             normal = normal_vector(self.cell_locations[i] - self.cell_locations[nearest_index])
-                            self.cell_motility_force[i] = normal * self.motility_force * -1
+                            self.cell_motility_force[i] += normal * self.motility_force * -1
 
                         # move randomly instead
                         else:
-                            self.cell_motility_force[i] = self.random_vector() * self.motility_force
-
-                    # directed movement if the cell has neighbors thresholds are to be determined
-                    elif 0 < len(neighbors) < 6:
-                        # create a vector to hold the sum of normal vectors between a cell and its neighbors
-                        vector_holder = np.array([0.0, 0.0, 0.0])
-
-                        # loop over the neighbors getting the normal and adding to the holder
-                        for j in range(len(neighbors)):
-                            vector = self.cell_locations[neighbors[j]] - self.cell_locations[i]
-                            vector_holder += vector
-
-                        # get the normal vector
-                        normal = normal_vector(vector_holder)
-
-                        # move in direction opposite to cells
-                        self.cell_motility_force[i] += self.motility_force * normal * -1
+                            self.cell_motility_force[i] += self.random_vector() * self.motility_force
 
                     # move randomly instead
                     else:
-                        self.cell_motility_force[i] = self.random_vector() * self.motility_force
+                        self.cell_motility_force[i] += self.random_vector() * self.motility_force
 
             # for pluripotent cells
             else:
@@ -620,31 +654,31 @@ class Simulation:
                                 y = int(self.cell_highest_fgf4[i][1])
                                 z = int(self.cell_highest_fgf4[i][2])
                                 normal = normal_vector(self.cell_locations[i] - self.diffuse_locations[x][y][z])
-                                self.cell_motility_force[i] = normal * self.motility_force
+                                self.cell_motility_force[i] += normal * self.motility_force
 
                         # move based on Eunbi's model
                         elif self.eunbi_move:
                             # if there is a gata6 high cell nearby, move away from it
                             if not np.isnan(self.cell_nearest_gata6[i]):
                                 nearest_index = int(self.cell_nearest_gata6[i])
-                                normal = normal_vector(self.cell_locations[i] - self.cell_locations[nearest_index])
-                                self.cell_motility_force[i] = normal * self.motility_force * -1
+                                normal = normal_vector(self.cell_locations[nearest_index] - self.cell_locations[i])
+                                self.cell_motility_force[i] += normal * self.motility_force * -1
 
                             # if there is a nanog high cell nearby, move to it
                             elif not np.isnan(self.cell_nearest_nanog[i]):
                                 nearest_index = int(self.cell_nearest_nanog[i])
-                                normal = normal_vector(self.cell_locations[i] - self.cell_locations[nearest_index])
-                                self.cell_motility_force[i] = normal * self.motility_force
+                                normal = normal_vector(self.cell_locations[nearest_index] - self.cell_locations[i])
+                                self.cell_motility_force[i] += normal * self.motility_force
 
                             # if nothing else, move randomly
                             else:
-                                self.cell_motility_force[i] = self.random_vector() * self.motility_force
+                                self.cell_motility_force[i] += self.random_vector() * self.motility_force
                         # if nothing else, move randomly
                         else:
-                            self.cell_motility_force[i] = self.random_vector() * self.motility_force
+                            self.cell_motility_force[i] += self.random_vector() * self.motility_force
                     # if nothing else, move randomly
                     else:
-                        self.cell_motility_force[i] = self.random_vector() * self.motility_force
+                        self.cell_motility_force[i] += self.random_vector() * self.motility_force
         # end time
         self.cell_motility_time += time.time()
 
