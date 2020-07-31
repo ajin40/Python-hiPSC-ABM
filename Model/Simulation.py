@@ -365,24 +365,7 @@ class Simulation:
             updates factors such as size and counters.
         """
         # move the cells to positions that are representative of the new locations of daughter cells
-        # division_position = self.random_vector() * (self.max_radius - self.min_radius)
-
-        # create a vector to hold the sum of normal vectors between a cell and its neighbors
-        vector_holder = np.array([0.0, 0.0, 0.0])
-
-        # loop over the neighbors getting the normal and adding to the holder
-        neighbors = self.neighbor_graph.neighbors(index)
-        if len(neighbors) != 0:
-            for j in range(len(neighbors)):
-                vector = self.cell_locations[neighbors[j]] - self.cell_locations[index]
-                vector_holder += vector
-
-            a = normal_vector(vector_holder) * (self.max_radius - self.min_radius)
-            division_position = np.array([a[1], -1 * a[0], 0])
-
-        else:
-            division_position = self.random_vector() * (self.max_radius - self.min_radius)
-
+        division_position = self.random_vector() * (self.max_radius - self.min_radius)
         self.cell_locations[index] += division_position
         location = self.cell_locations[index] - division_position
 
