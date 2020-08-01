@@ -12,6 +12,8 @@ import math
 import numpy as np
 
 
+
+
 @cuda.jit(device=True)
 def magnitude(location_one, location_two):
     """ This is a cuda device function for
@@ -46,67 +48,8 @@ def put_cells_in_bins(number_cells, distance, bins, bins_help, cell_locations):
     return bins, bins_help
 
 
-def check_neighbors_gpu(number_cells, distance, edge_holder, bins, bins_help, cell_locations):
-    """ The GPU parallelized version of check_neighbors()
-        from the Simulation class.
-    """
-    # assign the cells to bins this is done all together compared to the cpu version
-    bins, bins_help = put_cells_in_bins(number_cells, distance, bins, bins_help, cell_locations)
-
-    # turn the following into arrays that can be interpreted by the gpu
-    bins_cuda = cuda.to_device(bins)
-    bins_help_cuda = cuda.to_device(bins_help)
-    distance_cuda = cuda.to_device(distance)
-    edge_holder_cuda = cuda.to_device(edge_holder)
-    locations_cuda = cuda.to_device(cell_locations)
-
-    # sets up the correct allocation of threads and blocks
-    threads_per_block = 72
-    blocks_per_grid = math.ceil(number_cells / threads_per_block)
-
-    # calls the cuda function with the given inputs
-    check_neighbors_cuda[blocks_per_grid, threads_per_block](locations_cuda, bins_cuda, bins_help_cuda,
-                                                             distance_cuda, edge_holder_cuda)
-    # return the edges array
-    return edge_holder_cuda.copy_to_host()
 
 
-@cuda.jit
-def check_neighbors_cuda(locations, bins, bins_help, distance, edge_holder):
-    """ This is the parallelized function for checking
-        neighbors that is run numerous times.
-    """
-    # get the index in the array
-    focus = cuda.grid(1)
-
-    # checks to see that position is in the array, double-check as GPUs can be weird sometimes
-    if focus < locations.shape[0]:
-        # holds the total amount of edges for a given cell
-        edge_counter = 0
-
-        # gets the block location based on how they were inputted
-        x = int(locations[focus][0] / distance[0]) + 2
-        y = int(locations[focus][1] / distance[0]) + 2
-        z = int(locations[focus][2] / distance[0]) + 2
-
-        # looks local bins as these are the ones containing the neighbors
-        for i in range(-1, 2):
-            for j in range(-1, 2):
-                for k in range(-1, 2):
-                    # gets the number of cells in each bin, int to prevent problems
-                    bin_count = int(bins_help[x + i][y + j][z + k])
-
-                    # loops over the cell indices in the current block
-                    for l in range(bin_count):
-                        # gets the index of the potential neighbor
-                        current = int(bins[x + i][y + j][z + k][l])
-
-                        # get the magnitude via the device function and make sure not the same cell
-                        if magnitude(locations[focus], locations[current]) <= distance[0] and focus != current:
-                            # assign the array location showing that this cell is a neighbor
-                            edge_holder[focus][edge_counter][0] = focus
-                            edge_holder[focus][edge_counter][1] = current
-                            edge_counter += 1
 
 
 def jkr_neighbors_gpu(number_cells, distance, edge_holder, bins, bins_help, cell_locations, cell_radii):

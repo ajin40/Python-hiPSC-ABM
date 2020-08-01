@@ -6,7 +6,7 @@ This is the template for running a simulation. Good luck!
 General Parameters
 -----------------------------------------------------------------------------------------------------------------------
 What is the name of the simulation? Ex. Run_30
-[ Run___ ]
+[ Check_neighbors ]
 
 What is the path for the output directory? Ex. C:\Python37\Model_Outputs
 [ C:\Outputs ]

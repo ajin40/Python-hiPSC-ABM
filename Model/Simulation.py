@@ -665,51 +665,6 @@ class Simulation:
         # end time
         self.cell_motility_time += time.time()
 
-    def check_neighbors(self):
-        """ checks all of the distances between cells if it
-            is less than a fixed value create a connection
-            between two cells.
-        """
-        # start time
-        self.check_neighbors_time = -1 * time.time()
-
-        # clear all of the edges in the neighbor graph and get the radius of search length
-        self.neighbor_graph.delete_edges(None)
-
-        # provide the maximum number of neighbors for a cell
-        max_neighbors = 20
-        edge_holder = np.zeros((self.number_cells, max_neighbors, 2), dtype=int)
-
-        # divides the space into bins and gives a holder of fixed size for each bin, the addition of 5 offsets
-        # the space to prevent any errors, and 100 is the max cells for a bin which can be changed given errors
-        bins_size = self.size // self.neighbor_distance + np.array([5, 5, 5])
-        bins_size_help = tuple(bins_size.astype(int))
-        bins_size = np.append(bins_size, 100)
-        bins_size = tuple(bins_size.astype(int))
-
-        # an empty array used to represent the bins the cells are put into
-        bins = np.empty(bins_size, dtype=int)
-
-        # an array used to accelerate the function by eliminating the lookup for number of cells in a bin
-        bins_help = np.zeros(bins_size_help, dtype=int)
-
-        # call the gpu version
-        if self.parallel:
-            edge_holder = Parallel.check_neighbors_gpu(self.number_cells, self.neighbor_distance, edge_holder, bins,
-                                                       bins_help, self.cell_locations)
-        # call the cpu version
-        else:
-            edge_holder = check_neighbors_cpu(self.number_cells, self.neighbor_distance, edge_holder, bins, bins_help,
-                                              self.cell_locations)
-
-        # reshape the array for the igraph library, add the new edges, and remove any duplicate edges or loops
-        edge_holder = edge_holder.reshape((-1, 2))
-        self.neighbor_graph.add_edges(edge_holder)
-        self.neighbor_graph.simplify()
-
-        # end time
-        self.check_neighbors_time += time.time()
-
     def nearest(self):
         """ looks at cells within a given radius
             a determines the closest cells of
@@ -1006,54 +961,6 @@ def nearest_cpu(number_cells, distance, bins, bins_help, cell_locations, nearest
 
     # return the updated edges
     return nearest_gata6, nearest_nanog, nearest_diff
-
-
-@jit(nopython=True)
-def check_neighbors_cpu(number_cells, distance, edge_holder, bins, bins_help, cell_locations):
-    """ This is the Numba optimized version of
-        the check_neighbors function that runs
-        solely on the cpu.
-    """
-    # loops over all cells, with the current cell being the focus of the search method
-    for focus in range(number_cells):
-        # holds the total amount of edges for a given cell
-        edge_counter = 0
-
-        # offset bins by 2 to avoid missing cells
-        block_location = cell_locations[focus] // distance + np.array([2, 2, 2])
-        x, y, z = int(block_location[0]), int(block_location[1]), int(block_location[2])
-
-        # gets the index where the cell should be placed
-        place = bins_help[x][y][z]
-
-        # adds the cell index to the bins array
-        bins[x][y][z][place] = focus
-
-        # increase the count of cell in the bin by 1
-        bins_help[x][y][z] += 1
-
-        # loop over the bins that surround the current bin
-        for i in range(-1, 2):
-            for j in range(-1, 2):
-                for k in range(-1, 2):
-                    # get the count of cells for the current bin
-                    bin_count = bins_help[x + i][y + j][z + k]
-
-                    # go through that bin determining if a cell is a neighbor
-                    for l in range(bin_count):
-                        # get the index of the current cell in question
-                        current = int(bins[x + i][y + j][z + k][l])
-
-                        # check to see if that cell is within the search radius
-                        vector = cell_locations[current] - cell_locations[focus]
-                        if np.linalg.norm(vector) <= distance and focus != current:
-                            # update the edge array and increase the index for the next addition
-                            edge_holder[focus][edge_counter][0] = focus
-                            edge_holder[focus][edge_counter][1] = current
-                            edge_counter += 1
-
-    # return the updated edges
-    return edge_holder
 
 
 @jit(nopython=True)

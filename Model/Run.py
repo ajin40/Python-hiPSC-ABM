@@ -10,9 +10,10 @@ This is the Python file that you run to begin the simulation. Before you begin, 
 """
 import Output
 import Simulation
+import Functions
 
 # setup() will create an instance of the Simulation class that holds all relevant information of the model.
-# this is done by reading a template .txt file that contains all initial parameters of the model.   (base)
+# this is done by reading a template .txt file that contains all initial parameters of the model.
 simulation = Simulation.Simulation("C:\\Python37\\Seed Project\\Model\\template.txt")
 
 # Will locate the diffusion points for the extracellular gradient to bins, used for chemotactic movement
@@ -20,13 +21,13 @@ simulation = Simulation.Simulation("C:\\Python37\\Seed Project\\Model\\template.
 simulation.setup_diffusion_bins()
 
 # This will loop over all steps defined in the template file in addition to updating the current step
-# of the simulation.   (base)
+# of the simulation.
 for simulation.current_step in range(simulation.beginning_step, simulation.end_step + 1):
     # Prints the current step, number of cells, and records run time. Used to give an idea of the simulation progress.
     simulation.info()
 
     # Refreshes the graph used to represent cells as nodes and nearby neighbors as edges.
-    simulation.check_neighbors()
+    Functions.check_neighbors(simulation)
 
     # Updates cells by adjusting trackers for differentiation and division based on intracellular, intercellular,
     # and extracellular conditions.
@@ -37,7 +38,7 @@ for simulation.current_step in range(simulation.beginning_step, simulation.end_s
 
     # Adds/removes cells to/from the simulation either all together or in desired groups of cells. If done in
     # groups, the handle_movement() function will be used to better represent asynchronous division and death.
-    simulation.update_queue()
+    # simulation.update_queue()
 
     # Find the nearest NANOG high, GATA6 high, and differentiated cell within a fixed radius, used for movement
     simulation.nearest()
@@ -54,10 +55,10 @@ for simulation.current_step in range(simulation.beginning_step, simulation.end_s
     simulation.handle_movement()
 
     # The first function will save a 2D image of the space, the second will create a csv with each row corresponding to
-    # an individual cell, and the last will save performance statistics to a running csv.    (base)
+    # an individual cell, and the last will save performance statistics to a running csv.
     Output.step_image(simulation)
     Output.step_csv(simulation)
     Output.simulation_data(simulation)
 
-# Ends the simulation by closing any necessary files.    (base)
+# Ends the simulation by closing any necessary files.
 Output.finish_files(simulation)
