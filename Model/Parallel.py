@@ -12,8 +12,6 @@ import math
 import numpy as np
 
 
-
-
 @cuda.jit(device=True)
 def magnitude(location_one, location_two):
     """ This is a cuda device function for
@@ -48,10 +46,6 @@ def put_cells_in_bins(number_cells, distance, bins, bins_help, cell_locations):
     return bins, bins_help
 
 
-
-
-
-
 def jkr_neighbors_gpu(number_cells, distance, edge_holder, bins, bins_help, cell_locations, cell_radii):
     """ The GPU parallelized version of jkr_neighbors()
         from the Simulation class.
@@ -79,48 +73,7 @@ def jkr_neighbors_gpu(number_cells, distance, edge_holder, bins, bins_help, cell
     return edge_holder_cuda.copy_to_host()
 
 
-@cuda.jit
-def jkr_neighbors_cuda(locations, radii, bins, bins_help, distance, edge_holder):
-    """ This is the parallelized function for checking
-        neighbors that is run numerous times.
-    """
-    # get the index in the array
-    focus = cuda.grid(1)
 
-    # checks to see that position is in the array, double-check as GPUs can be weird sometimes
-    if focus < locations.shape[0]:
-        # holds the total amount of edges for a given cell
-        edge_counter = 0
-
-        # gets the block location based on how they were inputted
-        x = int(locations[focus][0] / distance[0]) + 2
-        y = int(locations[focus][1] / distance[0]) + 2
-        z = int(locations[focus][2] / distance[0]) + 2
-
-        # looks at the blocks surrounding the current block as these are the ones containing the neighbors
-        for i in range(-1, 2):
-            for j in range(-1, 2):
-                for k in range(-1, 2):
-                    # gets the number of cells in each bin, int to prevent problems
-                    bin_count = int(bins_help[x + i][y + j][z + k])
-
-                    # loops over the cell indices in the current block
-                    for l in range(bin_count):
-                        # gets the index of the potential neighbor
-                        current = int(bins[x + i][y + j][z + k][l])
-
-                        # get the magnitude via the device function
-                        mag = magnitude(locations[focus], locations[current])
-
-                        # calculate the cell overlap
-                        overlap = radii[focus] + radii[current] - mag
-
-                        # if overlap and not the same cell add it to the edges
-                        if overlap >= 0 and focus != current:
-                            # assign the array location showing that this cell is a neighbor
-                            edge_holder[focus][edge_counter][0] = focus
-                            edge_holder[focus][edge_counter][1] = current
-                            edge_counter += 1
 
 
 def get_forces_gpu(jkr_edges, delete_jkr_edges, poisson, youngs_mod, adhesion_const, cell_locations,

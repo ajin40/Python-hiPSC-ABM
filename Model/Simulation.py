@@ -134,7 +134,7 @@ class Simulation:
 
         # neighbor graph is used to locate cells that are in close proximity, while the JKR graph holds adhesion bonds
         # between cells that are either currently overlapping or still maintain an adhesive bond
-        self.neighbor_graph, self.jkr_graph = igraph.Graph(), igraph.Graph()
+        self.neighbor_graph, self.jkr_graph = igraph.Graph(), np.empty((0, 2))
 
         # squaring the approximation of the differential
         self.dx2, self.dy2, self.dz2 = self.dx ** 2, self.dy ** 2, self.dz ** 2
@@ -961,59 +961,6 @@ def nearest_cpu(number_cells, distance, bins, bins_help, cell_locations, nearest
 
     # return the updated edges
     return nearest_gata6, nearest_nanog, nearest_diff
-
-
-@jit(nopython=True)
-def jkr_neighbors_cpu(number_cells, distance, edge_holder, bins, bins_help, cell_locations, cell_radii):
-    """ This is the Numba optimized version of
-        the jkr_neighbors function that runs
-        solely on the cpu.
-    """
-    # loops over all cells, with the current cell being the pivot of the search method
-    for focus in range(number_cells):
-        # holds the total amount of edges for a given cell
-        edge_counter = 0
-
-        # offset bins by 2 to avoid missing cells
-        block_location = cell_locations[focus] // distance + np.array([2, 2, 2])
-        x, y, z = int(block_location[0]), int(block_location[1]), int(block_location[2])
-
-        # gets the index where the cell should be placed
-        place = bins_help[x][y][z]
-
-        # adds the cell index to the bins array
-        bins[x][y][z][place] = focus
-
-        # increase the count of cell in the bin by 1
-        bins_help[x][y][z] += 1
-
-        # loop over the bins that surround the current bin
-        for i in range(-1, 2):
-            for j in range(-1, 2):
-                for k in range(-1, 2):
-                    # get the count of cells in a bin
-                    bin_count = bins_help[x + i][y + j][z + k]
-
-                    # go through the bin determining if a cell is a neighbor
-                    for l in range(bin_count):
-                        # get the index of the current cell in question
-                        current = int(bins[x + i][y + j][z + k][l])
-
-                        # get the magnitude of the distance between the cells
-                        magnitude = np.linalg.norm(cell_locations[current] - cell_locations[focus])
-
-                        # calculate the cell overlap
-                        overlap = cell_radii[current] + cell_radii[focus] - magnitude
-
-                        # if there is overlap and not the same cell add the edge
-                        if overlap >= 0 and focus != current:
-                            # update the edge array and increase the index for the next addition
-                            edge_holder[focus][edge_counter][0] = focus
-                            edge_holder[focus][edge_counter][1] = current
-                            edge_counter += 1
-
-    # return the updated edges
-    return edge_holder
 
 
 @jit(nopython=True, parallel=True)

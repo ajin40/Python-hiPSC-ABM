@@ -38,7 +38,7 @@ for simulation.current_step in range(simulation.beginning_step, simulation.end_s
 
     # Adds/removes cells to/from the simulation either all together or in desired groups of cells. If done in
     # groups, the handle_movement() function will be used to better represent asynchronous division and death.
-    simulation.update_queue()
+    # simulation.update_queue()
 
     # Find the nearest NANOG high, GATA6 high, and differentiated cell within a fixed radius, used for movement
     simulation.nearest()

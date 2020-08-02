@@ -49,9 +49,9 @@ def assign_bins(simulation, distance):
 
 
 def check_neighbors(simulation):
-    """ checks all of the distances between cells if it
-        is less than a fixed value create a connection
-        between two cells.
+    """ for all cells, determines which cells fall within
+        a fixed radius to denote a neighbor then stores
+        this information in a graph
     """
     # start time of the function
     simulation.check_neighbors_time = -1 * time.time()
@@ -99,10 +99,9 @@ def check_neighbors(simulation):
 
         # call the cpu version
         else:
-            # call the jit function with the given inputs
             edge_holder, max_array = Backend.check_neighbors_cpu(simulation.number_cells, simulation.cell_locations,
                                                                  bins, bins_help, simulation.neighbor_distance,
-                                                                 edge_holder, max_neighbors, max_array)
+                                                                 edge_holder, check_neighbors.max_neighbors, max_array)
 
         # either break the loop if all neighbors were accounted for or revalue the maximum number of neighbors
         # based on the output of the function call
@@ -127,3 +126,80 @@ def check_neighbors(simulation):
     # calculate the total time elapsed for the function
     simulation.check_neighbors_time += time.time()
 
+
+def jkr_neighbors(simulation):
+    """ for all cells, determines which cells will have
+        physical interactions with other cells returns
+        this information as an array of edges
+    """
+    # start time of the function
+    simulation.jkr_neighbors_time = -1 * time.time()
+
+    # if a static variable has not been created to hold the maximum number of neighbors, create one
+    if not hasattr(jkr_neighbors, "max_neighbors"):
+        # begin with a low number of neighbors that can be revalued if the max number of neighbors exceeds this value
+        jkr_neighbors.max_neighbors = 1
+
+    # calls the function that generates an array of bins that generalize the cell locations in addition to a
+    # helper array that assists the search method in counting cells in a particular bin
+    bins, bins_help = assign_bins(simulation, simulation.jkr_distance)
+
+    # this will run once and if all edges are included in edge_holder, the loop will break. if not this will
+    # run a second time with an updated value for number of predicted neighbors such that all edges are included
+    while True:
+        # create a 3D array used to hold edges for each of the cells
+        edge_holder = np.zeros((simulation.number_cells, jkr_neighbors.max_neighbors, 2), dtype=int)
+        max_array = np.zeros(simulation.number_cells, dtype=int)
+
+        # call the gpu version
+        if simulation.parallel:
+            # turn the following into arrays that can be interpreted by the gpu
+            bins_cuda = cuda.to_device(bins)
+            bins_help_cuda = cuda.to_device(bins_help)
+            distance_cuda = cuda.to_device(simulation.jkr_distance)
+            edge_holder_cuda = cuda.to_device(edge_holder)
+            locations_cuda = cuda.to_device(simulation.cell_locations)
+            radii_cuda = cuda.to_device(simulation.cell_radii)
+            max_array_cuda = cuda.to_device(max_array)
+
+            # sets up the correct allocation of threads and blocks
+            threads_per_block = 72
+            blocks_per_grid = math.ceil(simulation.number_cells / threads_per_block)
+
+            # calls the cuda function with the given inputs
+            Backend.jkr_neighbors_gpu[blocks_per_grid, threads_per_block](locations_cuda, radii_cuda, bins_cuda,
+                                                                          bins_help_cuda, distance_cuda,
+                                                                          edge_holder_cuda, max_array_cuda)
+            # returns the array back from the gpu
+            edge_holder = edge_holder_cuda.copy_to_host()
+            max_array = max_array_cuda.copy_to_host()
+
+        # call the cpu version
+        else:
+            edge_holder, max_array = Backend.jkr_neighbors_cpu(simulation.number_cells, simulation.jkr_distance,
+                                                               edge_holder, bins, bins_help, simulation.cell_locations,
+                                                               simulation.cell_radii, jkr_neighbors.max_neighbors,
+                                                               max_array)
+
+        # either break the loop if all neighbors were accounted for or revalue the maximum number of neighbors
+        # based on the output of the function call
+        max_neighbors = np.amax(max_array)
+        if jkr_neighbors.max_neighbors >= max_neighbors:
+            break
+        else:
+            jkr_neighbors.max_neighbors = max_neighbors
+
+    # reshape the array so that the output is compatible with the igraph library and remove leftover zero columns
+    edge_holder = edge_holder.reshape((-1, 2))
+    edge_holder = edge_holder[~np.all(edge_holder == 0, axis=1)]
+
+    # sort the array to remove duplicate edges produced by the parallel search method
+    edge_holder = np.sort(edge_holder)
+    edge_holder = np.sort(edge_holder, axis=0)
+    edge_holder = edge_holder[::2]
+
+    # add the edges to the neighbor graph and simplify the graph to remove any extraneous loops or repeated edges
+    simulation.jkr_edges = np.append(simulation.jkr_edges, edge_holder)
+
+    # calculate the total time elapsed for the function
+    simulation.jkr_neighbors_time += time.time()
