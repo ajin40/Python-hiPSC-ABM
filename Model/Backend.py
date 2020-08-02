@@ -2,6 +2,11 @@ import numpy as np
 from numba import jit, cuda, prange
 
 
+# @jit(nopython=True, para)
+
+
+
+
 
 @cuda.jit(device=True)
 def magnitude(location_one, location_two):
@@ -86,7 +91,7 @@ def check_neighbors_cpu(number_cells, distance, edge_holder, bins, bins_help, ce
 
 
 @cuda.jit
-def check_neighbors_gpu(locations, bins, bins_help, distance, edge_holder):
+def check_neighbors_gpu(locations, bins, bins_help, distance, edge_holder, error_array):
     """ This is the parallelized function for checking
         neighbors that is run numerous times.
     """
@@ -122,5 +127,4 @@ def check_neighbors_gpu(locations, bins, bins_help, distance, edge_holder):
                             edge_holder[focus][edge_counter][1] = current
                             edge_counter += 1
 
-
-
+        error_array[focus] = edge_counter
