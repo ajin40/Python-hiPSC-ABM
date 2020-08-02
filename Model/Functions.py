@@ -127,6 +127,35 @@ def check_neighbors(simulation):
     simulation.check_neighbors_time += time.time()
 
 
+def handle_movement(simulation):
+    """ runs the following functions together for a
+        given time amount. Resets the force and
+        velocity arrays as well.
+    """
+    # start time
+    simulation.handle_movement_time = -1 * time.time()
+
+    # get the total amount of times the cells will be incrementally moved during the step
+    steps = math.ceil(simulation.time_step_value / simulation.move_time_step)
+
+    # run the following functions consecutively for the given amount of steps
+    for i in range(steps):
+        # update the jkr neighbors
+        jkr_neighbors(simulation)
+
+        # calculate the forces acting on each cell
+        get_forces(simulation)
+
+        # turn the forces into movement
+        apply_forces(simulation)
+
+    # reset all forces back to zero vectors
+    simulation.cell_motility_force = np.zeros((simulation.number_cells, 3))
+
+    # end time
+    simulation.handle_movement_time += time.time()
+
+
 def jkr_neighbors(simulation):
     """ for all cells, determines which cells will have
         physical interactions with other cells returns
@@ -203,3 +232,84 @@ def jkr_neighbors(simulation):
 
     # calculate the total time elapsed for the function
     simulation.jkr_neighbors_time += time.time()
+
+
+def get_forces(simulation):
+    """ goes through all of the cells and quantifies any forces
+        arising from adhesion or repulsion between cells
+    """
+    # create
+    delete_edges = np.zeros(len(jkr_edges), dtype=int)
+
+    # do not continue if no edges, will cause errors if arrays are empty
+    if len(jkr_edges) > 0:
+        # call the gpu version
+        if self.parallel:
+            # convert these arrays into a form able to be read by the GPU
+            jkr_edges_cuda = cuda.to_device(jkr_edges)
+            delete_jkr_edges_cuda = cuda.to_device(delete_jkr_edges)
+            poisson_cuda = cuda.to_device(poisson)
+            youngs_cuda = cuda.to_device(youngs_mod)
+            adhesion_const_cuda = cuda.to_device(adhesion_const)
+            forces_cuda = cuda.to_device(cell_jkr_force)
+            locations_cuda = cuda.to_device(cell_locations)
+            radii_cuda = cuda.to_device(cell_radii)
+
+            # sets up the correct allocation of threads and blocks
+            threads_per_block = 72
+            blocks_per_grid = math.ceil(len(jkr_edges) / threads_per_block)
+
+            # call the cuda function
+            Backend.get_forces_gpu[blocks_per_grid, threads_per_block](jkr_edges_cuda, delete_jkr_edges_cuda, locations_cuda,
+                                                                radii_cuda, forces_cuda, poisson_cuda, youngs_cuda,
+                                                                adhesion_const_cuda)
+
+            # return the new forces and the edges to be deleted
+            forces_cuda.copy_to_host(), delete_jkr_edges_cuda.copy_to_host()
+        # call the cpu version
+        else:
+            forces, delete_edges = get_forces_cpu(jkr_edges, delete_edges, self.poisson, self.youngs_mod,
+                                                  self.adhesion_const, self.cell_locations, self.cell_radii,
+                                                  self.cell_jkr_force)
+
+        # update the jkr graph to remove an edges that have be broken and update the cell jkr forces
+        self.jkr_graph.delete_edges(delete_edges)
+        self.cell_jkr_force = forces
+
+
+def apply_forces(self):
+    """ Turns the active motility/division forces
+        and inactive JKR forces into movement
+    """
+    # call the gpu version
+    if self.parallel:
+        # prevents the need for having the numba library if it's not installed
+        # turn those arrays into gpu arrays
+        jkr_forces_cuda = cuda.to_device(cell_jkr_force)
+        motility_forces_cuda = cuda.to_device(cell_motility_force)
+        locations_cuda = cuda.to_device(cell_locations)
+        radii_cuda = cuda.to_device(cell_radii)
+        viscosity_cuda = cuda.to_device(viscosity)
+        size_cuda = cuda.to_device(size)
+        move_time_step_cuda = cuda.to_device(move_time_step)
+
+        # sets up the correct allocation of threads and blocks
+        threads_per_block = 72
+        blocks_per_grid = math.ceil(number_cells / threads_per_block)
+
+        # call the cuda function
+        apply_forces_cuda[blocks_per_grid, threads_per_block](jkr_forces_cuda, motility_forces_cuda, locations_cuda,
+                                                              radii_cuda, viscosity_cuda, size_cuda,
+                                                              move_time_step_cuda)
+        # return the new cell locations from the gpu
+        locations_cuda.copy_to_host()
+    # call the cpu version
+    else:
+        new_locations = apply_forces_cpu(self.number_cells, self.cell_jkr_force, self.cell_motility_force,
+                                         self.cell_locations, self.cell_radii, self.viscosity, self.size,
+                                         self.move_time_step)
+
+    # update the locations and reset the jkr forces back to zero
+    self.cell_locations = new_locations
+    self.cell_jkr_force = np.zeros((self.number_cells, 3))
+

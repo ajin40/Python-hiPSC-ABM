@@ -270,7 +270,6 @@ class Simulation:
         # add it to the following graphs, this is done implicitly by increasing the length of the vertex list by
         # one, which the indices directly correspond to the cell holder arrays
         self.neighbor_graph.add_vertex()
-        self.jkr_graph.add_vertex()
 
         # revalue the total number of cells
         self.number_cells += 1
@@ -301,7 +300,6 @@ class Simulation:
         # remove the particular index from the following graphs as these deal in terms of indices
         # this will adjust edges as the indices change, so no worries here
         self.neighbor_graph.delete_vertices(index)
-        self.jkr_graph.delete_vertices(index)
 
         # revalue the number of cells
         self.number_cells -= 1
@@ -700,114 +698,6 @@ class Simulation:
         # end time
         self.nearest_diff_time += time.time()
 
-    def jkr_neighbors(self):
-        """ finds all pairs of cells that are either touching
-            or overlapping adds this to the running JKR graph.
-        """
-        # provide an idea of the maximum number of neighbors for a cell
-        max_neighbors = 15
-        edge_holder = np.zeros((self.number_cells, max_neighbors, 2), dtype=int)
-
-        # divides the space into bins and gives a holder of fixed size for each bin, the addition of 5 offsets
-        # the space to prevent any errors, and 100 is the max cells for a bin which can be changed given errors
-        bins_size = self.size // self.jkr_distance + np.array([5, 5, 5])
-        bins_size_help = tuple(bins_size.astype(int))
-        bins_size = np.append(bins_size, 100)
-        bins_size = tuple(bins_size.astype(int))
-
-        # an empty array used to represent the bins the cells are put into
-        bins = np.empty(bins_size, dtype=int)
-
-        # an array used to accelerate the function by eliminating the lookup for number of cells in a bin
-        bins_help = np.zeros(bins_size_help, dtype=int)
-
-        # call the gpu version
-        if self.parallel:
-            edge_holder = Parallel.jkr_neighbors_gpu(self.number_cells, self.jkr_distance, edge_holder, bins,
-                                                     bins_help, self.cell_locations, self.cell_radii)
-        # call the cpu version
-        else:
-            edge_holder = jkr_neighbors_cpu(self.number_cells, self.jkr_distance, edge_holder, bins, bins_help,
-                                            self.cell_locations, self.cell_radii)
-
-        # reshape the array for the igraph library, add the new edges, and remove any duplicate edges or loops
-        edge_holder = edge_holder.reshape((-1, 2))
-        self.jkr_graph.add_edges(edge_holder)
-        self.jkr_graph.simplify()
-
-    def handle_movement(self):
-        """ runs the following functions together for a
-            given time amount. Resets the force and
-            velocity arrays as well.
-        """
-        # start time
-        self.handle_movement_time = -1 * time.time()
-
-        # get the total amount of times the cells will be incrementally moved during the step
-        steps = math.ceil(self.time_step_value / self.move_time_step)
-
-        # run the following functions consecutively for the given amount of steps
-        for i in range(steps):
-            # update the jkr neighbors
-            self.jkr_neighbors()
-
-            # calculate the forces acting on each cell
-            self.get_forces()
-
-            # turn the forces into movement
-            self.apply_forces()
-
-        # reset all forces back to zero vectors
-        self.cell_motility_force = np.zeros((self.number_cells, 3))
-
-        # end time
-        self.handle_movement_time += time.time()
-
-    def get_forces(self):
-        """ goes through all of the cells and quantifies any forces arising
-            from adhesion or repulsion between the cells
-        """
-        # get the updated edges of the jkr graph
-        jkr_edges = np.array(self.jkr_graph.get_edgelist())
-        delete_edges = np.zeros(len(jkr_edges), dtype=int)
-
-        # do not continue if no edges, will cause errors if arrays are empty
-        if len(jkr_edges) > 0:
-            # call the gpu version
-            if self.parallel:
-                forces, delete_edges = Parallel.get_forces_gpu(jkr_edges, delete_edges, self.poisson, self.youngs_mod,
-                                                               self.adhesion_const, self.cell_locations,
-                                                               self.cell_radii, self.cell_jkr_force)
-            # call the cpu version
-            else:
-                forces, delete_edges = get_forces_cpu(jkr_edges, delete_edges, self.poisson, self.youngs_mod,
-                                                      self.adhesion_const, self.cell_locations, self.cell_radii,
-                                                      self.cell_jkr_force)
-
-            # update the jkr graph to remove an edges that have be broken and update the cell jkr forces
-            self.jkr_graph.delete_edges(delete_edges)
-            self.cell_jkr_force = forces
-
-    def apply_forces(self):
-        """ Turns the active motility/division forces
-            and inactive JKR forces into movement
-        """
-        # call the gpu version
-        if self.parallel:
-            # prevents the need for having the numba library if it's not installed
-            new_locations = Parallel.apply_forces_gpu(self.number_cells, self.cell_jkr_force, self.cell_motility_force,
-                                                      self.cell_locations, self.cell_radii, self.viscosity, self.size,
-                                                      self.move_time_step)
-        # call the cpu version
-        else:
-            new_locations = apply_forces_cpu(self.number_cells, self.cell_jkr_force, self.cell_motility_force,
-                                             self.cell_locations, self.cell_radii, self.viscosity, self.size,
-                                             self.move_time_step)
-
-        # update the locations and reset the jkr forces back to zero
-        self.cell_locations = new_locations
-        self.cell_jkr_force = np.zeros((self.number_cells, 3))
-
     def random_vector(self):
         """ Computes a random point on a unit sphere centered at the origin
             Returns - point [x,y,z]
@@ -961,95 +851,6 @@ def nearest_cpu(number_cells, distance, bins, bins_help, cell_locations, nearest
 
     # return the updated edges
     return nearest_gata6, nearest_nanog, nearest_diff
-
-
-@jit(nopython=True, parallel=True)
-def get_forces_cpu(jkr_edges, delete_jkr_edges, poisson, youngs_mod, adhesion_const, cell_locations,
-                   cell_radii, cell_jkr_force):
-    """ This is the Numba optimized version of
-        the get_forces function that runs
-        solely on the cpu.
-    """
-    # loops over the jkr edges in parallel
-    for i in prange(len(jkr_edges)):
-        # get the indices of the nodes in the edge
-        index_1 = jkr_edges[i][0]
-        index_2 = jkr_edges[i][1]
-
-        # hold the vector between the centers of the cells and the magnitude of this vector
-        disp_vector = cell_locations[index_1] - cell_locations[index_2]
-        magnitude = np.linalg.norm(disp_vector)
-        normal = np.array([0.0, 0.0, 0.0])
-
-        # the parallel jit prefers reductions so it's better to initialize the value of the normal and revalue it
-        if magnitude != 0:
-            normal += disp_vector / magnitude
-
-        # get the total overlap of the cells used later in calculations
-        overlap = cell_radii[index_1] + cell_radii[index_2] - magnitude
-
-        # gets two values used for JKR
-        e_hat = (((1 - poisson ** 2) / youngs_mod) + ((1 - poisson ** 2) / youngs_mod)) ** -1
-        r_hat = ((1 / cell_radii[index_1]) + (1 / cell_radii[index_2])) ** -1
-
-        # used to calculate the max adhesive distance after bond has been already formed
-        overlap_ = (((math.pi * adhesion_const) / e_hat) ** (2 / 3)) * (r_hat ** (1 / 3))
-
-        # get the nondimensionalized overlap, used for later calculations and checks
-        # also for the use of a polynomial approximation of the force
-        d = overlap / overlap_
-
-        # check to see if the cells will have a force interaction
-        if d > -0.360562:
-            # plug the value of d into the nondimensionalized equation for the JKR force
-            f = (-0.0204 * d ** 3) + (0.4942 * d ** 2) + (1.0801 * d) - 1.324
-
-            # convert from the nondimensionalization to find the adhesive force
-            jkr_force = f * math.pi * adhesion_const * r_hat
-
-            # adds the adhesive force as a vector in opposite directions to each cell's force holder
-            cell_jkr_force[index_1] += jkr_force * normal
-            cell_jkr_force[index_2] -= jkr_force * normal
-
-        # remove the edge if the it fails to meet the criteria for distance, JKR simulating that
-        # the bond is broken
-        else:
-            delete_jkr_edges[i] = i
-
-    # return the updated jkr forces and the edges to be deleted
-    return cell_jkr_force, delete_jkr_edges
-
-
-@jit(nopython=True, parallel=True)
-def apply_forces_cpu(number_cells, cell_jkr_force, cell_motility_force, cell_locations, cell_radii, viscosity, size,
-                     move_time_step):
-    """ This is the Numba optimized version of
-        the apply_forces function that runs
-        solely on the cpu.
-    """
-    # loops over all cells using the explicit parallel loop from Numba
-    for i in prange(number_cells):
-        # stokes law for velocity based on force and fluid viscosity
-        stokes_friction = 6 * math.pi * viscosity * cell_radii[i]
-
-        # update the velocity of the cell based on the solution
-        velocity = (cell_motility_force[i] + cell_jkr_force[i]) / stokes_friction
-
-        # set the possible new location
-        new_location = cell_locations[i] + velocity * move_time_step
-
-        # loops over all directions of space
-        for j in range(0, 3):
-            # check if new location is in environment space if not simulation a collision with the bounds
-            if new_location[j] > size[j]:
-                cell_locations[i][j] = size[j]
-            elif new_location[j] < 0:
-                cell_locations[i][j] = 0.0
-            else:
-                cell_locations[i][j] = new_location[j]
-
-    # return the updated cell locations
-    return cell_locations
 
 
 @jit(nopython=True)
