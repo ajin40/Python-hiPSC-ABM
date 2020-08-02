@@ -6,6 +6,48 @@ import math
 import Backend
 
 
+def assign_bins(simulation, distance):
+    """ generalizes cell locations to a bin within a multi-
+        dimensional array, used for a parallel fixed-radius
+        neighbor search
+    """
+    # if a static variable has not been created to hold the maximum number of cells in a bin, create one
+    if not hasattr(assign_bins, "max_cells"):
+        # begin with a low number of cells that can be revalued if the max number of cells exceeds this value
+        assign_bins.max_cells = 1
+
+    # if there is enough space for all cells that should be in a bin, break out of the loop. if there isn't
+    # enough space update the amount of needed space and re-put the cells in bins
+    while True:
+        # calculate the size of the array used to represent the bins and the bins helper array, include extra bins
+        # for cells that may fall outside of the space
+        bins_size = simulation.size // distance + np.array([5, 5, 5])
+        bins_size_help = tuple(bins_size.astype(int))
+        bins_size = np.append(bins_size, assign_bins.max_cells)
+        bins_size = tuple(bins_size.astype(int))
+
+        # an empty array used to represent the bins the cells are put into
+        bins = np.empty(bins_size, dtype=int)
+
+        # an array used to accelerate the search method by eliminating the lookup for number of cells in a bin
+        bins_help = np.zeros(bins_size_help, dtype=int)
+
+        # assign the cells to bins so that the searches may be parallel
+        bins, bins_help = Backend.assign_bins_cpu(simulation.number_cells, simulation.neighbor_distance, bins,
+                                                  bins_help, simulation.cell_locations)
+
+        # either break the loop if all cells were accounted for or revalue the maximum number of cells based on
+        # the output of the function call
+        max_cells = np.amax(bins_help)
+        if assign_bins.max_cells >= max_cells:
+            break
+        else:
+            assign_bins.max_cells = max_cells
+
+    # return the two arrays
+    return bins, bins_help
+
+
 def check_neighbors(simulation):
     """ checks all of the distances between cells if it
         is less than a fixed value create a connection
@@ -16,37 +58,19 @@ def check_neighbors(simulation):
 
     # if a static variable has not been created to hold the maximum number of neighbors, create one
     if not hasattr(check_neighbors, "max_neighbors"):
-        # begin with a low number of neighbors that can be revalued if the number of neighbors exceeds this value
-        check_neighbors.max_neighbors = 20
+        # begin with a low number of neighbors that can be revalued if the max number of neighbors exceeds this value
+        check_neighbors.max_neighbors = 1
 
     # clear all of the edges in the neighbor graph
     simulation.neighbor_graph.delete_edges(None)
 
-    # divides the space into bins and gives a holder of fixed size for each bin, the addition of 5 offsets
-    # the space to prevent any errors, and 100 is the max cells for a bin which can be changed given errors
-    bins_size = simulation.size // simulation.neighbor_distance + np.array([5, 5, 5])
-    bins_size_help = tuple(bins_size.astype(int))
-    bins_size = np.append(bins_size, 100)
-    bins_size = tuple(bins_size.astype(int))
-
-    # an empty array used to represent the bins the cells are put into
-    bins = np.empty(bins_size, dtype=int)
-
-    # an array used to accelerate the function by eliminating the lookup for number of cells in a bin
-    bins_help = np.zeros(bins_size_help, dtype=int)
-
-    # assign the cells to bins so that the searches may be parallel
-    bins, bins_help = Backend.put_cells_in_bins(simulation.number_cells, simulation.neighbor_distance, bins,
-                                                bins_help, simulation.cell_locations)
+    # calls the function that generates an array of bins that generalize the cell locations in addition to a
+    # helper array that assists the search method in counting cells in a particular bin
+    bins, bins_help = assign_bins(simulation, simulation.neighbor_distance)
 
     # this will run once and if all edges are included in edge_holder, the loop will break. if not this will
     # run a second time with an updated value for number of predicted neighbors such that all edges are included
-    # initial condition for starting the while-loop
-    max_neighbors = check_neighbors.max_neighbors + 1
-    while max_neighbors > check_neighbors.max_neighbors:
-        # revalue the static variable to the maximum number of neighbors
-        check_neighbors.max_neighbors = max_neighbors
-
+    while True:
         # create a 3D array used to hold edges for each of the cells
         edge_holder = np.zeros((simulation.number_cells, check_neighbors.max_neighbors, 2), dtype=int)
         max_array = np.zeros(simulation.number_cells, dtype=int)
@@ -79,8 +103,14 @@ def check_neighbors(simulation):
             edge_holder, max_array = Backend.check_neighbors_cpu(simulation.number_cells, simulation.cell_locations,
                                                                  bins, bins_help, simulation.neighbor_distance,
                                                                  edge_holder, max_neighbors, max_array)
-        # revalue the max_neighbors based on the output array
+
+        # either break the loop if all neighbors were accounted for or revalue the maximum number of neighbors
+        # based on the output of the function call
         max_neighbors = np.amax(max_array)
+        if check_neighbors.max_neighbors >= max_neighbors:
+            break
+        else:
+            check_neighbors.max_neighbors = max_neighbors
 
     # reshape the array so that the output is compatible with the igraph library and remove leftover zero columns
     edge_holder = edge_holder.reshape((-1, 2))
@@ -96,3 +126,4 @@ def check_neighbors(simulation):
 
     # calculate the total time elapsed for the function
     simulation.check_neighbors_time += time.time()
+

@@ -2,12 +2,6 @@ import numpy as np
 from numba import jit, cuda, prange
 
 
-# @jit(nopython=True, para)
-
-
-
-
-
 @cuda.jit(device=True)
 def magnitude(location_one, location_two):
     """ This is a cuda device function for
@@ -21,7 +15,7 @@ def magnitude(location_one, location_two):
 
 
 @jit(nopython=True)
-def put_cells_in_bins(number_cells, distance, bins, bins_help, cell_locations):
+def assign_bins_cpu(number_cells, distance, bins, bins_help, cell_locations):
     """ Helps speed up the process of assigning
         cells to bins
     """
