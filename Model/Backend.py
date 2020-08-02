@@ -43,28 +43,19 @@ def put_cells_in_bins(number_cells, distance, bins, bins_help, cell_locations):
 
 
 @jit(nopython=True)
-def check_neighbors_cpu(number_cells, distance, edge_holder, bins, bins_help, cell_locations):
+def check_neighbors_cpu(number_cells, cell_locations, bins, bins_help, distance, edge_holder, max_neighbors, max_array):
     """ This is the Numba optimized version of
         the check_neighbors function that runs
         solely on the cpu.
     """
     # loops over all cells, with the current cell being the focus of the search method
-    for focus in range(number_cells):
+    for focus in prange(number_cells):
         # holds the total amount of edges for a given cell
         edge_counter = 0
 
         # offset bins by 2 to avoid missing cells
         block_location = cell_locations[focus] // distance + np.array([2, 2, 2])
         x, y, z = int(block_location[0]), int(block_location[1]), int(block_location[2])
-
-        # gets the index where the cell should be placed
-        place = bins_help[x][y][z]
-
-        # adds the cell index to the bins array
-        bins[x][y][z][place] = focus
-
-        # increase the count of cell in the bin by 1
-        bins_help[x][y][z] += 1
 
         # loop over the bins that surround the current bin
         for i in range(-1, 2):
@@ -81,13 +72,19 @@ def check_neighbors_cpu(number_cells, distance, edge_holder, bins, bins_help, ce
                         # check to see if that cell is within the search radius
                         vector = cell_locations[current] - cell_locations[focus]
                         if np.linalg.norm(vector) <= distance and focus != current:
-                            # update the edge array and increase the index for the next addition
-                            edge_holder[focus][edge_counter][0] = focus
-                            edge_holder[focus][edge_counter][1] = current
+                            #
+                            if edge_counter < max_neighbors:
+                                # update the edge array and increase the index for the next addition
+                                edge_holder[focus][edge_counter][0] = focus
+                                edge_holder[focus][edge_counter][1] = current
                             edge_counter += 1
 
-    # return the updated edges
-    return edge_holder
+        # update the error array with the total number of edges per cell, if there are more neighbors than expected
+        # the function will run again with the correct number of neighbors
+        max_array[focus] = edge_counter
+
+    # return the updated edges and the array with the counts of neighbors per cell
+    return edge_holder, max_array
 
 
 @cuda.jit
@@ -127,4 +124,6 @@ def check_neighbors_gpu(locations, bins, bins_help, distance, edge_holder, error
                             edge_holder[focus][edge_counter][1] = current
                             edge_counter += 1
 
+        # update the error array with the total number of edges per cell, if there are more neighbors than expected
+        # the function will run again with the correct number of neighbors
         error_array[focus] = edge_counter
