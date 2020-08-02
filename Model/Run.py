@@ -28,6 +28,9 @@ for simulation.current_step in range(simulation.beginning_step, simulation.end_s
 
     # Refreshes the graph used to represent cells as nodes and nearby neighbors as edges.
     Functions.check_neighbors(simulation)
+    print(len(simulation.neighbor_graph.get_edgelist()))
+    Functions.check_neighbors_slow(simulation)
+    print(len(simulation.neighbor_graph.get_edgelist()))
 
     # Updates cells by adjusting trackers for differentiation and division based on intracellular, intercellular,
     # and extracellular conditions.

@@ -17,7 +17,7 @@ def check_neighbors(simulation):
     # if a static variable has not been created to hold the maximum number of neighbors, create one
     if not hasattr(check_neighbors, "max_neighbors"):
         # begin with a low number of neighbors that can be revalued if the number of neighbors exceeds this value
-        check_neighbors.max_neighbors = 2
+        check_neighbors.max_neighbors = 20
 
     # clear all of the edges in the neighbor graph
     simulation.neighbor_graph.delete_edges(None)
@@ -87,12 +87,12 @@ def check_neighbors(simulation):
     edge_holder = edge_holder[~np.all(edge_holder == 0, axis=1)]
 
     # sort the array to remove duplicate edges produced by the parallel search method
+    edge_holder = np.sort(edge_holder)
     edge_holder = np.sort(edge_holder, axis=0)
     edge_holder = edge_holder[::2]
 
-    # add the edges to the neighbor graph and simplify the graph to remove any extraneous loops or repreated edges
+    # add the edges to the neighbor graph and simplify the graph to remove any extraneous loops or repeated edges
     simulation.neighbor_graph.add_edges(edge_holder)
-    simulation.neighbor_graph.simplify()
 
     # calculate the total time elapsed for the function
     simulation.check_neighbors_time += time.time()
