@@ -17,24 +17,21 @@ def assign_bins(simulation, distance):
         assign_bins.max_cells = 5
 
     # if there is enough space for all cells that should be in a bin, break out of the loop. if there isn't
-    # enough space update the amount of needed space and re-put the cells in bins
+    # enough space update the amount of needed space and re-put the cells in bins. this will run once if the prediction
+    # of max neighbors is correct, twice if it isn't the first time
     while True:
         # calculate the size of the array used to represent the bins and the bins helper array, include extra bins
         # for cells that may fall outside of the space
-        bins_size = simulation.size // distance + np.array([5, 5, 5])
-        bins_size_help = tuple(bins_size.astype(int))
-        bins_size = np.append(bins_size, assign_bins.max_cells)
-        bins_size = tuple(bins_size.astype(int))
+        bins_help_size = np.ceil(simulation.size / distance).astype(int) + np.array([5, 5, 5], dtype=int)
+        bins_size = np.append(bins_help_size, assign_bins.max_cells)
 
-        # an empty array used to represent the bins the cells are put into
+        # create the arrays for "bins" and "bins_help"
+        bins_help = np.zeros(bins_help_size, dtype=int)
         bins = np.empty(bins_size, dtype=int)
 
-        # an array used to accelerate the search method by eliminating the lookup for number of cells in a bin
-        bins_help = np.zeros(bins_size_help, dtype=int)
-
         # assign the cells to bins so that the searches may be parallel
-        bins, bins_help = Backend.assign_bins_cpu(simulation.number_cells, distance, bins, bins_help,
-                                                  simulation.cell_locations)
+        bins, bins_help = Backend.assign_bins_cpu(simulation.number_cells, simulation.cell_locations, distance, bins,
+                                                  bins_help)
 
         # either break the loop if all cells were accounted for or revalue the maximum number of cells based on
         # the output of the function call

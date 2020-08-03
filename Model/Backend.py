@@ -5,35 +5,41 @@ import math
 
 @cuda.jit(device=True)
 def magnitude(location_one, location_two):
-    """ This is a cuda device function for
-        finding magnitude given two vectors
+    """ this is the cuda kernel device function that is used
+        to calculate the magnitude between two points
     """
-    total = 0
-    for i in range(0, 3):
-        total += (location_one[i] - location_two[i]) ** 2
+    # hold the value as the function runs
+    count = 0
 
-    return total ** 0.5
+    # go through x, y, and z coordinates
+    for i in range(0, 3):
+        count += (location_one[i] - location_two[i]) ** 2
+
+    # return the magnitude
+    return count ** 0.5
 
 
 @jit(nopython=True)
-def assign_bins_cpu(number_cells, distance, bins, bins_help, cell_locations):
-    """ Helps speed up the process of assigning
-        cells to bins
+def assign_bins_cpu(number_cells, cell_locations, distance, bins, bins_help):
+    """ this does the actual calculation for the assign_bins
+        function.
     """
+    # go through all cells
     for i in range(number_cells):
-        # offset bins by 2 to avoid missing cells
+        # generalize location and offset it by 2 to avoid missing cells
         block_location = cell_locations[i] // distance + np.array([2, 2, 2])
         x, y, z = int(block_location[0]), int(block_location[1]), int(block_location[2])
 
-        # use the help array to place the cells in corresponding bins
+        # use the help array to get the new index for the cell in the bin
         place = bins_help[x][y][z]
 
-        # gives the cell's array location
+        # adds the index in the cell array to the bin
         bins[x][y][z][place] = i
 
-        # updates the total amount cells in a bin
+        # update the number of cells in a bin
         bins_help[x][y][z] += 1
 
+    # return the arrays now filled with cell indices
     return bins, bins_help
 
 
