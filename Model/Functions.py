@@ -45,10 +45,28 @@ def assign_bins(simulation, distance):
     return bins, bins_help
 
 
+def clean_edges(edges):
+    """ takes edges from "check_neighbors" and "jkr_neighbors"
+        search methods and returns an array of edges that is
+        free of duplicates and loops
+    """
+    # reshape the array so that the output is compatible with the igraph library and remove leftover zero columns
+    edges = edges.reshape((-1, 2))
+    edges = edges[~np.all(edges == 0, axis=1)]
+
+    # sort the array to remove duplicate edges produced by the parallel search method
+    edges = np.sort(edges)
+    edges = edges[np.lexsort(np.fliplr(edges).T)]
+    edges = edges[::2]
+
+    # send the edges back
+    return edges
+
+
 def check_neighbors(simulation):
-    """ for all cells, determines which cells fall within
-        a fixed radius to denote a neighbor then stores
-        this information in a graph
+    """ for all cells, determines which cells fall within a fixed
+        radius to denote a neighbor then stores this information
+        in a graph (uses a bin/bucket sorting method)
     """
     # start time of the function
     simulation.check_neighbors_time = -1 * time.time()
@@ -56,7 +74,7 @@ def check_neighbors(simulation):
     # if a static variable has not been created to hold the maximum number of neighbors, create one
     if not hasattr(check_neighbors, "max_neighbors"):
         # begin with a low number of neighbors that can be revalued if the max number of neighbors exceeds this value
-        check_neighbors.max_neighbors = 1
+        check_neighbors.max_neighbors = 5
 
     # clear all of the edges in the neighbor graph
     simulation.neighbor_graph.delete_edges(None)
@@ -68,11 +86,11 @@ def check_neighbors(simulation):
     # this will run once and if all edges are included in edge_holder, the loop will break. if not this will
     # run a second time with an updated value for number of predicted neighbors such that all edges are included
     while True:
-        # create a 3D array used to hold edges for each of the cells
+        # create a 3D array used to hold edges for all cells
         edge_holder = np.zeros((simulation.number_cells, check_neighbors.max_neighbors, 2), dtype=int)
         max_array = np.zeros(simulation.number_cells, dtype=int)
 
-        # call the gpu version
+        # call the nvidia gpu version
         if simulation.parallel:
             # turn the following into arrays that can be interpreted by the gpu
             bins_cuda = cuda.to_device(bins)
@@ -82,15 +100,15 @@ def check_neighbors(simulation):
             locations_cuda = cuda.to_device(simulation.cell_locations)
             max_array_cuda = cuda.to_device(max_array)
 
-            # sets up the correct allocation of threads and blocks
+            # allocate threads and blocks for gpu memory
             threads_per_block = 72
             blocks_per_grid = math.ceil(simulation.number_cells / threads_per_block)
 
-            # calls the cuda function with the given inputs
+            # call the cuda kernel with given parameters
             Backend.check_neighbors_gpu[blocks_per_grid, threads_per_block](locations_cuda, bins_cuda, bins_help_cuda,
                                                                             distance_cuda, edge_holder_cuda,
                                                                             max_array_cuda)
-            # returns the array back from the gpu
+            # return the arrays back from the gpu
             edge_holder = edge_holder_cuda.copy_to_host()
             max_array = max_array_cuda.copy_to_host()
 
@@ -98,7 +116,7 @@ def check_neighbors(simulation):
         else:
             edge_holder, max_array = Backend.check_neighbors_cpu(simulation.number_cells, simulation.cell_locations,
                                                                  bins, bins_help, simulation.neighbor_distance,
-                                                                 edge_holder, check_neighbors.max_neighbors, max_array)
+                                                                 edge_holder, max_array, check_neighbors.max_neighbors)
 
         # either break the loop if all neighbors were accounted for or revalue the maximum number of neighbors
         # based on the output of the function call
@@ -108,14 +126,8 @@ def check_neighbors(simulation):
         else:
             check_neighbors.max_neighbors = max_neighbors
 
-    # reshape the array so that the output is compatible with the igraph library and remove leftover zero columns
-    edge_holder = edge_holder.reshape((-1, 2))
-    edge_holder = edge_holder[~np.all(edge_holder == 0, axis=1)]
-
-    # sort the array to remove duplicate edges produced by the parallel search method
-    edge_holder = np.sort(edge_holder)
-    edge_holder = edge_holder[np.lexsort(np.fliplr(edge_holder).T)]
-    edge_holder = edge_holder[::2]
+    # remove duplicates and loops from the array as these slow down "add_edges"
+    edge_holder = clean_edges(edge_holder)
 
     # add the edges to the neighbor graph and simplify the graph to remove any extraneous loops or repeated edges
     simulation.neighbor_graph.add_edges(edge_holder)
@@ -164,7 +176,7 @@ def jkr_neighbors(simulation):
     # if a static variable has not been created to hold the maximum number of neighbors, create one
     if not hasattr(jkr_neighbors, "max_neighbors"):
         # begin with a low number of neighbors that can be revalued if the max number of neighbors exceeds this value
-        jkr_neighbors.max_neighbors = 10
+        jkr_neighbors.max_neighbors = 5
 
     # calls the function that generates an array of bins that generalize the cell locations in addition to a
     # helper array that assists the search method in counting cells in a particular bin
@@ -177,7 +189,7 @@ def jkr_neighbors(simulation):
         edge_holder = np.zeros((simulation.number_cells, jkr_neighbors.max_neighbors, 2), dtype=int)
         max_array = np.zeros(simulation.number_cells, dtype=int)
 
-        # call the gpu version
+        # call the nvidia gpu version
         if simulation.parallel:
             # turn the following into arrays that can be interpreted by the gpu
             bins_cuda = cuda.to_device(bins)
@@ -188,15 +200,15 @@ def jkr_neighbors(simulation):
             radii_cuda = cuda.to_device(simulation.cell_radii)
             max_array_cuda = cuda.to_device(max_array)
 
-            # sets up the correct allocation of threads and blocks
+            # allocate threads and blocks for gpu memory
             threads_per_block = 72
             blocks_per_grid = math.ceil(simulation.number_cells / threads_per_block)
 
-            # calls the cuda function with the given inputs
+            # call the cuda kernel with given parameters
             Backend.jkr_neighbors_gpu[blocks_per_grid, threads_per_block](locations_cuda, radii_cuda, bins_cuda,
                                                                           bins_help_cuda, distance_cuda,
                                                                           edge_holder_cuda, max_array_cuda)
-            # returns the array back from the gpu
+            # return the arrays back from the gpu
             edge_holder = edge_holder_cuda.copy_to_host()
             max_array = max_array_cuda.copy_to_host()
 
@@ -215,16 +227,10 @@ def jkr_neighbors(simulation):
         else:
             jkr_neighbors.max_neighbors = max_neighbors
 
-    # reshape the array so that the output is compatible with the igraph library and remove leftover zero columns
-    edge_holder = edge_holder.reshape((-1, 2))
-    edge_holder = edge_holder[~np.all(edge_holder == 0, axis=1)]
+    # remove duplicates and loops from the array as these slow down "add_edges"
+    edge_holder = clean_edges(edge_holder)
 
-    # sort the array to remove duplicate edges produced by the parallel search method
-    edge_holder = np.sort(edge_holder)
-    edge_holder = edge_holder[np.lexsort(np.fliplr(edge_holder).T)]
-    edge_holder = edge_holder[::2]
-
-    # add the edges and simplify the graph
+    # add the edges and simplify the graph as this is a running graph that is never cleared
     simulation.jkr_graph.add_edges(edge_holder)
     simulation.jkr_graph.simplify()
 

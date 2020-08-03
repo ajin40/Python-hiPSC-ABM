@@ -44,7 +44,7 @@ def assign_bins_cpu(number_cells, cell_locations, distance, bins, bins_help):
 
 
 @jit(nopython=True, parallel=True)
-def check_neighbors_cpu(number_cells, cell_locations, bins, bins_help, distance, edge_holder, max_neighbors, max_array):
+def check_neighbors_cpu(number_cells, cell_locations, bins, bins_help, distance, edge_holder, max_array, max_neighbors):
     """ This is the Numba optimized version of
         the check_neighbors function that runs
         solely on the cpu.
