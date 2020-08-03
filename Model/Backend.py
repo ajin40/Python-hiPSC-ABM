@@ -45,8 +45,7 @@ def assign_bins(simulation, distance):
         bins = np.empty(bins_size, dtype=int)
 
         # assign the cells to bins so that the searches may be parallel
-        bins, bins_help = assign_bins_cpu(simulation.number_cells, simulation.cell_locations, distance, bins,
-                                                  bins_help)
+        bins, bins_help = assign_bins_cpu(simulation.number_cells, simulation.cell_locations, distance, bins, bins_help)
 
         # either break the loop if all cells were accounted for or revalue the maximum number of cells based on
         # the output of the function call
@@ -353,7 +352,7 @@ def get_forces_gpu(jkr_edges, delete_edges, locations, radii, forces, poisson, y
     # get the index in the array
     edge_index = cuda.grid(1)
 
-    # checks to see that position is in the array, double-check as GPUs can be weird sometimes
+    # checks to see that position is in the array
     if edge_index < jkr_edges.shape[0]:
         # get the indices of the edge
         cell_1 = jkr_edges[edge_index][0]
@@ -437,7 +436,7 @@ def apply_forces_cpu(number_cells, cell_jkr_force, cell_motility_force, cell_loc
 
         # loops over all directions of space
         for j in range(0, 3):
-            # check if new location is in environment space if not simulation a collision with the bounds
+            # check if new location is in the space, if not return it to the space limits
             if new_location[j] > size[j]:
                 cell_locations[i][j] = size[j]
             elif new_location[j] < 0:
@@ -450,49 +449,49 @@ def apply_forces_cpu(number_cells, cell_jkr_force, cell_motility_force, cell_loc
 
 
 @cuda.jit
-def apply_forces_gpu(inactive_forces, active_forces, locations, radii, viscosity, size, move_time_step):
+def apply_forces_gpu(cell_jkr_force, cell_motility_force, cell_locations, cell_radii, viscosity, size, move_time_step):
     """ This is the parallelized function for applying
         forces that is run numerous times.
     """
     # get the index in the array
     index = cuda.grid(1)
 
-    # double check that this in still in the array
-    if index < locations.shape[0]:
+    # checks to see that position is in the array
+    if index < cell_locations.shape[0]:
         # stokes law for velocity based on force and fluid viscosity
-        stokes_friction = 6 * math.pi * viscosity[0] * radii[index]
+        stokes_friction = 6 * math.pi * viscosity[0] * cell_radii[index]
 
         # update the velocity of the cell based on the solution
-        velocity_x = (active_forces[index][0] + inactive_forces[index][0]) / stokes_friction
-        velocity_y = (active_forces[index][1] + inactive_forces[index][1]) / stokes_friction
-        velocity_z = (active_forces[index][2] + inactive_forces[index][2]) / stokes_friction
+        velocity_x = (cell_jkr_force[index][0] + cell_motility_force[index][0]) / stokes_friction
+        velocity_y = (cell_jkr_force[index][1] + cell_motility_force[index][1]) / stokes_friction
+        velocity_z = (cell_jkr_force[index][2] + cell_motility_force[index][2]) / stokes_friction
 
         # set the possible new location
-        new_location_x = locations[index][0] + velocity_x * move_time_step[0]
-        new_location_y = locations[index][1] + velocity_y * move_time_step[0]
-        new_location_z = locations[index][2] + velocity_z * move_time_step[0]
+        new_location_x = cell_locations[index][0] + velocity_x * move_time_step[0]
+        new_location_y = cell_locations[index][1] + velocity_y * move_time_step[0]
+        new_location_z = cell_locations[index][2] + velocity_z * move_time_step[0]
 
-        # the following check that the cell's new location is within the simulation space
+        # check if new location is in the space, if not return it to the space limits
         # for the x direction
         if new_location_x > size[0]:
-            locations[index][0] = size[0]
+            cell_locations[index][0] = size[0]
         elif new_location_x < 0:
-            locations[index][0] = 0.0
+            cell_locations[index][0] = 0.0
         else:
-            locations[index][0] = new_location_x
+            cell_locations[index][0] = new_location_x
 
         # for the y direction
         if new_location_y > size[1]:
-            locations[index][1] = size[1]
+            cell_locations[index][1] = size[1]
         elif new_location_y < 0:
-            locations[index][1] = 0.0
+            cell_locations[index][1] = 0.0
         else:
-            locations[index][1] = new_location_y
+            cell_locations[index][1] = new_location_y
 
         # for the z direction
         if new_location_z > size[2]:
-            locations[index][2] = size[2]
+            cell_locations[index][2] = size[2]
         elif new_location_z < 0:
-            locations[index][2] = 0.0
+            cell_locations[index][2] = 0.0
         else:
-            locations[index][2] = new_location_z
+            cell_locations[index][2] = new_location_z

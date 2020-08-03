@@ -83,7 +83,7 @@ def check_neighbors(simulation):
 def handle_movement(simulation):
     """ runs the following functions together for the time
         period of the step. resets the motility force array
-        to zero
+        to zero after movement is done
     """
     # start time of the function
     simulation.handle_movement_time = -1 * time.time()
@@ -239,9 +239,9 @@ def apply_forces(simulation):
     # start time of the function
     simulation.apply_forces_time = -1 * time.time()
 
-    # call the gpu version
+    # call the nvidia gpu version
     if simulation.parallel:
-        # turn these arrays into gpu array
+        # turn the following into arrays that can be interpreted by the gpu
         jkr_forces_cuda = cuda.to_device(simulation.cell_jkr_force)
         motility_forces_cuda = cuda.to_device(simulation.cell_motility_force)
         locations_cuda = cuda.to_device(simulation.cell_locations)
@@ -250,11 +250,11 @@ def apply_forces(simulation):
         size_cuda = cuda.to_device(simulation.size)
         move_time_step_cuda = cuda.to_device(simulation.move_time_step)
 
-        # sets up the correct allocation of threads and blocks
+        # allocate threads and blocks for gpu memory
         threads_per_block = 72
         blocks_per_grid = math.ceil(simulation.number_cells / threads_per_block)
 
-        # call the cuda function
+        # call the cuda kernel with given parameters
         Backend.apply_forces_gpu[blocks_per_grid, threads_per_block](jkr_forces_cuda, motility_forces_cuda,
                                                                      locations_cuda, radii_cuda, viscosity_cuda,
                                                                      size_cuda, move_time_step_cuda)
