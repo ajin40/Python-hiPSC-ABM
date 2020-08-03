@@ -3,6 +3,63 @@ from numba import jit, cuda, prange
 import math
 
 
+def clean_edges(edges):
+    """ takes edges from "check_neighbors" and "jkr_neighbors"
+        search methods and returns an array of edges that is
+        free of duplicates and loops
+    """
+    # reshape the array so that the output is compatible with the igraph library and remove leftover zero columns
+    edges = edges.reshape((-1, 2))
+    edges = edges[~np.all(edges == 0, axis=1)]
+
+    # sort the array to remove duplicate edges produced by the parallel search method
+    edges = np.sort(edges)
+    edges = edges[np.lexsort(np.fliplr(edges).T)]
+    edges = edges[::2]
+
+    # send the edges back
+    return edges
+
+
+def assign_bins(simulation, distance):
+    """ generalizes cell locations to a bin within a multi-
+        dimensional array, used for a parallel fixed-radius
+        neighbor search
+    """
+    # if a static variable has not been created to hold the maximum number of cells in a bin, create one
+    if not hasattr(assign_bins, "max_cells"):
+        # begin with a low number of cells that can be revalued if the max number of cells exceeds this value
+        assign_bins.max_cells = 5
+
+    # if there is enough space for all cells that should be in a bin, break out of the loop. if there isn't
+    # enough space update the amount of needed space and re-put the cells in bins. this will run once if the prediction
+    # of max neighbors is correct, twice if it isn't the first time
+    while True:
+        # calculate the size of the array used to represent the bins and the bins helper array, include extra bins
+        # for cells that may fall outside of the space
+        bins_help_size = np.ceil(simulation.size / distance).astype(int) + np.array([5, 5, 5], dtype=int)
+        bins_size = np.append(bins_help_size, assign_bins.max_cells)
+
+        # create the arrays for "bins" and "bins_help"
+        bins_help = np.zeros(bins_help_size, dtype=int)
+        bins = np.empty(bins_size, dtype=int)
+
+        # assign the cells to bins so that the searches may be parallel
+        bins, bins_help = assign_bins_cpu(simulation.number_cells, simulation.cell_locations, distance, bins,
+                                                  bins_help)
+
+        # either break the loop if all cells were accounted for or revalue the maximum number of cells based on
+        # the output of the function call
+        max_cells = np.amax(bins_help)
+        if assign_bins.max_cells >= max_cells:
+            break
+        else:
+            assign_bins.max_cells = max_cells
+
+    # return the two arrays
+    return bins, bins_help
+
+
 @cuda.jit(device=True)
 def magnitude(location_one, location_two):
     """ this is the cuda kernel device function that is used
@@ -234,33 +291,32 @@ def jkr_neighbors_gpu(locations, radii, bins, bins_help, distance, edge_holder, 
 
 
 @jit(nopython=True, parallel=True)
-def get_forces_cpu(jkr_edges, delete_jkr_edges, poisson, youngs_mod, adhesion_const, cell_locations,
-                   cell_radii, cell_jkr_force):
-    """ This is the Numba optimized version of
-        the get_forces function that runs
-        solely on the cpu.
+def get_forces_cpu(jkr_edges, delete_edges, cell_locations, cell_radii, cell_jkr_force, poisson, youngs_mod,
+                   adhesion_const):
+    """ this is the just-in-time compiled version of get_forces
+        that runs in parallel on the cpu
     """
-    # loops over the jkr edges in parallel
-    for i in prange(len(jkr_edges)):
-        # get the indices of the nodes in the edge
-        index_1 = jkr_edges[i][0]
-        index_2 = jkr_edges[i][1]
+    # loops over the jkr edges
+    for edge_index in prange(len(jkr_edges)):
+        # get the indices of the edge
+        cell_1 = jkr_edges[edge_index][0]
+        cell_2 = jkr_edges[edge_index][1]
 
-        # hold the vector between the centers of the cells and the magnitude of this vector
-        disp_vector = cell_locations[index_1] - cell_locations[index_2]
-        mag = np.linalg.norm(disp_vector)
+        # get the vector between the centers of the cells and the magnitude of this vector
+        vector = cell_locations[cell_1] - cell_locations[cell_2]
+        mag = np.linalg.norm(vector)
         normal = np.array([0.0, 0.0, 0.0])
 
-        # the parallel jit prefers reductions so it's better to initialize the value of the normal and revalue it
+        # calculate the normalize vector via a reduction as the parallel jit prefers this
         if mag != 0:
-            normal += disp_vector / mag
+            normal += vector / mag
 
         # get the total overlap of the cells used later in calculations
-        overlap = cell_radii[index_1] + cell_radii[index_2] - mag
+        overlap = cell_radii[cell_1] + cell_radii[cell_2] - mag
 
         # gets two values used for JKR
         e_hat = (((1 - poisson ** 2) / youngs_mod) + ((1 - poisson ** 2) / youngs_mod)) ** -1
-        r_hat = ((1 / cell_radii[index_1]) + (1 / cell_radii[index_2])) ** -1
+        r_hat = ((1 / cell_radii[cell_1]) + (1 / cell_radii[cell_2])) ** -1
 
         # used to calculate the max adhesive distance after bond has been already formed
         overlap_ = (((math.pi * adhesion_const) / e_hat) ** (2 / 3)) * (r_hat ** (1 / 3))
@@ -278,61 +334,57 @@ def get_forces_cpu(jkr_edges, delete_jkr_edges, poisson, youngs_mod, adhesion_co
             jkr_force = f * math.pi * adhesion_const * r_hat
 
             # adds the adhesive force as a vector in opposite directions to each cell's force holder
-            cell_jkr_force[index_1] += jkr_force * normal
-            cell_jkr_force[index_2] -= jkr_force * normal
+            cell_jkr_force[cell_1] += jkr_force * normal
+            cell_jkr_force[cell_2] -= jkr_force * normal
 
-        # remove the edge if the it fails to meet the criteria for distance, JKR simulating that
-        # the bond is broken
+        # remove the edge if the it fails to meet the criteria for distance, JKR simulating that the bond is broken
         else:
-            delete_jkr_edges[i] = i
+            delete_edges[edge_index] = edge_index
 
     # return the updated jkr forces and the edges to be deleted
-    return cell_jkr_force, delete_jkr_edges
+    return cell_jkr_force, delete_edges
 
 
 @cuda.jit
-def get_forces_gpu(jkr_edges, delete_jkr_edges, locations, radii, forces, poisson, youngs, adhesion_const):
-    """ The parallelized function that
-        is run numerous times
+def get_forces_gpu(jkr_edges, delete_edges, locations, radii, forces, poisson, youngs, adhesion_const):
+    """ this is the cuda kernel for the get_forces function
+        that runs on a NVIDIA gpu
     """
-    # a provides the location on the array as it runs, essentially loops over the cells
+    # get the index in the array
     edge_index = cuda.grid(1)
 
     # checks to see that position is in the array, double-check as GPUs can be weird sometimes
     if edge_index < jkr_edges.shape[0]:
-
-        # get the indices of the cells in the edge
-        index_1 = jkr_edges[edge_index][0]
-        index_2 = jkr_edges[edge_index][1]
+        # get the indices of the edge
+        cell_1 = jkr_edges[edge_index][0]
+        cell_2 = jkr_edges[edge_index][1]
 
         # get the locations of the two cells
-        location_1 = locations[index_1]
-        location_2 = locations[index_2]
+        location_1 = locations[cell_1]
+        location_2 = locations[cell_2]
 
-        # get the displacement vector between the two cells
+        # get the vector by axis between the two cells
         vector_x = location_1[0] - location_2[0]
         vector_y = location_1[1] - location_2[1]
         vector_z = location_1[2] - location_2[2]
 
-        # get the magnitude of the displacement
+        # get the magnitude of the vector
         mag = magnitude(location_1, location_2)
 
-        # make sure the magnitude is not 0
+        # if the magnitude is 0 use the zero vector, otherwise find the normalized vector
         if mag != 0:
             normal_x = vector_x / mag
             normal_y = vector_y / mag
             normal_z = vector_z / mag
-
-        # if so return the zero vector
         else:
             normal_x, normal_y, normal_z = 0, 0, 0
 
         # get the total overlap of the cells used later in calculations
-        overlap = radii[index_1] + radii[index_2] - mag
+        overlap = radii[cell_1] + radii[cell_2] - mag
 
         # gets two values used for JKR
         e_hat = (((1 - poisson[0] ** 2) / youngs[0]) + ((1 - poisson[0] ** 2) / youngs[0])) ** -1
-        r_hat = ((1 / radii[index_1]) + (1 / radii[index_2])) ** -1
+        r_hat = ((1 / radii[cell_1]) + (1 / radii[cell_2])) ** -1
 
         # used to calculate the max adhesive distance after bond has been already formed
         overlap_ = (((math.pi * adhesion_const[0]) / e_hat) ** (2 / 3)) * (r_hat ** (1 / 3))
@@ -350,18 +402,19 @@ def get_forces_gpu(jkr_edges, delete_jkr_edges, locations, radii, forces, poisso
             jkr_force = f * math.pi * adhesion_const[0] * r_hat
 
             # adds the adhesive force as a vector in opposite directions to each cell's force holder
-            forces[index_1][0] += jkr_force * normal_x
-            forces[index_1][1] += jkr_force * normal_y
-            forces[index_1][2] += jkr_force * normal_z
+            # cell_1
+            forces[cell_1][0] += jkr_force * normal_x
+            forces[cell_1][1] += jkr_force * normal_y
+            forces[cell_1][2] += jkr_force * normal_z
 
-            forces[index_2][0] -= jkr_force * normal_x
-            forces[index_2][1] -= jkr_force * normal_y
-            forces[index_2][2] -= jkr_force * normal_z
+            # cell_2
+            forces[cell_2][0] -= jkr_force * normal_x
+            forces[cell_2][1] -= jkr_force * normal_y
+            forces[cell_2][2] -= jkr_force * normal_z
 
-        # remove the edge if the it fails to meet the criteria for distance, JKR simulating that
-        # the bond is broken
+        # remove the edge if the it fails to meet the criteria for distance, JKR simulating that the bond is broken
         else:
-            delete_jkr_edges[edge_index] = edge_index
+            delete_edges[edge_index] = edge_index
 
 
 @jit(nopython=True, parallel=True)

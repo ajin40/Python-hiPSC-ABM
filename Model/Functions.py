@@ -6,63 +6,6 @@ import math
 import Backend
 
 
-def assign_bins(simulation, distance):
-    """ generalizes cell locations to a bin within a multi-
-        dimensional array, used for a parallel fixed-radius
-        neighbor search
-    """
-    # if a static variable has not been created to hold the maximum number of cells in a bin, create one
-    if not hasattr(assign_bins, "max_cells"):
-        # begin with a low number of cells that can be revalued if the max number of cells exceeds this value
-        assign_bins.max_cells = 5
-
-    # if there is enough space for all cells that should be in a bin, break out of the loop. if there isn't
-    # enough space update the amount of needed space and re-put the cells in bins. this will run once if the prediction
-    # of max neighbors is correct, twice if it isn't the first time
-    while True:
-        # calculate the size of the array used to represent the bins and the bins helper array, include extra bins
-        # for cells that may fall outside of the space
-        bins_help_size = np.ceil(simulation.size / distance).astype(int) + np.array([5, 5, 5], dtype=int)
-        bins_size = np.append(bins_help_size, assign_bins.max_cells)
-
-        # create the arrays for "bins" and "bins_help"
-        bins_help = np.zeros(bins_help_size, dtype=int)
-        bins = np.empty(bins_size, dtype=int)
-
-        # assign the cells to bins so that the searches may be parallel
-        bins, bins_help = Backend.assign_bins_cpu(simulation.number_cells, simulation.cell_locations, distance, bins,
-                                                  bins_help)
-
-        # either break the loop if all cells were accounted for or revalue the maximum number of cells based on
-        # the output of the function call
-        max_cells = np.amax(bins_help)
-        if assign_bins.max_cells >= max_cells:
-            break
-        else:
-            assign_bins.max_cells = max_cells
-
-    # return the two arrays
-    return bins, bins_help
-
-
-def clean_edges(edges):
-    """ takes edges from "check_neighbors" and "jkr_neighbors"
-        search methods and returns an array of edges that is
-        free of duplicates and loops
-    """
-    # reshape the array so that the output is compatible with the igraph library and remove leftover zero columns
-    edges = edges.reshape((-1, 2))
-    edges = edges[~np.all(edges == 0, axis=1)]
-
-    # sort the array to remove duplicate edges produced by the parallel search method
-    edges = np.sort(edges)
-    edges = edges[np.lexsort(np.fliplr(edges).T)]
-    edges = edges[::2]
-
-    # send the edges back
-    return edges
-
-
 def check_neighbors(simulation):
     """ for all cells, determines which cells fall within a fixed
         radius to denote a neighbor then stores this information
@@ -81,7 +24,7 @@ def check_neighbors(simulation):
 
     # calls the function that generates an array of bins that generalize the cell locations in addition to a
     # helper array that assists the search method in counting cells in a particular bin
-    bins, bins_help = assign_bins(simulation, simulation.neighbor_distance)
+    bins, bins_help = Backend.assign_bins(simulation, simulation.neighbor_distance)
 
     # this will run once and if all edges are included in edge_holder, the loop will break. if not this will
     # run a second time with an updated value for number of predicted neighbors such that all edges are included
@@ -128,7 +71,7 @@ def check_neighbors(simulation):
             check_neighbors.max_neighbors = max_neighbors
 
     # remove duplicates and loops from the array as these slow down "add_edges"
-    edge_holder = clean_edges(edge_holder)
+    edge_holder = Backend.clean_edges(edge_holder)
 
     # add the edges to the neighbor graph and simplify the graph to remove any extraneous loops or repeated edges
     simulation.neighbor_graph.add_edges(edge_holder)
@@ -176,7 +119,7 @@ def jkr_neighbors(simulation):
 
     # calls the function that generates an array of bins that generalize the cell locations in addition to a
     # helper array that assists the search method in counting cells in a particular bin
-    bins, bins_help = assign_bins(simulation, simulation.jkr_distance)
+    bins, bins_help = Backend.assign_bins(simulation, simulation.jkr_distance)
 
     # this will run once and if all edges are included in edge_holder, the loop will break. if not this will
     # run a second time with an updated value for number of predicted neighbors such that all edges are included
@@ -224,7 +167,7 @@ def jkr_neighbors(simulation):
             jkr_neighbors.max_neighbors = max_neighbors
 
     # remove duplicates and loops from the array as these slow down "add_edges"
-    edge_holder = clean_edges(edge_holder)
+    edge_holder = Backend.clean_edges(edge_holder)
 
     # add the edges and simplify the graph as this is a running graph that is never cleared
     simulation.jkr_graph.add_edges(edge_holder)
@@ -235,22 +178,23 @@ def jkr_neighbors(simulation):
 
 
 def get_forces(simulation):
-    """ goes through all of the cells and quantifies any forces
-        arising from adhesion or repulsion between cells
+    """ goes through all of "JKR" edges and quantifies
+        any resulting adhesive or repulsion forces between
+        pairs of cells
     """
     # start time of the function
     simulation.get_forces_time = -1 * time.time()
 
-    # count the number of edges and create an array used to record the deletion of edges
+    # get the edges as a numpy array, count them, and create an array used to delete edges
     jkr_edges = np.array(simulation.jkr_graph.get_edgelist())
     number_edges = len(jkr_edges)
     delete_edges = np.zeros(number_edges, dtype=bool)
 
-    # only continue if exists, otherwise the just-in-time functions will throw errors
+    # only continue if edges exist, otherwise the compiled functions will raise errors
     if number_edges > 0:
-        # call the gpu version
+        # call the nvidia gpu version
         if simulation.parallel:
-            # convert these arrays into a form able to be read by the GPU
+            # turn the following into arrays that can be interpreted by the gpu
             jkr_edges_cuda = cuda.to_device(jkr_edges)
             delete_edges_cuda = cuda.to_device(delete_edges)
             poisson_cuda = cuda.to_device(simulation.poisson)
@@ -260,11 +204,11 @@ def get_forces(simulation):
             locations_cuda = cuda.to_device(simulation.cell_locations)
             radii_cuda = cuda.to_device(simulation.cell_radii)
 
-            # sets up the correct allocation of threads and blocks
+            # allocate threads and blocks for gpu memory
             threads_per_block = 72
             blocks_per_grid = math.ceil(number_edges / threads_per_block)
 
-            # call the cuda function
+            # call the cuda kernel with given parameters
             Backend.get_forces_gpu[blocks_per_grid, threads_per_block](jkr_edges_cuda, delete_edges_cuda,
                                                                        locations_cuda, radii_cuda, forces_cuda,
                                                                        poisson_cuda, youngs_cuda, adhesion_const_cuda)
@@ -274,10 +218,10 @@ def get_forces(simulation):
 
         # call the cpu version
         else:
-            forces, delete_edges = Backend.get_forces_cpu(jkr_edges, delete_edges, simulation.poisson,
-                                                          simulation.youngs_mod, simulation.adhesion_const,
-                                                          simulation.cell_locations, simulation.cell_radii,
-                                                          simulation.cell_jkr_force)
+            forces, delete_edges = Backend.get_forces_cpu(jkr_edges, delete_edges, simulation.cell_locations,
+                                                          simulation.cell_radii, simulation.cell_jkr_force,
+                                                          simulation.poisson, simulation.youngs_mod,
+                                                          simulation.adhesion_const)
 
         # update the jkr edges to remove any edges that have be broken and update the cell jkr forces
         delete_edges = delete_edges[delete_edges != 0]
