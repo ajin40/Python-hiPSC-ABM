@@ -110,7 +110,7 @@ def check_neighbors(simulation):
                                                                             edge_count_cuda)
             # return the arrays back from the gpu
             edge_holder = edge_holder_cuda.copy_to_host()
-            edge_count = max_array_cuda.copy_to_host()
+            edge_count = edge_count_cuda.copy_to_host()
 
         # call the cpu version
         else:
@@ -183,7 +183,7 @@ def jkr_neighbors(simulation):
     while True:
         # create a 3D array used to hold edges for each of the cells
         edge_holder = np.zeros((simulation.number_cells, jkr_neighbors.max_neighbors, 2), dtype=int)
-        max_array = np.zeros(simulation.number_cells, dtype=int)
+        edge_count = np.zeros(simulation.number_cells, dtype=int)
 
         # call the nvidia gpu version
         if simulation.parallel:
@@ -194,7 +194,7 @@ def jkr_neighbors(simulation):
             edge_holder_cuda = cuda.to_device(edge_holder)
             locations_cuda = cuda.to_device(simulation.cell_locations)
             radii_cuda = cuda.to_device(simulation.cell_radii)
-            max_array_cuda = cuda.to_device(max_array)
+            edge_count_cuda = cuda.to_device(edge_count)
 
             # allocate threads and blocks for gpu memory
             threads_per_block = 72
@@ -203,21 +203,21 @@ def jkr_neighbors(simulation):
             # call the cuda kernel with given parameters
             Backend.jkr_neighbors_gpu[blocks_per_grid, threads_per_block](locations_cuda, radii_cuda, bins_cuda,
                                                                           bins_help_cuda, distance_cuda,
-                                                                          edge_holder_cuda, max_array_cuda)
+                                                                          edge_holder_cuda, edge_count_cuda)
             # return the arrays back from the gpu
             edge_holder = edge_holder_cuda.copy_to_host()
-            max_array = max_array_cuda.copy_to_host()
+            edge_count = edge_count_cuda.copy_to_host()
 
         # call the cpu version
         else:
-            edge_holder, max_array = Backend.jkr_neighbors_cpu(simulation.number_cells, simulation.cell_locations,
-                                                               simulation.cell_radii, bins, bins_help,
-                                                               simulation.jkr_distance, edge_holder, max_array,
-                                                               jkr_neighbors.max_neighbors)
+            edge_holder, edge_count = Backend.jkr_neighbors_cpu(simulation.number_cells, simulation.cell_locations,
+                                                                simulation.cell_radii, bins, bins_help,
+                                                                simulation.jkr_distance, edge_holder, edge_count,
+                                                                jkr_neighbors.max_neighbors)
 
         # either break the loop if all neighbors were accounted for or revalue the maximum number of neighbors
         # based on the output of the function call
-        max_neighbors = np.amax(max_array)
+        max_neighbors = np.amax(edge_count)
         if jkr_neighbors.max_neighbors >= max_neighbors:
             break
         else:
