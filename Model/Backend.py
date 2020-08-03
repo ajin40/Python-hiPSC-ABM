@@ -131,8 +131,8 @@ def check_neighbors_gpu(locations, bins, bins_help, distance, edge_holder, error
 
 
 @jit(nopython=True, parallel=True)
-def jkr_neighbors_cpu(number_cells, distance, edge_holder, bins, bins_help, cell_locations, cell_radii, max_neighbors,
-                      max_array):
+def jkr_neighbors_cpu(number_cells, cell_locations, cell_radii, bins, bins_help, distance, edge_holder, max_array,
+                      max_neighbors):
     """ This is the Numba optimized version of
         the jkr_neighbors function that runs
         solely on the cpu.

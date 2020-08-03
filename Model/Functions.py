@@ -139,7 +139,7 @@ def check_neighbors(simulation):
 def handle_movement(simulation):
     """ runs the following functions together for the time
         period of the step. resets the motility force array
-        to zero too.
+        to zero
     """
     # start time of the function
     simulation.handle_movement_time = -1 * time.time()
@@ -149,13 +149,8 @@ def handle_movement(simulation):
 
     # run the following functions consecutively for the given amount of steps
     for i in range(steps):
-        # update the jkr neighbors
         jkr_neighbors(simulation)
-
-        # calculate the forces acting on each cell
         get_forces(simulation)
-
-        # turn the forces into movement
         apply_forces(simulation)
 
     # reset all forces back to zero vectors
@@ -214,10 +209,10 @@ def jkr_neighbors(simulation):
 
         # call the cpu version
         else:
-            edge_holder, max_array = Backend.jkr_neighbors_cpu(simulation.number_cells, simulation.jkr_distance,
-                                                               edge_holder, bins, bins_help, simulation.cell_locations,
-                                                               simulation.cell_radii, jkr_neighbors.max_neighbors,
-                                                               max_array)
+            edge_holder, max_array = Backend.jkr_neighbors_cpu(simulation.number_cells, simulation.cell_locations,
+                                                               simulation.cell_radii, bins, bins_help,
+                                                               simulation.jkr_distance, edge_holder, max_array,
+                                                               jkr_neighbors.max_neighbors)
 
         # either break the loop if all neighbors were accounted for or revalue the maximum number of neighbors
         # based on the output of the function call
