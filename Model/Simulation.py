@@ -137,7 +137,7 @@ class Simulation:
 
         # neighbor graph is used to locate cells that are in close proximity, while the JKR graph holds adhesion bonds
         # between cells that are either currently overlapping or still maintain an adhesive bond
-        self.neighbor_graph, self.jkr_edges = igraph.Graph(), np.empty((0, 2), dtype=int)
+        self.neighbor_graph, self.jkr_graph = igraph.Graph(), igraph.Graph()
 
         # squaring the approximation of the differential
         self.dx2, self.dy2, self.dz2 = self.dx ** 2, self.dy ** 2, self.dz ** 2
@@ -273,6 +273,7 @@ class Simulation:
         # add it to the following graphs, this is done implicitly by increasing the length of the vertex list by
         # one, which the indices directly correspond to the cell holder arrays
         self.neighbor_graph.add_vertex()
+        self.jkr_graph.add_vertex()
 
         # revalue the total number of cells
         self.number_cells += 1
@@ -303,6 +304,7 @@ class Simulation:
         # remove the particular index from the following graphs as these deal in terms of indices
         # this will adjust edges as the indices change, so no worries here
         self.neighbor_graph.delete_vertices(index)
+        self.jkr_graph.delete_vertices(index)
 
         # revalue the number of cells
         self.number_cells -= 1
@@ -451,7 +453,6 @@ class Simulation:
             # Division
             # checks to see if the non-moving cell should divide or increase its division counter
             if not self.cell_motion[i]:
-
                 # if it's a differentiated cell, also check for contact inhibition
                 if self.cell_states[i] == "Differentiated" and self.cell_div_counter[i] >= self.diff_div_thresh:
                     neighbors = self.neighbor_graph.neighbors(i)

@@ -223,7 +223,7 @@ def jkr_neighbors_gpu(locations, radii, bins, bins_help, distance, edge_holder, 
         max_array[focus] = edge_counter
 
 
-# @jit(nopython=True, parallel=True)
+@jit(nopython=True, parallel=True)
 def get_forces_cpu(jkr_edges, delete_jkr_edges, poisson, youngs_mod, adhesion_const, cell_locations,
                    cell_radii, cell_jkr_force):
     """ This is the Numba optimized version of
@@ -231,7 +231,7 @@ def get_forces_cpu(jkr_edges, delete_jkr_edges, poisson, youngs_mod, adhesion_co
         solely on the cpu.
     """
     # loops over the jkr edges in parallel
-    for i in range(len(jkr_edges)):
+    for i in prange(len(jkr_edges)):
         # get the indices of the nodes in the edge
         index_1 = jkr_edges[i][0]
         index_2 = jkr_edges[i][1]
@@ -258,7 +258,6 @@ def get_forces_cpu(jkr_edges, delete_jkr_edges, poisson, youngs_mod, adhesion_co
         # get the nondimensionalized overlap, used for later calculations and checks
         # also for the use of a polynomial approximation of the force
         d = overlap / overlap_
-        print(overlap, overlap_, d)
 
         # check to see if the cells will have a force interaction
         if d > -0.360562:
@@ -275,7 +274,7 @@ def get_forces_cpu(jkr_edges, delete_jkr_edges, poisson, youngs_mod, adhesion_co
         # remove the edge if the it fails to meet the criteria for distance, JKR simulating that
         # the bond is broken
         else:
-            delete_jkr_edges[i] = 0
+            delete_jkr_edges[i] = i
 
     # return the updated jkr forces and the edges to be deleted
     return cell_jkr_force, delete_jkr_edges
@@ -352,7 +351,7 @@ def get_forces_gpu(jkr_edges, delete_jkr_edges, locations, radii, forces, poisso
         # remove the edge if the it fails to meet the criteria for distance, JKR simulating that
         # the bond is broken
         else:
-            delete_jkr_edges[edge_index] = 0
+            delete_jkr_edges[edge_index] = edge_index
 
 
 @jit(nopython=True, parallel=True)

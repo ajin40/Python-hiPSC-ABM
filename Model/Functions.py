@@ -117,7 +117,7 @@ def check_neighbors(simulation):
 
     # sort the array to remove duplicate edges produced by the parallel search method
     edge_holder = np.sort(edge_holder)
-    edge_holder = np.sort(edge_holder, axis=0)
+    edge_holder = edge_holder[np.lexsort(np.fliplr(edge_holder).T)]
     edge_holder = edge_holder[::2]
 
     # add the edges to the neighbor graph and simplify the graph to remove any extraneous loops or repeated edges
@@ -224,15 +224,12 @@ def jkr_neighbors(simulation):
 
     # sort the array to remove duplicate edges produced by the parallel search method
     edge_holder = np.sort(edge_holder)
-    edge_holder = np.sort(edge_holder, axis=0)
+    edge_holder = edge_holder[np.lexsort(np.fliplr(edge_holder).T)]
     edge_holder = edge_holder[::2]
 
-    if len(edge_holder) > 0:
-        # add the edges to the neighbor graph and simplify the graph to remove any extraneous loops or repeated edges
-        simulation.jkr_edges = np.append(simulation.jkr_edges, edge_holder, axis=0)
-        # print(len(simulation.jkr_edges))
-        simulation.jkr_edges = np.unique(simulation.jkr_edges, axis=0)
-        # print(len(simulation.jkr_edges))
+    # add the edges and simplify the graph
+    simulation.jkr_graph.add_edges(edge_holder)
+    simulation.jkr_graph.simplify()
 
     # calculate the total time elapsed for the function
     simulation.jkr_neighbors_time += time.time()
@@ -246,15 +243,16 @@ def get_forces(simulation):
     simulation.get_forces_time = -1 * time.time()
 
     # count the number of edges and create an array used to record the deletion of edges
-    number_edges = len(simulation.jkr_edges)
-    delete_edges = np.ones(number_edges, dtype=bool)
+    jkr_edges = np.array(simulation.jkr_graph.get_edgelist())
+    number_edges = len(jkr_edges)
+    delete_edges = np.zeros(number_edges, dtype=bool)
 
     # only continue if exists, otherwise the just-in-time functions will throw errors
     if number_edges > 0:
         # call the gpu version
         if simulation.parallel:
             # convert these arrays into a form able to be read by the GPU
-            jkr_edges_cuda = cuda.to_device(simulation.jkr_edges)
+            jkr_edges_cuda = cuda.to_device(jkr_edges)
             delete_edges_cuda = cuda.to_device(delete_edges)
             poisson_cuda = cuda.to_device(simulation.poisson)
             youngs_cuda = cuda.to_device(simulation.youngs_mod)
@@ -277,15 +275,14 @@ def get_forces(simulation):
 
         # call the cpu version
         else:
-            forces, delete_edges = Backend.get_forces_cpu(simulation.jkr_edges, delete_edges, simulation.poisson,
+            forces, delete_edges = Backend.get_forces_cpu(jkr_edges, delete_edges, simulation.poisson,
                                                           simulation.youngs_mod, simulation.adhesion_const,
                                                           simulation.cell_locations, simulation.cell_radii,
                                                           simulation.cell_jkr_force)
 
         # update the jkr edges to remove any edges that have be broken and update the cell jkr forces
-        # print(len(simulation.jkr_edges))
-        simulation.jkr_edges = simulation.jkr_edges[delete_edges]
-        # print(len(simulation.jkr_edges))
+        delete_edges = delete_edges[delete_edges != 0]
+        simulation.jkr_graph.delete_edges(delete_edges)
         simulation.cell_jkr_force = forces
 
     # calculate the total time elapsed for the function
