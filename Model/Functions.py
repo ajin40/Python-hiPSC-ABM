@@ -14,7 +14,7 @@ def assign_bins(simulation, distance):
     # if a static variable has not been created to hold the maximum number of cells in a bin, create one
     if not hasattr(assign_bins, "max_cells"):
         # begin with a low number of cells that can be revalued if the max number of cells exceeds this value
-        assign_bins.max_cells = 1
+        assign_bins.max_cells = 5
 
     # if there is enough space for all cells that should be in a bin, break out of the loop. if there isn't
     # enough space update the amount of needed space and re-put the cells in bins
@@ -33,8 +33,8 @@ def assign_bins(simulation, distance):
         bins_help = np.zeros(bins_size_help, dtype=int)
 
         # assign the cells to bins so that the searches may be parallel
-        bins, bins_help = Backend.assign_bins_cpu(simulation.number_cells, simulation.neighbor_distance, bins,
-                                                  bins_help, simulation.cell_locations)
+        bins, bins_help = Backend.assign_bins_cpu(simulation.number_cells, distance, bins, bins_help,
+                                                  simulation.cell_locations)
 
         # either break the loop if all cells were accounted for or revalue the maximum number of cells based on
         # the output of the function call
@@ -128,11 +128,11 @@ def check_neighbors(simulation):
 
 
 def handle_movement(simulation):
-    """ runs the following functions together for a
-        given time amount. Resets the force and
-        velocity arrays as well.
+    """ runs the following functions together for the time
+        period of the step. resets the motility force array
+        to zero too.
     """
-    # start time
+    # start time of the function
     simulation.handle_movement_time = -1 * time.time()
 
     # get the total amount of times the cells will be incrementally moved during the step
@@ -152,7 +152,7 @@ def handle_movement(simulation):
     # reset all forces back to zero vectors
     simulation.cell_motility_force = np.zeros((simulation.number_cells, 3))
 
-    # end time
+    # calculate the total time elapsed for the function
     simulation.handle_movement_time += time.time()
 
 
@@ -167,7 +167,7 @@ def jkr_neighbors(simulation):
     # if a static variable has not been created to hold the maximum number of neighbors, create one
     if not hasattr(jkr_neighbors, "max_neighbors"):
         # begin with a low number of neighbors that can be revalued if the max number of neighbors exceeds this value
-        jkr_neighbors.max_neighbors = 1
+        jkr_neighbors.max_neighbors = 10
 
     # calls the function that generates an array of bins that generalize the cell locations in addition to a
     # helper array that assists the search method in counting cells in a particular bin
@@ -227,8 +227,12 @@ def jkr_neighbors(simulation):
     edge_holder = np.sort(edge_holder, axis=0)
     edge_holder = edge_holder[::2]
 
-    # add the edges to the neighbor graph and simplify the graph to remove any extraneous loops or repeated edges
-    simulation.jkr_edges = np.append(simulation.jkr_edges, edge_holder)
+    if len(edge_holder) > 0:
+        # add the edges to the neighbor graph and simplify the graph to remove any extraneous loops or repeated edges
+        simulation.jkr_edges = np.append(simulation.jkr_edges, edge_holder, axis=0)
+        # print(len(simulation.jkr_edges))
+        simulation.jkr_edges = np.unique(simulation.jkr_edges, axis=0)
+        # print(len(simulation.jkr_edges))
 
     # calculate the total time elapsed for the function
     simulation.jkr_neighbors_time += time.time()
@@ -238,78 +242,95 @@ def get_forces(simulation):
     """ goes through all of the cells and quantifies any forces
         arising from adhesion or repulsion between cells
     """
-    # create
-    delete_edges = np.zeros(len(jkr_edges), dtype=int)
+    # start time of the function
+    simulation.get_forces_time = -1 * time.time()
 
-    # do not continue if no edges, will cause errors if arrays are empty
-    if len(jkr_edges) > 0:
+    # count the number of edges and create an array used to record the deletion of edges
+    number_edges = len(simulation.jkr_edges)
+    delete_edges = np.ones(number_edges, dtype=bool)
+
+    # only continue if exists, otherwise the just-in-time functions will throw errors
+    if number_edges > 0:
         # call the gpu version
-        if self.parallel:
+        if simulation.parallel:
             # convert these arrays into a form able to be read by the GPU
-            jkr_edges_cuda = cuda.to_device(jkr_edges)
-            delete_jkr_edges_cuda = cuda.to_device(delete_jkr_edges)
-            poisson_cuda = cuda.to_device(poisson)
-            youngs_cuda = cuda.to_device(youngs_mod)
-            adhesion_const_cuda = cuda.to_device(adhesion_const)
-            forces_cuda = cuda.to_device(cell_jkr_force)
-            locations_cuda = cuda.to_device(cell_locations)
-            radii_cuda = cuda.to_device(cell_radii)
+            jkr_edges_cuda = cuda.to_device(simulation.jkr_edges)
+            delete_edges_cuda = cuda.to_device(delete_edges)
+            poisson_cuda = cuda.to_device(simulation.poisson)
+            youngs_cuda = cuda.to_device(simulation.youngs_mod)
+            adhesion_const_cuda = cuda.to_device(simulation.adhesion_const)
+            forces_cuda = cuda.to_device(simulation.cell_jkr_force)
+            locations_cuda = cuda.to_device(simulation.cell_locations)
+            radii_cuda = cuda.to_device(simulation.cell_radii)
 
             # sets up the correct allocation of threads and blocks
             threads_per_block = 72
-            blocks_per_grid = math.ceil(len(jkr_edges) / threads_per_block)
+            blocks_per_grid = math.ceil(number_edges / threads_per_block)
 
             # call the cuda function
-            Backend.get_forces_gpu[blocks_per_grid, threads_per_block](jkr_edges_cuda, delete_jkr_edges_cuda, locations_cuda,
-                                                                radii_cuda, forces_cuda, poisson_cuda, youngs_cuda,
-                                                                adhesion_const_cuda)
-
+            Backend.get_forces_gpu[blocks_per_grid, threads_per_block](jkr_edges_cuda, delete_edges_cuda,
+                                                                       locations_cuda, radii_cuda, forces_cuda,
+                                                                       poisson_cuda, youngs_cuda, adhesion_const_cuda)
             # return the new forces and the edges to be deleted
-            forces_cuda.copy_to_host(), delete_jkr_edges_cuda.copy_to_host()
+            forces = forces_cuda.copy_to_host()
+            delete_edges = delete_edges_cuda.copy_to_host()
+
         # call the cpu version
         else:
-            forces, delete_edges = get_forces_cpu(jkr_edges, delete_edges, self.poisson, self.youngs_mod,
-                                                  self.adhesion_const, self.cell_locations, self.cell_radii,
-                                                  self.cell_jkr_force)
+            forces, delete_edges = Backend.get_forces_cpu(simulation.jkr_edges, delete_edges, simulation.poisson,
+                                                          simulation.youngs_mod, simulation.adhesion_const,
+                                                          simulation.cell_locations, simulation.cell_radii,
+                                                          simulation.cell_jkr_force)
 
-        # update the jkr graph to remove an edges that have be broken and update the cell jkr forces
-        self.jkr_graph.delete_edges(delete_edges)
-        self.cell_jkr_force = forces
+        # update the jkr edges to remove any edges that have be broken and update the cell jkr forces
+        # print(len(simulation.jkr_edges))
+        simulation.jkr_edges = simulation.jkr_edges[delete_edges]
+        # print(len(simulation.jkr_edges))
+        simulation.cell_jkr_force = forces
+
+    # calculate the total time elapsed for the function
+    simulation.get_forces_time += time.time()
 
 
-def apply_forces(self):
+def apply_forces(simulation):
     """ Turns the active motility/division forces
         and inactive JKR forces into movement
     """
+    # start time of the function
+    simulation.apply_forces_time = -1 * time.time()
+
     # call the gpu version
-    if self.parallel:
-        # prevents the need for having the numba library if it's not installed
-        # turn those arrays into gpu arrays
-        jkr_forces_cuda = cuda.to_device(cell_jkr_force)
-        motility_forces_cuda = cuda.to_device(cell_motility_force)
-        locations_cuda = cuda.to_device(cell_locations)
-        radii_cuda = cuda.to_device(cell_radii)
-        viscosity_cuda = cuda.to_device(viscosity)
-        size_cuda = cuda.to_device(size)
-        move_time_step_cuda = cuda.to_device(move_time_step)
+    if simulation.parallel:
+        # turn these arrays into gpu array
+        jkr_forces_cuda = cuda.to_device(simulation.cell_jkr_force)
+        motility_forces_cuda = cuda.to_device(simulation.cell_motility_force)
+        locations_cuda = cuda.to_device(simulation.cell_locations)
+        radii_cuda = cuda.to_device(simulation.cell_radii)
+        viscosity_cuda = cuda.to_device(simulation.viscosity)
+        size_cuda = cuda.to_device(simulation.size)
+        move_time_step_cuda = cuda.to_device(simulation.move_time_step)
 
         # sets up the correct allocation of threads and blocks
         threads_per_block = 72
-        blocks_per_grid = math.ceil(number_cells / threads_per_block)
+        blocks_per_grid = math.ceil(simulation.number_cells / threads_per_block)
 
         # call the cuda function
-        apply_forces_cuda[blocks_per_grid, threads_per_block](jkr_forces_cuda, motility_forces_cuda, locations_cuda,
-                                                              radii_cuda, viscosity_cuda, size_cuda,
-                                                              move_time_step_cuda)
+        Backend.apply_forces_gpu[blocks_per_grid, threads_per_block](jkr_forces_cuda, motility_forces_cuda,
+                                                                     locations_cuda, radii_cuda, viscosity_cuda,
+                                                                     size_cuda, move_time_step_cuda)
         # return the new cell locations from the gpu
-        locations_cuda.copy_to_host()
+        new_locations = locations_cuda.copy_to_host()
+
     # call the cpu version
     else:
-        new_locations = apply_forces_cpu(self.number_cells, self.cell_jkr_force, self.cell_motility_force,
-                                         self.cell_locations, self.cell_radii, self.viscosity, self.size,
-                                         self.move_time_step)
+        new_locations = Backend.apply_forces_cpu(simulation.number_cells, simulation.cell_jkr_force,
+                                                 simulation.cell_motility_force, simulation.cell_locations,
+                                                 simulation.cell_radii, simulation.viscosity, simulation.size,
+                                                 simulation.move_time_step)
 
     # update the locations and reset the jkr forces back to zero
-    self.cell_locations = new_locations
-    self.cell_jkr_force = np.zeros((self.number_cells, 3))
+    simulation.cell_locations = new_locations
+    simulation.cell_jkr_force = np.zeros((simulation.number_cells, 3))
 
+    # calculate the total time elapsed for the function
+    simulation.apply_forces_time += time.time()

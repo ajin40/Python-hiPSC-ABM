@@ -38,7 +38,7 @@ for simulation.current_step in range(simulation.beginning_step, simulation.end_s
 
     # Adds/removes cells to/from the simulation either all together or in desired groups of cells. If done in
     # groups, the handle_movement() function will be used to better represent asynchronous division and death.
-    # simulation.update_queue()
+    simulation.update_queue()
 
     # Find the nearest NANOG high, GATA6 high, and differentiated cell within a fixed radius, used for movement
     simulation.nearest()
@@ -52,7 +52,7 @@ for simulation.current_step in range(simulation.beginning_step, simulation.end_s
 
     # Moves the cells to a state of physical equilibrium so that there is minimal overlap of cells, while also
     # applying forces from the previous motility_cells() function.
-    simulation.handle_movement()
+    Functions.handle_movement(simulation)
 
     # The first function will save a 2D image of the space, the second will create a csv with each row corresponding to
     # an individual cell, and the last will save performance statistics to a running csv.

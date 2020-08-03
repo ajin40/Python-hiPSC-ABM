@@ -154,7 +154,8 @@ def simulation_data(simulation):
                                     simulation.update_diffusion_time, simulation.check_neighbors_time,
                                     simulation.nearest_diff_time, simulation.cell_motility_time,
                                     simulation.cell_update_time, simulation.update_queue_time,
-                                    simulation.handle_movement_time])
+                                    simulation.handle_movement_time, simulation.jkr_neighbors_time,
+                                    simulation.get_forces_time, simulation.apply_forces_time])
 
 
 def initialize_csv(simulation):
@@ -169,7 +170,8 @@ def initialize_csv(simulation):
     simulation.csv_object = csv.writer(file_object)
     simulation.csv_object.writerow(["Step Number", "Number Cells", "Step Time", "Memory (MB)", "update_diffusion",
                                     "check_neighbors", "nearest_diff", "cell_motility", "update_cells",
-                                    "update_cell_queue", "handle_movement"])
+                                    "update_cell_queue", "handle_movement", "jkr_neighbors", "get_forces",
+                                    "apply_forces"])
 
 
 def initialize_video(simulation):

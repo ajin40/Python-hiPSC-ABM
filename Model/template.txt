@@ -6,13 +6,13 @@ This is the template for running a simulation. Good luck!
 General Parameters
 -----------------------------------------------------------------------------------------------------------------------
 What is the name of the simulation? Ex. Run_30
-[ Check_neighbors ]
+[ Check_neighbors_ ]
 
 What is the path for the output directory? Ex. C:\Python37\Model_Outputs
 [ C:\Outputs ]
 
 Do you want the simulation to use parallel GPU processing? (It's really cool)  Ex. True
-[ True ]
+[ False ]
 
 What is the x, y, z size of the space that the cells reside (in meters)? Ex. (0.001, 0.001, 0.0)
 [ (0.001, 0.001, 0.0) ]
@@ -21,7 +21,7 @@ How many cells will be GATA6 high to begin the simulation? Ex. 247
 [ 0 ]
 
 How many cells will be NANOG high to begin the simulation? Ex. 91
-[ 10000 ]
+[ 100 ]
 
 -----------------------------------------------------------------------------------------------------------------------
 Finite Dynamical System
@@ -58,7 +58,7 @@ running a simulation, type 1. Ex. 1
 [ 1 ]
 
 What will the final step number be? Ex. 30
-[ 5 ]
+[ 50 ]
 
 How long is each time step in seconds? Ex. 3600
 [ 1800 ]

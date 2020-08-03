@@ -37,7 +37,7 @@ def assign_bins_cpu(number_cells, distance, bins, bins_help, cell_locations):
     return bins, bins_help
 
 
-@jit(nopython=True)
+@jit(nopython=True, parallel=True)
 def check_neighbors_cpu(number_cells, cell_locations, bins, bins_help, distance, edge_holder, max_neighbors, max_array):
     """ This is the Numba optimized version of
         the check_neighbors function that runs
@@ -124,15 +124,15 @@ def check_neighbors_gpu(locations, bins, bins_help, distance, edge_holder, error
         error_array[focus] = edge_counter
 
 
-@jit(nopython=True)
+@jit(nopython=True, parallel=True)
 def jkr_neighbors_cpu(number_cells, distance, edge_holder, bins, bins_help, cell_locations, cell_radii, max_neighbors,
                       max_array):
     """ This is the Numba optimized version of
         the jkr_neighbors function that runs
         solely on the cpu.
     """
-    # loops over all cells, with the current cell being the pivot of the search method
-    for focus in range(number_cells):
+    # loops over all cells, with the current cell being the focus of the search method
+    for focus in prange(number_cells):
         # holds the total amount of edges for a given cell
         edge_counter = 0
 
@@ -144,10 +144,10 @@ def jkr_neighbors_cpu(number_cells, distance, edge_holder, bins, bins_help, cell
         for i in range(-1, 2):
             for j in range(-1, 2):
                 for k in range(-1, 2):
-                    # get the count of cells in a bin
+                    # get the count of cells for the current bin
                     bin_count = bins_help[x + i][y + j][z + k]
 
-                    # go through the bin determining if a cell is a neighbor
+                    # go through that bin determining if a cell is a neighbor
                     for l in range(bin_count):
                         # get the index of the current cell in question
                         current = int(bins[x + i][y + j][z + k][l])
@@ -223,7 +223,7 @@ def jkr_neighbors_gpu(locations, radii, bins, bins_help, distance, edge_holder, 
         max_array[focus] = edge_counter
 
 
-@jit(nopython=True, parallel=True)
+# @jit(nopython=True, parallel=True)
 def get_forces_cpu(jkr_edges, delete_jkr_edges, poisson, youngs_mod, adhesion_const, cell_locations,
                    cell_radii, cell_jkr_force):
     """ This is the Numba optimized version of
@@ -231,22 +231,22 @@ def get_forces_cpu(jkr_edges, delete_jkr_edges, poisson, youngs_mod, adhesion_co
         solely on the cpu.
     """
     # loops over the jkr edges in parallel
-    for i in prange(len(jkr_edges)):
+    for i in range(len(jkr_edges)):
         # get the indices of the nodes in the edge
         index_1 = jkr_edges[i][0]
         index_2 = jkr_edges[i][1]
 
         # hold the vector between the centers of the cells and the magnitude of this vector
         disp_vector = cell_locations[index_1] - cell_locations[index_2]
-        magnitude = np.linalg.norm(disp_vector)
+        mag = np.linalg.norm(disp_vector)
         normal = np.array([0.0, 0.0, 0.0])
 
         # the parallel jit prefers reductions so it's better to initialize the value of the normal and revalue it
-        if magnitude != 0:
-            normal += disp_vector / magnitude
+        if mag != 0:
+            normal += disp_vector / mag
 
         # get the total overlap of the cells used later in calculations
-        overlap = cell_radii[index_1] + cell_radii[index_2] - magnitude
+        overlap = cell_radii[index_1] + cell_radii[index_2] - mag
 
         # gets two values used for JKR
         e_hat = (((1 - poisson ** 2) / youngs_mod) + ((1 - poisson ** 2) / youngs_mod)) ** -1
@@ -258,6 +258,7 @@ def get_forces_cpu(jkr_edges, delete_jkr_edges, poisson, youngs_mod, adhesion_co
         # get the nondimensionalized overlap, used for later calculations and checks
         # also for the use of a polynomial approximation of the force
         d = overlap / overlap_
+        print(overlap, overlap_, d)
 
         # check to see if the cells will have a force interaction
         if d > -0.360562:
@@ -274,14 +275,14 @@ def get_forces_cpu(jkr_edges, delete_jkr_edges, poisson, youngs_mod, adhesion_co
         # remove the edge if the it fails to meet the criteria for distance, JKR simulating that
         # the bond is broken
         else:
-            delete_jkr_edges[i] = i
+            delete_jkr_edges[i] = 0
 
     # return the updated jkr forces and the edges to be deleted
     return cell_jkr_force, delete_jkr_edges
 
 
 @cuda.jit
-def get_forces_cuda(jkr_edges, delete_jkr_edges, locations, radii, forces, poisson, youngs, adhesion_const):
+def get_forces_gpu(jkr_edges, delete_jkr_edges, locations, radii, forces, poisson, youngs, adhesion_const):
     """ The parallelized function that
         is run numerous times
     """
@@ -351,7 +352,7 @@ def get_forces_cuda(jkr_edges, delete_jkr_edges, locations, radii, forces, poiss
         # remove the edge if the it fails to meet the criteria for distance, JKR simulating that
         # the bond is broken
         else:
-            delete_jkr_edges[edge_index] = edge_index
+            delete_jkr_edges[edge_index] = 0
 
 
 @jit(nopython=True, parallel=True)
@@ -387,7 +388,7 @@ def apply_forces_cpu(number_cells, cell_jkr_force, cell_motility_force, cell_loc
 
 
 @cuda.jit
-def apply_forces_cuda(inactive_forces, active_forces, locations, radii, viscosity, size, move_time_step):
+def apply_forces_gpu(inactive_forces, active_forces, locations, radii, viscosity, size, move_time_step):
     """ This is the parallelized function for applying
         forces that is run numerous times.
     """

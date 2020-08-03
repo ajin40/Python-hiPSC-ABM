@@ -10,10 +10,10 @@ import random as r
 import igraph
 import math
 import time
-from numba import jit, prange
+from numba import jit
 
-import Parallel
 import Input
+import Functions
 
 
 # used to hold all values necessary to the simulation as it moves from one step to the next
@@ -131,10 +131,13 @@ class Simulation:
         self.cell_update_time = float()
         self.update_queue_time = float()
         self.handle_movement_time = float()
+        self.jkr_neighbors_time = float()
+        self.get_forces_time = float()
+        self.apply_forces_time = float()
 
         # neighbor graph is used to locate cells that are in close proximity, while the JKR graph holds adhesion bonds
         # between cells that are either currently overlapping or still maintain an adhesive bond
-        self.neighbor_graph, self.jkr_graph = igraph.Graph(), np.empty((0, 2))
+        self.neighbor_graph, self.jkr_edges = igraph.Graph(), np.empty((0, 2), dtype=int)
 
         # squaring the approximation of the differential
         self.dx2, self.dy2, self.dz2 = self.dx ** 2, self.dy ** 2, self.dz ** 2
@@ -330,7 +333,7 @@ class Simulation:
             if self.group != 0:
                 if (i + 1) % self.group == 0:
                     # call the handle movement function, which should reduce cell overlap especially with high density
-                    self.handle_movement()
+                    Functions.handle_movement(self)
 
         # loops over all indices that are set to be removed
         for i in range(len(self.cells_to_remove)):
@@ -348,7 +351,7 @@ class Simulation:
             if self.group != 0:
                 if (i + 1) % self.group == 0:
                     # call the handle movement function, which should reduce cell overlap especially with high density
-                    self.handle_movement()
+                    Functions.handle_movement(self)
 
         # clear the arrays for the next step
         self.cells_to_divide = np.empty((0, 1), dtype=int)
@@ -365,7 +368,7 @@ class Simulation:
         # move the cells to positions that are representative of the new locations of daughter cells
         division_position = self.random_vector() * (self.max_radius - self.min_radius)
         self.cell_locations[index] += division_position
-        location = self.cell_locations[index] - division_position
+        location = self.cell_locations[index] - 2 * division_position
 
         # reduce radius to minimum size, set the division counter to zero, and None as the nearest differentiated cell
         self.cell_radii[index] = radius = self.min_radius
