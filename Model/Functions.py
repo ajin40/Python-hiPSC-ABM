@@ -6,6 +6,61 @@ import math
 import Backend
 
 
+def update_queue(simulation):
+    """ add and removes cells to and from the simulation
+        either all at once or some at a time
+    """
+    # start time of the function
+    simulation.update_queue_time = -1 * time.time()
+
+    # give how many cells are being added/removed during a given step
+    print("Adding " + str(len(simulation.cells_to_divide)) + " cells...")
+    print("Removing " + str(len(simulation.cells_to_remove)) + " cells...")
+
+    # loops over all indices that are set to divide
+    for i in range(len(simulation.cells_to_divide)):
+        # get the index and divide that cell
+        index = simulation.cells_to_divide[i]
+        simulation.divide(index)
+
+        # Cannot add all of the new cells, otherwise several cells are likely to be added in
+        #   close proximity to each other at later time steps. Such addition, coupled with
+        #   handling collisions, make give rise to sudden changes in overall positions of
+        #   cells within the simulation. Instead, collisions are handled after 'group' number
+        #   of cells are added.
+
+        # if group is equal to 0, all will be added in at once
+        if simulation.group != 0:
+            if (i + 1) % simulation.group == 0:
+                # call the handle movement function, which should reduce the problems described above
+                handle_movement(simulation)
+
+    # loops over all indices that are set to be removed
+    for i in range(len(simulation.cells_to_remove)):
+        # get the index and remove it
+        index = simulation.cells_to_remove[i]
+        simulation.remove_cell(index)
+
+        # adjusts the indices as deleting part of the array may alter the indices to remove
+        for j in range(i + 1, len(simulation.cells_to_remove)):
+            # if the current cell being deleted falls after the index, shift the indices by 1
+            if index < simulation.cells_to_remove[j]:
+                simulation.cells_to_remove[j] -= 1
+
+        # if group is equal to 0, all will be removed at once
+        if simulation.group != 0:
+            if (i + 1) % simulation.group == 0:
+                # call the handle movement function, which should reduce the problems described above
+                handle_movement(simulation)
+
+    # clear the arrays for the next step
+    simulation.cells_to_divide = np.array([], dtype=int)
+    simulation.cells_to_remove = np.array([], dtype=int)
+
+    # calculate the total time elapsed for the function
+    simulation.update_queue_time += time.time()
+
+
 def check_neighbors(simulation):
     """ for all cells, determines which cells fall within a fixed
         radius to denote a neighbor then stores this information

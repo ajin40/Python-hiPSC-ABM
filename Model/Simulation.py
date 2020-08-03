@@ -309,58 +309,6 @@ class Simulation:
         # revalue the number of cells
         self.number_cells -= 1
 
-    def update_queue(self):
-        """ Introduces and removes cells into the simulation.
-            This also provides control into how many cells
-            are added/removed at a time.
-        """
-        # start time
-        self.update_queue_time = -1 * time.time()
-
-        # give the user an idea of how many cells are being added/removed during a given step
-        print("Adding " + str(len(self.cells_to_divide)) + " cells...")
-        print("Removing " + str(len(self.cells_to_remove)) + " cells...")
-
-        # loops over all indices that are set to divide
-        for i in range(len(self.cells_to_divide)):
-            self.divide(self.cells_to_divide[i])
-
-            # Cannot add all of the new cells, otherwise several cells are likely to be added in
-            #   close proximity to each other at later time steps. Such addition, coupled with
-            #   handling collisions, make give rise to sudden changes in overall positions of
-            #   cells within the simulation. Instead, collisions are handled after 'group' number
-            #   of cells are added.
-
-            # if self.group is equal to 0, all will be added in at once
-            if self.group != 0:
-                if (i + 1) % self.group == 0:
-                    # call the handle movement function, which should reduce cell overlap especially with high density
-                    Functions.handle_movement(self)
-
-        # loops over all indices that are set to be removed
-        for i in range(len(self.cells_to_remove)):
-            # record the index
-            index = self.cells_to_remove[i]
-            self.remove_cell(index)
-
-            # adjusts the indices as deleting part of the array may change the correct indices to remove
-            for j in range(i + 1, len(self.cells_to_remove)):
-                # if the current cell being deleted falls after the index, shift the indices by 1
-                if index < self.cells_to_remove[j]:
-                    self.cells_to_remove[j] -= 1
-
-            # if self.group is equal to 0, all will be removed at once
-            if self.group != 0:
-                if (i + 1) % self.group == 0:
-                    # call the handle movement function, which should reduce cell overlap especially with high density
-                    Functions.handle_movement(self)
-
-        # clear the arrays for the next step
-        self.cells_to_divide = np.empty((0, 1), dtype=int)
-        self.cells_to_remove = np.empty((0, 1), dtype=int)
-
-        # end time
-        self.update_queue_time += time.time()
 
     def divide(self, index):
         """ Takes a cell or rather an index in the holder
