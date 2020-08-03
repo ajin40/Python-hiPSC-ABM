@@ -88,7 +88,7 @@ def check_neighbors(simulation):
     while True:
         # create a 3D array used to hold edges for all cells
         edge_holder = np.zeros((simulation.number_cells, check_neighbors.max_neighbors, 2), dtype=int)
-        max_array = np.zeros(simulation.number_cells, dtype=int)
+        edge_count = np.zeros(simulation.number_cells, dtype=int)
 
         # call the nvidia gpu version
         if simulation.parallel:
@@ -98,7 +98,7 @@ def check_neighbors(simulation):
             distance_cuda = cuda.to_device(simulation.neighbor_distance)
             edge_holder_cuda = cuda.to_device(edge_holder)
             locations_cuda = cuda.to_device(simulation.cell_locations)
-            max_array_cuda = cuda.to_device(max_array)
+            edge_count_cuda = cuda.to_device(edge_count)
 
             # allocate threads and blocks for gpu memory
             threads_per_block = 72
@@ -107,20 +107,21 @@ def check_neighbors(simulation):
             # call the cuda kernel with given parameters
             Backend.check_neighbors_gpu[blocks_per_grid, threads_per_block](locations_cuda, bins_cuda, bins_help_cuda,
                                                                             distance_cuda, edge_holder_cuda,
-                                                                            max_array_cuda)
+                                                                            edge_count_cuda)
             # return the arrays back from the gpu
             edge_holder = edge_holder_cuda.copy_to_host()
-            max_array = max_array_cuda.copy_to_host()
+            edge_count = max_array_cuda.copy_to_host()
 
         # call the cpu version
         else:
-            edge_holder, max_array = Backend.check_neighbors_cpu(simulation.number_cells, simulation.cell_locations,
-                                                                 bins, bins_help, simulation.neighbor_distance,
-                                                                 edge_holder, max_array, check_neighbors.max_neighbors)
+            edge_holder, edge_count = Backend.check_neighbors_cpu(simulation.number_cells, simulation.cell_locations,
+                                                                  bins, bins_help, simulation.neighbor_distance,
+                                                                  edge_holder, edge_count,
+                                                                  check_neighbors.max_neighbors)
 
         # either break the loop if all neighbors were accounted for or revalue the maximum number of neighbors
         # based on the output of the function call
-        max_neighbors = np.amax(max_array)
+        max_neighbors = np.amax(edge_count)
         if check_neighbors.max_neighbors >= max_neighbors:
             break
         else:

@@ -21,8 +21,8 @@ def magnitude(location_one, location_two):
 
 @jit(nopython=True)
 def assign_bins_cpu(number_cells, cell_locations, distance, bins, bins_help):
-    """ this does the actual calculation for the assign_bins
-        function.
+    """ this is the just-in-time compiled version of assign_bins
+        that runs solely on the cpu
     """
     # go through all cells
     for i in range(number_cells):
@@ -44,12 +44,12 @@ def assign_bins_cpu(number_cells, cell_locations, distance, bins, bins_help):
 
 
 @jit(nopython=True, parallel=True)
-def check_neighbors_cpu(number_cells, cell_locations, bins, bins_help, distance, edge_holder, max_array, max_neighbors):
-    """ This is the Numba optimized version of
-        the check_neighbors function that runs
-        solely on the cpu.
+def check_neighbors_cpu(number_cells, cell_locations, bins, bins_help, distance, edge_holder, edge_count,
+                        max_neighbors):
+    """ this is the just-in-time compiled version of check_neighbors
+        that runs in parallel on the cpu
     """
-    # loops over all cells, with the current cell being the focus of the search method
+    # loops over all cells, with the current cell index being the focus
     for focus in prange(number_cells):
         # holds the total amount of edges for a given cell
         edge_counter = 0
@@ -58,7 +58,7 @@ def check_neighbors_cpu(number_cells, cell_locations, bins, bins_help, distance,
         block_location = cell_locations[focus] // distance + np.array([2, 2, 2])
         x, y, z = int(block_location[0]), int(block_location[1]), int(block_location[2])
 
-        # loop over the bins that surround the current bin
+        # loop over the bin the cell is in and the surrounding bins
         for i in range(-1, 2):
             for j in range(-1, 2):
                 for k in range(-1, 2):
@@ -70,64 +70,65 @@ def check_neighbors_cpu(number_cells, cell_locations, bins, bins_help, distance,
                         # get the index of the current cell in question
                         current = int(bins[x + i][y + j][z + k][l])
 
-                        # check to see if that cell is within the search radius
+                        # check to see if that cell is within the search radius and not the same cell
                         vector = cell_locations[current] - cell_locations[focus]
                         if np.linalg.norm(vector) <= distance and focus != current:
-                            # if within the bounds of the array add the edge
+                            # if within the bounds of the array, add the edge
                             if edge_counter < max_neighbors:
-                                # update the edge array and increase the index for the next addition
+                                # update the edge array
                                 edge_holder[focus][edge_counter][0] = focus
                                 edge_holder[focus][edge_counter][1] = current
+
+                            # increase the count of edges for placement of next edge and ensuring all edges are
+                            # counted
                             edge_counter += 1
 
-        # update the error array with the total number of edges per cell, if there are more neighbors than expected
-        # the function will run again with the correct number of neighbors
-        max_array[focus] = edge_counter
+        # update the array with number of edges for the cell
+        edge_count[focus] = edge_counter
 
     # return the updated edges and the array with the counts of neighbors per cell
-    return edge_holder, max_array
+    return edge_holder, edge_count
 
 
 @cuda.jit
-def check_neighbors_gpu(locations, bins, bins_help, distance, edge_holder, error_array):
-    """ This is the parallelized function for checking
-        neighbors that is run numerous times.
+def check_neighbors_gpu(locations, bins, bins_help, distance, edge_holder, edge_count):
+    """ this is the cuda kernel for the check_neighbors function
+        that runs on a NVIDIA gpu
     """
     # get the index in the array
     focus = cuda.grid(1)
 
-    # checks to see that position is in the array, double-check as GPUs can be weird sometimes
+    # checks to see that position is in the array
     if focus < locations.shape[0]:
         # holds the total amount of edges for a given cell
         edge_counter = 0
 
-        # gets the block location based on how they were inputted
+        # offset bins by 2 to avoid missing cells
         x = int(locations[focus][0] / distance[0]) + 2
         y = int(locations[focus][1] / distance[0]) + 2
         z = int(locations[focus][2] / distance[0]) + 2
 
-        # looks local bins as these are the ones containing the neighbors
+        # loop over the bin the cell is in and the surrounding bins
         for i in range(-1, 2):
             for j in range(-1, 2):
                 for k in range(-1, 2):
-                    # gets the number of cells in each bin, int to prevent problems
+                    # get the count of cells for the current bin
                     bin_count = int(bins_help[x + i][y + j][z + k])
 
-                    # loops over the cell indices in the current block
+                    # go through that bin determining if a cell is a neighbor
                     for l in range(bin_count):
-                        # gets the index of the potential neighbor
+                        # get the index of the current cell in question
                         current = int(bins[x + i][y + j][z + k][l])
 
-                        # get the magnitude via the device function and make sure not the same cell
+                        # check to see if that cell is within the search radius and not the same cell
                         if magnitude(locations[focus], locations[current]) <= distance[0] and focus != current:
-                            # assign the array location showing that this cell is a neighbor
+                            # update the edge array
                             edge_holder[focus][edge_counter][0] = focus
                             edge_holder[focus][edge_counter][1] = current
                             edge_counter += 1
 
-        # update the error array with the total number of edges per cell, if there are more neighbors than expected
-        # the function will run again with the correct number of neighbors
-        error_array[focus] = edge_counter
+        # update the array with number of edges for the cell
+        edge_count[focus] = edge_counter
 
 
 @jit(nopython=True, parallel=True)
