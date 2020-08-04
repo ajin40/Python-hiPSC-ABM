@@ -10,15 +10,12 @@ def remove_cell(simulation, index):
     """
     # go through all instance variable names
     for name in simulation.cell_array_names:
-        # get the instance variable from the class attribute dictionary
-        instance_variable = simulation.__dict__[name]
-
         # if the instance variable is 1-dimensional
-        if instance_variable.ndim == 1:
-            simulation.__dict__[name] = np.delete(instance_variable, index)
+        if simulation.__dict__[name].ndim == 1:
+            simulation.__dict__[name] = np.delete(simulation.__dict__[name], index)
         # if the instance variable is 2-dimension
         else:
-            simulation.__dict__[name] = np.delete(instance_variable, index, axis=0)
+            simulation.__dict__[name] = np.delete(simulation.__dict__[name], index, axis=0)
 
     # remove the particular index from the following graphs
     simulation.neighbor_graph.delete_vertices(index)
@@ -33,7 +30,7 @@ def divide_cell(simulation, index):
         arrays and adds a new cell (index). This also
         updates factors such as size and counters.
     """
-    # go through all instance variable names
+    # go through all instance variable names and copy the values to a newly appended index
     for name in simulation.cell_array_names:
         # get the instance variable from the class attribute dictionary
         value = simulation.__dict__[name][index]
@@ -478,9 +475,8 @@ def get_forces_gpu(jkr_edges, delete_edges, locations, radii, forces, poisson, y
 @jit(nopython=True, parallel=True)
 def apply_forces_cpu(number_cells, cell_jkr_force, cell_motility_force, cell_locations, cell_radii, viscosity, size,
                      move_time_step):
-    """ This is the Numba optimized version of
-        the apply_forces function that runs
-        solely on the cpu.
+    """ this is the just-in-time compiled version of apply_forces
+        that runs in parallel on the cpu
     """
     # loops over all cells using the explicit parallel loop from Numba
     for i in prange(number_cells):
@@ -554,3 +550,33 @@ def apply_forces_gpu(cell_jkr_force, cell_motility_force, cell_locations, cell_r
             cell_locations[index][2] = 0.0
         else:
             cell_locations[index][2] = new_location_z
+
+
+@jit(nopython=True)
+def update_diffusion_cpu(gradient, time_steps, dt, dx2, dy2, dz2, diffuse, size):
+    """ this is the just-in-time compiled version of
+        update_diffusion that runs solely on the cpu
+    """
+    # finite differences to solve the 2D Laplacian
+    if size[2] == 0:
+        for i in range(time_steps):
+            # perform the first part of the calculation
+            x = (gradient[2:, 1:-1] - 2 * gradient[1:-1, 1:-1] + gradient[:-2, 1:-1]) / dx2
+            y = (gradient[1:-1, 2:] - 2 * gradient[1:-1, 1:-1] + gradient[1:-1, :-2]) / dy2
+
+            # update the gradient array
+            gradient[1:-1, 1:-1] = gradient[1:-1, 1:-1] + diffuse * dt * (x + y)
+
+    # finite differences to solve the 3D Laplacian
+    else:
+        for i in range(time_steps):
+            # perform the first part of the calculation
+            x = (gradient[2:, 1:-1, 1:-1] - 2 * gradient[1:-1, 1:-1, 1:-1] + gradient[:-2, 1:-1, 1:-1]) / dx2
+            y = (gradient[1:-1, 2:, 1:-1] - 2 * gradient[1:-1, 1:-1, 1:-1] + gradient[1:-1, :-2, 1:-1]) / dy2
+            z = (gradient[1:-1, 1:-1, 2:] - 2 * gradient[1:-1, 1:-1, 1:-1] + gradient[1:-1, 1:-1, :-2]) / dz2
+
+            # update the gradient array
+            gradient[1:-1, 1:-1, 1:-1] = gradient[1:-1, 1:-1, 1:-1] + diffuse * dt * (x + y + z)
+
+    # return the gradient back to the simulation
+    return gradient

@@ -157,6 +157,7 @@ class Simulation:
         y_steps = (int(self.size[1] / self.dy) + 1)
         z_steps = (int(self.size[2] / self.dz) + 1)
         self.fgf4_values = np.zeros((x_steps, y_steps, z_steps))
+        self.extracellular_names = ["fgf4_values"]
 
         # holds all indices of cells that will divide at a current step or be removed at that step
         self.cells_to_divide, self.cells_to_remove = np.empty((0, 1), dtype=int), np.empty((0, 1), dtype=int)
@@ -222,25 +223,6 @@ class Simulation:
                     # add the diffusion point to a corresponding bin and increase the place index
                     self.diffuse_bins[x][y][z][place] = np.array([i, j, k])
                     self.diffuse_bins_help[x][y][z] += 1
-
-    def update_diffusion(self):
-        """ calls update_diffusion_cpu for all specified
-            extracellular gradients, which will update
-            the diffusion of the extracellular molecule
-        """
-        # start time
-        self.update_diffusion_time = -1 * time.time()
-
-        # list the gradients that need to be updated and get the number of time steps for the diffusion calculation
-        gradients_to_update = [self.fgf4_values]
-        time_steps = int(self.time_step_value / self.dt)
-
-        # go through all gradients and update the diffusion of each
-        for i in range(len(gradients_to_update)):
-            gradients_to_update[i] = update_diffusion_cpu(gradients_to_update[i], time_steps, self.dt, self.dx2,
-                                                          self.dy2, self.dz2, self.diffuse, self.size)
-        # end time
-        self.update_diffusion_time += time.time()
 
     def highest_fgf4(self):
         """ Search for the highest concentration of
@@ -741,34 +723,3 @@ def nearest_cpu(number_cells, distance, bins, bins_help, cell_locations, nearest
 
     # return the updated edges
     return nearest_gata6, nearest_nanog, nearest_diff
-
-
-@jit(nopython=True)
-def update_diffusion_cpu(gradient, time_steps, dt, dx2, dy2, dz2, diffuse, size):
-    """ This is the Numba optimized version of
-        the update_diffusion function that runs
-        solely on the cpu.
-    """
-    # finite differences to solve the 2D Laplacian
-    if size[2] == 0:
-        for i in range(time_steps):
-            # perform the first part of the calculation
-            x = (gradient[2:, 1:-1] - 2 * gradient[1:-1, 1:-1] + gradient[:-2, 1:-1]) / dx2
-            y = (gradient[1:-1, 2:] - 2 * gradient[1:-1, 1:-1] + gradient[1:-1, :-2]) / dy2
-
-            # update the gradient array
-            gradient[1:-1, 1:-1] = gradient[1:-1, 1:-1] + diffuse * dt * (x + y)
-
-    # finite differences to solve the 3D Laplacian
-    else:
-        for i in range(time_steps):
-            # perform the first part of the calculation
-            x = (gradient[2:, 1:-1, 1:-1] - 2 * gradient[1:-1, 1:-1, 1:-1] + gradient[:-2, 1:-1, 1:-1]) / dx2
-            y = (gradient[1:-1, 2:, 1:-1] - 2 * gradient[1:-1, 1:-1, 1:-1] + gradient[1:-1, :-2, 1:-1]) / dy2
-            z = (gradient[1:-1, 1:-1, 2:] - 2 * gradient[1:-1, 1:-1, 1:-1] + gradient[1:-1, 1:-1, :-2]) / dz2
-
-            # update the gradient array
-            gradient[1:-1, 1:-1, 1:-1] = gradient[1:-1, 1:-1, 1:-1] + diffuse * dt * (x + y + z)
-
-    # return the gradient back to the simulation
-    return gradient

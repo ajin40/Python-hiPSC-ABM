@@ -329,3 +329,23 @@ def apply_forces(simulation):
 
     # calculate the total time elapsed for the function
     simulation.apply_forces_time += time.time()
+
+
+def update_diffusion(simulation):
+    """ goes through all extracellular gradients and
+        approximates the diffusion of that molecule
+    """
+    # start time of the function
+    simulation.update_diffusion_time = -1 * time.time()
+
+    # calculate how many steps for the approximation
+    time_steps = math.ceil(simulation.time_step_value / simulation.dt)
+
+    # go through all gradients and update the diffusion of each
+    for gradient in simulation.extracellular_names:
+        simulation.__dict__[gradient] = Backend.update_diffusion_cpu(simulation.__dict__[gradient], time_steps,
+                                                                     simulation.dt, simulation.dx2, simulation.dy2,
+                                                                     simulation.dz2, simulation.diffuse,
+                                                                     simulation.size)
+    # calculate the total time elapsed for the function
+    simulation.update_diffusion_time += time.time()
