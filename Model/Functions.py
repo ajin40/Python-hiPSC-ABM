@@ -21,7 +21,7 @@ def update_queue(simulation):
     for i in range(len(simulation.cells_to_divide)):
         # get the index and divide that cell
         index = simulation.cells_to_divide[i]
-        simulation.divide(index)
+        Backend.divide_cell(simulation, index)
 
         # Cannot add all of the new cells, otherwise several cells are likely to be added in
         #   close proximity to each other at later time steps. Such addition, coupled with

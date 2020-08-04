@@ -282,40 +282,6 @@ class Simulation:
         # revalue the total number of cells
         self.number_cells += 1
 
-    def divide(self, index):
-        """ Takes a cell or rather an index in the holder
-            arrays and adds a new cell (index). This also
-            updates factors such as size and counters.
-        """
-        # move the cells to positions that are representative of the new locations of daughter cells
-        division_position = self.random_vector() * (self.max_radius - self.min_radius)
-        self.cell_locations[index] += division_position
-        location = self.cell_locations[index] - 2 * division_position
-
-        # reduce radius to minimum size, set the division counter to zero, and None as the nearest differentiated cell
-        self.cell_radii[index] = radius = self.min_radius
-        self.cell_div_counter[index] = div_counter = 0
-        self.cell_death_counter[index] = death_counter = 0
-        self.cell_nearest_gata6[index] = nearest_gata6 = np.nan
-        self.cell_nearest_nanog[index] = nearest_nanog = np.nan
-        self.cell_nearest_diff[index] = nearest_diff = np.nan
-        self.cell_highest_fgf4[index] = highest_fgf4 = np.array([np.nan, np.nan, np.nan])
-
-        # keep identical values for motion, booleans, state, differentiation, and boolean update
-        motion = self.cell_motion[index]
-        booleans = self.cell_fds[index]
-        state = self.cell_states[index]
-        diff_counter = self.cell_diff_counter[index]
-        bool_counter = self.cell_fds_counter[index]
-
-        # set the force vector to zero
-        motility_force = np.zeros(3, dtype=float)
-        jkr_force = np.zeros(3, dtype=float)
-
-        # add the cell to the simulation
-        self.add_cell(location, radius, motion, booleans, state, diff_counter, div_counter, death_counter,
-                      bool_counter, motility_force, jkr_force, nearest_gata6, nearest_nanog, nearest_diff, highest_fgf4)
-
     def cell_update(self):
         """ Loops over all indices of cells and updates
             their values accordingly.

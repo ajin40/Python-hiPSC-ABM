@@ -28,6 +28,40 @@ def remove_cell(simulation, index):
     simulation.number_cells -= 1
 
 
+def divide_cell(simulation, index):
+    """ Takes a cell or rather an index in the holder
+        arrays and adds a new cell (index). This also
+        updates factors such as size and counters.
+    """
+    # go through all instance variable names
+    for name in simulation.cell_array_names:
+        # get the instance variable from the class attribute dictionary
+        value = simulation.__dict__[name][index]
+
+        # if the instance variable is 1-dimensional
+        if simulation.__dict__[name].ndim == 1:
+            simulation.__dict__[name] = np.append(simulation.__dict__[name], value)
+        # if the instance variable is 2-dimension
+        else:
+            simulation.__dict__[name] = np.append(simulation.__dict__[name], [value], axis=0)
+
+    # move the cells to positions that are representative of the new locations of daughter cells
+    division_position = simulation.random_vector() * (simulation.max_radius - simulation.min_radius)
+    simulation.cell_locations[index] += division_position
+    simulation.cell_locations[-1] -= division_position
+
+    # reduce both radii to minimum size and set the division counters to zero
+    simulation.cell_radii[index] = simulation.cell_radii[-1] = simulation.min_radius
+    simulation.cell_div_counter[index] = simulation.cell_div_counter[-1] = 0
+
+    # add the new cell to the following graphs
+    simulation.neighbor_graph.add_vertex()
+    simulation.jkr_graph.add_vertex()
+
+    # increase the number of cells by 1
+    simulation.number_cells += 1
+
+
 def clean_edges(edges):
     """ takes edges from "check_neighbors" and "jkr_neighbors"
         search methods and returns an array of edges that is
