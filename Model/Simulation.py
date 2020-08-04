@@ -13,7 +13,6 @@ import time
 from numba import jit
 
 import Input
-import Functions
 
 
 # used to hold all values necessary to the simulation as it moves from one step to the next
@@ -122,6 +121,11 @@ class Simulation:
         self.cell_nearest_nanog = np.empty((0, 1))  # holds index of nearest nanog high neighbor
         self.cell_nearest_diff = np.empty((0, 1))  # holds index of nearest differentiated neighbor
         self.cell_highest_fgf4 = np.empty((0, 3))  # holds the location of highest fgf4 point
+
+        self.cell_array_names = ["cell_locations", "cell_radii", "cell_motion", "cell_fds", "cell_states",
+                                 "cell_diff_counter", "cell_div_counter", "cell_death_counter", "cell_fds_counter",
+                                 "cell_motility_force", "cell_jkr_force", "cell_nearest_gata6", "cell_nearest_nanog",
+                                 "cell_nearest_diff", "cell_highest_fgf4"]
 
         # holds the run time for key functions to track efficiency. each step these are outputted to the CSV file.
         self.update_diffusion_time = float()
@@ -277,38 +281,6 @@ class Simulation:
 
         # revalue the total number of cells
         self.number_cells += 1
-
-    def remove_cell(self, index):
-        """ Given the index of a cell to remove,
-            this will remove that from each array,
-            graphs, and total number of cells
-        """
-        # delete the index of each holder array, the 2D arrays require the axis=0 parameter to essentially delete
-        # that row of the matrix much like when appending a new row
-        self.cell_locations = np.delete(self.cell_locations, index, axis=0)
-        self.cell_radii = np.delete(self.cell_radii, index)
-        self.cell_motion = np.delete(self.cell_motion, index)
-        self.cell_fds = np.delete(self.cell_fds, index, axis=0)
-        self.cell_states = np.delete(self.cell_states, index)
-        self.cell_diff_counter = np.delete(self.cell_diff_counter, index)
-        self.cell_div_counter = np.delete(self.cell_div_counter, index)
-        self.cell_death_counter = np.delete(self.cell_death_counter, index)
-        self.cell_fds_counter = np.delete(self.cell_fds_counter, index)
-        self.cell_motility_force = np.delete(self.cell_motility_force, index, axis=0)
-        self.cell_jkr_force = np.delete(self.cell_jkr_force, index, axis=0)
-        self.cell_nearest_gata6 = np.delete(self.cell_nearest_gata6, index)
-        self.cell_nearest_nanog = np.delete(self.cell_nearest_nanog, index)
-        self.cell_nearest_diff = np.delete(self.cell_nearest_diff, index)
-        self.cell_highest_fgf4 = np.delete(self.cell_highest_fgf4, index, axis=0)
-
-        # remove the particular index from the following graphs as these deal in terms of indices
-        # this will adjust edges as the indices change, so no worries here
-        self.neighbor_graph.delete_vertices(index)
-        self.jkr_graph.delete_vertices(index)
-
-        # revalue the number of cells
-        self.number_cells -= 1
-
 
     def divide(self, index):
         """ Takes a cell or rather an index in the holder

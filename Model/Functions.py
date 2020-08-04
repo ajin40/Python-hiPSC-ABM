@@ -39,7 +39,7 @@ def update_queue(simulation):
     for i in range(len(simulation.cells_to_remove)):
         # get the index and remove it
         index = simulation.cells_to_remove[i]
-        simulation.remove_cell(index)
+        Backend.remove_cell(simulation, index)
 
         # adjusts the indices as deleting part of the array may alter the indices to remove
         for j in range(i + 1, len(simulation.cells_to_remove)):

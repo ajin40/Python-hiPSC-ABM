@@ -3,6 +3,31 @@ from numba import jit, cuda, prange
 import math
 
 
+def remove_cell(simulation, index):
+    """ given the index of a cell to remove, this will
+        remove that from each array, graphs, and reduce
+        the total number of cells
+    """
+    # go through all instance variable names
+    for name in simulation.cell_array_names:
+        # get the instance variable from the class attribute dictionary
+        instance_variable = simulation.__dict__[name]
+
+        # if the instance variable is 1-dimensional
+        if instance_variable.ndim == 1:
+            simulation.__dict__[name] = np.delete(instance_variable, index)
+        # if the instance variable is 2-dimension
+        else:
+            simulation.__dict__[name] = np.delete(instance_variable, index, axis=0)
+
+    # remove the particular index from the following graphs
+    simulation.neighbor_graph.delete_vertices(index)
+    simulation.jkr_graph.delete_vertices(index)
+
+    # reduce the number of cells by 1
+    simulation.number_cells -= 1
+
+
 def clean_edges(edges):
     """ takes edges from "check_neighbors" and "jkr_neighbors"
         search methods and returns an array of edges that is
