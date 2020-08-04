@@ -24,7 +24,7 @@ simulation.setup_diffusion_bins()
 # of the simulation.
 for simulation.current_step in range(simulation.beginning_step, simulation.end_step + 1):
     # Prints the current step, number of cells, and records run time. Used to give an idea of the simulation progress.
-    simulation.info()
+    Functions.info(simulation)
 
     # Refreshes the graph used to represent cells as nodes and nearby neighbors as edges.
     Functions.check_neighbors(simulation)
@@ -34,7 +34,7 @@ for simulation.current_step in range(simulation.beginning_step, simulation.end_s
     simulation.cell_update()
 
     # Updates each of the extracellular gradients via the finite difference method.
-    simulation.update_diffusion()
+    Functions.update_diffusion(simulation)
 
     # Adds/removes cells to/from the simulation either all together or in desired groups of cells. If done in
     # groups, the handle_movement() function will be used to better represent asynchronous division and death.

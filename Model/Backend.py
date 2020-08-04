@@ -346,7 +346,7 @@ def jkr_neighbors_gpu(locations, radii, bins, bins_help, distance, edge_holder, 
 
 
 @jit(nopython=True, parallel=True)
-def get_forces_cpu(jkr_edges, delete_edges, cell_locations, cell_radii, cell_jkr_force, poisson, youngs_mod,
+def get_forces_cpu(jkr_edges, delete_edges, cell_locations, cell_radii, cell_jkr_force, poisson, youngs,
                    adhesion_const):
     """ this is the just-in-time compiled version of get_forces
         that runs in parallel on the cpu
@@ -370,7 +370,7 @@ def get_forces_cpu(jkr_edges, delete_edges, cell_locations, cell_radii, cell_jkr
         overlap = cell_radii[cell_1] + cell_radii[cell_2] - mag
 
         # gets two values used for JKR
-        e_hat = (((1 - poisson ** 2) / youngs_mod) + ((1 - poisson ** 2) / youngs_mod)) ** -1
+        e_hat = (((1 - poisson ** 2) / youngs) + ((1 - poisson ** 2) / youngs)) ** -1
         r_hat = ((1 / cell_radii[cell_1]) + (1 / cell_radii[cell_2])) ** -1
 
         # used to calculate the max adhesive distance after bond has been already formed

@@ -69,9 +69,6 @@ class Simulation:
         self.dz = eval(lines[111][2:-3])[2]  # the diffusion resolution along the z-axis
 
         # movement/physical
-        self.move_time_step = float(lines[117][2:-3])  # the time step used for each time the JKR function
-        self.adhesion_const = float(lines[120][2:-3])  # the adhesion constant between cells used for JKR contact
-        self.viscosity = float(lines[123][2:-3])   # the viscosity of the medium used for stokes friction
         self.motility_force = float(lines[126][2:-3])   # the active force (in Newtons) of a cell actively moving
         self.max_radius = float(lines[129][2:-3])    # the maximum radius (in meters) of a cell
 
@@ -167,26 +164,12 @@ class Simulation:
         self.pluri_growth = (self.max_radius - self.min_radius) / self.pluri_div_thresh
         self.diff_growth = (self.max_radius - self.min_radius) / self.diff_div_thresh
 
-        # Youngs modulus and Poisson's ratio used for JKR contact
-        self.youngs_mod, self.poisson = 1000, 0.5
-
         # the csv and video objects that will be updated each step
         self.csv_object = object()
         self.video_object = object()
 
         # given all of the above parameters, run the corresponding mode
         Input.setup_simulation(self)
-
-    def info(self):
-        """ Gives an idea of how the simulation is running
-            and records the beginning of the step in real time
-        """
-        # records the real time value of when a step begins
-        self.step_start = time.time()
-
-        # prints the current step number and the number of cells
-        print("Step: " + str(self.current_step))
-        print("Number of cells: " + str(self.number_cells))
 
     def setup_diffusion_bins(self):
         """ This function will put the diffusion points

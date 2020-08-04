@@ -6,6 +6,18 @@ import math
 import Backend
 
 
+def info(simulation):
+    """ gives an idea of how the simulation is running
+        and records the beginning of the step in real time
+    """
+    # records the real time value of when a step begins
+    simulation.step_start = time.time()
+
+    # prints the current step number and the number of cells
+    print("Step: " + str(simulation.current_step))
+    print("Number of cells: " + str(simulation.number_cells))
+
+
 def update_queue(simulation):
     """ add and removes cells to and from the simulation
         either all at once or some at a time
@@ -240,6 +252,11 @@ def get_forces(simulation):
     # start time of the function
     simulation.get_forces_time = -1 * time.time()
 
+    # parameters that rarely change
+    adhesion_const = 0.000107    # the adhesion constant in kg/s from P Pathmanathan et al.
+    poisson = 0.5    # Poisson's ratio for the cells, 0.5 means incompressible
+    youngs = 1000    # Young's modulus for the cells in kPa
+
     # get the edges as a numpy array, count them, and create an array used to delete edges
     jkr_edges = np.array(simulation.jkr_graph.get_edgelist())
     number_edges = len(jkr_edges)
@@ -252,9 +269,9 @@ def get_forces(simulation):
             # turn the following into arrays that can be interpreted by the gpu
             jkr_edges_cuda = cuda.to_device(jkr_edges)
             delete_edges_cuda = cuda.to_device(delete_edges)
-            poisson_cuda = cuda.to_device(simulation.poisson)
-            youngs_cuda = cuda.to_device(simulation.youngs_mod)
-            adhesion_const_cuda = cuda.to_device(simulation.adhesion_const)
+            poisson_cuda = cuda.to_device(poisson)
+            youngs_cuda = cuda.to_device(youngs)
+            adhesion_const_cuda = cuda.to_device(adhesion_const)
             forces_cuda = cuda.to_device(simulation.cell_jkr_force)
             locations_cuda = cuda.to_device(simulation.cell_locations)
             radii_cuda = cuda.to_device(simulation.cell_radii)
@@ -274,9 +291,8 @@ def get_forces(simulation):
         # call the cpu version
         else:
             forces, delete_edges = Backend.get_forces_cpu(jkr_edges, delete_edges, simulation.cell_locations,
-                                                          simulation.cell_radii, simulation.cell_jkr_force,
-                                                          simulation.poisson, simulation.youngs_mod,
-                                                          simulation.adhesion_const)
+                                                          simulation.cell_radii, simulation.cell_jkr_force, poisson,
+                                                          youngs, adhesion_const)
 
         # update the jkr edges to remove any edges that have be broken and update the cell jkr forces
         delete_edges = delete_edges[delete_edges != 0]
@@ -294,6 +310,10 @@ def apply_forces(simulation):
     # start time of the function
     simulation.apply_forces_time = -1 * time.time()
 
+    # parameters that rarely change
+    viscosity = 10000    # the viscosity of the medium in Ns/m used for stokes friction
+    move_time_step = 200    # the time step in seconds used for incremental movement of the cells
+
     # call the nvidia gpu version
     if simulation.parallel:
         # turn the following into arrays that can be interpreted by the gpu
@@ -301,9 +321,9 @@ def apply_forces(simulation):
         motility_forces_cuda = cuda.to_device(simulation.cell_motility_force)
         locations_cuda = cuda.to_device(simulation.cell_locations)
         radii_cuda = cuda.to_device(simulation.cell_radii)
-        viscosity_cuda = cuda.to_device(simulation.viscosity)
+        viscosity_cuda = cuda.to_device(viscosity)
         size_cuda = cuda.to_device(simulation.size)
-        move_time_step_cuda = cuda.to_device(simulation.move_time_step)
+        move_time_step_cuda = cuda.to_device(move_time_step)
 
         # allocate threads and blocks for gpu memory
         threads_per_block = 72
@@ -338,14 +358,17 @@ def update_diffusion(simulation):
     # start time of the function
     simulation.update_diffusion_time = -1 * time.time()
 
+    # parameters that rarely change
+    diffuse = 0.0000000000000001    # the diffusion constant of the extracellular molecules
+    dt = 1    # the time step for the diffusion approximation
+
     # calculate how many steps for the approximation
-    time_steps = math.ceil(simulation.time_step_value / simulation.dt)
+    time_steps = math.ceil(simulation.time_step_value / dt)
 
     # go through all gradients and update the diffusion of each
     for gradient in simulation.extracellular_names:
-        simulation.__dict__[gradient] = Backend.update_diffusion_cpu(simulation.__dict__[gradient], time_steps,
-                                                                     simulation.dt, simulation.dx2, simulation.dy2,
-                                                                     simulation.dz2, simulation.diffuse,
-                                                                     simulation.size)
+        simulation.__dict__[gradient] = Backend.update_diffusion_cpu(simulation.__dict__[gradient], time_steps, dt,
+                                                                     simulation.dx2, simulation.dy2,
+                                                                     simulation.dz2, diffuse, simulation.size)
     # calculate the total time elapsed for the function
     simulation.update_diffusion_time += time.time()
