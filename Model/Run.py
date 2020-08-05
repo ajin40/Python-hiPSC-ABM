@@ -45,10 +45,10 @@ for simulation.current_step in range(simulation.beginning_step, simulation.end_s
 
     # Locate the diffusion point (within a fixed radius) that has the highest FGF4 concentration.
     # not currently in use.
-    simulation.highest_fgf4()
+    Functions.highest_fgf4(simulation)
 
     # Gets motility forces depending on a variety of factors involving state and presence of neighbors
-    simulation.cell_motility()
+    Functions.cell_motility(simulation)
 
     # Moves the cells to a state of physical equilibrium so that there is minimal overlap of cells, while also
     # applying forces from the previous motility_cells() function.

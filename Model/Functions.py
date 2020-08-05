@@ -111,22 +111,28 @@ def cell_division(simulation, index):
     """
     # checks to see if the non-moving cell should divide or increase its division counter
     if not simulation.cell_motion[index]:
-        # either divide or increase counter
-        if simulation.cell_div_counter[index] >= simulation.diff_div_thresh:
-            # if it's a differentiated cell, also check for contact inhibition
-            if simulation.cell_states[index] == "Differentiated":
+        # if it's a differentiated cell
+        if simulation.cell_states[index] == "Differentiated":
+            # check the threshold
+            if simulation.cell_div_counter[index] >= simulation.diff_div_thresh:
                 # if under the threshold
                 neighbors = simulation.neighbor_graph.neighbors(index)
                 if len(neighbors) < simulation.contact_inhibit:
                     simulation.cells_to_divide = np.append(simulation.cells_to_divide, index)
 
-            # no contact inhibition for pluripotent cells
-            elif simulation.cell_states[index] == "Pluripotent":
+            else:
+                # stochastically increase the division counter by either 0, 1, or 2
+                simulation.cell_div_counter[index] += r.randint(0, 2)
+
+        # no contact inhibition for pluripotent cells
+        else:
+            # check the threshold
+            if simulation.cell_div_counter[index] >= simulation.pluri_div_thresh:
                 simulation.cells_to_divide = np.append(simulation.cells_to_divide, index)
 
-        # stochastically increase the division counter by either 0, 1, or 2
-        else:
-            simulation.cell_div_counter[index] += r.randint(0, 2)
+            else:
+                # stochastically increase the division counter by either 0, 1, or 2
+                simulation.cell_div_counter[index] += r.randint(0, 2)
 
 
 def cell_pathway(simulation, index):
@@ -575,6 +581,139 @@ def nearest(simulation):
     simulation.nearest_time += time.time()
 
 
+def cell_motility(simulation):
+    """ gives the cells a motive force depending on
+        set rules for the cell types.
+    """
+    # start time of the function
+    simulation.cell_motility_time = -1 * time.time()
+
+    # loop over all of the cells
+    for i in range(simulation.number_cells):
+        # set motion to false if the cell is surrounded by many neighbors
+        neighbors = simulation.neighbor_graph.neighbors(i)
+        if len(neighbors) >= simulation.move_thresh:
+            simulation.cell_motion[i] = False
+
+        # check whether differentiated or pluripotent
+        if simulation.cell_states[i] == "Differentiated":
+            # this will move differentiated cells together
+            if 0 < len(neighbors):
+                # create a vector to hold the sum of normal vectors between a cell and its neighbors
+                vector_holder = np.array([0.0, 0.0, 0.0])
+
+                # loop over the neighbors getting the normal and adding to the holder
+                for j in range(len(neighbors)):
+                    if simulation.cell_states[neighbors[j]] == "Differentiated":
+                        vector = simulation.cell_locations[neighbors[j]] - simulation.cell_locations[i]
+                        vector_holder += vector
+
+                # get the normal vector
+                normal = Backend.normal_vector(vector_holder)
+
+                # move in direction of the differentiated cells
+                simulation.cell_motility_force[i] += simulation.motility_force * normal * 0.5
+
+            if 0 < len(neighbors):
+                # create a vector to hold the sum of normal vectors between a cell and its neighbors
+                vector_holder = np.array([0.0, 0.0, 0.0])
+
+                # loop over the neighbors getting the normal and adding to the holder
+                for j in range(len(neighbors)):
+                    if simulation.cell_states[neighbors[j]] == "Pluripotent":
+                        vector = simulation.cell_locations[neighbors[j]] - simulation.cell_locations[i]
+                        vector_holder += vector
+
+                # get the normal vector
+                normal = Backend.normal_vector(vector_holder)
+
+                # move in direction opposite to pluripotent cells
+                simulation.cell_motility_force[i] += simulation.motility_force * normal * -1 * 0.5
+
+            # if there aren't any neighbors and still in motion then move randomly
+            if simulation.cell_motion[i]:
+                # move based on Eunbi's model
+                if simulation.eunbi_move:
+                    # if there is a nearby nanog cell, move away from it
+                    if not np.isnan(simulation.cell_nearest_nanog[i]):
+                        nearest_index = int(simulation.cell_nearest_nanog[i])
+                        vector = simulation.cell_locations[i] - simulation.cell_locations[nearest_index]
+                        normal = Backend.normal_vector(vector)
+                        simulation.cell_motility_force[i] += normal * simulation.motility_force * -1
+
+                    # move randomly instead
+                    else:
+                        simulation.cell_motility_force[i] += simulation.random_vector() * simulation.motility_force
+
+                # move randomly instead
+                else:
+                    simulation.cell_motility_force[i] += simulation.random_vector() * simulation.motility_force
+
+        # for pluripotent cells
+        else:
+            # apply movement if the cell is "in motion"
+            if simulation.cell_motion[i]:
+                # GATA6 high cell
+                if simulation.cell_fds[i][2] == 1:
+                    # continue if using Guye et al. movement and if there exists differentiated cells
+                    if simulation.guye_move and not np.isnan(simulation.cell_nearest_diff[i]):
+                        # get the differentiated neighbors
+                        guye_neighbor = simulation.cell_nearest_diff[i]
+
+                        # get the normal vector
+                        vector = simulation.cell_locations[guye_neighbor] - simulation.cell_locations[i]
+                        normal = Backend.normal_vector(vector)
+
+                        # calculate the motility force
+                        simulation.cell_motility_force[i] += normal * simulation.motility_force
+
+                # NANOG high cell
+                elif simulation.cell_fds[i][3] == 1:
+                    # move based on fgf4 concentrations
+                    if simulation.fgf4_move:
+                        # makes sure not the numpy nan type, proceed if actual value
+                        if (np.isnan(simulation.cell_highest_fgf4[i]) == np.zeros(3, dtype=bool)).all():
+                            # get the location of the diffusion point and move toward it
+                            x = int(simulation.cell_highest_fgf4[i][0])
+                            y = int(simulation.cell_highest_fgf4[i][1])
+                            z = int(simulation.cell_highest_fgf4[i][2])
+                            vector = simulation.cell_locations[i] - simulation.diffuse_locations[x][y][z]
+                            normal = Backend.normal_vector(vector)
+                            simulation.cell_motility_force[i] += normal * simulation.motility_force
+
+                    # move based on Eunbi's model
+                    elif simulation.eunbi_move:
+                        # if there is a gata6 high cell nearby, move away from it
+                        if not np.isnan(simulation.cell_nearest_gata6[i]):
+                            nearest_index = int(simulation.cell_nearest_gata6[i])
+                            vector = simulation.cell_locations[nearest_index] - simulation.cell_locations[i]
+                            normal = Backend.normal_vector(vector)
+                            simulation.cell_motility_force[i] += normal * simulation.motility_force * -1
+
+                        # if there is a nanog high cell nearby, move to it
+                        elif not np.isnan(simulation.cell_nearest_nanog[i]):
+                            nearest_index = int(simulation.cell_nearest_nanog[i])
+                            vector = simulation.cell_locations[nearest_index] - simulation.cell_locations[i]
+                            normal = Backend.normal_vector(vector)
+                            simulation.cell_motility_force[i] += normal * simulation.motility_force
+
+                        # if nothing else, move randomly
+                        else:
+                            simulation.cell_motility_force[i] += Backend.random_vector(simulation) * \
+                                                                 simulation.motility_force
+                    # if nothing else, move randomly
+                    else:
+                        simulation.cell_motility_force[i] += Backend.random_vector(simulation) * \
+                                                             simulation.motility_force
+                # if nothing else, move randomly
+                else:
+                    simulation.cell_motility_force[i] += Backend.random_vector(simulation) *\
+                                                         simulation.motility_force
+
+    # calculate the total time elapsed for the function
+    simulation.cell_motility_time += time.time()
+
+
 def setup_diffusion_bins(simulation):
     """ This function will put the diffusion points
         into corresponding bins that will be used to
@@ -647,3 +786,13 @@ def update_diffusion(simulation):
                                                                      simulation.dz2, diffuse, simulation.size)
     # calculate the total time elapsed for the function
     simulation.update_diffusion_time += time.time()
+
+
+def highest_fgf4(simulation):
+    """ Search for the highest concentration of
+        fgf4 within a fixed radius
+    """
+    simulation.cell_highest_fgf4 = Backend.highest_fgf4_cpu(simulation.diffuse_radius, simulation.diffuse_bins,
+                                                            simulation.diffuse_bins_help, simulation.diffuse_locations,
+                                                            simulation.cell_locations, simulation.number_cells,
+                                                            simulation.cell_highest_fgf4, simulation.fgf4_values)

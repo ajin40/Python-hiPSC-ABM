@@ -1,6 +1,7 @@
 import numpy as np
 from numba import jit, cuda, prange
 import math
+import random as r
 
 
 def remove_cell(simulation, index):
@@ -43,7 +44,7 @@ def divide_cell(simulation, index):
             simulation.__dict__[name] = np.append(simulation.__dict__[name], [value], axis=0)
 
     # move the cells to positions that are representative of the new locations of daughter cells
-    division_position = simulation.random_vector() * (simulation.max_radius - simulation.min_radius)
+    division_position = random_vector(simulation) * (simulation.max_radius - simulation.min_radius)
     simulation.cell_locations[index] += division_position
     simulation.cell_locations[-1] -= division_position
 
@@ -668,3 +669,84 @@ def update_diffusion_cpu(gradient, time_steps, dt, dx2, dy2, dz2, diffuse, size)
 
     # return the gradient back to the simulation
     return gradient
+
+
+@jit(nopython=True)
+def highest_fgf4_cpu(diffuse_radius, diffuse_bins, diffuse_bins_help, diffuse_locations, cell_locations, number_cells,
+                     highest_fgf4, fgf4_values):
+    """ This is the Numba optimized version of
+        the highest_fgf4 function.
+    """
+    for pivot_index in range(number_cells):
+        # offset bins by 2 to avoid missing cells
+        block_location = cell_locations[pivot_index] // diffuse_radius + np.array([2, 2, 2])
+        x, y, z = int(block_location[0]), int(block_location[1]), int(block_location[2])
+
+        # create an initial value to check for the highest fgf4 point in a radius
+        highest_index_x = np.nan
+        highest_index_y = np.nan
+        highest_index_z = np.nan
+        highest_value = 0
+
+        # loop over the bins that surround the current bin
+        for i in range(-1, 2):
+            for j in range(-1, 2):
+                for k in range(-1, 2):
+                    # get the count of cells in a bin
+                    bin_count = diffuse_bins_help[x + i][y + j][z + k]
+
+                    # go through the bin determining if a cell is a neighbor
+                    for l in range(bin_count):
+                        # get the index of the current cell in question
+                        x_ = int(diffuse_bins[x + i][y + j][z + k][l][0])
+                        y_ = int(diffuse_bins[x + i][y + j][z + k][l][1])
+                        z_ = int(diffuse_bins[x + i][y + j][z + k][l][2])
+
+                        # check to see if that cell is within the search radius and not the same cell
+                        m = np.linalg.norm(diffuse_locations[x_][y_][z_] - cell_locations[pivot_index])
+                        if m < diffuse_radius:
+                            if fgf4_values[x_ + 1][y_ + 1][z_] > highest_value:
+                                highest_index_x = x_
+                                highest_index_y = y_
+                                highest_index_z = z_
+                                highest_value = fgf4_values[x_ + 1][y_ + 1][z_]
+
+        # update the highest fgf4 diffusion point
+        highest_fgf4[pivot_index][0] = highest_index_x
+        highest_fgf4[pivot_index][1] = highest_index_y
+        highest_fgf4[pivot_index][2] = highest_index_z
+
+    # return the array back
+    return highest_fgf4
+
+
+def normal_vector(vector):
+    """ returns the normalized vector
+    """
+    mag = np.linalg.norm(vector)
+    if mag == 0:
+        return np.array([0, 0, 0])
+    else:
+        return vector / mag
+
+
+def random_vector(simulation):
+    """ computes a random point on a unit sphere centered at the origin
+        Returns - point [x,y,z]
+    """
+    # a random angle on the cell
+    theta = r.random() * 2 * math.pi
+
+    # determine if simulation is 2D or 3D
+    if simulation.size[2] == 0:
+        # 2D vector
+        x, y, z = math.cos(theta), math.sin(theta), 0.0
+
+    else:
+        # 3D vector
+        phi = r.random() * 2 * math.pi
+        radius = math.cos(phi)
+        x, y, z = radius * math.cos(theta), radius * math.sin(theta), math.sin(phi)
+
+    # return random vector
+    return np.array([x, y, z])
