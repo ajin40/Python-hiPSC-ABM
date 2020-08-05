@@ -58,7 +58,7 @@ running a simulation, type 1. Ex. 1
 [ 1 ]
 
 What will the final step number be? Ex. 30
-[ 96 ]
+[ 5 ]
 
 How long is each time step in seconds? Ex. 3600
 [ 1800 ]

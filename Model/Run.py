@@ -31,7 +31,7 @@ for simulation.current_step in range(simulation.beginning_step, simulation.end_s
 
     # Updates cells by adjusting trackers for differentiation and division based on intracellular, intercellular,
     # and extracellular conditions.
-    simulation.cell_update()
+    Functions.cell_update(simulation)
 
     # Updates each of the extracellular gradients via the finite difference method.
     Functions.update_diffusion(simulation)
