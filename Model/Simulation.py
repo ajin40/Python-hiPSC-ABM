@@ -69,6 +69,7 @@ class Simulation:
         self.dz = eval(lines[111][2:-3])[2]  # the diffusion resolution along the z-axis
 
         # movement/physical
+        self.move_time_step = float(lines[117][2:-3])
         self.motility_force = float(lines[126][2:-3])   # the active force (in Newtons) of a cell actively moving
         self.max_radius = float(lines[129][2:-3])    # the maximum radius (in meters) of a cell
 
@@ -170,42 +171,6 @@ class Simulation:
 
         # given all of the above parameters, run the corresponding mode
         Input.setup_simulation(self)
-
-    def setup_diffusion_bins(self):
-        """ This function will put the diffusion points
-            into corresponding bins that will be used to
-            find values of diffusion within a radius
-        """
-        # reduce length of variable name for ease of writing
-        steps = self.fgf4_values.shape
-
-        # set up the locations of the diffusion points
-        x, y, z = np.meshgrid(np.arange(steps[0]), np.arange(steps[1]), np.arange(steps[2]), indexing='ij')
-        x, y, z = x * self.dx, y * self.dy, z * self.dz
-        self.diffuse_locations = np.stack((x, y, z), axis=3)
-
-        # set up the appropriate size for the diffusion bins and the help array, 100 is the bin limit
-        bins_size = self.size // self.diffuse_radius + np.array([5, 5, 5])
-        bins_size_help = tuple(bins_size.astype(int))
-        bins_size = np.append(bins_size, [100, 3])
-        bins_size = tuple(bins_size.astype(int))
-        self.diffuse_bins = np.empty(bins_size, dtype=int)
-        self.diffuse_bins_help = np.zeros(bins_size_help, dtype=int)
-
-        # loop over all diffusion points
-        for i in range(0, steps[0]):
-            for j in range(0, steps[1]):
-                for k in range(0, steps[2]):
-                    # get the location in the bin array
-                    bin_location = self.diffuse_locations[i][j][k] // self.diffuse_radius + np.array([2, 2, 2])
-                    x, y, z = int(bin_location[0]), int(bin_location[1]), int(bin_location[2])
-
-                    # get the index of the where the point will be added
-                    place = self.diffuse_bins_help[x][y][z]
-
-                    # add the diffusion point to a corresponding bin and increase the place index
-                    self.diffuse_bins[x][y][z][place] = np.array([i, j, k])
-                    self.diffuse_bins_help[x][y][z] += 1
 
     def highest_fgf4(self):
         """ Search for the highest concentration of

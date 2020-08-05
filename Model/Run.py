@@ -11,6 +11,7 @@ This is the Python file that you run to begin the simulation. Before you begin, 
 import Output
 import Simulation
 import Functions
+import Backend
 
 # setup() will create an instance of the Simulation class that holds all relevant information of the model.
 # this is done by reading a template .txt file that contains all initial parameters of the model.
@@ -18,7 +19,7 @@ simulation = Simulation.Simulation("C:\\Python37\\Seed Project\\Model\\template.
 
 # Will locate the diffusion points for the extracellular gradient to bins, used for chemotactic movement
 # called once as the locations don't change. not currently in use.
-simulation.setup_diffusion_bins()
+Backend.setup_diffusion_bins(simulation)
 
 # This will loop over all steps defined in the template file in addition to updating the current step
 # of the simulation.

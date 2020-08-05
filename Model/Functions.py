@@ -312,7 +312,6 @@ def apply_forces(simulation):
 
     # parameters that rarely change
     viscosity = 10000    # the viscosity of the medium in Ns/m used for stokes friction
-    move_time_step = 200    # the time step in seconds used for incremental movement of the cells
 
     # call the nvidia gpu version
     if simulation.parallel:
@@ -323,7 +322,7 @@ def apply_forces(simulation):
         radii_cuda = cuda.to_device(simulation.cell_radii)
         viscosity_cuda = cuda.to_device(viscosity)
         size_cuda = cuda.to_device(simulation.size)
-        move_time_step_cuda = cuda.to_device(move_time_step)
+        move_time_step_cuda = cuda.to_device(simulation.move_time_step)
 
         # allocate threads and blocks for gpu memory
         threads_per_block = 72
