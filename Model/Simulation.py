@@ -128,7 +128,7 @@ class Simulation:
         # holds the run time for key functions to track efficiency. each step these are outputted to the CSV file.
         self.update_diffusion_time = float()
         self.check_neighbors_time = float()
-        self.nearest_diff_time = float()
+        self.nearest_time = float()
         self.cell_motility_time = float()
         self.cell_update_time = float()
         self.update_queue_time = float()
@@ -483,41 +483,6 @@ class Simulation:
         # end time
         self.cell_motility_time += time.time()
 
-    def nearest(self):
-        """ looks at cells within a given radius
-            a determines the closest cells of
-            all types.
-        """
-        # start time
-        self.nearest_diff_time = -1 * time.time()
-
-        # divides the space into bins and gives a holder of fixed size for each bin, the addition of 5 offsets
-        # the space to prevent any errors, and 100 is the max cells for a bin which can be changed given errors
-        bins_size = self.size // self.nearest_distance + np.array([5, 5, 5])
-        bins_size_help = tuple(bins_size.astype(int))
-        bins_size = np.append(bins_size, 100)
-        bins_size = tuple(bins_size.astype(int))
-
-        # an empty array used to represent the bins the cells are put into
-        bins = np.empty(bins_size, dtype=int)
-
-        # an array used to accelerate the function by eliminating the lookup for number of cells in a bin
-        bins_help = np.zeros(bins_size_help, dtype=int)
-
-        # find the nearest cell of each type with the external method, no gpu function yet
-        new_gata6, new_nanog, new_diff = nearest_cpu(self.number_cells, self.nearest_distance, bins, bins_help,
-                                                     self.cell_locations, self.cell_nearest_gata6,
-                                                     self.cell_nearest_nanog, self.cell_nearest_diff, self.cell_states,
-                                                     self.cell_fds)
-
-        # revalue the array holding the indices of nearest cells of given type
-        self.cell_nearest_gata6 = new_gata6
-        self.cell_nearest_nanog = new_nanog
-        self.cell_nearest_diff = new_diff
-
-        # end time
-        self.nearest_diff_time += time.time()
-
     def random_vector(self):
         """ Computes a random point on a unit sphere centered at the origin
             Returns - point [x,y,z]
@@ -596,78 +561,3 @@ def highest_fgf4_cpu(diffuse_radius, diffuse_bins, diffuse_bins_help, diffuse_lo
 
     # return the array back
     return highest_fgf4
-
-
-@jit(nopython=True)
-def nearest_cpu(number_cells, distance, bins, bins_help, cell_locations, nearest_gata6, nearest_nanog, nearest_diff,
-                cell_states, cell_fds):
-    """ This is the Numba optimized
-        version of the nearest function.
-    """
-    for i in range(number_cells):
-        # offset bins by 2 to avoid missing cells
-        block_location = cell_locations[i] // distance + np.array([2, 2, 2])
-        x, y, z = int(block_location[0]), int(block_location[1]), int(block_location[2])
-
-        # use the help array to place the cells in corresponding bins
-        place = bins_help[x][y][z]
-
-        # gives the cell's array location
-        bins[x][y][z][place] = i
-
-        # updates the total amount cells in a bin
-        bins_help[x][y][z] += 1
-
-    # loops over all cells, with the current cell being the pivot of the search method
-    for focus in range(number_cells):
-        # offset bins by 2 to avoid missing cells
-        block_location = cell_locations[focus] // distance + np.array([2, 2, 2])
-        x, y, z = int(block_location[0]), int(block_location[1]), int(block_location[2])
-
-        # initialize these variables with essentially nothing values and the distance as an initial comparison
-        nearest_gata6_index, nearest_nanog_index, nearest_diff_index = np.nan, np.nan, np.nan
-        nearest_gata6_dist, nearest_nanog_dist, nearest_diff_dist = distance * 2, distance * 2, distance * 2
-
-        # loop over the bins that surround the current bin
-        for i in range(-1, 2):
-            for j in range(-1, 2):
-                for k in range(-1, 2):
-                    # get the count of cells in a bin
-                    bin_count = bins_help[x + i][y + j][z + k]
-
-                    # go through the bin determining if a cell is a neighbor
-                    for l in range(bin_count):
-                        # get the index of the current cell in question
-                        current = int(bins[x + i][y + j][z + k][l])
-
-                        # check to see if that cell is within the search radius and not the same cell
-                        magnitude = np.linalg.norm(cell_locations[current] - cell_locations[focus])
-                        if magnitude <= distance and focus != current:
-                            # update the nearest gata6 high cell
-                            if cell_fds[current][2] == 1:
-                                # if it's closer than the last cell, update the closest magnitude and index
-                                if magnitude < nearest_gata6_dist:
-                                    nearest_gata6_index = current
-                                    nearest_gata6_dist = magnitude
-
-                            # update the nearest nanog high cell
-                            elif cell_fds[current][3] == 1:
-                                # if it's closer than the last cell, update the closest magnitude and index
-                                if magnitude < nearest_nanog_dist:
-                                    nearest_nanog_index = current
-                                    nearest_nanog_dist = magnitude
-
-                            # update the nearest differentiated cell
-                            elif cell_states[current] == "Differentiated":
-                                # if it's closer than the last cell, update the closest magnitude and index
-                                if magnitude < nearest_diff_dist:
-                                    nearest_diff_index = current
-                                    nearest_diff_dist = magnitude
-
-        # update the nearest cell of desired type index
-        nearest_gata6[focus] = nearest_gata6_index
-        nearest_nanog[focus] = nearest_nanog_index
-        nearest_diff[focus] = nearest_diff_index
-
-    # return the updated edges
-    return nearest_gata6, nearest_nanog, nearest_diff

@@ -552,55 +552,65 @@ def apply_forces_gpu(cell_jkr_force, cell_motility_force, cell_locations, cell_r
             cell_locations[index][2] = new_location_z
 
 
-def setup_diffusion_bins(simulation):
-    """ This function will put the diffusion points
-        into corresponding bins that will be used to
-        find values of diffusion within a radius
+@jit(nopython=True, parallel=True)
+def nearest_cpu(number_cells, distance, bins, bins_help, cell_locations, nearest_gata6, nearest_nanog, nearest_diff,
+                cell_states, cell_fds):
+    """ this is the just-in-time compiled version of nearest
+        that runs in parallel on the cpu
     """
-    # if a static variable has not been created to hold the maximum diffusion points in a bin, create one
-    if not hasattr(setup_diffusion_bins, "max_points"):
-        # begin with a low number of points that can be revalued if the max number of points exceeds this value
-        setup_diffusion_bins.max_points = 10
+    # loops over all cells, with the current cell index being the focus
+    for focus in prange(number_cells):
+        # offset bins by 2 to avoid missing cells that fall outside the space
+        block_location = cell_locations[focus] // distance + np.array([2, 2, 2])
+        x, y, z = int(block_location[0]), int(block_location[1]), int(block_location[2])
 
-    # get the dimensions of the array representing the diffusion points
-    x_steps = simulation.fgf4_values.shape[0]
-    y_steps = simulation.fgf4_values.shape[1]
-    z_steps = simulation.fgf4_values.shape[2]
+        # initialize these variables with essentially nothing values and the distance as an initial comparison
+        nearest_gata6_index, nearest_nanog_index, nearest_diff_index = np.nan, np.nan, np.nan
+        nearest_gata6_dist, nearest_nanog_dist, nearest_diff_dist = distance * 2, distance * 2, distance * 2
 
-    # set up the locations of the diffusion points
-    x, y, z = np.meshgrid(np.arange(x_steps), np.arange(y_steps), np.arange(z_steps), indexing='ij')
-    x, y, z = x * simulation.dx, y * simulation.dy, z * simulation.dz
-    simulation.diffuse_locations = np.stack((x, y, z), axis=3)
+        # loop over the bin the cell is in and the surrounding bin
+        for i in range(-1, 2):
+            for j in range(-1, 2):
+                for k in range(-1, 2):
+                    # get the count of cells for the current bin
+                    bin_count = bins_help[x + i][y + j][z + k]
 
-    # if there is enough space for all points that should be in a bin, break out of the loop. if there isn't
-    # enough space update the amount of needed space and re-put the points in bins. this will run once if the prediction
-    # of points is correct, twice if it isn't the first time
-    while True:
-        # calculate the size of the array used to represent the bins and the bins helper array, include extra bins
-        # for points that may fall outside of the space
-        bins_help_size = np.ceil(simulation.size / simulation.diffuse_radius).astype(int) + np.array([5, 5, 5])
-        bins_size = np.append(bins_help_size, [setup_diffusion_bins.max_points, 3])
+                    # go through that bin
+                    for l in range(bin_count):
+                        # get the index of the current cell in question
+                        current = int(bins[x + i][y + j][z + k][l])
 
-        # create the arrays for "bins" and "bins_help"
-        diffuse_bins = np.empty(bins_size, dtype=int)
-        diffuse_bins_help = np.zeros(bins_help_size, dtype=int)
+                        # check to see if that cell is within the search radius and not the same cell
+                        mag = np.linalg.norm(cell_locations[current] - cell_locations[focus])
+                        if mag <= distance and focus != current:
+                            # update the nearest gata6 high cell
+                            if cell_fds[current][2] == 1:
+                                # if it's closer than the last cell, update the nearest magnitude and index
+                                if mag < nearest_gata6_dist:
+                                    nearest_gata6_index = current
+                                    nearest_gata6_dist = mag
 
-        # assign the points to bins via the jit function
-        diffuse_bins, diffuse_bins_help = setup_diffuse_bins_cpu(simulation.diffuse_locations, x_steps, y_steps,
-                                                                 z_steps, simulation.diffuse_radius, diffuse_bins,
-                                                                 diffuse_bins_help)
+                            # update the nearest nanog high cell
+                            elif cell_fds[current][3] == 1:
+                                # if it's closer than the last cell, update the nearest magnitude and index
+                                if mag < nearest_nanog_dist:
+                                    nearest_nanog_index = current
+                                    nearest_nanog_dist = mag
 
-        # either break the loop if all points were accounted for or revalue the maximum number of points based on
-        # the output of the function call
-        max_points = np.amax(diffuse_bins_help)
-        if setup_diffusion_bins.max_points >= max_points:
-            break
-        else:
-            setup_diffusion_bins.max_points = max_points
+                            # update the nearest differentiated cell
+                            elif cell_states[current] == "Differentiated":
+                                # if it's closer than the last cell, update the nearest magnitude and index
+                                if mag < nearest_diff_dist:
+                                    nearest_diff_index = current
+                                    nearest_diff_dist = mag
 
-    # update the diffuse bins for the simulation instance
-    simulation.diffuse_bins = diffuse_bins
-    simulation.diffuse_bins_help = diffuse_bins_help
+        # update the nearest cell of desired type
+        nearest_gata6[focus] = nearest_gata6_index
+        nearest_nanog[focus] = nearest_nanog_index
+        nearest_diff[focus] = nearest_diff_index
+
+    # return the updated edges
+    return nearest_gata6, nearest_nanog, nearest_diff
 
 
 @jit(nopython=True)

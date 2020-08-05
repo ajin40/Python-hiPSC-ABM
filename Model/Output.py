@@ -38,11 +38,11 @@ def step_image(simulation):
         if simulation.output_gradient:
             # create a color map object that is used to turn the fgf4 array into a rgba array
             cmap_object = ScalarMappable(cmap='Blues')
-            fgf4_as_rgba = cmap_object.to_rgba(fgf4_array, bytes=True)
+            fgf4_as_rgba = cmap_object.to_rgba(fgf4_array, bytes=True, norm=False)
 
             # create an image from the fgf4 rgba array
             cmap_base = Image.fromarray(fgf4_as_rgba, mode="RGBA")
-            cmap_base = cmap_base.resize(simulation.image_quality[0:2], resample=Image.NEAREST)
+            cmap_base = cmap_base.resize(simulation.image_quality[0:2], resample=Image.BICUBIC)
             cmap_base = cmap_base.transpose(Image.TRANSPOSE)
             cmap_image = ImageDraw.Draw(cmap_base)
 
@@ -152,7 +152,7 @@ def simulation_data(simulation):
     # write the row with the corresponding values
     simulation.csv_object.writerow([simulation.current_step, simulation.number_cells, step_time, memory,
                                     simulation.update_diffusion_time, simulation.check_neighbors_time,
-                                    simulation.nearest_diff_time, simulation.cell_motility_time,
+                                    simulation.nearest_time, simulation.cell_motility_time,
                                     simulation.cell_update_time, simulation.update_queue_time,
                                     simulation.handle_movement_time, simulation.jkr_neighbors_time,
                                     simulation.get_forces_time, simulation.apply_forces_time])

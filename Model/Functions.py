@@ -339,7 +339,7 @@ def apply_forces(simulation):
     else:
         new_locations = Backend.apply_forces_cpu(simulation.number_cells, simulation.cell_jkr_force,
                                                  simulation.cell_motility_force, simulation.cell_locations,
-                                                 simulation.cell_radii, simulation.viscosity, simulation.size,
+                                                 simulation.cell_radii, viscosity, simulation.size,
                                                  simulation.move_time_step)
 
     # update the locations and reset the jkr forces back to zero
@@ -348,6 +348,89 @@ def apply_forces(simulation):
 
     # calculate the total time elapsed for the function
     simulation.apply_forces_time += time.time()
+
+
+def nearest(simulation):
+    """ looks at cells within a given radius a determines
+        the closest cells of important types
+    """
+    # start time of the function
+    simulation.nearest_time = -1 * time.time()
+
+    # calls the function that generates an array of bins that generalize the cell locations in addition to a
+    # helper array that assists the search method in counting cells in a particular bin
+    bins, bins_help = Backend.assign_bins(simulation, simulation.nearest_distance)
+
+    # call the nvidia gpu version
+    if simulation.parallel:
+        pass
+
+    # call the cpu version
+    else:
+        # find the nearest cell of each type with the external method, no gpu function yet
+        gata6, nanog, diff = Backend.nearest_cpu(simulation.number_cells, simulation.nearest_distance, bins, bins_help,
+                                                 simulation.cell_locations, simulation.cell_nearest_gata6,
+                                                 simulation.cell_nearest_nanog, simulation.cell_nearest_diff,
+                                                 simulation.cell_states, simulation.cell_fds)
+
+    # revalue the array holding the indices of nearest cells of given type
+    simulation.cell_nearest_gata6 = gata6
+    simulation.cell_nearest_nanog = nanog
+    simulation.cell_nearest_diff = diff
+
+    # calculate the total time elapsed for the function
+    simulation.nearest_time += time.time()
+
+
+def setup_diffusion_bins(simulation):
+    """ This function will put the diffusion points
+        into corresponding bins that will be used to
+        find values of diffusion within a radius
+    """
+    # if a static variable has not been created to hold the maximum diffusion points in a bin, create one
+    if not hasattr(setup_diffusion_bins, "max_points"):
+        # begin with a low number of points that can be revalued if the max number of points exceeds this value
+        setup_diffusion_bins.max_points = 10
+
+    # get the dimensions of the array representing the diffusion points
+    x_steps = simulation.fgf4_values.shape[0]
+    y_steps = simulation.fgf4_values.shape[1]
+    z_steps = simulation.fgf4_values.shape[2]
+
+    # set up the locations of the diffusion points
+    x, y, z = np.meshgrid(np.arange(x_steps), np.arange(y_steps), np.arange(z_steps), indexing='ij')
+    x, y, z = x * simulation.dx, y * simulation.dy, z * simulation.dz
+    simulation.diffuse_locations = np.stack((x, y, z), axis=3)
+
+    # if there is enough space for all points that should be in a bin, break out of the loop. if there isn't
+    # enough space update the amount of needed space and re-put the points in bins. this will run once if the prediction
+    # of points is correct, twice if it isn't the first time
+    while True:
+        # calculate the size of the array used to represent the bins and the bins helper array, include extra bins
+        # for points that may fall outside of the space
+        bins_help_size = np.ceil(simulation.size / simulation.diffuse_radius).astype(int) + np.array([5, 5, 5])
+        bins_size = np.append(bins_help_size, [setup_diffusion_bins.max_points, 3])
+
+        # create the arrays for "bins" and "bins_help"
+        diffuse_bins = np.empty(bins_size, dtype=int)
+        diffuse_bins_help = np.zeros(bins_help_size, dtype=int)
+
+        # assign the points to bins via the jit function
+        diffuse_bins, diffuse_bins_help = Backend.setup_diffuse_bins_cpu(simulation.diffuse_locations, x_steps, y_steps,
+                                                                         z_steps, simulation.diffuse_radius,
+                                                                         diffuse_bins, diffuse_bins_help)
+
+        # either break the loop if all points were accounted for or revalue the maximum number of points based on
+        # the output of the function call
+        max_points = np.amax(diffuse_bins_help)
+        if setup_diffusion_bins.max_points >= max_points:
+            break
+        else:
+            setup_diffusion_bins.max_points = max_points
+
+    # update the diffuse bins for the simulation instance
+    simulation.diffuse_bins = diffuse_bins
+    simulation.diffuse_bins_help = diffuse_bins_help
 
 
 def update_diffusion(simulation):
