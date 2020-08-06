@@ -11,10 +11,10 @@ What is the path for the output directory? Do not include separator after the di
 Do you want the model to use a discrete NVIDIA gpu to accelerate some computationally tasking functions? Ex. True
 [ True ]
 
-What will the final step number be? Regardless of the model mode, the simulation will end at this step. Ex. 192
+What will the final step number be? Use for when you are beginning a new simulation or continuing an existing. Ex. 192
 [ 5 ]
 
-How many cells to begin the simulation? All cells beginning will be NANOG high and pluripotent. Ex. 1000
+How many cells to begin the simulation? All cells will begin as NANOG high and pluripotent. Ex. 1000
 [ 1000 ]
 
 The time has come. Execute Order Sixty-Six? Ex. True
