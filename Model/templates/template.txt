@@ -2,35 +2,11 @@
 This is the template for running a simulation. Good luck!
 -----------------------------------------------------------------------------------------------------------------------
 
------------------------------------------------------------------------------------------------------------------------
-General Parameters
------------------------------------------------------------------------------------------------------------------------
-What is the name of the simulation? Ex. Run_30
-[ Check_neighbors__ ]
 
-What is the path for the output directory? Ex. C:\Python37\Model_Outputs
-[ C:\Outputs ]
-
-Do you want the simulation to use parallel GPU processing? (It's really cool)  Ex. True
-[ True ]
 
 What is the x, y, z size of the space that the cells reside (in meters)? Ex. (0.001, 0.001, 0.0)
 [ (0.001, 0.001, 0.0) ]
 
-How many cells will be GATA6 high to begin the simulation? Ex. 247
-[ 0 ]
-
-How many cells will be NANOG high to begin the simulation? Ex. 91
-[ 1000 ]
-
------------------------------------------------------------------------------------------------------------------------
-Finite Dynamical System
------------------------------------------------------------------------------------------------------------------------
-Define the finite dynamical system functions below. Ex. ("x5", "x4 * x2",...)
-[ ("x5", "x1 * x4", "x2", "1 + x5 + x5 * x4", "(x3+1) * (x4+1)") ]
-
-Number of states within the finite dynamical system. Currently 2 because the system is a Boolean network. Ex. 2
-[ 2 ]
 
 -----------------------------------------------------------------------------------------------------------------------
 Simulation Modes
@@ -57,8 +33,7 @@ If this simulation is a continuation of a previous simulation, what will be the 
 running a simulation, type 1. Ex. 1
 [ 1 ]
 
-What will the final step number be? Ex. 30
-[ 5 ]
+
 
 How long is each time step in seconds? Ex. 3600
 [ 1800 ]
@@ -102,11 +77,6 @@ Threshold of cells to needed to inhibit the motion of a cell. If lower than this
 Threshold of differentiated cells for increasing differentiation. If lower than this value no increase. Ex. 8
 [ 3 ]
 
------------------------------------------------------------------------------------------------------------------------
-Extracellular
------------------------------------------------------------------------------------------------------------------------
-What is the diffusion constant of the extracellular molecules? Ex. 0.0000000001
-[ 0.00000000001 ]
 
 What is the dx, dy, dz diffusion resolution of the space? Ex. (1.0, 1.0, 0.0)
 [ (0.00001, 0.00001, 1.0) ]
@@ -117,47 +87,13 @@ Movement/Physical Parameters
 Time step value for handling collisions in seconds. Should be a smaller than the overall time step value. Ex. 30
 [ 200 ]
 
-JKR work of adhesion value in kg/s from P Pathmanathan et al. Ex. 0.000107
-[ 0.000107 ]
-
-Viscosity of the media in Ns/m. Ex. 10000
-[ 10000 ]
-
 Motility force in Newtons for cells actively moving. Ex. 0.00000001
 [ 0.000000005 ]
 
 Max radius of a cell in meters. Ex. 0.000005
 [ 0.000005 ]
 
------------------------------------------------------------------------------------------------------------------------
-Imaging
------------------------------------------------------------------------------------------------------------------------
-Image resolution in pixels. Currently 2D only. Ex. (1000, 1000)
-[ (2000, 2000) ]
 
-Frames per second of the video containing all of the step images. Ex. 1.0
-[ 1.0 ]
-
-Background color as RGB. Ex. (255, 255, 255)
-[ (0, 0, 0) ]
-
-Are you coloring based on pluripotent/differentiated or GATA6/NANOG high/low? True for pluri/diff. Ex. False
-[ True ]
-
-Pluripotent cell color as RGB. Ex. (0, 153, 0)
-[ (22, 252, 32) ]
-
-Differentiated cell color as RGB. Ex. (255, 0, 0)
-[ (230, 0, 0) ]
-
-Pluripotent GATA6 high cell color as RGB. Ex. (255, 255, 255)
-[ (255, 255, 255) ]
-
-Pluripotent NANOG high or GATA6/NANOG low cell color as RGB. Ex. (0, 153, 0)
-[ (0, 153, 0) ]
-
-Pluripotent both GATA6/NANOG high cell color. Ex. (0, 0, 0)
-[ (51, 51, 255) ]
 
 -----------------------------------------------------------------------------------------------------------------------
 Miscellaneous/Experimental
@@ -174,9 +110,6 @@ How many cells are added/removed to the simulation at once, per time step? Type 
 Use the Guye movement method? Ex. True
 [ True ]
 
-What is the radius of search for the fgf4 movement with diffusion? Ex. 0.000030
-[ 0.000015 ]
-
 What is the max value of fgf4 at a diffusion point? Ex. 20
 [ 5 ]
 
@@ -186,9 +119,4 @@ Use Eunbi's method of motion based on the NetLogo model? Ex. True
 Use FGF4 concentrations for NANOG high movements? Ex. False
 [ False ]
 
-Show the gradient color-map next to the image of the cell space? Ex. True
-[ True ]
-
-The time has come. Execute Order Sixty-Six? Ex. True
-[ True ]
 -----------------------------------------------------------------------------------------------------------------------

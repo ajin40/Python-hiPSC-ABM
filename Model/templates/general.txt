@@ -1,0 +1,23 @@
+-----------------------------------------------------------------------------------------------------------------------
+General Parameters
+-----------------------------------------------------------------------------------------------------------------------
+What is the name of the simulation? Ex. Run_30
+[ Check_neighbors__ ]
+
+What is the path for the output directory? Ex. C:\Python37\Model_Outputs
+[ C:\Outputs ]
+
+Do you want the simulation to use parallel GPU processing? (It's really cool)  Ex. True
+[ True ]
+
+How many cells will be GATA6 high to begin the simulation? Ex. 247
+[ 0 ]
+
+How many cells will be NANOG high to begin the simulation? Ex. 91
+[ 1000 ]
+
+What will the final step number be? Ex. 30
+[ 5 ]
+
+The time has come. Execute Order Sixty-Six? Ex. True
+[ True ]

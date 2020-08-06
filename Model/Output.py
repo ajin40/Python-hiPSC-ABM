@@ -63,22 +63,27 @@ def step_image(simulation):
             # this mode is just showing pluripotent and differentiated cells
             if simulation.color_mode:
                 if simulation.cell_states[i] == "Pluripotent":
-                    color = simulation.pluri_color
+                    color = (22, 252, 32)
                 else:
-                    color = simulation.diff_color
+                    color = (230, 0, 0)
 
             # this mode is showing color based on the finite dynamical system
             else:
+                # color red if differentiated
                 if simulation.cell_states[i] == "Differentiated":
-                    color = simulation.diff_color
+                    color = (230, 0, 0)
+                # color yellow if both high
                 elif simulation.cell_fds[i][2] == 1 and simulation.cell_fds[i][3] == 1:
-                    color = simulation.pluri_both_high_color
+                    color = (255, 255, 30)
+                # color blue if both low
+                elif simulation.cell_fds[i][2] == 0 and simulation.cell_fds[i][3] == 0:
+                    color = (50, 50, 255)
+                # color white if gata6 high
                 elif simulation.cell_fds[i][2] == 1:
-                    color = simulation.pluri_gata6_high_color
-                elif simulation.cell_fds[i][3] == 1:
-                    color = simulation.pluri_nanog_high_color
+                    color = (255, 255, 255)
+                # color green if nanog high
                 else:
-                    color = simulation.pluri_color
+                    color = (22, 252, 32)
 
             # draw the circle representing the cell to both the normal image and the colormap image
             membrane_circle = (x - x_radius, y - y_radius, x + x_radius, y + y_radius)

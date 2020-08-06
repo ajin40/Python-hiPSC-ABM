@@ -803,7 +803,8 @@ def highest_fgf4(simulation):
     """ Search for the highest concentration of
         fgf4 within a fixed radius
     """
-    simulation.cell_highest_fgf4 = Backend.highest_fgf4_cpu(simulation.diffuse_radius, simulation.diffuse_bins,
+    diffuse_radius = 0.000015
+    simulation.cell_highest_fgf4 = Backend.highest_fgf4_cpu(diffuse_radius, simulation.diffuse_bins,
                                                             simulation.diffuse_bins_help, simulation.diffuse_locations,
                                                             simulation.cell_locations, simulation.number_cells,
                                                             simulation.cell_highest_fgf4, simulation.fgf4_values)
