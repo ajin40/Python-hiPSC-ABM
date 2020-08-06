@@ -1,6 +1,6 @@
 """
 
-Output.py serves as a way of separating the following functions from the Simulation class. These
+output.py serves as a way of separating the following functions from the Simulation class. These
 functions will prepare the files to store data about the efficiency of the model, information
 at each step for all of the cells, images from each step, and a video.
 

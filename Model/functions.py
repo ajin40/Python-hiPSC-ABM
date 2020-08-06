@@ -4,7 +4,7 @@ from numba import cuda
 import math
 import random as r
 
-import Backend
+import backend
 
 
 def info(simulation):
@@ -232,7 +232,7 @@ def update_queue(simulation):
     for i in range(len(simulation.cells_to_divide)):
         # get the index and divide that cell
         index = simulation.cells_to_divide[i]
-        Backend.divide_cell(simulation, index)
+        backend.divide_cell(simulation, index)
 
         # Cannot add all of the new cells, otherwise several cells are likely to be added in
         #   close proximity to each other at later time steps. Such addition, coupled with
@@ -250,7 +250,7 @@ def update_queue(simulation):
     for i in range(len(simulation.cells_to_remove)):
         # get the index and remove it
         index = simulation.cells_to_remove[i]
-        Backend.remove_cell(simulation, index)
+        backend.remove_cell(simulation, index)
 
         # adjusts the indices as deleting part of the array may alter the indices to remove
         for j in range(i + 1, len(simulation.cells_to_remove)):
@@ -293,7 +293,7 @@ def check_neighbors(simulation):
 
     # calls the function that generates an array of bins that generalize the cell locations in addition to a
     # helper array that assists the search method in counting cells in a particular bin
-    bins, bins_help = Backend.assign_bins(simulation, neighbor_distance)
+    bins, bins_help = backend.assign_bins(simulation, neighbor_distance)
 
     # this will run once and if all edges are included in edge_holder, the loop will break. if not this will
     # run a second time with an updated value for number of predicted neighbors such that all edges are included
@@ -317,7 +317,7 @@ def check_neighbors(simulation):
             blocks_per_grid = math.ceil(simulation.number_cells / threads_per_block)
 
             # call the cuda kernel with given parameters
-            Backend.check_neighbors_gpu[blocks_per_grid, threads_per_block](locations_cuda, bins_cuda, bins_help_cuda,
+            backend.check_neighbors_gpu[blocks_per_grid, threads_per_block](locations_cuda, bins_cuda, bins_help_cuda,
                                                                             distance_cuda, edge_holder_cuda,
                                                                             edge_count_cuda)
             # return the arrays back from the gpu
@@ -326,7 +326,7 @@ def check_neighbors(simulation):
 
         # call the cpu version
         else:
-            edge_holder, edge_count = Backend.check_neighbors_cpu(simulation.number_cells, simulation.cell_locations,
+            edge_holder, edge_count = backend.check_neighbors_cpu(simulation.number_cells, simulation.cell_locations,
                                                                   bins, bins_help, neighbor_distance, edge_holder,
                                                                   edge_count, check_neighbors.max_neighbors)
 
@@ -339,7 +339,7 @@ def check_neighbors(simulation):
             check_neighbors.max_neighbors = max_neighbors
 
     # remove duplicates and loops from the array as these slow down "add_edges"
-    edge_holder = Backend.clean_edges(edge_holder)
+    edge_holder = backend.clean_edges(edge_holder)
 
     # add the edges to the neighbor graph and simplify the graph to remove any extraneous loops or repeated edges
     simulation.neighbor_graph.add_edges(edge_holder)
@@ -390,7 +390,7 @@ def jkr_neighbors(simulation):
 
     # calls the function that generates an array of bins that generalize the cell locations in addition to a
     # helper array that assists the search method in counting cells in a particular bin
-    bins, bins_help = Backend.assign_bins(simulation, jkr_distance)
+    bins, bins_help = backend.assign_bins(simulation, jkr_distance)
 
     # this will run once and if all edges are included in edge_holder, the loop will break. if not this will
     # run a second time with an updated value for number of predicted neighbors such that all edges are included
@@ -415,7 +415,7 @@ def jkr_neighbors(simulation):
             blocks_per_grid = math.ceil(simulation.number_cells / threads_per_block)
 
             # call the cuda kernel with given parameters
-            Backend.jkr_neighbors_gpu[blocks_per_grid, threads_per_block](locations_cuda, radii_cuda, bins_cuda,
+            backend.jkr_neighbors_gpu[blocks_per_grid, threads_per_block](locations_cuda, radii_cuda, bins_cuda,
                                                                           bins_help_cuda, distance_cuda,
                                                                           edge_holder_cuda, edge_count_cuda)
             # return the arrays back from the gpu
@@ -424,7 +424,7 @@ def jkr_neighbors(simulation):
 
         # call the cpu version
         else:
-            edge_holder, edge_count = Backend.jkr_neighbors_cpu(simulation.number_cells, simulation.cell_locations,
+            edge_holder, edge_count = backend.jkr_neighbors_cpu(simulation.number_cells, simulation.cell_locations,
                                                                 simulation.cell_radii, bins, bins_help,
                                                                 jkr_distance, edge_holder, edge_count,
                                                                 jkr_neighbors.max_neighbors)
@@ -438,7 +438,7 @@ def jkr_neighbors(simulation):
             jkr_neighbors.max_neighbors = max_neighbors
 
     # remove duplicates and loops from the array as these slow down "add_edges"
-    edge_holder = Backend.clean_edges(edge_holder)
+    edge_holder = backend.clean_edges(edge_holder)
 
     # add the edges and simplify the graph as this is a running graph that is never cleared
     simulation.jkr_graph.add_edges(edge_holder)
@@ -485,7 +485,7 @@ def get_forces(simulation):
             blocks_per_grid = math.ceil(number_edges / threads_per_block)
 
             # call the cuda kernel with given parameters
-            Backend.get_forces_gpu[blocks_per_grid, threads_per_block](jkr_edges_cuda, delete_edges_cuda,
+            backend.get_forces_gpu[blocks_per_grid, threads_per_block](jkr_edges_cuda, delete_edges_cuda,
                                                                        locations_cuda, radii_cuda, forces_cuda,
                                                                        poisson_cuda, youngs_cuda, adhesion_const_cuda)
             # return the new forces and the edges to be deleted
@@ -494,7 +494,7 @@ def get_forces(simulation):
 
         # call the cpu version
         else:
-            forces, delete_edges = Backend.get_forces_cpu(jkr_edges, delete_edges, simulation.cell_locations,
+            forces, delete_edges = backend.get_forces_cpu(jkr_edges, delete_edges, simulation.cell_locations,
                                                           simulation.cell_radii, simulation.cell_jkr_force, poisson,
                                                           youngs, adhesion_const)
 
@@ -533,7 +533,7 @@ def apply_forces(simulation):
         blocks_per_grid = math.ceil(simulation.number_cells / threads_per_block)
 
         # call the cuda kernel with given parameters
-        Backend.apply_forces_gpu[blocks_per_grid, threads_per_block](jkr_forces_cuda, motility_forces_cuda,
+        backend.apply_forces_gpu[blocks_per_grid, threads_per_block](jkr_forces_cuda, motility_forces_cuda,
                                                                      locations_cuda, radii_cuda, viscosity_cuda,
                                                                      size_cuda, move_time_step_cuda)
         # return the new cell locations from the gpu
@@ -541,7 +541,7 @@ def apply_forces(simulation):
 
     # call the cpu version
     else:
-        new_locations = Backend.apply_forces_cpu(simulation.number_cells, simulation.cell_jkr_force,
+        new_locations = backend.apply_forces_cpu(simulation.number_cells, simulation.cell_jkr_force,
                                                  simulation.cell_motility_force, simulation.cell_locations,
                                                  simulation.cell_radii, viscosity, simulation.size,
                                                  simulation.move_time_step)
@@ -566,19 +566,19 @@ def nearest(simulation):
 
     # calls the function that generates an array of bins that generalize the cell locations in addition to a
     # helper array that assists the search method in counting cells in a particular bin
-    bins, bins_help = Backend.assign_bins(simulation, nearest_distance)
+    bins, bins_help = backend.assign_bins(simulation, nearest_distance)
 
     # call the nvidia gpu version
     if simulation.parallel:
         # find the nearest cell of each type with the external method, no gpu function yet
-        gata6, nanog, diff = Backend.nearest_cpu(simulation.number_cells, nearest_distance, bins, bins_help,
+        gata6, nanog, diff = backend.nearest_cpu(simulation.number_cells, nearest_distance, bins, bins_help,
                                                  simulation.cell_locations, simulation.cell_nearest_gata6,
                                                  simulation.cell_nearest_nanog, simulation.cell_nearest_diff,
                                                  simulation.cell_states, simulation.cell_fds)
     # call the cpu version
     else:
         # find the nearest cell of each type with the external method, no gpu function yet
-        gata6, nanog, diff = Backend.nearest_cpu(simulation.number_cells, nearest_distance, bins, bins_help,
+        gata6, nanog, diff = backend.nearest_cpu(simulation.number_cells, nearest_distance, bins, bins_help,
                                                  simulation.cell_locations, simulation.cell_nearest_gata6,
                                                  simulation.cell_nearest_nanog, simulation.cell_nearest_diff,
                                                  simulation.cell_states, simulation.cell_fds)
@@ -623,7 +623,7 @@ def cell_motility(simulation):
                         vector_holder += vector
 
                 # get the normal vector
-                normal = Backend.normal_vector(vector_holder)
+                normal = backend.normal_vector(vector_holder)
 
                 # move in direction of the differentiated cells
                 simulation.cell_motility_force[i] += motility_force * normal * 0.5
@@ -639,7 +639,7 @@ def cell_motility(simulation):
                         vector_holder += vector
 
                 # get the normal vector
-                normal = Backend.normal_vector(vector_holder)
+                normal = backend.normal_vector(vector_holder)
 
                 # move in direction opposite to pluripotent cells
                 simulation.cell_motility_force[i] += motility_force * normal * -1 * 0.5
@@ -652,7 +652,7 @@ def cell_motility(simulation):
                     if not np.isnan(simulation.cell_nearest_nanog[i]):
                         nearest_index = int(simulation.cell_nearest_nanog[i])
                         vector = simulation.cell_locations[i] - simulation.cell_locations[nearest_index]
-                        normal = Backend.normal_vector(vector)
+                        normal = backend.normal_vector(vector)
                         simulation.cell_motility_force[i] += normal * motility_force * -1
 
                     # move randomly instead
@@ -676,7 +676,7 @@ def cell_motility(simulation):
 
                         # get the normal vector
                         vector = simulation.cell_locations[guye_neighbor] - simulation.cell_locations[i]
-                        normal = Backend.normal_vector(vector)
+                        normal = backend.normal_vector(vector)
 
                         # calculate the motility force
                         simulation.cell_motility_force[i] += normal * motility_force
@@ -692,7 +692,7 @@ def cell_motility(simulation):
                             y = int(simulation.cell_highest_fgf4[i][1])
                             z = int(simulation.cell_highest_fgf4[i][2])
                             vector = simulation.cell_locations[i] - simulation.diffuse_locations[x][y][z]
-                            normal = Backend.normal_vector(vector)
+                            normal = backend.normal_vector(vector)
                             simulation.cell_motility_force[i] += normal * motility_force
 
                     # move based on Eunbi's model
@@ -701,25 +701,25 @@ def cell_motility(simulation):
                         if not np.isnan(simulation.cell_nearest_gata6[i]):
                             nearest_index = int(simulation.cell_nearest_gata6[i])
                             vector = simulation.cell_locations[nearest_index] - simulation.cell_locations[i]
-                            normal = Backend.normal_vector(vector)
+                            normal = backend.normal_vector(vector)
                             simulation.cell_motility_force[i] += normal * motility_force * -1
 
                         # if there is a nanog high cell nearby, move to it
                         elif not np.isnan(simulation.cell_nearest_nanog[i]):
                             nearest_index = int(simulation.cell_nearest_nanog[i])
                             vector = simulation.cell_locations[nearest_index] - simulation.cell_locations[i]
-                            normal = Backend.normal_vector(vector)
+                            normal = backend.normal_vector(vector)
                             simulation.cell_motility_force[i] += normal * motility_force
 
                         # if nothing else, move randomly
                         else:
-                            simulation.cell_motility_force[i] += Backend.random_vector(simulation) * motility_force
+                            simulation.cell_motility_force[i] += backend.random_vector(simulation) * motility_force
                     # if nothing else, move randomly
                     else:
-                        simulation.cell_motility_force[i] += Backend.random_vector(simulation) * motility_force
+                        simulation.cell_motility_force[i] += backend.random_vector(simulation) * motility_force
                 # if nothing else, move randomly
                 else:
-                    simulation.cell_motility_force[i] += Backend.random_vector(simulation) * motility_force
+                    simulation.cell_motility_force[i] += backend.random_vector(simulation) * motility_force
 
     # calculate the total time elapsed for the function
     simulation.cell_motility_time += time.time()
@@ -759,7 +759,7 @@ def setup_diffusion_bins(simulation):
         diffuse_bins_help = np.zeros(bins_help_size, dtype=int)
 
         # assign the points to bins via the jit function
-        diffuse_bins, diffuse_bins_help = Backend.setup_diffuse_bins_cpu(simulation.diffuse_locations, x_steps, y_steps,
+        diffuse_bins, diffuse_bins_help = backend.setup_diffuse_bins_cpu(simulation.diffuse_locations, x_steps, y_steps,
                                                                          z_steps, simulation.diffuse_radius,
                                                                          diffuse_bins, diffuse_bins_help)
 
@@ -792,7 +792,7 @@ def update_diffusion(simulation):
 
     # go through all gradients and update the diffusion of each
     for gradient in simulation.extracellular_names:
-        simulation.__dict__[gradient] = Backend.update_diffusion_cpu(simulation.__dict__[gradient], time_steps, dt,
+        simulation.__dict__[gradient] = backend.update_diffusion_cpu(simulation.__dict__[gradient], time_steps, dt,
                                                                      simulation.dx2, simulation.dy2,
                                                                      simulation.dz2, diffuse, simulation.size)
     # calculate the total time elapsed for the function
@@ -804,7 +804,7 @@ def highest_fgf4(simulation):
         fgf4 within a fixed radius
     """
     diffuse_radius = 0.000015
-    simulation.cell_highest_fgf4 = Backend.highest_fgf4_cpu(diffuse_radius, simulation.diffuse_bins,
+    simulation.cell_highest_fgf4 = backend.highest_fgf4_cpu(diffuse_radius, simulation.diffuse_bins,
                                                             simulation.diffuse_bins_help, simulation.diffuse_locations,
                                                             simulation.cell_locations, simulation.number_cells,
                                                             simulation.cell_highest_fgf4, simulation.fgf4_values)
