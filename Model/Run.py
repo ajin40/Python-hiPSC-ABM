@@ -1,20 +1,10 @@
-"""
-
-This is the Python file that you run to begin the simulation. Before you begin, make sure you have
- updated "Simulation.Simulation(...)" such that it represents the string that is the path pointing to the
- .txt file a.k.a. the template file used for simulation information. All lines indicated with "(base)" are
- necessary to for the model to work. Removing such lines may cause the model to either run incorrectly
- or not at all. Functions underneath the for loop are run each step, while functions before or after
- will be run before or after all steps are executed.
-
-"""
 import Output
 import Simulation
 import Functions
 
 # setup() will create an instance of the Simulation class that holds all relevant information of the model.
 # this is done by reading a template .txt file that contains all initial parameters of the model.
-simulation = Simulation.Simulation("C:\\Python37\\Seed Project\\Model\\template.txt")
+simulation = Simulation.Simulation("C:\\Python37\\Seed Project\\Model\\templates\\template.txt")
 
 # Will locate the diffusion points for the extracellular gradient to bins, used for chemotactic movement
 # called once as the locations don't change. not currently in use.

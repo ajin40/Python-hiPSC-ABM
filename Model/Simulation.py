@@ -1,10 +1,3 @@
-"""
-
-Here you can add or remove parameters and functions. The __init__ function of the Simulation class
- allows you to change the instance variables from either from the template file or just directly
- to the class. The template file acts as a user interface of sorts.
-
-"""
 import numpy as np
 import igraph
 
@@ -28,10 +21,6 @@ class Simulation:
         self.num_GATA6 = int(lines[20][2:-3])   # the number of GATA6 high cells to begin the simulation
         self.num_NANOG = int(lines[23][2:-3])   # the number of NANOG high cells to being the simulation
 
-        # finite dynamical system
-        self.functions = eval(lines[29][2:-3])  # the finite dynamical system functions as strings in an array
-        self.num_fds_states = int(lines[32][2:-3])  # the number of states for the finite dynamical system
-
         # modes
         self.output_csvs = eval(lines[41][2:-3])  # whether or not to produce csvs with cell information
         self.output_images = eval(lines[38][2:-3])   # whether or not to produce images
@@ -50,9 +39,6 @@ class Simulation:
         self.death_thresh = int(lines[78][2:-3])  # the death threshold (in steps) for cell death
 
         # intercellular
-        self.neighbor_distance = float(lines[84][2:-3]) # the distance threshold for assigning nearby cells as neighbors
-        self.nearest_distance = float(lines[87][2:-3])  # the radius of search for the nearest cell of desired type
-        self.jkr_distance = float(lines[90][2:-3])  # the radius of search for JKR adhesive bonds formed between cells
         self.lonely_cell = int(lines[93][2:-3])  # if the number of neighbors is below this threshold, a cell is lonely
         self.contact_inhibit = int(lines[96][2:-3])  # if the number of neighbors is below this threshold, no inhibition
         self.move_thresh = int(lines[99][2:-3])  # if the number of neighbors is above this threshold, inhibit motion
@@ -81,7 +67,6 @@ class Simulation:
         self.pluri_both_high_color = eval(lines[159][2:-3])    # color of a pluripotent gata6/nanog high cell
 
         # miscellaneous/experimental
-        self.dox_step = int(lines[165][2:-3])  # the step at which dox is introduced into the simulation
         self.stochastic = eval(lines[168][2:-3])    # if initial fds variables are stochastic
         self.group = int(lines[171][2:-3])   # the number of cells introduced into or removed from the space at once
         self.guye_move = eval(lines[174][2:-3])    # whether or not to use the Guye method of cell motility

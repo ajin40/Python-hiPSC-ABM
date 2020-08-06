@@ -153,8 +153,8 @@ def cell_pathway(simulation, index):
     if simulation.cell_fds[index][3] == 1 and simulation.fgf4_values[index_x][index_y][index_z] < simulation.max_fgf4:
         simulation.fgf4_values[index_x][index_y][index_z] += 1
 
-    # activate the following pathway based on if dox has been induced yet
-    if simulation.current_step >= simulation.dox_step:
+    # activate the following pathway based on if dox (after 24 hours) has been induced yet
+    if simulation.current_step >= 48:
         # if the FGF4 amount for the location is greater than 0, set the fgf4_bool value to be 1 for the
         # functions
         if simulation.fgf4_values[index_x][index_y][index_z] > 0:
@@ -168,6 +168,9 @@ def cell_pathway(simulation, index):
 
         # only update the booleans when the counter matches the boolean update rate
         if simulation.cell_fds_counter[index] % simulation.fds_thresh == 0:
+            # number of states for the finite dynamical system
+            num_states = 2
+
             # xn is equal to the value corresponding to its function
             x1 = fgf4_bool
             x2 = simulation.cell_fds[index][0]
@@ -176,11 +179,11 @@ def cell_pathway(simulation, index):
             x5 = simulation.cell_fds[index][3]
 
             # evaluate the functions by turning them from strings to equations
-            new_fgf4 = eval(simulation.functions[0]) % simulation.num_fds_states
-            new_fgfr = eval(simulation.functions[1]) % simulation.num_fds_states
-            new_erk = eval(simulation.functions[2]) % simulation.num_fds_states
-            new_gata6 = eval(simulation.functions[3]) % simulation.num_fds_states
-            new_nanog = eval(simulation.functions[4]) % simulation.num_fds_states
+            new_fgf4 = x5 % num_states
+            new_fgfr = (x1 * x4) % num_states
+            new_erk = x2 % num_states
+            new_gata6 = (1 + x5 + x5 * x4) % num_states
+            new_nanog = ((x3 + 1) * (x4 + 1)) % num_states
 
             # updates self.booleans with the new boolean values
             simulation.cell_fds[index] = np.array([new_fgfr, new_erk, new_gata6, new_nanog])
@@ -277,6 +280,9 @@ def check_neighbors(simulation):
     # start time of the function
     simulation.check_neighbors_time = -1 * time.time()
 
+    # radius of search (meters) in which all cells within are classified as neighbors
+    neighbor_distance = 0.000015
+
     # if a static variable has not been created to hold the maximum number of neighbors, create one
     if not hasattr(check_neighbors, "max_neighbors"):
         # begin with a low number of neighbors that can be revalued if the max number of neighbors exceeds this value
@@ -287,7 +293,7 @@ def check_neighbors(simulation):
 
     # calls the function that generates an array of bins that generalize the cell locations in addition to a
     # helper array that assists the search method in counting cells in a particular bin
-    bins, bins_help = Backend.assign_bins(simulation, simulation.neighbor_distance)
+    bins, bins_help = Backend.assign_bins(simulation, neighbor_distance)
 
     # this will run once and if all edges are included in edge_holder, the loop will break. if not this will
     # run a second time with an updated value for number of predicted neighbors such that all edges are included
@@ -301,7 +307,7 @@ def check_neighbors(simulation):
             # turn the following into arrays that can be interpreted by the gpu
             bins_cuda = cuda.to_device(bins)
             bins_help_cuda = cuda.to_device(bins_help)
-            distance_cuda = cuda.to_device(simulation.neighbor_distance)
+            distance_cuda = cuda.to_device(neighbor_distance)
             edge_holder_cuda = cuda.to_device(edge_holder)
             locations_cuda = cuda.to_device(simulation.cell_locations)
             edge_count_cuda = cuda.to_device(edge_count)
@@ -321,9 +327,8 @@ def check_neighbors(simulation):
         # call the cpu version
         else:
             edge_holder, edge_count = Backend.check_neighbors_cpu(simulation.number_cells, simulation.cell_locations,
-                                                                  bins, bins_help, simulation.neighbor_distance,
-                                                                  edge_holder, edge_count,
-                                                                  check_neighbors.max_neighbors)
+                                                                  bins, bins_help, neighbor_distance, edge_holder,
+                                                                  edge_count, check_neighbors.max_neighbors)
 
         # either break the loop if all neighbors were accounted for or revalue the maximum number of neighbors
         # based on the output of the function call
@@ -375,6 +380,9 @@ def jkr_neighbors(simulation):
     # start time of the function
     simulation.jkr_neighbors_time = -1 * time.time()
 
+    # radius of search (meters) in which neighbors will have physical interactions, should be double the max cell radius
+    jkr_distance = 0.00001
+
     # if a static variable has not been created to hold the maximum number of neighbors, create one
     if not hasattr(jkr_neighbors, "max_neighbors"):
         # begin with a low number of neighbors that can be revalued if the max number of neighbors exceeds this value
@@ -382,7 +390,7 @@ def jkr_neighbors(simulation):
 
     # calls the function that generates an array of bins that generalize the cell locations in addition to a
     # helper array that assists the search method in counting cells in a particular bin
-    bins, bins_help = Backend.assign_bins(simulation, simulation.jkr_distance)
+    bins, bins_help = Backend.assign_bins(simulation, jkr_distance)
 
     # this will run once and if all edges are included in edge_holder, the loop will break. if not this will
     # run a second time with an updated value for number of predicted neighbors such that all edges are included
@@ -396,7 +404,7 @@ def jkr_neighbors(simulation):
             # turn the following into arrays that can be interpreted by the gpu
             bins_cuda = cuda.to_device(bins)
             bins_help_cuda = cuda.to_device(bins_help)
-            distance_cuda = cuda.to_device(simulation.jkr_distance)
+            distance_cuda = cuda.to_device(jkr_distance)
             edge_holder_cuda = cuda.to_device(edge_holder)
             locations_cuda = cuda.to_device(simulation.cell_locations)
             radii_cuda = cuda.to_device(simulation.cell_radii)
@@ -418,7 +426,7 @@ def jkr_neighbors(simulation):
         else:
             edge_holder, edge_count = Backend.jkr_neighbors_cpu(simulation.number_cells, simulation.cell_locations,
                                                                 simulation.cell_radii, bins, bins_help,
-                                                                simulation.jkr_distance, edge_holder, edge_count,
+                                                                jkr_distance, edge_holder, edge_count,
                                                                 jkr_neighbors.max_neighbors)
 
         # either break the loop if all neighbors were accounted for or revalue the maximum number of neighbors
@@ -553,21 +561,24 @@ def nearest(simulation):
     # start time of the function
     simulation.nearest_time = -1 * time.time()
 
+    # radius of search for the nearest cells of given type
+    nearest_distance = 0.000025
+
     # calls the function that generates an array of bins that generalize the cell locations in addition to a
     # helper array that assists the search method in counting cells in a particular bin
-    bins, bins_help = Backend.assign_bins(simulation, simulation.nearest_distance)
+    bins, bins_help = Backend.assign_bins(simulation, nearest_distance)
 
     # call the nvidia gpu version
     if simulation.parallel:
         # find the nearest cell of each type with the external method, no gpu function yet
-        gata6, nanog, diff = Backend.nearest_cpu(simulation.number_cells, simulation.nearest_distance, bins, bins_help,
+        gata6, nanog, diff = Backend.nearest_cpu(simulation.number_cells, nearest_distance, bins, bins_help,
                                                  simulation.cell_locations, simulation.cell_nearest_gata6,
                                                  simulation.cell_nearest_nanog, simulation.cell_nearest_diff,
                                                  simulation.cell_states, simulation.cell_fds)
     # call the cpu version
     else:
         # find the nearest cell of each type with the external method, no gpu function yet
-        gata6, nanog, diff = Backend.nearest_cpu(simulation.number_cells, simulation.nearest_distance, bins, bins_help,
+        gata6, nanog, diff = Backend.nearest_cpu(simulation.number_cells, nearest_distance, bins, bins_help,
                                                  simulation.cell_locations, simulation.cell_nearest_gata6,
                                                  simulation.cell_nearest_nanog, simulation.cell_nearest_diff,
                                                  simulation.cell_states, simulation.cell_fds)
