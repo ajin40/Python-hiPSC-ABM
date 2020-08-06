@@ -17,7 +17,7 @@ class Simulation:
         self.name = lines[8][2:-3]  # the name of the simulation, used to name files in the output directory
         self.output_direct = lines[11][2:-3]   # the output directory where simulation is placed
         self.parallel = eval(lines[14][2:-3]) # whether the model is using parallel GPU processing for certain functions
-        self.size = np.array(eval(lines[17][2:-3]))  # the dimensions of the space (in meters) the cells reside in
+        self.size = np.array([0.001, 0.001, 0.0])  # the dimensions of the space (in meters) the cells reside in
         self.num_GATA6 = int(lines[20][2:-3])   # the number of GATA6 high cells to begin the simulation
         self.num_NANOG = int(lines[23][2:-3])   # the number of NANOG high cells to being the simulation
 
@@ -29,9 +29,8 @@ class Simulation:
         self.images_to_video = eval(lines[50][2:-3])    # turn a collection of images into a video
 
         # timing
-        self.beginning_step = int(lines[57][2:-3])  # the step the simulation starts on, used for certain modes
         self.end_step = int(lines[60][2:-3])   # the last step of a simulation
-        self.time_step_value = float(lines[63][2:-3])   # the real-time value of each step
+        self.time_step_value = 1800
         self.fds_thresh = int(lines[66][2:-3])  # the threshold (in steps) for updating the finite dynamical system
         self.pluri_div_thresh = int(lines[69][2:-3])  # the division threshold (in steps) of a pluripotent cell
         self.pluri_to_diff = int(lines[72][2:-3])  # the differentiation threshold (in steps) of a pluripotent cell
@@ -44,27 +43,14 @@ class Simulation:
         self.move_thresh = int(lines[99][2:-3])  # if the number of neighbors is above this threshold, inhibit motion
         self.diff_surround = int(lines[102][2:-3])  # the number of diff cells needed to help induce differentiation
 
-        # extracellular
-        self.diffuse = float(lines[108][2:-3])  # the diffusion constant
-        self.dx = eval(lines[111][2:-3])[0]  # the diffusion resolution along the x-axis
-        self.dy = eval(lines[111][2:-3])[1]  # the diffusion resolution along the y-axis
-        self.dz = eval(lines[111][2:-3])[2]  # the diffusion resolution along the z-axis
-
-        # movement/physical
-        self.move_time_step = float(lines[117][2:-3])
-        self.motility_force = float(lines[126][2:-3])   # the active force (in Newtons) of a cell actively moving
-        self.max_radius = float(lines[129][2:-3])    # the maximum radius (in meters) of a cell
-
         # imaging
+        self.output_images = eval(lines[38][2:-3])   # whether or not to produce images
         self.image_quality = eval(lines[135][2:-3])    # the output image/video dimensions in pixels
         self.fps = float(lines[138][2:-3])   # the frames per second of the video produced
         self.background_color = eval(lines[141][2:-3])    # the background space color
         self.color_mode = eval(lines[144][2:-3])   # used to vary which method of coloring used
-        self.pluri_color = eval(lines[147][2:-3])   # color of a pluripotent cell
-        self.diff_color = eval(lines[150][2:-3])   # color of a differentiated cell
-        self.pluri_gata6_high_color = eval(lines[153][2:-3])    # color of a pluripotent gata6 high cell
-        self.pluri_nanog_high_color = eval(lines[156][2:-3])    # color of a pluripotent nanog high cell
-        self.pluri_both_high_color = eval(lines[159][2:-3])    # color of a pluripotent gata6/nanog high cell
+        self.output_gradient = eval(lines[189][2:-3])   # output an image of the extracellular gradient
+
 
         # miscellaneous/experimental
         self.stochastic = eval(lines[168][2:-3])    # if initial fds variables are stochastic
@@ -74,7 +60,7 @@ class Simulation:
         self.max_fgf4 = float(lines[180][2:-3])  # the maximum amount of fgf4 at a diffusion point
         self.eunbi_move = eval(lines[183][2:-3])    # use Eunbi's model for movement
         self.fgf4_move = eval(lines[186][2:-3])     # use FGF4 concentrations for NANOG high movements
-        self.output_gradient = eval(lines[189][2:-3])   # output an image of the extracellular gradient
+
 
         # check that the name and path from the template are valid
         self.path = Input.check_name(self, template_location)
@@ -117,6 +103,15 @@ class Simulation:
         self.jkr_neighbors_time = float()
         self.get_forces_time = float()
         self.apply_forces_time = float()
+
+        # extracellular
+        self.dx = 0.00001
+        self.dy = 0.00001
+        self.dz = 1
+
+        # movement/physical
+        self.move_time_step = 200
+        self.max_radius = 0.000005
 
         # neighbor graph is used to locate cells that are in close proximity, while the JKR graph holds adhesion bonds
         # between cells that are either currently overlapping or still maintain an adhesive bond

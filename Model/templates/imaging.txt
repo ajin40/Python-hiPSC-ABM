@@ -1,6 +1,9 @@
 -----------------------------------------------------------------------------------------------------------------------
 Imaging
 -----------------------------------------------------------------------------------------------------------------------
+Do you want an image produced at each step and a video at the end of the simulation? Ex. True
+[ True ]
+
 What is the image resolution in pixels? Currently imaging is supported for a 2D space, though a 3D space will yield
 a bird's eye view of the space. Image slicing/3D images to come... Ex. (1000, 1000)
 [ (2000, 2000) ]
@@ -16,5 +19,5 @@ What mode of coloring for step images? True for coloring based on whether a cell
 for coloring based on GATA6/NANOG levels? Ex. False
 [ True ]
 
-Show the gradient color-map next to the image of the cell space? Ex. True
+Include the FGF4 gradient color-map next to the image of the cells? Ex. True
 [ True ]

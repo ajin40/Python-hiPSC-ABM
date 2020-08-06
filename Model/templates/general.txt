@@ -1,23 +1,21 @@
 -----------------------------------------------------------------------------------------------------------------------
 General Parameters
 -----------------------------------------------------------------------------------------------------------------------
-What is the name of the simulation? Ex. Run_30
+What is the name of the simulation (without quotes)? This will help the model look for duplicate simulations in your
+output directory and name the outputted files accordingly. Ex. Run_30
 [ Check_neighbors__ ]
 
-What is the path for the output directory? Ex. C:\Python37\Model_Outputs
+What is the path for the output directory? Do not include separator after the directory name. Ex. C:\Python37\Outputs
 [ C:\Outputs ]
 
-Do you want the simulation to use parallel GPU processing? (It's really cool)  Ex. True
+Do you want the model to use a discrete NVIDIA gpu to accelerate some computationally tasking functions? Ex. True
 [ True ]
 
-How many cells will be GATA6 high to begin the simulation? Ex. 247
-[ 0 ]
-
-How many cells will be NANOG high to begin the simulation? Ex. 91
-[ 1000 ]
-
-What will the final step number be? Ex. 30
+What will the final step number be? Regardless of the model mode, the simulation will end at this step. Ex. 192
 [ 5 ]
+
+How many cells to begin the simulation? All cells beginning will be NANOG high and pluripotent. Ex. 1000
+[ 1000 ]
 
 The time has come. Execute Order Sixty-Six? Ex. True
 [ True ]

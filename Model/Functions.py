@@ -154,7 +154,7 @@ def cell_pathway(simulation, index):
         simulation.fgf4_values[index_x][index_y][index_z] += 1
 
     # activate the following pathway based on if dox (after 24 hours) has been induced yet
-    if simulation.current_step >= 48:
+    if simulation.current_step >= 49:
         # if the FGF4 amount for the location is greater than 0, set the fgf4_bool value to be 1 for the
         # functions
         if simulation.fgf4_values[index_x][index_y][index_z] > 0:
@@ -599,6 +599,9 @@ def cell_motility(simulation):
     # start time of the function
     simulation.cell_motility_time = -1 * time.time()
 
+    # this is the motility force of the cells
+    motility_force = 0.000000005
+
     # loop over all of the cells
     for i in range(simulation.number_cells):
         # set motion to false if the cell is surrounded by many neighbors
@@ -623,7 +626,7 @@ def cell_motility(simulation):
                 normal = Backend.normal_vector(vector_holder)
 
                 # move in direction of the differentiated cells
-                simulation.cell_motility_force[i] += simulation.motility_force * normal * 0.5
+                simulation.cell_motility_force[i] += motility_force * normal * 0.5
 
             if 0 < len(neighbors):
                 # create a vector to hold the sum of normal vectors between a cell and its neighbors
@@ -639,7 +642,7 @@ def cell_motility(simulation):
                 normal = Backend.normal_vector(vector_holder)
 
                 # move in direction opposite to pluripotent cells
-                simulation.cell_motility_force[i] += simulation.motility_force * normal * -1 * 0.5
+                simulation.cell_motility_force[i] += motility_force * normal * -1 * 0.5
 
             # if there aren't any neighbors and still in motion then move randomly
             if simulation.cell_motion[i]:
@@ -650,15 +653,15 @@ def cell_motility(simulation):
                         nearest_index = int(simulation.cell_nearest_nanog[i])
                         vector = simulation.cell_locations[i] - simulation.cell_locations[nearest_index]
                         normal = Backend.normal_vector(vector)
-                        simulation.cell_motility_force[i] += normal * simulation.motility_force * -1
+                        simulation.cell_motility_force[i] += normal * motility_force * -1
 
                     # move randomly instead
                     else:
-                        simulation.cell_motility_force[i] += simulation.random_vector() * simulation.motility_force
+                        simulation.cell_motility_force[i] += simulation.random_vector() * motility_force
 
                 # move randomly instead
                 else:
-                    simulation.cell_motility_force[i] += simulation.random_vector() * simulation.motility_force
+                    simulation.cell_motility_force[i] += simulation.random_vector() * motility_force
 
         # for pluripotent cells
         else:
@@ -676,7 +679,7 @@ def cell_motility(simulation):
                         normal = Backend.normal_vector(vector)
 
                         # calculate the motility force
-                        simulation.cell_motility_force[i] += normal * simulation.motility_force
+                        simulation.cell_motility_force[i] += normal * motility_force
 
                 # NANOG high cell
                 elif simulation.cell_fds[i][3] == 1:
@@ -690,7 +693,7 @@ def cell_motility(simulation):
                             z = int(simulation.cell_highest_fgf4[i][2])
                             vector = simulation.cell_locations[i] - simulation.diffuse_locations[x][y][z]
                             normal = Backend.normal_vector(vector)
-                            simulation.cell_motility_force[i] += normal * simulation.motility_force
+                            simulation.cell_motility_force[i] += normal * motility_force
 
                     # move based on Eunbi's model
                     elif simulation.eunbi_move:
@@ -699,27 +702,24 @@ def cell_motility(simulation):
                             nearest_index = int(simulation.cell_nearest_gata6[i])
                             vector = simulation.cell_locations[nearest_index] - simulation.cell_locations[i]
                             normal = Backend.normal_vector(vector)
-                            simulation.cell_motility_force[i] += normal * simulation.motility_force * -1
+                            simulation.cell_motility_force[i] += normal * motility_force * -1
 
                         # if there is a nanog high cell nearby, move to it
                         elif not np.isnan(simulation.cell_nearest_nanog[i]):
                             nearest_index = int(simulation.cell_nearest_nanog[i])
                             vector = simulation.cell_locations[nearest_index] - simulation.cell_locations[i]
                             normal = Backend.normal_vector(vector)
-                            simulation.cell_motility_force[i] += normal * simulation.motility_force
+                            simulation.cell_motility_force[i] += normal * motility_force
 
                         # if nothing else, move randomly
                         else:
-                            simulation.cell_motility_force[i] += Backend.random_vector(simulation) * \
-                                                                 simulation.motility_force
+                            simulation.cell_motility_force[i] += Backend.random_vector(simulation) * motility_force
                     # if nothing else, move randomly
                     else:
-                        simulation.cell_motility_force[i] += Backend.random_vector(simulation) * \
-                                                             simulation.motility_force
+                        simulation.cell_motility_force[i] += Backend.random_vector(simulation) * motility_force
                 # if nothing else, move randomly
                 else:
-                    simulation.cell_motility_force[i] += Backend.random_vector(simulation) *\
-                                                         simulation.motility_force
+                    simulation.cell_motility_force[i] += Backend.random_vector(simulation) * motility_force
 
     # calculate the total time elapsed for the function
     simulation.cell_motility_time += time.time()
