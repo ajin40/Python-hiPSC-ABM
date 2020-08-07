@@ -12,7 +12,7 @@ functions.setup_diffusion_bins(simulation)
 
 # This will loop over all steps defined in the template file in addition to updating the current step
 # of the simulation.
-for simulation.current_step in range(simulation.beginning_step, simulation.end_step + 1):
+for simulation.current_step in range(1, simulation.end_step + 1):
     # Prints the current step, number of cells, and records run time. Used to give an idea of the simulation progress.
     functions.info(simulation)
 

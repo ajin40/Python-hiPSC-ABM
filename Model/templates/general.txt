@@ -1,13 +1,6 @@
 -----------------------------------------------------------------------------------------------------------------------
 General Parameters
 -----------------------------------------------------------------------------------------------------------------------
-What is the name of the simulation (without quotes)? This will help the model look for duplicate simulations in your
-output directory and name the outputted files accordingly. Ex. Run_30
-[ Check_neighbors__ ]
-
-What is the path for the output directory? Do not include separator after the directory name. Ex. C:\Python37\Outputs
-[ C:\Outputs ]
-
 Do you want the model to use a discrete NVIDIA gpu to accelerate some computationally tasking functions? Ex. True
 [ True ]
 

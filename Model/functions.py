@@ -783,10 +783,6 @@ def update_diffusion(simulation):
     # start time of the function
     simulation.update_diffusion_time = -1 * time.time()
 
-    # parameters that rarely change
-    diffuse = 0.00000000000001    # the diffusion constant of the extracellular molecules
-    dt = 1    # the time step for the diffusion approximation
-
     # calculate how many steps for the approximation
     time_steps = math.ceil(simulation.time_step_value / dt)
 
@@ -794,7 +790,8 @@ def update_diffusion(simulation):
     for gradient in simulation.extracellular_names:
         simulation.__dict__[gradient] = backend.update_diffusion_cpu(simulation.__dict__[gradient], time_steps, dt,
                                                                      simulation.dx2, simulation.dy2,
-                                                                     simulation.dz2, diffuse, simulation.size)
+                                                                     simulation.dz2, simulation.diffuse,
+                                                                     simulation.size)
     # calculate the total time elapsed for the function
     simulation.update_diffusion_time += time.time()
 
