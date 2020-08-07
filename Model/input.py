@@ -85,6 +85,9 @@ class Simulation:
                                      "cell_motility_force", "cell_jkr_force", "cell_nearest_gata6",
                                      "cell_nearest_nanog", "cell_nearest_diff", "cell_highest_fgf4"]
 
+            # holds all indices of cells that will divide at a current step or be removed at that step
+            self.cells_to_divide, self.cells_to_remove = np.empty((0, 1), dtype=int), np.empty((0, 1), dtype=int)
+
             # create graphs used to all cells and their neighbors, initialize them with the number of cells
             self.neighbor_graph, self.jkr_graph = igraph.Graph(self.number_cells), igraph.Graph(self.number_cells)
 
@@ -111,76 +114,12 @@ class Simulation:
             # the points at which the diffusion values are calculated
             gradient_size = self.size / np.array([self.dx, self.dy, self.dz]) + np.ones(3)
             self.fgf4_values = np.zeros(gradient_size.astype(int))
+
+            # much like the cell arrays add any gradients here to be updated
             self.extracellular_names = ["fgf4_values"]
 
-
-        # holds the run time for key functions to track efficiency. each step these are outputted to the CSV file.
-        self.step_start = float()
-        self.update_diffusion_time = float()
-        self.check_neighbors_time = float()
-        self.nearest_time = float()
-        self.cell_motility_time = float()
-        self.cell_update_time = float()
-        self.update_queue_time = float()
-        self.handle_movement_time = float()
-        self.jkr_neighbors_time = float()
-        self.get_forces_time = float()
-        self.apply_forces_time = float()
-
-
-
-
-
-        self.move_time_step = 200
-
-
-
-
-
-
-        # holds all indices of cells that will divide at a current step or be removed at that step
-        self.cells_to_divide, self.cells_to_remove = np.empty((0, 1), dtype=int), np.empty((0, 1), dtype=int)
-
-
-
-        # the csv and video objects that will be updated each step
-        self.csv_object = object()
-        self.video_object = object()
-
-        # given all of the above parameters, run the corresponding mode
-        setup_simulation(self)
-
-    def add_cell(self, location, radius, motion, fds, state, diff_counter, div_counter, death_counter, fds_counter,
-                 motility_force, jkr_force, nearest_gata6, nearest_nanog, nearest_diff, highest_fgf4):
-        """ Adds each of the new cell's values to
-            the array holders, graphs, and total
-            number of cells.
-        """
-        # adds the cell to the arrays holding the cell values, the 2D arrays have to be handled a bit differently as
-        # axis=0 has to be provided and the appended array should also be of the same shape with additional brackets
-        self.cell_locations = np.append(self.cell_locations, [location], axis=0)
-        self.cell_radii = np.append(self.cell_radii, radius)
-        self.cell_motion = np.append(self.cell_motion, motion)
-        self.cell_fds = np.append(self.cell_fds, [fds], axis=0)
-        self.cell_states = np.append(self.cell_states, state)
-        self.cell_diff_counter = np.append(self.cell_diff_counter, diff_counter)
-        self.cell_div_counter = np.append(self.cell_div_counter, div_counter)
-        self.cell_death_counter = np.append(self.cell_death_counter, death_counter)
-        self.cell_fds_counter = np.append(self.cell_fds_counter, fds_counter)
-        self.cell_motility_force = np.append(self.cell_motility_force, [motility_force], axis=0)
-        self.cell_jkr_force = np.append(self.cell_jkr_force, [jkr_force], axis=0)
-        self.cell_nearest_gata6 = np.append(self.cell_nearest_gata6, nearest_gata6)
-        self.cell_nearest_nanog = np.append(self.cell_nearest_nanog, nearest_nanog)
-        self.cell_nearest_diff = np.append(self.cell_nearest_diff, nearest_diff)
-        self.cell_highest_fgf4 = np.append(self.cell_highest_fgf4, [highest_fgf4], axis=0)
-
-        # add it to the following graphs, this is done implicitly by increasing the length of the vertex list by
-        # one, which the indices directly correspond to the cell holder arrays
-        self.neighbor_graph.add_vertex()
-        self.jkr_graph.add_vertex()
-
-        # revalue the total number of cells
-        self.number_cells += 1
+            # the time in seconds for incremental movement
+            self.move_time_step = 200
 
 
 def setup():
@@ -234,12 +173,44 @@ def setup():
     templates_path = lines[7]
     output_path = lines[13]
 
+    # keep track of the file separator to use
+    if platform.system() == "Windows":
+        # windows
+        separator = "\\"
+    else:
+        # not windows
+        separator = "/"
+
     # check the name of the simulation
     name, path = check_name(name, mode, output_path, templates_path)
 
     # run the model normally
     if mode == 0:
-        simulation = Simulation(templates_path, name, path, separator)
+        simulation = Simulation(templates_path, name, path, separator, mode)
+
+        output.initialize_csv(simulation)
+        output.initialize_video(simulation)
+
+        for i in range(simulation.number_cells):
+            div_counter = r.randint(0, simulation.pluri_div_thresh)
+            simulation.cell_locations[i] = np.array([r.random() * simulation.size[0],
+                                                     r.random() * simulation.size[1],
+                                                     r.random() * simulation.size[2]])
+
+            simulation.cell_radii[i] = simulation.min_radius + simulation.pluri_growth * div_counter
+            simulation.cell_motion[i] = True
+            simulation.cell_fds[i] = np.array([r.randint(0, 1), r.randint(0, 1), 0, 1])
+            simulation.cell_states[i] = "Pluripotent"
+            simulation.cell_diff_counter[i] = r.randint(0, simulation.pluri_to_diff)
+            simulation.cell_div_counter[i] = div_counter
+            simulation.cell_death_counter[i] = r.randint(0, simulation.death_thresh)
+            simulation.cell_fds_counter[i] = r.randint(0, simulation.fds_thresh)
+            simulation.cell_motility_force[i] = np.zeros(3, dtype=float)
+            simulation.cell_jkr_force[i] = np.zeros(3, dtype=float)
+            simulation.cell_nearest_gata6[i] = np.nan
+            simulation.cell_nearest_nanog[i] = np.nan
+            simulation.cell_nearest_diff[i] = np.nan
+            simulation.cell_highest_fgf4[i] = np.array([np.nan, np.nan, np.nan])
 
     # continue a past simulation
     elif mode == 1:
@@ -247,6 +218,9 @@ def setup():
             simulation = pickle.load(temp_file)
 
     elif mode == 2:
+        # create simulation object
+        simulation = Simulation()
+
         # create the video file
         output.initialize_video(simulation)
 
@@ -261,79 +235,6 @@ def setup():
         exit()
 
 
-
-
-
-
-
-
-
-    # continuation mode, where the model will continue a past simulation
-    elif sys.argv[1] == 1:
-        return Simulation()
-
-    # images to video mode, where the model will turn images of a past simulation into videos
-    elif sys.argv[1] == 2:
-        pass
-
-    # csvs to images mode, where the model will turn csvs of a past simulation into images and an a video
-    elif sys.argv[1] == 3:
-        pass
-
-    # if user specifies "help" open NetLogo website
-    elif sys.argv[1] == "help":
-        webbrowser.open('https://ccl.northwestern.edu/netlogo/')
-
-    else:
-        pass
-
-
-    # starts a new simulation
-    else:
-        # opens the data csv file and the video file as these will be continually modified.
-        output.initialize_csv(simulation)
-        output.initialize_video(simulation)
-
-        # loops over all cells and creates a stem cell object for each one with given parameters
-        for i in range(simulation.num_NANOG + simulation.num_GATA6):
-            # gives random location in the space
-            location = np.array([r.random() * simulation.size[0],
-                                 r.random() * simulation.size[1],
-                                 r.random() * simulation.size[2]])
-
-            # give the cells starting states for the finite dynamical system
-            if i < simulation.num_NANOG:
-                if simulation.stochastic:
-                    booleans = np.array([r.randint(0, 1), r.randint(0, 1), 0, 1])
-                else:
-                    booleans = np.array([0, 0, 0, 1])
-            else:
-                if simulation.stochastic:
-                    booleans = np.array([r.randint(0, 1), r.randint(0, 1), 1, 0])
-                else:
-                    booleans = np.array([0, 0, 1, 0])
-
-            # randomize the starting counters for differentiation, division, and death
-            diff_counter = r.randint(0, simulation.pluri_to_diff)
-            div_counter = r.randint(0, simulation.pluri_div_thresh)
-            death_counter = r.randint(0, simulation.death_thresh)
-            bool_counter = r.randint(0, simulation.fds_thresh)
-
-            # get the radius based on the randomized growth
-            radius = simulation.min_radius + simulation.pluri_growth * div_counter
-
-            # set up the forces and closest differentiated cell with empty values
-            motility_force = np.zeros(3, dtype=float)
-            jkr_force = np.zeros(3, dtype=float)
-            nearest_gata6 = np.nan
-            nearest_nanog = np.nan
-            nearest_diff = np.nan
-            highest_fgf4 = np.array([np.nan, np.nan, np.nan])
-
-            # adds object to simulation instance
-            simulation.add_cell(location, radius, True, booleans, "Pluripotent", diff_counter, div_counter,
-                                death_counter, bool_counter, motility_force, jkr_force, nearest_gata6, nearest_nanog,
-                                nearest_diff, highest_fgf4)
 
     # return the modified simulation instance
     return simulation
@@ -446,18 +347,11 @@ def csv_to_simulation(simulation, csv_file):
     simulation.cell_highest_fgf4 = np.empty((simulation.number_cells, 3))
 
 
-def check_name(name, mode, output_direct, templates_path):
+def check_name(name, mode, output_direct, templates_path, separator):
     """ Renames the file if another simulation
         has the same name or checks to make
         sure such a simulation exists
     """
-    # keep track of the file separator to use
-    if platform.system() == "Windows":
-        # windows
-        separator = "\\"
-    else:
-        # not windows
-        separator = "/"
 
     if mode == 0:
         # keeps the loop running until one condition is met
