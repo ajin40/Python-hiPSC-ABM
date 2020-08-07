@@ -784,12 +784,12 @@ def update_diffusion(simulation):
     simulation.update_diffusion_time = -1 * time.time()
 
     # calculate how many steps for the approximation
-    time_steps = math.ceil(simulation.time_step_value / dt)
+    time_steps = math.ceil(simulation.time_step_value / simulation.dt)
 
     # go through all gradients and update the diffusion of each
     for gradient in simulation.extracellular_names:
-        simulation.__dict__[gradient] = backend.update_diffusion_cpu(simulation.__dict__[gradient], time_steps, dt,
-                                                                     simulation.dx2, simulation.dy2,
+        simulation.__dict__[gradient] = backend.update_diffusion_cpu(simulation.__dict__[gradient], time_steps,
+                                                                     simulation.dt, simulation.dx2, simulation.dy2,
                                                                      simulation.dz2, simulation.diffuse,
                                                                      simulation.size)
     # calculate the total time elapsed for the function
