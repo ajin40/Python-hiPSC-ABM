@@ -4,26 +4,26 @@ import csv
 import cv2
 import os
 import platform
-import shutil
 import sys
 import webbrowser
 import pickle
 import igraph
+import distutils.dir_util
 
 import output
 
 
 # used to hold all values necessary to the simulation as it moves from one step to the next
 class Simulation:
-    def __init__(self, templates_path, name, path, separator, mode):
+    def __init__(self, templates_path, name, path, mode):
         # open the following template files
-        with open(templates_path + separator + "general.txt") as general_file:
+        with open(templates_path + "general.txt") as general_file:
             general = general_file.readlines()
 
-        with open(templates_path + separator + "imaging.txt") as imaging_file:
+        with open(templates_path + "imaging.txt") as imaging_file:
             imaging = imaging_file.readlines()
 
-        with open(templates_path + separator + "experimental.txt") as experimental_file:
+        with open(templates_path + "experimental.txt") as experimental_file:
             experimental = experimental_file.readlines()
 
         # hold the name and the output path of the simulation
@@ -73,10 +73,10 @@ class Simulation:
             self.cell_fds_counter = np.empty((self.number_cells, 1), dtype=int)
             self.cell_motility_force = np.empty((self.number_cells, 3), dtype=float)
             self.cell_jkr_force = np.empty((self.number_cells, 3), dtype=float)
-            self.cell_nearest_gata6 = np.empty((self.number_cells, 1), dtype=int)
-            self.cell_nearest_nanog = np.empty((self.number_cells, 1), dtype=int)
-            self.cell_nearest_diff = np.empty((self.number_cells, 1), dtype=int)
-            self.cell_highest_fgf4 = np.empty((self.number_cells, 3), dtype=int)
+            self.cell_nearest_gata6 = np.empty((self.number_cells, 1))
+            self.cell_nearest_nanog = np.empty((self.number_cells, 1))
+            self.cell_nearest_diff = np.empty((self.number_cells, 1))
+            self.cell_highest_fgf4 = np.empty((self.number_cells, 3))
 
             # add the "cell arrays" attribute names to the list so that indices can be copied/removed from when
             # cells are entering or leaving the simulation, saves the user from adding more code that just this
@@ -153,7 +153,7 @@ def setup():
 
     # if both the name and the mode are provided, do nothing
     elif len(sys.argv) == 3:
-        name, mode = sys.argv[1], sys.argv[2]
+        name, mode = sys.argv[1], int(sys.argv[2])
 
     # if anything else
     else:
@@ -165,16 +165,14 @@ def setup():
             webbrowser.open('https://ccl.northwestern.edu/netlogo/')
         exit()
 
-
-
-
+#######################################################################################################################
     # open the path.txt file containing information about template locations and output directory
     with open('paths.txt', 'r') as file:
         lines = file.readlines()
 
     # get the paths to the directory of template files and the output directory
-    templates_path = lines[7]
-    output_path = lines[13]
+    templates_path = lines[7].strip()
+    output_path = lines[13].strip()
 
     # keep track of the file separator to use
     if platform.system() == "Windows":
@@ -184,23 +182,24 @@ def setup():
         # not windows
         separator = "/"
 
-    # check the name of the simulation
+    # check the name of the simulation and create a path to simulation output directory
     name, output_path, path = check_name(name, mode, templates_path, output_path, separator)
 
     # run the model normally
     if mode == 0:
+        # create instance of Simulation class
+        simulation = Simulation(templates_path, name, path, mode)
 
-        simulation = Simulation(templates_path, name, path, separator, mode)
-
+        # initialize the data csv and the video
         output.initialize_csv(simulation)
         output.initialize_video(simulation)
 
+        # go through all cell arrays giving initial parameters of the cells
         for i in range(simulation.number_cells):
             div_counter = r.randint(0, simulation.pluri_div_thresh)
             simulation.cell_locations[i] = np.array([r.random() * simulation.size[0],
                                                      r.random() * simulation.size[1],
                                                      r.random() * simulation.size[2]])
-
             simulation.cell_radii[i] = simulation.min_radius + simulation.pluri_growth * div_counter
             simulation.cell_motion[i] = True
             simulation.cell_fds[i] = np.array([r.randint(0, 1), r.randint(0, 1), 0, 1])
@@ -218,26 +217,26 @@ def setup():
 
     # continue a past simulation
     elif mode == 1:
+        # open the temporary pickled simulation an
         with open(path + name + "_temp.pkl", "rb") as temp_file:
             simulation = pickle.load(temp_file)
 
+    # images to video mode
     elif mode == 2:
+        # create instance of Simulation class
         simulation = Simulation(templates_path, name, path, separator, mode)
 
+        # prepare a video file to write to
         output.initialize_video(simulation)
 
+        # get all files ending in ".png" in the directory with a simulation name, sort that list
         file_list = [file for file in os.listdir(path) if file.endswith('.png')]
-
-        count = 0
-        for image_name in file_list.sort():
-            count += 1
-            cv2.imread(path + name + image_name)
+        file_list.sort()
 
         # loop over all images defined in the template file
-        for i in range(0, count + 1):
+        for image_name in file_list:
             # read the image and write it to the video file
-            image_name = "_image_" + str(int(i)) + ".png"
-            image = cv2.imread(simulation.path + simulation.name + image_name)
+            image = cv2.imread(simulation.path + image_name)
             simulation.video_object.write(image)
 
         # exits out as the conversion from images to video is done
@@ -310,7 +309,7 @@ def setup():
     return simulation
 
 
-def check_name(name, mode, output_path, templates_path, separator):
+def check_name(name, mode, templates_path, output_path, separator):
     """ renames the file if another simulation has the same name
         or checks to make sure such a simulation exists
     """
@@ -320,7 +319,7 @@ def check_name(name, mode, output_path, templates_path, separator):
         while True:
             # if the path does not already exist, make that directory and break out of the loop
             try:
-                os.mkdir(output_path + separator + name)
+                os.mkdir(output_path + name)
                 break
 
             # prompt to either rename or overwrite
@@ -331,35 +330,35 @@ def check_name(name, mode, output_path, templates_path, separator):
                     name = input("New name: ")
                 elif user == "y":
                     # clear current directory to prevent another possible future errors
-                    files = os.listdir(output_path + separator + name)
+                    files = os.listdir(output_path + name)
                     for file in files:
-                        os.remove(output_path + separator + name + separator + file)
+                        os.remove(output_path + name + separator + file)
                     break
                 else:
                     print("Either type ""y"" or ""n""")
 
         # copy the template directory to the new simulation directory
-        shutil.copytree(templates_path, output_path + separator + name)
+        distutils.dir_util.copy_tree(templates_path, output_path + name)
 
     # this will look for an existing directory for modes other than 0
     else:
         # keeps the loop running until one condition is met
         while True:
             # see if the directory exists
-            if os.path.isdir(output_path + separator + name):
+            if os.path.isdir(output_path + name):
                 break
 
             # if not prompt to change name or end the simulation
             else:
-                print("No directory exists with name/path: " + output_path + separator + name)
+                print("No directory exists with name/path: " + output_path + name)
                 user = input("Would you like to continue? (y/n): ")
                 if user == "n":
                     exit()
                 elif user == "y":
-                    print(output_direct)
+                    print(output_path)
                     user = input("Is the above path correct? (y/n): ")
                     if user == "n":
-                        output_direct = input("Type correct path:")
+                        output_path = input("Type correct path:")
                     print(name)
                     user = input("Is the above name correct? (y/n): ")
                     if user == "n":
@@ -368,4 +367,4 @@ def check_name(name, mode, output_path, templates_path, separator):
                     pass
 
     # return the updated name, directory, and path
-    return name, output_path, output_path + separator + name + separator
+    return name, output_path, output_path + name + separator
