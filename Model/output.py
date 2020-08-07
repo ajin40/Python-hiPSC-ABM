@@ -12,6 +12,7 @@ import csv
 import time
 import memory_profiler
 import numpy as np
+import pickle
 
 
 def step_image(simulation):
@@ -194,6 +195,14 @@ def initialize_video(simulation):
 
     simulation.video_object = cv2.VideoWriter(video_path, cv2.VideoWriter_fourcc("M", "J", "P", "G"), simulation.fps,
                                               image_size)
+
+
+def temporary(simulation):
+    """ Pickle a copy of the simulation class that can be used
+        to continue a past simulation without losing information
+    """
+    with open(simulation.path + simulation.name + 'temp.pkl', 'wb') as file:
+        pickle.dump(simulation, file, -1)
 
 
 def finish_files(simulation):

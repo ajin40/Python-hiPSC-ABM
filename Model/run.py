@@ -1,10 +1,10 @@
+import input
 import output
-import simulation
 import functions
 
 # setup() will create an instance of the Simulation class that holds all relevant information of the model.
 # this is done by reading a template .txt file that contains all initial parameters of the model.
-simulation = simulation.Simulation()
+simulation = input.setup()
 
 # Will locate the diffusion points for the extracellular gradient to bins, used for chemotactic movement
 # called once as the locations don't change. not currently in use.
@@ -48,6 +48,7 @@ for simulation.current_step in range(simulation.beginning_step, simulation.end_s
     # an individual cell, and the last will save performance statistics to a running csv.
     output.step_image(simulation)
     output.step_csv(simulation)
+    output.temporary(simulation)
     output.simulation_data(simulation)
 
 # Ends the simulation by closing any necessary files.

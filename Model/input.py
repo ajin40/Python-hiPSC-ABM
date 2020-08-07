@@ -5,6 +5,8 @@ import cv2
 import os
 import platform
 import shutil
+import sys
+import webbrowser
 
 import output
 import igraph
@@ -57,7 +59,6 @@ class Simulation:
         self.color_mode = eval(lines[144][2:-3])   # used to vary which method of coloring used
         self.output_gradient = eval(lines[189][2:-3])   # output an image of the extracellular gradient
 
-
         # miscellaneous/experimental
         self.stochastic = eval(lines[168][2:-3])    # if initial fds variables are stochastic
         self.group = int(lines[171][2:-3])   # the number of cells introduced into or removed from the space at once
@@ -67,9 +68,8 @@ class Simulation:
         self.eunbi_move = eval(lines[183][2:-3])    # use Eunbi's model for movement
         self.fgf4_move = eval(lines[186][2:-3])     # use FGF4 concentrations for NANOG high movements
 
-
         # check that the name and path from the template are valid
-        self.path = input.check_name(self, template_location)
+        self.path = check_name(self, template_location)
 
         # holds the current number of cells, step, and time when a step started (used for tracking efficiency)
         self.number_cells = 0
@@ -152,7 +152,7 @@ class Simulation:
         self.video_object = object()
 
         # given all of the above parameters, run the corresponding mode
-        input.setup_simulation(self)
+        setup_simulation(self)
 
     def add_cell(self, location, radius, motion, fds, state, diff_counter, div_counter, death_counter, fds_counter,
                  motility_force, jkr_force, nearest_gata6, nearest_nanog, nearest_diff, highest_fgf4):
@@ -187,11 +187,85 @@ class Simulation:
         self.number_cells += 1
 
 
-def setup_simulation(simulation):
-    """ Once all of the initial parameters of the simulation
-        are fulfilled, this will take that information and
-        run the simulation in one of the few modes.
+def setup():
+    """ controls which mode of the model is run and
+        sets up the model accordingly
     """
+    # if no command line attributes, run the mini gui to get the name and the mode
+    if len(sys.argv) == 1:
+        # prompt the user
+        print("Type the name and the mode of the simulation when prompted")
+        response = input("More for information on modes, type ""modes"" or for more help, type help \n"
+                         "press any key to continue")
+
+        # if response is help
+        if response == "help":
+            print("see documentation/README for more information")
+
+        # if response is modes
+        elif response == "modes" or "Modes":
+            print("normal simulation: 0")
+            print("continuation of past simulation: 1")
+            print("images to video: 2")
+            print("csvs to images/video: 3")
+
+        else:
+            pass
+
+        # get the name and the mode of the simulation
+        name = input("What is the name of the simulation?")
+        mode = input("What is the mode of the simulation?")
+
+    # if both the name and the mode are provided, do nothing
+    elif len(sys.argv) == 3:
+        name, mode = sys.argv[1], sys.argv[2]
+
+    # if anything else
+    else:
+        if input("Type ""help"" for more information about beginning a simulation") == "help" or "Help":
+            print("After python Run.py, include the name of the simulation followed by the mode or \n"
+                  "simply no arguments for a small GUI")
+        # anything else, open NetLogo
+        else:
+            webbrowser.open('https://ccl.northwestern.edu/netlogo/')
+        exit()
+
+    # open the path.txt file containing information about template locations and output directory
+    with open('paths.txt', 'r') as file:
+        lines = file.readlines()
+
+    templates_path = lines[7]
+    output_path = lines[13]
+
+
+
+
+
+
+
+    # run the model normally
+    if len(sys.argv) == 1:
+        return Simulation()
+
+    # continuation mode, where the model will continue a past simulation
+    elif sys.argv[1] == 1:
+        return Simulation()
+
+    # images to video mode, where the model will turn images of a past simulation into videos
+    elif sys.argv[1] == 2:
+        pass
+
+    # csvs to images mode, where the model will turn csvs of a past simulation into images and an a video
+    elif sys.argv[1] == 3:
+        pass
+
+    # if user specifies "help" open NetLogo website
+    elif sys.argv[1] == "help":
+        webbrowser.open('https://ccl.northwestern.edu/netlogo/')
+
+    else:
+        pass
+
     # decide which mode the simulation is intended to be run in
     # continue a previous simulation
     if simulation.continuation:
