@@ -7,6 +7,7 @@ import platform
 import shutil
 import sys
 import webbrowser
+import pickle
 
 import output
 import igraph
@@ -234,18 +235,43 @@ def setup():
     with open('paths.txt', 'r') as file:
         lines = file.readlines()
 
+    # get the paths
     templates_path = lines[7]
     output_path = lines[13]
 
-
-
-
-
-
+    # check the name of the simulation
+    name, path = check_name(name, mode, output_path, templates_path)
 
     # run the model normally
-    if len(sys.argv) == 1:
-        return Simulation()
+    if mode == 0:
+        simulation = Simulation(templates_path, name, path)
+
+    # continue a past simulation
+    elif mode == 1:
+        with open(path + name + "_temp.pkl", "rb") as temp_file:
+            simulation = pickle.load(temp_file)
+
+    elif mode == 2:
+        # create the video file
+        output.initialize_video(simulation)
+
+        # loop over all images defined in the template file
+        for i in range(simulation.beginning_step, simulation.end_step + 1):
+            # read the image and write it to the video file
+            image_name = "_image_" + str(int(i)) + ".png"
+            image = cv2.imread(simulation.path + simulation.name + image_name)
+            simulation.video_object.write(image)
+
+        # exits out as the conversion from images to video is done
+        exit()
+
+
+
+
+
+
+
+
 
     # continuation mode, where the model will continue a past simulation
     elif sys.argv[1] == 1:
@@ -401,27 +427,6 @@ def csv_to_image_mode(simulation):
     exit()
 
 
-def images_to_video_mode(simulation):
-    """ If a simulation ends early or has an
-        error, this will take the images up until
-        it ended and turn them into a video.
-    """
-    print("Turning images into a video...")
-
-    # create the video file
-    output.initialize_video(simulation)
-
-    # loop over all images defined in the template file
-    for i in range(simulation.beginning_step, simulation.end_step + 1):
-        # read the image and write it to the video file
-        image_name = "_image_" + str(int(i)) + ".png"
-        image = cv2.imread(simulation.path + simulation.name + image_name)
-        simulation.video_object.write(image)
-
-    # exits out as the conversion from images to video is done
-    exit()
-
-
 def csv_to_simulation(simulation, csv_file):
     """ Revalues the array holders for cell values
         based on the outputs of the csv files.
@@ -457,7 +462,7 @@ def csv_to_simulation(simulation, csv_file):
     simulation.cell_highest_fgf4 = np.empty((simulation.number_cells, 3))
 
 
-def check_name(simulation, template_location):
+def check_name(name, mode, output_direct, templates_path):
     """ Renames the file if another simulation
         has the same name or checks to make
         sure such a simulation exists
@@ -470,46 +475,47 @@ def check_name(simulation, template_location):
         # not windows
         separator = "/"
 
-    # this will look for an existing directory
-    if simulation.continuation or simulation.csv_to_images or simulation.images_to_video:
-        # keeps the loop running until one condition is met
-        while True:
-            # see if the directory exists
-            if os.path.isdir(simulation.output_direct + separator + simulation.name):
-                break
-
-            # if not prompt to change name or end the simulation
-            else:
-                print("No directory exists with name/path: " + simulation.output_direct + separator + simulation.name)
-                user = input("Would you like to continue? (y/n): ")
-                if user == "n":
-                    exit()
-                elif user == "y":
-                    simulation.output_direct = input("What is the correct path? Don't include simulation name."
-                                                     " (type new path): ")
-
-    else:
+    if mode == 0:
         # keeps the loop running until one condition is met
         while True:
             # if the path does not already exist, make that directory and break out of the loop
             try:
-                os.mkdir(simulation.output_direct + separator + simulation.name)
+                os.mkdir(output_direct + separator + name)
                 break
 
             # prompt to either rename or overwrite
             except OSError:
-                print("Simulation with identical name: " + simulation.name)
+                print("Simulation with identical name: " + name)
                 user = input("Would you like to overwrite that simulation? (y/n): ")
                 if user == "n":
-                    simulation.name = input("New name: ")
+                    name = input("New name: ")
                 elif user == "y":
                     # clear current directory to prevent another possible future errors
-                    files = os.listdir(simulation.output_direct + separator + simulation.name)
+                    files = os.listdir(output_direct + separator + name)
                     for file in files:
-                        os.remove(simulation.output_direct + separator + simulation.name + separator + file)
+                        os.remove(output_direct + separator + name + separator + file)
                     break
 
-        # copy the template to the directory
-        shutil.copy(template_location, simulation.output_direct + separator + simulation.name)
+        # copy the template directory
+        shutil.copy(templates_path, output_direct + separator + name)
 
-    return simulation.output_direct + separator + simulation.name + separator
+    # this will look for an existing directory
+    else:
+        # keeps the loop running until one condition is met
+        while True:
+            # see if the directory exists
+            if os.path.isdir(output_direct + separator + name):
+                break
+
+            # if not prompt to change name or end the simulation
+            else:
+                print("No directory exists with name/path: " + output_direct + separator + name)
+                user = input("Would you like to continue? (y/n): ")
+                if user == "n":
+                    exit()
+                elif user == "y":
+                    output_direct = input("What is the correct path? Don't include simulation name."
+                                          " (type new path): ")
+
+    # return the updated path
+    return output_direct + separator + name + separator

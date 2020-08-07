@@ -201,7 +201,7 @@ def temporary(simulation):
     """ Pickle a copy of the simulation class that can be used
         to continue a past simulation without losing information
     """
-    with open(simulation.path + simulation.name + 'temp.pkl', 'wb') as file:
+    with open(simulation.path + simulation.name + '_temp.pkl', 'wb') as file:
         pickle.dump(simulation, file, -1)
 
 
