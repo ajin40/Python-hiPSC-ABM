@@ -12,6 +12,7 @@ functions.setup_diffusion_bins(simulation)
 
 # initialize the data csv
 output.initialize_csv(simulation)
+output.initialize_directories(simulation)
 
 # this will loop over all steps defined in the general template file in addition to updating the current step
 # of the simulation. this is done to explicitly/easily show what happens at each step
@@ -51,6 +52,7 @@ for simulation.current_step in range(simulation.beginning_step, simulation.end_s
     # an individual cell, and the last will save performance statistics to a running csv.
     output.step_image(simulation)
     output.step_csv(simulation)
+    output.step_gradient(simulation)
     output.simulation_data(simulation)
     output.temporary(simulation)
 

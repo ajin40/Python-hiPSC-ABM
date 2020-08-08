@@ -1,7 +1,6 @@
 import random as r
 import numpy as np
 import csv
-import cv2
 import os
 import platform
 import sys
@@ -14,7 +13,7 @@ import output
 
 # used to hold all values necessary to the simulation as it moves from one step to the next
 class Simulation:
-    def __init__(self, templates_path, name, path, mode):
+    def __init__(self, templates_path, name, path, mode, separator):
         # open the following template files
         with open(templates_path + "general.txt") as general_file:
             general = general_file.readlines()
@@ -28,6 +27,7 @@ class Simulation:
         # hold the name and the output path of the simulation
         self.name = name
         self.path = path
+        self.separator = separator
 
         # general template file
         self.parallel = eval(general[4][2:-3])
@@ -57,6 +57,8 @@ class Simulation:
         self.eunbi_move = eval(experimental[37][2:-3])
         self.max_fgf4 = float(experimental[40][2:-3])
         self.fgf4_move = eval(experimental[43][2:-3])
+
+        self.size = np.array([0.001, 0.001, 0.0])
 
         # the following only need to be created if this is a normal simulation and not a special mode
         if mode == 0:
@@ -100,7 +102,6 @@ class Simulation:
             self.diff_growth = (self.max_radius - self.min_radius) / self.diff_div_thresh
 
             # get the size of the space and the approximation of the differential
-            self.size = np.array([0.001, 0.001, 0.0])
             self.dx, self.dy, self.dz = 0.00001, 0.00001, 1
             self.dx2, self.dy2, self.dz2 = self.dx ** 2, self.dy ** 2, self.dz ** 2
 
@@ -181,7 +182,7 @@ def setup():
     # run the model normally
     if mode == 0:
         # create instance of Simulation class
-        simulation = Simulation(templates_path, name, path, mode)
+        simulation = Simulation(templates_path, name, path, mode, separator)
 
         # go through all cell arrays giving initial parameters of the cells
         for i in range(simulation.number_cells):
@@ -219,17 +220,10 @@ def setup():
     # images to video mode
     elif mode == 2:
         # create instance of Simulation class
-        simulation = Simulation(templates_path, name, path, separator, mode)
+        simulation = Simulation(templates_path, name, path, mode, separator)
 
-        # get all files ending in ".png" in the directory with a simulation name, sort that list
-        file_list = [file for file in os.listdir(path) if file.endswith('.png')]
-        file_list.sort()
-
-        # loop over all images defined in the template file
-        for image_name in file_list:
-            # read the image and write it to the video file
-            image = cv2.imread(simulation.path + image_name)
-            simulation.video_object.write(image)
+        # get video using function from output.py
+        output.create_video(simulation)
 
         # exits out as the conversion from images to video is done
         exit()
@@ -245,7 +239,7 @@ def setup():
                 csv_count += 1
 
         # create simulation instance
-        simulation = Simulation(templates_path, name, path, separator, mode)
+        simulation = Simulation(templates_path, name, path, mode)
 
         # loop over all csvs defined in the template file
         for i in range(1, csv_count + 1):
@@ -259,8 +253,6 @@ def setup():
 
             # updates the number of cells and adds that amount of vertices to the graphs
             simulation.number_cells = len(csv_rows)
-            simulation.neighbor_graph.add_vertices(simulation.number_cells)
-            simulation.jkr_graph.add_vertices(simulation.number_cells)
 
             # turn all of the rows into a matrix
             cell_data = np.column_stack(csv_rows)

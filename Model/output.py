@@ -96,7 +96,8 @@ def step_image(simulation):
                 cmap_image.ellipse(membrane_circle, outline='gray', width=1)
 
         # get the image path
-        image_path = simulation.path + simulation.name + "_image_" + str(int(simulation.current_step)) + ".png"
+        image_path = simulation.path + "images" + simulation.separator + simulation.name + "_image_" + \
+            str(int(simulation.current_step)) + ".png"
 
         # draw on gradient image if desired
         if simulation.output_gradient:
@@ -123,7 +124,9 @@ def step_csv(simulation):
         to a cell
     """
     # open a new file
-    file_path = simulation.path + simulation.name + "_values_" + str(int(simulation.current_step)) + ".csv"
+    file_path = simulation.path + "values" + simulation.separator + simulation.name + "_values_" +\
+        str(int(simulation.current_step)) + ".csv"
+
     with open(file_path, "w", newline="") as new_file:
         csv_file = csv.writer(new_file)
 
@@ -213,11 +216,11 @@ def create_video(simulation):
         a video
     """
     # get all of the images in the directory and sort them
-    file_list = [file for file in os.listdir(simulation.path) if file.endswith('.png')]
+    file_list = [file for file in os.listdir(simulation.path + "images") if file.endswith('.png')]
     file_list.sort()
 
     # read the image and get the shape of one of the images
-    frame = cv2.imread(simulation.path + file_list[0])
+    frame = cv2.imread(simulation.path + "images" + simulation.separator + file_list[0])
     height, width, channels = frame.shape
 
     # get the video file path
@@ -237,6 +240,17 @@ def create_video(simulation):
     print("The simulation is finished. May the force be with you.")
 
 
+def initialize_directories(simulation):
+    """ make directories for images, csvs, and gradients
+    """
+    os.mkdir(simulation.path + "images" + simulation.separator)
+    os.mkdir(simulation.path + "gradients" + simulation.separator)
+    os.mkdir(simulation.path + "values" + simulation.separator)
 
 
+def step_gradient(simulation):
 
+    for gradient in simulation.extracellular_names:
+        with open(simulation.path + "gradients" + simulation.separator + simulation.name + "_" + gradient + "_" +
+                  str(simulation.current_step) + ".npy", 'wb') as file:
+            np.save(file, simulation.__dict__[gradient])
