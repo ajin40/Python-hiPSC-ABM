@@ -10,9 +10,8 @@ simulation = input.setup()
 # determining highest/lowest concentrations of the extracellular gradient(s).
 functions.setup_diffusion_bins(simulation)
 
-# initialize the data csv
-output.initialize_csv(simulation)
-output.initialize_directories(simulation)
+# make directories for the outputs and create a header for the model efficiency csv
+output.initialize_outputs(simulation)
 
 # this will loop over all steps defined in the general template file in addition to updating the current step
 # of the simulation. this is done to explicitly/easily show what happens at each step
@@ -50,11 +49,7 @@ for simulation.current_step in range(simulation.beginning_step, simulation.end_s
 
     # The first function will save a 2D image of the space, the second will create a csv with each row corresponding to
     # an individual cell, and the last will save performance statistics to a running csv.
-    output.step_image(simulation)
-    output.step_csv(simulation)
-    output.step_gradient(simulation)
-    output.simulation_data(simulation)
-    output.temporary(simulation)
+    output.step_outputs(simulation)
 
 # ends the simulation by closing any necessary files.
 output.create_video(simulation)

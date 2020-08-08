@@ -27,7 +27,9 @@ class Simulation:
         # hold the name and the output path of the simulation
         self.name = name
         self.path = path
-        self.separator = separator
+        self.images_path = path + name + "_images" + separator
+        self.values_path = path + name + "_values" + separator
+        self.gradients_path = path + name + "_gradients" + separator
 
         # general template file
         self.parallel = eval(general[4][2:-3])

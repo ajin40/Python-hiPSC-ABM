@@ -96,8 +96,7 @@ def step_image(simulation):
                 cmap_image.ellipse(membrane_circle, outline='gray', width=1)
 
         # get the image path
-        image_path = simulation.path + "images" + simulation.separator + simulation.name + "_image_" + \
-            str(int(simulation.current_step)) + ".png"
+        image_path = simulation.images_path + simulation.name + "_image_" + str(int(simulation.current_step)) + ".png"
 
         # draw on gradient image if desired
         if simulation.output_gradient:
@@ -113,20 +112,16 @@ def step_image(simulation):
             # save the image
             base.save(image_path, 'PNG')
 
-        # write it to the video object
-        # add_image = cv2.imread(image_path)
-        # simulation.video_object.write(add_image)
-
 
 def step_csv(simulation):
     """ Outputs a .csv file containing information
         about each cell with each row corresponding
         to a cell
     """
-    # open a new file
-    file_path = simulation.path + "values" + simulation.separator + simulation.name + "_values_" +\
-        str(int(simulation.current_step)) + ".csv"
+    # get file path
+    file_path = simulation.values_path + simulation.name + "_values_" + str(int(simulation.current_step)) + ".csv"
 
+    # open a new file
     with open(file_path, "w", newline="") as new_file:
         csv_file = csv.writer(new_file)
 
@@ -148,14 +143,14 @@ def step_csv(simulation):
 
 
 def simulation_data(simulation):
-    """ Adds a new line to the running csv for
-        data amount the simulation such as
-        memory, step time, number of cells,
-        and various other stats.
+    """ Adds a new line to the running csv for data amount
+        the simulation such as memory, step time, number of
+        cells, and various other stats.
     """
     # get path to data csv
     data_path = simulation.path + simulation.name + "_data.csv"
 
+    # open file
     with open(data_path, "a", newline="") as file_object:
         csv_object = csv.writer(file_object)
 
@@ -171,38 +166,6 @@ def simulation_data(simulation):
                              simulation.apply_forces_time])
 
 
-def initialize_csv(simulation):
-    """ Opens a csv file to be written
-        to each step with stats
-    """
-    # get path to data csv
-    data_path = simulation.path + simulation.name + "_data.csv"
-
-    # open the file and create a csv object and write a header as the first line
-    with open(data_path, "w", newline="") as file_object:
-        csv_object = csv.writer(file_object)
-        csv_object.writerow(["Step Number", "Number Cells", "Step Time", "Memory (MB)", "update_diffusion",
-                             "check_neighbors", "nearest_diff", "cell_motility", "update_cells", "update_cell_queue",
-                             "handle_movement", "jkr_neighbors", "get_forces", "apply_forces"])
-
-
-def initialize_video(simulation):
-    """ Opens the video file to be written
-        to each step with the image produced
-    """
-    # creates a video file that can be written to each step
-    video_path = simulation.path + simulation.name + '_video.avi'
-
-    # determine the appropriate size of the video in pixels
-    if simulation.output_gradient:
-        image_size = (simulation.image_quality[0] * 2, simulation.image_quality[1])
-    else:
-        image_size = (simulation.image_quality[0], simulation.image_quality[1])
-
-    simulation.video_object = cv2.VideoWriter(video_path, cv2.VideoWriter_fourcc("M", "J", "P", "G"), simulation.fps,
-                                              image_size)
-
-
 def temporary(simulation):
     """ Pickle a copy of the simulation class that can be used
         to continue a past simulation without losing information
@@ -216,11 +179,11 @@ def create_video(simulation):
         a video
     """
     # get all of the images in the directory and sort them
-    file_list = [file for file in os.listdir(simulation.path + "images") if file.endswith('.png')]
+    file_list = [file for file in os.listdir(simulation.images_path) if file.endswith('.png')]
     file_list.sort()
 
     # read the image and get the shape of one of the images
-    frame = cv2.imread(simulation.path + "images" + simulation.separator + file_list[0])
+    frame = cv2.imread(simulation.images_path + file_list[0])
     height, width, channels = frame.shape
 
     # get the video file path
@@ -232,7 +195,7 @@ def create_video(simulation):
 
     # go through the images and write them to the video file
     for image_file in file_list:
-        image = cv2.imread(simulation.path + image_file)
+        image = cv2.imread(simulation.images_path + image_file)
         video_object.write(image)
 
     # close the file and print end statement
@@ -240,17 +203,50 @@ def create_video(simulation):
     print("The simulation is finished. May the force be with you.")
 
 
-def initialize_directories(simulation):
-    """ make directories for images, csvs, and gradients
+def step_gradients(simulation):
+    """ saves the gradient arrays as .npy files
     """
-    os.mkdir(simulation.path + "images" + simulation.separator)
-    os.mkdir(simulation.path + "gradients" + simulation.separator)
-    os.mkdir(simulation.path + "values" + simulation.separator)
-
-
-def step_gradient(simulation):
-
     for gradient in simulation.extracellular_names:
-        with open(simulation.path + "gradients" + simulation.separator + simulation.name + "_" + gradient + "_" +
-                  str(simulation.current_step) + ".npy", 'wb') as file:
-            np.save(file, simulation.__dict__[gradient])
+        file = simulation.gradients_path + simulation.name + "_" + gradient + "_" + str(simulation.current_step)
+        np.save(file, simulation.__dict__[gradient])
+
+
+def initialize_outputs(simulation):
+    """ sets up the simulation data csv and makes directories
+        for images, values, and the gradients
+    """
+    # get path to data csv
+    data_path = simulation.path + simulation.name + "_data.csv"
+
+    # open the file and create a csv object and write a header as the first line
+    with open(data_path, "w", newline="") as file_object:
+        csv_object = csv.writer(file_object)
+        csv_object.writerow(["Step Number", "Number Cells", "Step Time", "Memory (MB)", "update_diffusion",
+                             "check_neighbors", "nearest_diff", "cell_motility", "update_cells", "update_cell_queue",
+                             "handle_movement", "jkr_neighbors", "get_forces", "apply_forces"])
+
+    # make the directories for images, cell values, and gradients
+    os.mkdir(simulation.images_path)
+    os.mkdir(simulation.values_path)
+    os.mkdir(simulation.gradients_path)
+
+
+def step_outputs(simulation):
+    """ calls multiple functions that each output some
+        sort of file relating to the simulation at a
+        particular step
+    """
+    # get the image of the space
+    step_image(simulation)
+
+    # create a csv with all the cell values
+    step_csv(simulation)
+
+    # turn each of the gradients into a numpy file
+    step_gradients(simulation)
+
+    # add a line of information about model efficiency at the current step
+    simulation_data(simulation)
+
+    # create a temporary pickle of the simulation that can be used to continue a simulation
+    temporary(simulation)
