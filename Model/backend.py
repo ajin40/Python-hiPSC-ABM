@@ -705,11 +705,11 @@ def highest_fgf4_cpu(diffuse_radius, diffuse_bins, diffuse_bins_help, diffuse_lo
                         # check to see if that cell is within the search radius and not the same cell
                         m = np.linalg.norm(diffuse_locations[x_][y_][z_] - cell_locations[pivot_index])
                         if m < diffuse_radius:
-                            if fgf4_values[x_ + 1][y_ + 1][z_] > highest_value:
+                            if fgf4_values[x_][y_][z_] > highest_value:
                                 highest_index_x = x_
                                 highest_index_y = y_
                                 highest_index_z = z_
-                                highest_value = fgf4_values[x_ + 1][y_ + 1][z_]
+                                highest_value = fgf4_values[x_][y_][z_]
 
         # update the highest fgf4 diffusion point
         highest_fgf4[pivot_index][0] = highest_index_x

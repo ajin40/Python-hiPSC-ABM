@@ -380,8 +380,8 @@ def jkr_neighbors(simulation):
     # start time of the function
     simulation.jkr_neighbors_time = -1 * time.time()
 
-    # radius of search (meters) in which neighbors will have physical interactions, should be double the max cell radius
-    jkr_distance = 0.00001
+    # radius of search (meters) in which neighbors will have physical interactions, double the max cell radius
+    jkr_distance = 2 * simulation.max_radius
 
     # if a static variable has not been created to hold the maximum number of neighbors, create one
     if not hasattr(jkr_neighbors, "max_neighbors"):

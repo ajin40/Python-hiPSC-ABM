@@ -5,7 +5,6 @@ import cv2
 import os
 import platform
 import sys
-import webbrowser
 import pickle
 import igraph
 import distutils.dir_util
@@ -61,6 +60,9 @@ class Simulation:
 
         # the following only need to be created if this is a normal simulation and not a special mode
         if mode == 0:
+            # the step to begin at
+            self.beginning_step = 1
+
             # these arrays hold all values of the cells, each index corresponds to a cell.
             self.cell_locations = np.empty((self.number_cells, 3), dtype=float)
             self.cell_radii = np.empty(self.number_cells, dtype=float)
@@ -181,10 +183,6 @@ def setup():
         # create instance of Simulation class
         simulation = Simulation(templates_path, name, path, mode)
 
-        # initialize the data csv and the video
-        output.initialize_csv(simulation)
-        output.initialize_video(simulation)
-
         # go through all cell arrays giving initial parameters of the cells
         for i in range(simulation.number_cells):
             div_counter = r.randint(0, simulation.pluri_div_thresh)
@@ -208,17 +206,20 @@ def setup():
 
     # continue a past simulation
     elif mode == 1:
+        with open(templates_path + "general.txt") as general_file:
+            general = general_file.readlines()
+            end_step = int(general[7][2:-3])
+
         # open the temporary pickled simulation an
         with open(path + name + "_temp.pkl", "rb") as temp_file:
             simulation = pickle.load(temp_file)
+            simulation.beginning_step = simulation.current_step + 1
+            simulation.end_step = end_step
 
     # images to video mode
     elif mode == 2:
         # create instance of Simulation class
         simulation = Simulation(templates_path, name, path, separator, mode)
-
-        # prepare a video file to write to
-        output.initialize_video(simulation)
 
         # get all files ending in ".png" in the directory with a simulation name, sort that list
         file_list = [file for file in os.listdir(path) if file.endswith('.png')]
@@ -286,9 +287,6 @@ def setup():
 
             # clear the number of cells holder
             simulation.number_cells = 0
-
-        # turns the images into a video
-        output.finish_files(simulation)
 
         # exits out as the conversion from .csv to images/video is done
         exit()

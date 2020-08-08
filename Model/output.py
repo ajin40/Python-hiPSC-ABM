@@ -13,6 +13,7 @@ import time
 import memory_profiler
 import numpy as np
 import pickle
+import os
 
 
 def step_image(simulation):
@@ -112,8 +113,8 @@ def step_image(simulation):
             base.save(image_path, 'PNG')
 
         # write it to the video object
-        add_image = cv2.imread(image_path)
-        simulation.video_object.write(add_image)
+        # add_image = cv2.imread(image_path)
+        # simulation.video_object.write(add_image)
 
 
 def step_csv(simulation):
@@ -149,33 +150,37 @@ def simulation_data(simulation):
         memory, step time, number of cells,
         and various other stats.
     """
-    # calculate the step time and the memory
-    step_time = time.time() - simulation.step_start
-    memory = memory_profiler.memory_usage(max_usage=True)
+    # get path to data csv
+    data_path = simulation.path + simulation.name + "_data.csv"
 
-    # write the row with the corresponding values
-    simulation.csv_object.writerow([simulation.current_step, simulation.number_cells, step_time, memory,
-                                    simulation.update_diffusion_time, simulation.check_neighbors_time,
-                                    simulation.nearest_time, simulation.cell_motility_time,
-                                    simulation.cell_update_time, simulation.update_queue_time,
-                                    simulation.handle_movement_time, simulation.jkr_neighbors_time,
-                                    simulation.get_forces_time, simulation.apply_forces_time])
+    with open(data_path, "a", newline="") as file_object:
+        csv_object = csv.writer(file_object)
+
+        # calculate the step time and the memory
+        step_time = time.time() - simulation.step_start
+        memory = memory_profiler.memory_usage(max_usage=True)
+
+        # write the row with the corresponding values
+        csv_object.writerow([simulation.current_step, simulation.number_cells, step_time, memory,
+                             simulation.update_diffusion_time, simulation.check_neighbors_time, simulation.nearest_time,
+                             simulation.cell_motility_time, simulation.cell_update_time, simulation.update_queue_time,
+                             simulation.handle_movement_time, simulation.jkr_neighbors_time, simulation.get_forces_time,
+                             simulation.apply_forces_time])
 
 
 def initialize_csv(simulation):
     """ Opens a csv file to be written
         to each step with stats
     """
-    # create a CSV file used to hold information about run time, number of cells, memory, and various other statistics
+    # get path to data csv
     data_path = simulation.path + simulation.name + "_data.csv"
 
     # open the file and create a csv object and write a header as the first line
-    file_object = open(data_path, "w", newline="")
-    simulation.csv_object = csv.writer(file_object)
-    simulation.csv_object.writerow(["Step Number", "Number Cells", "Step Time", "Memory (MB)", "update_diffusion",
-                                    "check_neighbors", "nearest_diff", "cell_motility", "update_cells",
-                                    "update_cell_queue", "handle_movement", "jkr_neighbors", "get_forces",
-                                    "apply_forces"])
+    with open(data_path, "w", newline="") as file_object:
+        csv_object = csv.writer(file_object)
+        csv_object.writerow(["Step Number", "Number Cells", "Step Time", "Memory (MB)", "update_diffusion",
+                             "check_neighbors", "nearest_diff", "cell_motility", "update_cells", "update_cell_queue",
+                             "handle_movement", "jkr_neighbors", "get_forces", "apply_forces"])
 
 
 def initialize_video(simulation):
@@ -199,17 +204,39 @@ def temporary(simulation):
     """ Pickle a copy of the simulation class that can be used
         to continue a past simulation without losing information
     """
-    # with open(simulation.path + simulation.name + '_temp.pkl', 'wb') as file:
-    #     pickle.dump(simulation, file, -1)
-    pass
+    with open(simulation.path + simulation.name + '_temp.pkl', 'wb') as file:
+        pickle.dump(simulation, file, -1)
 
 
-def finish_files(simulation):
-    """ Closes any necessary files and
-        prints an ending statement
+def create_video(simulation):
+    """ Takes all of the step images and turns them into
+        a video
     """
-    # close out the running video file
-    simulation.video_object.release()
+    # get all of the images in the directory and sort them
+    file_list = [file for file in os.listdir(simulation.path) if file.endswith('.png')]
+    file_list.sort()
 
-    # end statement
+    # read the image and get the shape of one of the images
+    frame = cv2.imread(simulation.path + file_list[0])
+    height, width, channels = frame.shape
+
+    # get the video file path
+    video_path = simulation.path + simulation.name + '_video.avi'
+
+    # create the file object
+    video_object = cv2.VideoWriter(video_path, cv2.VideoWriter_fourcc("M", "J", "P", "G"), simulation.fps,
+                                   (width, height))
+
+    # go through the images and write them to the video file
+    for image_file in file_list:
+        image = cv2.imread(simulation.path + image_file)
+        video_object.write(image)
+
+    # close the file and print end statement
+    video_object.release()
     print("The simulation is finished. May the force be with you.")
+
+
+
+
+
