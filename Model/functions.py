@@ -366,7 +366,7 @@ def handle_movement(simulation):
         apply_forces(simulation)
 
     # reset all forces back to zero vectors
-    simulation.cell_motility_force = np.zeros((simulation.number_cells, 3))
+    simulation.cell_motility_force = np.zeros((simulation.number_cells, 3), dtype=float)
 
     # calculate the total time elapsed for the function
     simulation.handle_movement_time += time.time()
@@ -548,7 +548,7 @@ def apply_forces(simulation):
 
     # update the locations and reset the jkr forces back to zero
     simulation.cell_locations = new_locations
-    simulation.cell_jkr_force = np.zeros((simulation.number_cells, 3))
+    simulation.cell_jkr_force = np.zeros((simulation.number_cells, 3), dtype=float)
 
     # calculate the total time elapsed for the function
     simulation.apply_forces_time += time.time()
@@ -800,8 +800,7 @@ def highest_fgf4(simulation):
     """ Search for the highest concentration of
         fgf4 within a fixed radius
     """
-    diffuse_radius = 0.000015
-    simulation.cell_highest_fgf4 = backend.highest_fgf4_cpu(diffuse_radius, simulation.diffuse_bins,
+    simulation.cell_highest_fgf4 = backend.highest_fgf4_cpu(simulation.diffuse_radius, simulation.diffuse_bins,
                                                             simulation.diffuse_bins_help, simulation.diffuse_locations,
                                                             simulation.cell_locations, simulation.number_cells,
                                                             simulation.cell_highest_fgf4, simulation.fgf4_values)

@@ -2,7 +2,7 @@
 General Parameters
 -----------------------------------------------------------------------------------------------------------------------
 Do you want the model to use a discrete NVIDIA gpu to accelerate some computationally tasking functions? Ex. True
-[ True ]
+[ False ]
 
 What will the final step number be? Use for when you are beginning a new simulation or continuing an existing. Ex. 192
 [ 5 ]

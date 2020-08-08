@@ -41,4 +41,4 @@ What is the max value of FGF4 at a diffusion point? Ex. 20
 [ 5 ]
 
 Use FGF4 concentrations for NANOG high movements? Ex. False
-[ True ]
+[ False ]

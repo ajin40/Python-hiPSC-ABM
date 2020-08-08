@@ -63,19 +63,19 @@ class Simulation:
         if mode == 0:
             # these arrays hold all values of the cells, each index corresponds to a cell.
             self.cell_locations = np.empty((self.number_cells, 3), dtype=float)
-            self.cell_radii = np.empty((self.number_cells, 1), dtype=float)
-            self.cell_motion = np.empty((self.number_cells, 1), dtype=bool)
+            self.cell_radii = np.empty(self.number_cells, dtype=float)
+            self.cell_motion = np.empty(self.number_cells, dtype=bool)
             self.cell_fds = np.empty((self.number_cells, 4), dtype=float)
-            self.cell_states = np.empty((self.number_cells, 1), dtype='<U14')
-            self.cell_diff_counter = np.empty((self.number_cells, 1), dtype=int)
-            self.cell_div_counter = np.empty((self.number_cells, 1), dtype=int)
-            self.cell_death_counter = np.empty((self.number_cells, 1), dtype=int)
-            self.cell_fds_counter = np.empty((self.number_cells, 1), dtype=int)
+            self.cell_states = np.empty(self.number_cells, dtype='<U14')
+            self.cell_diff_counter = np.empty(self.number_cells, dtype=int)
+            self.cell_div_counter = np.empty(self.number_cells, dtype=int)
+            self.cell_death_counter = np.empty(self.number_cells, dtype=int)
+            self.cell_fds_counter = np.empty(self.number_cells, dtype=int)
             self.cell_motility_force = np.empty((self.number_cells, 3), dtype=float)
             self.cell_jkr_force = np.empty((self.number_cells, 3), dtype=float)
-            self.cell_nearest_gata6 = np.empty((self.number_cells, 1))
-            self.cell_nearest_nanog = np.empty((self.number_cells, 1))
-            self.cell_nearest_diff = np.empty((self.number_cells, 1))
+            self.cell_nearest_gata6 = np.empty(self.number_cells)
+            self.cell_nearest_nanog = np.empty(self.number_cells)
+            self.cell_nearest_diff = np.empty(self.number_cells)
             self.cell_highest_fgf4 = np.empty((self.number_cells, 3))
 
             # add the "cell arrays" attribute names to the list so that indices can be copied/removed from when
@@ -104,6 +104,7 @@ class Simulation:
 
             # the diffusion constant for the molecule gradients
             self.diffuse = 0.00000000000001
+            self.diffuse_radius = 0.000025
 
             # get the time step value for diffusion updates depending on whether 2D or 3D
             if self.size[2] == 0:
@@ -119,6 +120,7 @@ class Simulation:
             self.extracellular_names = ["fgf4_values"]
 
             # the time in seconds for incremental movement
+            self.time_step_value = 1800
             self.move_time_step = 200
 
 
@@ -126,30 +128,25 @@ def setup():
     """ controls which mode of the model is run and
         sets up the model accordingly
     """
-    # if no command line attributes, run the mini gui to get the name and the mode
+    # if no command line attributes besides the file, run the mini gui to get the name and the mode
     if len(sys.argv) == 1:
-        # prompt the user
-        print("Type the name and the mode of the simulation when prompted")
-        response = input("More for information on modes, type ""modes"" or for more help, type help \n"
-                         "press any key to continue")
+        while True:
+            name = input("What is the name of the simulation? Type ""help"" for more information: ")
+            if name == "help":
+                print("Type the name of the simulation. Don't include quotes or a path")
+            else:
+                break
 
-        # if response is help
-        if response == "help":
-            print("see documentation/README for more information")
-
-        # if response is modes
-        elif response == "modes" or "Modes":
-            print("normal simulation: 0")
-            print("continuation of past simulation: 1")
-            print("images to video: 2")
-            print("csvs to images/video: 3")
-
-        else:
-            pass
-
-        # get the name and the mode of the simulation
-        name = input("What is the name of the simulation?")
-        mode = input("What is the mode of the simulation?")
+        while True:
+            mode = input("What is the mode of the simulation? Type ""help"" for more information: ")
+            if mode == "help":
+                print("normal simulation: 0")
+                print("continuation of past simulation: 1")
+                print("images to video: 2")
+                print("csvs to images/video: 3")
+            else:
+                mode = int(mode)
+                break
 
     # if both the name and the mode are provided, do nothing
     elif len(sys.argv) == 3:
@@ -157,15 +154,9 @@ def setup():
 
     # if anything else
     else:
-        if input("Type ""help"" for more information about beginning a simulation") == "help" or "Help":
-            print("After python Run.py, include the name of the simulation followed by the mode or \n"
-                  "simply no arguments for a small GUI")
-        # anything else, open NetLogo
-        else:
-            webbrowser.open('https://ccl.northwestern.edu/netlogo/')
+        print("Either run \"python Run.py\" without arguments or \"python Run.py (simulation name) (simulation mode)\"")
         exit()
 
-#######################################################################################################################
     # open the path.txt file containing information about template locations and output directory
     with open('paths.txt', 'r') as file:
         lines = file.readlines()

@@ -121,28 +121,26 @@ def step_csv(simulation):
         about each cell with each row corresponding
         to a cell
     """
-    # only create this file if desired
-    if simulation.output_csvs:
-        # open a new file
-        file_path = simulation.path + simulation.name + "_values_" + str(int(simulation.current_step)) + ".csv"
-        with open(file_path, "w", newline="") as new_file:
-            csv_file = csv.writer(new_file)
+    # open a new file
+    file_path = simulation.path + simulation.name + "_values_" + str(int(simulation.current_step)) + ".csv"
+    with open(file_path, "w", newline="") as new_file:
+        csv_file = csv.writer(new_file)
 
-            # write the header of the csv
-            csv_file.writerow(['X_position', 'Y_position', 'Z_position', 'Radius', 'Motion', 'FGFR', 'ERK', 'GATA6',
-                               'NANOG', 'State', 'Differentiation_counter', 'Division_counter', 'Death_counter',
-                               'FDS_counter'])
+        # write the header of the csv
+        csv_file.writerow(['X_position', 'Y_position', 'Z_position', 'Radius', 'Motion', 'FGFR', 'ERK', 'GATA6',
+                           'NANOG', 'State', 'Differentiation_counter', 'Division_counter', 'Death_counter',
+                           'FDS_counter'])
 
-            # turn the cell holder arrays into a list of rows to add to the csv file
-            cell_data = list(zip(simulation.cell_locations[:, 0], simulation.cell_locations[:, 1],
-                                 simulation.cell_locations[:, 2], simulation.cell_radii, simulation.cell_motion,
-                                 simulation.cell_fds[:, 0], simulation.cell_fds[:, 1], simulation.cell_fds[:, 2],
-                                 simulation.cell_fds[:, 3], simulation.cell_states, simulation.cell_diff_counter,
-                                 simulation.cell_div_counter, simulation.cell_death_counter,
-                                 simulation.cell_fds_counter))
+        # turn the cell holder arrays into a list of rows to add to the csv file
+        cell_data = list(zip(simulation.cell_locations[:, 0], simulation.cell_locations[:, 1],
+                             simulation.cell_locations[:, 2], simulation.cell_radii, simulation.cell_motion,
+                             simulation.cell_fds[:, 0], simulation.cell_fds[:, 1], simulation.cell_fds[:, 2],
+                             simulation.cell_fds[:, 3], simulation.cell_states, simulation.cell_diff_counter,
+                             simulation.cell_div_counter, simulation.cell_death_counter,
+                             simulation.cell_fds_counter))
 
-            # write the list containing the new csv rows
-            csv_file.writerows(cell_data)
+        # write the list containing the new csv rows
+        csv_file.writerows(cell_data)
 
 
 def simulation_data(simulation):
@@ -201,8 +199,9 @@ def temporary(simulation):
     """ Pickle a copy of the simulation class that can be used
         to continue a past simulation without losing information
     """
-    with open(simulation.path + simulation.name + '_temp.pkl', 'wb') as file:
-        pickle.dump(simulation, file, -1)
+    # with open(simulation.path + simulation.name + '_temp.pkl', 'wb') as file:
+    #     pickle.dump(simulation, file, -1)
+    pass
 
 
 def finish_files(simulation):
