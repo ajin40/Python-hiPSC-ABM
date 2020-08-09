@@ -27,8 +27,8 @@ def step_image(simulation):
 
         # get the fgf4 gradient array, resize to a 2D array, and normalize the concentrations
         fgf4_array = simulation.fgf4_values
+        fgf4_array = fgf4_array / simulation.max_fgf4
         fgf4_array = np.reshape(fgf4_array, (fgf4_array.shape[0], fgf4_array.shape[1]))
-        fgf4_array /= simulation.max_fgf4
 
         # create a gradient image if desired
         if simulation.output_gradient:
@@ -172,28 +172,36 @@ def create_video(simulation):
     """ Takes all of the step images and turns them into
         a video
     """
-    # get all of the images in the directory and sort them
-    file_list = [file for file in os.listdir(simulation.images_path) if file.endswith('.png')]
-    file_list = natsort.natsorted(file_list)
+    # only continue if there is an image directory
+    if os.path.isdir(simulation.images_path):
+        # get all of the images in the directory
+        file_list = [file for file in os.listdir(simulation.images_path) if file.endswith('.png')]
 
-    # read the image and get the shape of one of the images
-    frame = cv2.imread(simulation.images_path + file_list[0])
-    height, width, channels = frame.shape
+        # continue if image directory has images in it
+        if len(file_list) > 0:
+            # sort the list naturally
+            file_list = natsort.natsorted(file_list)
 
-    # get the video file path
-    video_path = simulation.path + simulation.name + '_video.avi'
+            # read the image and get the shape of one of the images
+            frame = cv2.imread(simulation.images_path + file_list[0])
+            height, width, channels = frame.shape
 
-    # create the file object
-    video_object = cv2.VideoWriter(video_path, cv2.VideoWriter_fourcc("M", "J", "P", "G"), simulation.fps,
-                                   (width, height))
+            # get the video file path
+            video_path = simulation.path + simulation.name + '_video.avi'
 
-    # go through the images and write them to the video file
-    for image_file in file_list:
-        image = cv2.imread(simulation.images_path + image_file)
-        video_object.write(image)
+            # create the file object
+            video_object = cv2.VideoWriter(video_path, cv2.VideoWriter_fourcc("M", "J", "P", "G"), simulation.fps,
+                                           (width, height))
 
-    # close the file and print end statement
-    video_object.release()
+            # go through the images and write them to the video file
+            for image_file in file_list:
+                image = cv2.imread(simulation.images_path + image_file)
+                video_object.write(image)
+
+                # close the file
+                video_object.release()
+
+    # print end statement
     print("The simulation is finished. May the force be with you.")
 
 
@@ -201,9 +209,8 @@ def step_gradients(simulation):
     """ saves the gradient arrays as .npy files
     """
     for gradient in simulation.extracellular_names:
-        file_name = simulation.gradients_path + simulation.name + "_" + gradient + "_" + str(simulation.current_step) + ".npy"
-        file = open(file_name, "wb")
-        np.save(file, simulation.__dict__[gradient])
+        np.save(simulation.gradients_path + simulation.name + "_" + gradient + "_" + str(simulation.current_step)
+                + ".npy", simulation.__dict__[gradient])
 
 
 def initialize_outputs(simulation):
@@ -221,11 +228,11 @@ def initialize_outputs(simulation):
                              "handle_movement", "jkr_neighbors", "get_forces", "apply_forces"])
 
     # make the directories for images, cell values, and gradients
-    if not os.path.isdir(simulation.images_path):
+    if not os.path.isdir(simulation.images_path) and simulation.output_images:
         os.mkdir(simulation.images_path)
     if not os.path.isdir(simulation.values_path):
         os.mkdir(simulation.values_path)
-    if not os.path.isdir(simulation.gradients_path):
+    if not os.path.isdir(simulation.gradients_path) and simulation.output_gradient:
         os.mkdir(simulation.gradients_path)
 
 

@@ -14,7 +14,7 @@ import output
 # used to hold all values necessary to the simulation as it moves from one step to the next
 class Simulation:
     def __init__(self, templates_path, name, path, mode, separator):
-        # open the following template files
+        # read the following template files
         with open(templates_path + "general.txt") as general_file:
             general = general_file.readlines()
 
@@ -133,27 +133,59 @@ def setup():
     """ controls which mode of the model is run and
         sets up the model accordingly
     """
+    # keep track of the file separator to use
+    if platform.system() == "Windows":
+        separator = "\\"  # windows
+    else:
+        separator = "/"  # not windows
+
+    # open the path.txt file containing the absolute locations for the template file directory and output directory
+    with open('paths.txt', 'r') as file:
+        lines = file.readlines()
+
+    # get the paths to the directory of template files and the output directory, exit() if paths don't exist
+    templates_path = lines[7].strip()
+    if not os.path.isdir(templates_path):
+        print("Path: " + templates_path + " to templates directory does not exist. Please use absolute path.")
+        exit()
+    else:
+        # add separator to end if none is given
+        if templates_path[-1] != "\\" or templates_path[-1] != "/":
+            templates_path += separator
+
+    output_path = lines[13].strip()
+    if not os.path.isdir(output_path):
+        print("Path: " + output_path + " to output directory does not exist. Please use absolute path.")
+        exit()
+    else:
+        # add separator to end if none is given
+        if output_path[-1] != "\\" or output_path[-1] != "/":
+            output_path += separator
+
     # if no command line attributes besides the file, run the mini gui to get the name and the mode
     if len(sys.argv) == 1:
         while True:
-            name = input("What is the name of the simulation? Type ""help"" for more information: ")
+            name = input("What is the \"name\" of the simulation? Type \"help\" for more information: ")
             if name == "help":
-                print("Type the name of the simulation. Don't include quotes or a path")
+                print("Type the name of the simulation without quotes and not as a path.\n")
             else:
                 break
 
         while True:
-            mode = input("What is the mode of the simulation? Type ""help"" for more information: ")
+            mode = input("What is the \"mode\" of the simulation? Type \"help\" for more information: ")
             if mode == "help":
-                print("normal simulation: 0")
+                print("new simulation: 0")
                 print("continuation of past simulation: 1")
-                print("images to video: 2")
-                print("csvs to images/video: 3")
+                print("turn simulation images to video: 2")
+                print("turn simulation csvs to images/video: 3\n")
             else:
-                mode = int(mode)
-                break
+                try:
+                    mode = int(mode)
+                    break
+                except ValueError:
+                    print("\"mode\" should be an integer")
 
-    # if both the name and the mode are provided, do nothing
+    # if both the name and the mode are provided, turn the mode into a integer
     elif len(sys.argv) == 3:
         name, mode = sys.argv[1], int(sys.argv[2])
 
@@ -161,22 +193,6 @@ def setup():
     else:
         print("Either run \"python Run.py\" without arguments or \"python Run.py (simulation name) (simulation mode)\"")
         exit()
-
-    # open the path.txt file containing information about template locations and output directory
-    with open('paths.txt', 'r') as file:
-        lines = file.readlines()
-
-    # get the paths to the directory of template files and the output directory
-    templates_path = lines[7].strip()
-    output_path = lines[13].strip()
-
-    # keep track of the file separator to use
-    if platform.system() == "Windows":
-        # windows
-        separator = "\\"
-    else:
-        # not windows
-        separator = "/"
 
     # check the name of the simulation and create a path to simulation output directory
     name, output_path, path = check_name(name, mode, output_path, separator)

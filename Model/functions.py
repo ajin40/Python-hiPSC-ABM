@@ -657,11 +657,11 @@ def cell_motility(simulation):
 
                     # move randomly instead
                     else:
-                        simulation.cell_motility_force[i] += simulation.random_vector() * motility_force
+                        simulation.cell_motility_force[i] += backend.random_vector(simulation) * motility_force
 
                 # move randomly instead
                 else:
-                    simulation.cell_motility_force[i] += simulation.random_vector() * motility_force
+                    simulation.cell_motility_force[i] += backend.random_vector(simulation) * motility_force
 
         # for pluripotent cells
         else:
@@ -792,6 +792,7 @@ def update_diffusion(simulation):
                                                                      simulation.dt, simulation.dx2, simulation.dy2,
                                                                      simulation.dz2, simulation.diffuse,
                                                                      simulation.size)
+
     # calculate the total time elapsed for the function
     simulation.update_diffusion_time += time.time()
 
