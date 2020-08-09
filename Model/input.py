@@ -238,26 +238,33 @@ def setup():
 
     # turn a collection of csvs into images and a video
     elif mode == 3:
-        # hold the number of csvs -1 as there will be an extra csv
-        csv_count = -1
+        # create simulation instance
+        simulation = Simulation(templates_path, name, path, mode, separator)
+
+        # hold the number of csvs
+        csv_count = 0
 
         # go through all files in directory counting the csv files
-        for file in os.listdir(path):
+        for file in os.listdir(simulation.values_path):
             if file.endswith('.csv'):
                 csv_count += 1
 
-        # create simulation instance
-        simulation = Simulation(templates_path, name, path, mode)
+        # if a image directory doesn't exist make one
+        if not os.path.isdir(simulation.images_path):
+            os.mkdir(simulation.images_path)
 
         # loop over all csvs defined in the template file
         for i in range(1, csv_count + 1):
             # updates the instance variables as they aren't updated by anything else
             simulation.current_step = i
 
+            simulation.fgf4_values = np.load(simulation.gradients_path + simulation.name + "_fgf4_values_" + str(i) +
+                                             ".npy")
+
             # opens the csv and create a list of the rows
-            with open(simulation.path + simulation.name + "_values_" + str(int(i)) + ".csv", newline="") as csv_file:
+            with open(simulation.values_path + simulation.name + "_values_" + str(int(i)) + ".csv", newline="") as file:
                 # skip the first row as this is a header
-                csv_rows = list(csv.reader(csv_file))[1:]
+                csv_rows = list(csv.reader(file))[1:]
 
             # updates the number of cells and adds that amount of vertices to the graphs
             simulation.number_cells = len(csv_rows)
@@ -287,6 +294,9 @@ def setup():
 
             # clear the number of cells holder
             simulation.number_cells = 0
+
+        # get a video of the images
+        output.create_video(simulation)
 
         # exits out as the conversion from .csv to images/video is done
         exit()

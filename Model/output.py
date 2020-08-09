@@ -201,7 +201,8 @@ def step_gradients(simulation):
     """ saves the gradient arrays as .npy files
     """
     for gradient in simulation.extracellular_names:
-        file = simulation.gradients_path + simulation.name + "_" + gradient + "_" + str(simulation.current_step)
+        file_name = simulation.gradients_path + simulation.name + "_" + gradient + "_" + str(simulation.current_step) + ".npy"
+        file = open(file_name, "wb")
         np.save(file, simulation.__dict__[gradient])
 
 

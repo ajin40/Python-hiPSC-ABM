@@ -2,6 +2,7 @@ import input
 import output
 import functions
 
+
 # setup() will create an instance of the Simulation class that holds all relevant information of the model.
 # this is done by reading some template files that contains initial parameters of the model.
 simulation = input.setup()
