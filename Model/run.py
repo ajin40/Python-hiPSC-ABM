@@ -47,8 +47,7 @@ for simulation.current_step in range(simulation.beginning_step, simulation.end_s
     # applying forces from the previous cell_motility() function.
     functions.handle_movement(simulation)
 
-    # The first function will save a 2D image of the space, the second will create a csv with each row corresponding to
-    # an individual cell, and the last will save performance statistics to a running csv.
+    # saves multiple forms of information about the simulation at the current step
     output.step_outputs(simulation)
 
 # ends the simulation by closing any necessary files.

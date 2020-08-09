@@ -6,7 +6,7 @@ import platform
 import sys
 import pickle
 import igraph
-import distutils.dir_util
+import shutil
 
 import output
 
@@ -179,12 +179,18 @@ def setup():
         separator = "/"
 
     # check the name of the simulation and create a path to simulation output directory
-    name, output_path, path = check_name(name, mode, templates_path, output_path, separator)
+    name, output_path, path = check_name(name, mode, output_path, separator)
 
     # run the model normally
     if mode == 0:
         # create instance of Simulation class
         simulation = Simulation(templates_path, name, path, mode, separator)
+
+        # create directory for template files and copy them there
+        new_template_direct = simulation.path + simulation.name + "_templates"
+        os.mkdir(new_template_direct)
+        for template_name in os.listdir(templates_path):
+            shutil.copy(templates_path + template_name, new_template_direct)
 
         # go through all cell arrays giving initial parameters of the cells
         for i in range(simulation.number_cells):
@@ -292,7 +298,7 @@ def setup():
     return simulation
 
 
-def check_name(name, mode, templates_path, output_path, separator):
+def check_name(name, mode, output_path, separator):
     """ renames the file if another simulation has the same name
         or checks to make sure such a simulation exists
     """
@@ -315,13 +321,16 @@ def check_name(name, mode, templates_path, output_path, separator):
                     # clear current directory to prevent another possible future errors
                     files = os.listdir(output_path + name)
                     for file in files:
-                        os.remove(output_path + name + separator + file)
+                        path = output_path + name + separator + file
+                        # remove file
+                        if os.path.isfile(path):
+                            os.remove(path)
+                        # remove directory
+                        else:
+                            shutil.rmtree(path)
                     break
                 else:
                     print("Either type ""y"" or ""n""")
-
-        # copy the template directory to the new simulation directory
-        distutils.dir_util.copy_tree(templates_path, output_path + name)
 
     # this will look for an existing directory for modes other than 0
     else:

@@ -1,10 +1,3 @@
-"""
-
-output.py serves as a way of separating the following functions from the Simulation class. These
-functions will prepare the files to store data about the efficiency of the model, information
-at each step for all of the cells, images from each step, and a video.
-
-"""
 from PIL import Image, ImageDraw
 from matplotlib.cm import ScalarMappable
 import cv2
@@ -13,6 +6,7 @@ import time
 import memory_profiler
 import numpy as np
 import pickle
+import natsort
 import os
 
 
@@ -180,7 +174,7 @@ def create_video(simulation):
     """
     # get all of the images in the directory and sort them
     file_list = [file for file in os.listdir(simulation.images_path) if file.endswith('.png')]
-    file_list.sort()
+    file_list = natsort.natsorted(file_list)
 
     # read the image and get the shape of one of the images
     frame = cv2.imread(simulation.images_path + file_list[0])
@@ -226,9 +220,12 @@ def initialize_outputs(simulation):
                              "handle_movement", "jkr_neighbors", "get_forces", "apply_forces"])
 
     # make the directories for images, cell values, and gradients
-    os.mkdir(simulation.images_path)
-    os.mkdir(simulation.values_path)
-    os.mkdir(simulation.gradients_path)
+    if not os.path.isdir(simulation.images_path):
+        os.mkdir(simulation.images_path)
+    if not os.path.isdir(simulation.values_path):
+        os.mkdir(simulation.values_path)
+    if not os.path.isdir(simulation.gradients_path):
+        os.mkdir(simulation.gradients_path)
 
 
 def step_outputs(simulation):
