@@ -191,18 +191,19 @@ def setup():
 
     # if anything else
     else:
-        print("Either run \"python Run.py\" without arguments or \"python Run.py (simulation name) (simulation mode)\"")
+        print("See documentation for running a simulation via command line arguments. No arguments\n"
+              "will prompt for the name of the simulation and the mode in which it should be run.")
         exit()
 
     # check the name of the simulation and create a path to simulation output directory
-    name, output_path, path = check_name(name, mode, output_path, separator)
+    name, output_path, path = check_name(name, output_path, separator, mode)
 
     # run the model normally
     if mode == 0:
         # create instance of Simulation class
         simulation = Simulation(templates_path, name, path, mode, separator)
 
-        # create directory for template files and copy them there
+        # create directory within the simulation output directory for template files and copy them there
         new_template_direct = simulation.path + simulation.name + "_templates"
         os.mkdir(new_template_direct)
         for template_name in os.listdir(templates_path):
@@ -235,7 +236,7 @@ def setup():
             general = general_file.readlines()
             end_step = int(general[7][2:-3])
 
-        # open the temporary pickled simulation an
+        # open the temporary pickled simulation
         with open(path + name + "_temp.pkl", "rb") as temp_file:
             simulation = pickle.load(temp_file)
             simulation.beginning_step = simulation.current_step + 1
@@ -243,7 +244,7 @@ def setup():
 
     # images to video mode
     elif mode == 2:
-        # create instance of Simulation class
+        # create instance of Simulation class used to get imaging information
         simulation = Simulation(templates_path, name, path, mode, separator)
 
         # get video using function from output.py
@@ -318,13 +319,13 @@ def setup():
         exit()
 
     else:
-        print("Incorrect mode")
+        print("Incorrect mode see documentation")
 
     # return the modified simulation instance
     return simulation
 
 
-def check_name(name, mode, output_path, separator):
+def check_name(name, output_path, separator, mode):
     """ renames the file if another simulation has the same name
         or checks to make sure such a simulation exists
     """
