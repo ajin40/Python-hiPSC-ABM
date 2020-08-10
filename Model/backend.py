@@ -19,8 +19,8 @@ def remove_cell(simulation, index):
             simulation.__dict__[name] = np.delete(simulation.__dict__[name], index, axis=0)
 
     # remove the particular index from the following graphs
-    simulation.neighbor_graph.delete_vertices(index)
-    simulation.jkr_graph.delete_vertices(index)
+    for name in simulation.graph_names:
+        simulation.__dict__[name].delete_vertices(index)
 
     # reduce the number of cells by 1
     simulation.number_cells -= 1
@@ -53,8 +53,8 @@ def divide_cell(simulation, index):
     simulation.cell_div_counter[index] = simulation.cell_div_counter[-1] = 0
 
     # add the new cell to the following graphs
-    simulation.neighbor_graph.add_vertex()
-    simulation.jkr_graph.add_vertex()
+    for name in simulation.graph_names:
+        simulation.__dict__[name].add_vertex()
 
     # increase the number of cells by 1
     simulation.number_cells += 1

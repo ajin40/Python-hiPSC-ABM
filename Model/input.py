@@ -7,6 +7,7 @@ import sys
 import pickle
 import igraph
 import shutil
+import natsort
 
 import output
 
@@ -84,18 +85,20 @@ class Simulation:
             self.cell_nearest_diff = np.empty(self.number_cells)
             self.cell_highest_fgf4 = np.empty((self.number_cells, 3))
 
-            # add the "cell arrays" attribute names to the list so that indices can be copied/removed from when
-            # cells are entering or leaving the simulation, saves the user from adding more code that just this
+            # the names of the cell arrays should be in this list as this will be used to delete and add cells
             self.cell_array_names = ["cell_locations", "cell_radii", "cell_motion", "cell_fds", "cell_states",
                                      "cell_diff_counter", "cell_div_counter", "cell_death_counter", "cell_fds_counter",
                                      "cell_motility_force", "cell_jkr_force", "cell_nearest_gata6",
                                      "cell_nearest_nanog", "cell_nearest_diff", "cell_highest_fgf4"]
 
             # holds all indices of cells that will divide at a current step or be removed at that step
-            self.cells_to_divide, self.cells_to_remove = np.empty((0, 1), dtype=int), np.empty((0, 1), dtype=int)
+            self.cells_to_divide, self.cells_to_remove = np.array([], dtype=int), np.array([], dtype=int)
 
             # create graphs used to all cells and their neighbors, initialize them with the number of cells
             self.neighbor_graph, self.jkr_graph = igraph.Graph(self.number_cells), igraph.Graph(self.number_cells)
+
+            # the names of the graphs should be in this list as this will be used to delete and add cells
+            self.graph_names = ["neighbor_graph", "jkr_graph"]
 
             # min and max radius lengths are used to calculate linear growth of the radius over time in 2D
             self.max_radius = 0.000005
@@ -121,7 +124,8 @@ class Simulation:
             gradient_size = self.size / np.array([self.dx, self.dy, self.dz]) + np.ones(3)
             self.fgf4_values = np.zeros(gradient_size.astype(int))
 
-            # much like the cell arrays add any gradients here to be updated
+            # much like the cell arrays add any gradient names to list this so that a diffusion function can
+            # act on them automatically
             self.extracellular_names = ["fgf4_values"]
 
             # the time in seconds for incremental movement
@@ -258,28 +262,28 @@ def setup():
         # create simulation instance
         simulation = Simulation(templates_path, name, path, mode, separator)
 
-        # hold the number of csvs
-        csv_count = 0
+        # list the csv files in the values directory and sort them naturally
+        csv_list = os.listdir(simulation.values_path)
+        csv_list = natsort.natsorted(csv_list)
 
-        # go through all files in directory counting the csv files
-        for file in os.listdir(simulation.values_path):
-            if file.endswith('.csv'):
-                csv_count += 1
+        # list the gradient files in the values directory and sort them naturally
+        gradients_list = os.listdir(simulation.gradients_path)
+        gradients_list = natsort.natsorted(gradients_list)
 
         # if a image directory doesn't exist make one
         if not os.path.isdir(simulation.images_path):
             os.mkdir(simulation.images_path)
 
         # loop over all csvs defined in the template file
-        for i in range(1, csv_count + 1):
+        for i in range(len(csv_list)):
             # updates the instance variables as they aren't updated by anything else
-            simulation.current_step = i
+            simulation.current_step = i + 1
 
-            simulation.fgf4_values = np.load(simulation.gradients_path + simulation.name + "_fgf4_values_" + str(i) +
-                                             ".npy")
+            # get the fgf4 values based on the saved numpy array
+            simulation.fgf4_values = np.load(simulation.gradients_path + gradients_list[i])
 
             # opens the csv and create a list of the rows
-            with open(simulation.values_path + simulation.name + "_values_" + str(int(i)) + ".csv", newline="") as file:
+            with open(simulation.values_path + csv_list[i], newline="") as file:
                 # skip the first row as this is a header
                 csv_rows = list(csv.reader(file))[1:]
 
@@ -306,11 +310,8 @@ def setup():
             simulation.cell_nearest_diff = np.empty((simulation.number_cells, 3))
             simulation.cell_highest_fgf4 = np.empty((simulation.number_cells, 3))
 
-            # saves a snapshot of the simulation
+            # create image of simulation space
             output.step_image(simulation)
-
-            # clear the number of cells holder
-            simulation.number_cells = 0
 
         # get a video of the images
         output.create_video(simulation)
@@ -319,7 +320,7 @@ def setup():
         exit()
 
     else:
-        print("Incorrect mode see documentation")
+        print("Incorrect mode, see documentation")
 
     # return the modified simulation instance
     return simulation

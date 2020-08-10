@@ -175,7 +175,7 @@ def create_video(simulation):
     # only continue if there is an image directory
     if os.path.isdir(simulation.images_path):
         # get all of the images in the directory
-        file_list = [file for file in os.listdir(simulation.images_path) if file.endswith('.png')]
+        file_list = os.listdir(simulation.images_path)
 
         # continue if image directory has images in it
         if len(file_list) > 0:
@@ -198,8 +198,8 @@ def create_video(simulation):
                 image = cv2.imread(simulation.images_path + image_file)
                 video_object.write(image)
 
-                # close the file
-                video_object.release()
+            # close the file
+            video_object.release()
 
     # print end statement
     print("The simulation is finished. May the force be with you.")

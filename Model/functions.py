@@ -404,7 +404,7 @@ def jkr_neighbors(simulation):
             # turn the following into arrays that can be interpreted by the gpu
             bins_cuda = cuda.to_device(bins)
             bins_help_cuda = cuda.to_device(bins_help)
-            distance_cuda = cuda.to_device(jkr_distance)
+            jkr_distance_cuda = cuda.to_device(jkr_distance)
             edge_holder_cuda = cuda.to_device(edge_holder)
             locations_cuda = cuda.to_device(simulation.cell_locations)
             radii_cuda = cuda.to_device(simulation.cell_radii)
@@ -416,7 +416,7 @@ def jkr_neighbors(simulation):
 
             # call the cuda kernel with given parameters
             backend.jkr_neighbors_gpu[blocks_per_grid, threads_per_block](locations_cuda, radii_cuda, bins_cuda,
-                                                                          bins_help_cuda, distance_cuda,
+                                                                          bins_help_cuda, jkr_distance_cuda,
                                                                           edge_holder_cuda, edge_count_cuda)
             # return the arrays back from the gpu
             edge_holder = edge_holder_cuda.copy_to_host()
