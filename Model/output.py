@@ -232,7 +232,7 @@ def initialize_outputs(simulation):
         os.mkdir(simulation.images_path)
     if not os.path.isdir(simulation.values_path):
         os.mkdir(simulation.values_path)
-    if not os.path.isdir(simulation.gradients_path) and simulation.output_gradient:
+    if not os.path.isdir(simulation.gradients_path):
         os.mkdir(simulation.gradients_path)
 
 

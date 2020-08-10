@@ -585,7 +585,7 @@ def nearest_cpu(number_cells, distance, bins, bins_help, cell_locations, nearest
                         mag = np.linalg.norm(cell_locations[current] - cell_locations[focus])
                         if mag <= distance and focus != current:
                             # update the nearest gata6 high cell
-                            if cell_fds[current][2] == 1:
+                            if cell_fds[current][2] == 1 and not cell_states[current] == "Differentiated":
                                 # if it's closer than the last cell, update the nearest magnitude and index
                                 if mag < nearest_gata6_dist:
                                     nearest_gata6_index = current

@@ -36,6 +36,7 @@ class Simulation:
         self.parallel = eval(general[4][2:-3])
         self.end_step = int(general[7][2:-3])
         self.number_cells = int(general[10][2:-3])
+        self.size = np.array(eval(general[13][2:-3]))
 
         # imaging template file
         self.output_images = eval(imaging[4][2:-3])
@@ -60,8 +61,7 @@ class Simulation:
         self.eunbi_move = eval(experimental[37][2:-3])
         self.max_fgf4 = float(experimental[40][2:-3])
         self.fgf4_move = eval(experimental[43][2:-3])
-
-        self.size = np.array([0.001, 0.001, 0.0])
+        self.diff_move_thresh = int(experimental[46][2:-3])
 
         # the following only need to be created if this is a normal simulation and not a special mode
         if mode == 0:
@@ -107,7 +107,7 @@ class Simulation:
             self.diff_growth = (self.max_radius - self.min_radius) / self.diff_div_thresh
 
             # get the size of the space and the approximation of the differential
-            self.dx, self.dy, self.dz = 0.001, 0.001, 1
+            self.dx, self.dy, self.dz = 0.00001, 0.00001, 1
             self.dx2, self.dy2, self.dz2 = self.dx ** 2, self.dy ** 2, self.dz ** 2
 
             # the diffusion constant for the molecule gradients

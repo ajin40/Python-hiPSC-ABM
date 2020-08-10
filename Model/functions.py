@@ -604,67 +604,64 @@ def cell_motility(simulation):
 
     # loop over all of the cells
     for i in range(simulation.number_cells):
-        # set motion to false if the cell is surrounded by many neighbors
+        # get the neighbors of the cell
         neighbors = simulation.neighbor_graph.neighbors(i)
-        if len(neighbors) >= simulation.move_thresh:
-            simulation.cell_motion[i] = False
 
         # check whether differentiated or pluripotent
         if simulation.cell_states[i] == "Differentiated":
-            # this will move differentiated cells together
-            if 0 < len(neighbors):
-                # create a vector to hold the sum of normal vectors between a cell and its neighbors
-                vector_holder = np.array([0.0, 0.0, 0.0])
+            count = 0
+            for index in neighbors:
+                if simulation.cell_states[index] == "Differentiated":
+                    count += 1
 
-                # loop over the neighbors getting the normal and adding to the holder
-                for j in range(len(neighbors)):
-                    if simulation.cell_states[neighbors[j]] == "Differentiated":
-                        vector = simulation.cell_locations[neighbors[j]] - simulation.cell_locations[i]
-                        vector_holder += vector
+            if count >= simulation.diff_move_thresh:
+                simulation.cell_motion[i] = False
 
-                # get the normal vector
-                normal = backend.normal_vector(vector_holder)
-
-                # move in direction of the differentiated cells
-                simulation.cell_motility_force[i] += motility_force * normal * 0.5
-
-            if 0 < len(neighbors):
-                # create a vector to hold the sum of normal vectors between a cell and its neighbors
-                vector_holder = np.array([0.0, 0.0, 0.0])
-
-                # loop over the neighbors getting the normal and adding to the holder
-                for j in range(len(neighbors)):
-                    if simulation.cell_states[neighbors[j]] == "Pluripotent":
-                        vector = simulation.cell_locations[neighbors[j]] - simulation.cell_locations[i]
-                        vector_holder += vector
-
-                # get the normal vector
-                normal = backend.normal_vector(vector_holder)
-
-                # move in direction opposite to pluripotent cells
-                simulation.cell_motility_force[i] += motility_force * normal * -1 * 0.5
-
-            # if there aren't any neighbors and still in motion then move randomly
             if simulation.cell_motion[i]:
-                # move based on Eunbi's model
-                if simulation.eunbi_move:
-                    # if there is a nearby nanog cell, move away from it
-                    if not np.isnan(simulation.cell_nearest_nanog[i]):
-                        nearest_index = int(simulation.cell_nearest_nanog[i])
-                        vector = simulation.cell_locations[i] - simulation.cell_locations[nearest_index]
-                        normal = backend.normal_vector(vector)
-                        simulation.cell_motility_force[i] += normal * motility_force * -1
+                if 0 < len(neighbors):
+                    # # create a vector to hold the sum of normal vectors between a cell and its neighbors
+                    # vector_holder = np.array([0.0, 0.0, 0.0])
+                    #
+                    # # loop over the neighbors getting the normal and adding to the holder
+                    # for j in range(len(neighbors)):
+                    #     if simulation.cell_states[neighbors[j]] == "Differentiated":
+                    #         vector = simulation.cell_locations[neighbors[j]] - simulation.cell_locations[i]
+                    #         vector_holder += vector
+                    #
+                    # # get the normal vector
+                    # normal = backend.normal_vector(vector_holder)
+                    #
+                    # # move in direction of the differentiated cells
+                    # simulation.cell_motility_force[i] += motility_force * normal * 0.5
 
-                    # move randomly instead
-                    else:
-                        simulation.cell_motility_force[i] += backend.random_vector(simulation) * motility_force
+                    # create a vector to hold the sum of normal vectors between a cell and its neighbors
+                    vector_holder = np.array([0.0, 0.0, 0.0])
 
-                # move randomly instead
+                    # loop over the neighbors getting the normal and adding to the holder
+                    for j in range(len(neighbors)):
+                        if simulation.cell_states[neighbors[j]] == "Pluripotent":
+                            vector = simulation.cell_locations[neighbors[j]] - simulation.cell_locations[i]
+                            vector_holder += vector
+
+                    # get the normal vector
+                    normal = backend.normal_vector(vector_holder)
+
+                    # move in direction opposite to pluripotent cells
+                    simulation.cell_motility_force[i] += motility_force * normal * -1 * 1
+
                 else:
                     simulation.cell_motility_force[i] += backend.random_vector(simulation) * motility_force
 
         # for pluripotent cells
         else:
+            count = 0
+            for index in neighbors:
+                if simulation.cell_states[index] == "Pluripotent":
+                    count += 1
+
+            if count >= simulation.move_thresh:
+                simulation.cell_motion[i] = False
+
             # apply movement if the cell is "in motion"
             if simulation.cell_motion[i]:
                 # GATA6 high cell
@@ -672,7 +669,7 @@ def cell_motility(simulation):
                     # continue if using Guye et al. movement and if there exists differentiated cells
                     if simulation.guye_move and not np.isnan(simulation.cell_nearest_diff[i]):
                         # get the differentiated neighbors
-                        guye_neighbor = simulation.cell_nearest_diff[i]
+                        guye_neighbor = int(simulation.cell_nearest_diff[i])
 
                         # get the normal vector
                         vector = simulation.cell_locations[guye_neighbor] - simulation.cell_locations[i]

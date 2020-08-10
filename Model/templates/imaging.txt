@@ -20,4 +20,4 @@ for coloring based on GATA6/NANOG levels? Ex. False
 [ True ]
 
 Include the FGF4 gradient color-map next to the image of the cells? Ex. True
-[ True ]
+[ False ]
