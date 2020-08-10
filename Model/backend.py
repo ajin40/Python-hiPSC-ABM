@@ -642,23 +642,30 @@ def setup_diffuse_bins_cpu(diffuse_locations, x_steps, y_steps, z_steps, diffuse
 
 
 @jit(nopython=True)
-def update_diffusion_cpu(gradient, time_steps, dt, dx2, dy2, dz2, diffuse, size):
+def update_diffusion_cpu(gradient, gradient_temp, time_steps, dt, dx2, dy2, dz2, diffuse, size):
     """ this is the just-in-time compiled version of
         update_diffusion that runs solely on the cpu
     """
-    # finite differences to solve the 2D Laplacian
+    # finite differences to solve laplacian diffusion equation
+    # 2D
     if size[2] == 0:
         for i in range(time_steps):
+            # add the temporary gradient to the main gradient to slowly increment concentrations
+            gradient += gradient_temp
+
             # perform the first part of the calculation
-            x = (gradient[2:, 1:-1] - 2 * gradient[1:-1, 1:-1] + gradient[:-2, 1:-1]) / dx2
-            y = (gradient[1:-1, 2:] - 2 * gradient[1:-1, 1:-1] + gradient[1:-1, :-2]) / dy2
+            x = (gradient[2:, 1:-1, 1:-1] - 2 * gradient[1:-1, 1:-1, 1:-1] + gradient[:-2, 1:-1, 1:-1]) / dx2
+            y = (gradient[1:-1, 2:, 1:-1] - 2 * gradient[1:-1, 1:-1, 1:-1] + gradient[1:-1, :-2, 1:-1]) / dy2
 
             # update the gradient array
-            gradient[1:-1, 1:-1] = gradient[1:-1, 1:-1] + diffuse * dt * (x + y)
+            gradient[1:-1, 1:-1, 1:-1] = gradient[1:-1, 1:-1, 1:-1] + diffuse * dt * (x + y)
 
-    # finite differences to solve the 3D Laplacian
+    # 3D
     else:
         for i in range(time_steps):
+            # add the temporary gradient to the main gradient to slowly increment concentrations
+            gradient += gradient_temp
+
             # perform the first part of the calculation
             x = (gradient[2:, 1:-1, 1:-1] - 2 * gradient[1:-1, 1:-1, 1:-1] + gradient[:-2, 1:-1, 1:-1]) / dx2
             y = (gradient[1:-1, 2:, 1:-1] - 2 * gradient[1:-1, 1:-1, 1:-1] + gradient[1:-1, :-2, 1:-1]) / dy2

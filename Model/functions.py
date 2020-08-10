@@ -151,7 +151,7 @@ def cell_pathway(simulation, index):
     # if the diffusion point value is less than the max FGF4 it can hold and the cell is NANOG high
     # increase the FGF4 value by 1
     if simulation.cell_fds[index][3] == 1 and simulation.fgf4_values[index_x][index_y][index_z] < simulation.max_fgf4:
-        simulation.fgf4_values[index_x][index_y][index_z] += 1
+        simulation.fgf4_values_temp[index_x][index_y][index_z] += 1
 
     # activate the following pathway based on if dox (after 24 hours) has been induced yet
     if simulation.current_step >= 49:
@@ -199,7 +199,7 @@ def cell_pathway(simulation, index):
         # this simulates FGFR using FGF4
         if temp_fgfr == 0 and new_fgf4 == 1:
             if simulation.fgf4_values[index_x][index_y][index_z] > 1:
-                simulation.fgf4_values[index_x][index_y][index_z] -= 1
+                simulation.fgf4_values_temp[index_x][index_y][index_z] -= 1
 
         # if the cell is GATA6 high and pluripotent increase the differentiation counter by 1
         if simulation.cell_fds[index][2] == 1 and simulation.cell_states[index] == "Pluripotent":
@@ -783,15 +783,31 @@ def update_diffusion(simulation):
     # start time of the function
     simulation.update_diffusion_time = -1 * time.time()
 
-    # calculate how many steps for the approximation
-    time_steps = math.ceil(simulation.time_step_value / simulation.dt)
+    # calculate the number of times the finite differences diffusion is run
+    diffusion_steps = math.ceil(simulation.time_step_value / simulation.dt)
 
     # go through all gradients and update the diffusion of each
-    for gradient in simulation.extracellular_names:
-        simulation.__dict__[gradient] = backend.update_diffusion_cpu(simulation.__dict__[gradient], time_steps,
-                                                                     simulation.dt, simulation.dx2, simulation.dy2,
-                                                                     simulation.dz2, simulation.diffuse,
-                                                                     simulation.size)
+    for gradient, temp in simulation.extracellular_names:
+        # divide the temporary gradient by the number of steps to simulate the incremental increase in concentration
+        simulation.__dict__[temp] /= diffusion_steps
+
+        # get the dimensions of an array that is 2 bigger in all directions
+        size = np.array(simulation.__dict__[gradient].shape) + 2 * np.ones(3, dtype=int)
+
+        # create arrays that will give the gradient arrays a border of zeros
+        gradient_base = np.zeros(size)
+        temp_base = np.zeros(size)
+
+        # add the gradient array and the temp array to the middle of the base arrays
+        gradient_base[1:-1, 1:-1, 1:-1] = simulation.fgf4_values
+        temp_base[1:-1, 1:-1, 1:-1] = simulation.fgf4_values_temp
+
+        # return the gradient base after it has been updated by the finite differences method
+        gradient_base = backend.update_diffusion_cpu(gradient_base, temp_base, diffusion_steps, simulation.dt,
+                                                     simulation.dx2, simulation.dy2, simulation.dz2, simulation.diffuse,
+                                                     simulation.size)
+        # get the gradient
+        simulation.__dict__[gradient] = gradient_base[1:-1, 1:-1, 1:-1]
 
     # calculate the total time elapsed for the function
     simulation.update_diffusion_time += time.time()

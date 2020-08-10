@@ -208,7 +208,7 @@ def create_video(simulation):
 def step_gradients(simulation):
     """ saves the gradient arrays as .npy files
     """
-    for gradient in simulation.extracellular_names:
+    for gradient, temp in simulation.extracellular_names:
         np.save(simulation.gradients_path + simulation.name + "_" + gradient + "_" + str(simulation.current_step)
                 + ".npy", simulation.__dict__[gradient])
 

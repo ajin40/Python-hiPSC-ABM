@@ -107,11 +107,11 @@ class Simulation:
             self.diff_growth = (self.max_radius - self.min_radius) / self.diff_div_thresh
 
             # get the size of the space and the approximation of the differential
-            self.dx, self.dy, self.dz = 0.00001, 0.00001, 1
+            self.dx, self.dy, self.dz = 0.001, 0.001, 1
             self.dx2, self.dy2, self.dz2 = self.dx ** 2, self.dy ** 2, self.dz ** 2
 
             # the diffusion constant for the molecule gradients
-            self.diffuse = 0.00000000000001
+            self.diffuse = 0.0000000000001
             self.diffuse_radius = 0.000025
 
             # get the time step value for diffusion updates depending on whether 2D or 3D
@@ -123,10 +123,11 @@ class Simulation:
             # the points at which the diffusion values are calculated
             gradient_size = self.size / np.array([self.dx, self.dy, self.dz]) + np.ones(3)
             self.fgf4_values = np.zeros(gradient_size.astype(int))
+            self.fgf4_values_temp = np.zeros(gradient_size.astype(int))
 
             # much like the cell arrays add any gradient names to list this so that a diffusion function can
             # act on them automatically
-            self.extracellular_names = ["fgf4_values"]
+            self.extracellular_names = [["fgf4_values", "fgf4_values_temp"]]
 
             # the time in seconds for incremental movement
             self.time_step_value = 1800
