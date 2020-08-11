@@ -58,10 +58,10 @@ def step_image(simulation):
             # coloring of the cells based on what mode the user selects
             # this mode is just showing pluripotent and differentiated cells
             if simulation.color_mode:
-                if simulation.cell_states[i] == "Pluripotent":
-                    color = (22, 252, 32)
-                else:
+                if simulation.cell_states[i] == "Differentiated":
                     color = (230, 0, 0)
+                else:
+                    color = (22, 252, 32)
 
             # this mode is showing color based on the finite dynamical system
             else:

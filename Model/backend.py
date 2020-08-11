@@ -732,7 +732,7 @@ def normal_vector(vector):
     """
     mag = np.linalg.norm(vector)
     if mag == 0:
-        return np.array([0, 0, 0])
+        return np.array([0, 0, 0], dtype=float)
     else:
         return vector / mag
 
@@ -757,3 +757,14 @@ def random_vector(simulation):
 
     # return random vector
     return np.array([x, y, z])
+
+
+@jit(nopython=True)
+def remove_diff_edges(states, edges, delete_edges):
+    for i in range(len(edges)):
+        if states[edges[i][0]] == "Differentiated" or states[edges[i][1]] == "Differentiated":
+            delete_edges[i] = i
+
+
+@jit(nopython=True, parallel=True)
+def outside_cluster

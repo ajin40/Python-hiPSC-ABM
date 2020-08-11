@@ -3,6 +3,7 @@ import time
 from numba import cuda
 import math
 import random as r
+import copy
 
 import backend
 
@@ -618,31 +619,18 @@ def cell_motility(simulation):
                 simulation.cell_motion[i] = False
 
             if simulation.cell_motion[i]:
-                if 0 < len(neighbors):
-                    # # create a vector to hold the sum of normal vectors between a cell and its neighbors
-                    # vector_holder = np.array([0.0, 0.0, 0.0])
-                    #
-                    # # loop over the neighbors getting the normal and adding to the holder
-                    # for j in range(len(neighbors)):
-                    #     if simulation.cell_states[neighbors[j]] == "Differentiated":
-                    #         vector = simulation.cell_locations[neighbors[j]] - simulation.cell_locations[i]
-                    #         vector_holder += vector
-                    #
-                    # # get the normal vector
-                    # normal = backend.normal_vector(vector_holder)
-                    #
-                    # # move in direction of the differentiated cells
-                    # simulation.cell_motility_force[i] += motility_force * normal * 0.5
+                # create a vector to hold the sum of normal vectors between a cell and its neighbors
+                vector_holder = np.array([0.0, 0.0, 0.0])
 
-                    # create a vector to hold the sum of normal vectors between a cell and its neighbors
-                    vector_holder = np.array([0.0, 0.0, 0.0])
+                # loop over the neighbors getting the normal and adding to the holder
+                count = 0
+                for j in range(len(neighbors)):
+                    if simulation.cell_states[neighbors[j]] == "Pluripotent":
+                        count += 1
+                        vector = simulation.cell_locations[neighbors[j]] - simulation.cell_locations[i]
+                        vector_holder += vector
 
-                    # loop over the neighbors getting the normal and adding to the holder
-                    for j in range(len(neighbors)):
-                        if simulation.cell_states[neighbors[j]] == "Pluripotent":
-                            vector = simulation.cell_locations[neighbors[j]] - simulation.cell_locations[i]
-                            vector_holder += vector
-
+                if count > 0:
                     # get the normal vector
                     normal = backend.normal_vector(vector_holder)
 
@@ -818,3 +806,34 @@ def highest_fgf4(simulation):
                                                             simulation.diffuse_bins_help, simulation.diffuse_locations,
                                                             simulation.cell_locations, simulation.number_cells,
                                                             simulation.cell_highest_fgf4, simulation.fgf4_values)
+
+
+def outside_cluster(simulation):
+    """ Find pluripotent cells outside the cluster
+        that the cell is currently in
+    """
+    # create a copy of the neighbor graph and remove edges with differentiated cells
+    pluri_graph = copy.deepcopy(simulation.neighbor_graph)
+    edges = np.array(pluri_graph.get_edgeslist())
+    delete = np.zeros(len(edges))
+    delete = backend.remove_diff_edges(simulation.cell_states, edges, delete)
+    delete = delete[delete != 0]
+    pluri_graph.delete_edges(delete)
+
+    # get the membership to corresponding clusters
+    members = np.array(pluri_graph.clusters().membership)
+
+    # radius of search for the nearest pluripotent cell not in the same cluster
+    nearest_distance = 0.000025
+
+    # calls the function that generates an array of bins that generalize the cell locations in addition to a
+    # helper array that assists the search method in counting cells in a particular bin
+    bins, bins_help = backend.assign_bins(simulation, nearest_distance)
+
+    # find the nearest cell of each type with the external method, no gpu function yet
+    nearest_outside = backend.outside_cluster_cpu(simulation.number_cells, nearest_distance, bins, bins_help,
+                                                  simulation.cell_locations, simulation.cell_states,
+                                                  simulation.cell_cluster_nearest, members)
+
+    # revalue the array holding the indices of nearest pluripotent cells outside cluster
+    simulation.cell_cluster_nearest = nearest_outside
