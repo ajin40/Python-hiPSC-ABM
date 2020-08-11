@@ -37,6 +37,8 @@ for simulation.current_step in range(simulation.beginning_step, simulation.end_s
     # find the nearest NANOG high, GATA6 high, and differentiated cell within a fixed radius, used for movement.
     functions.nearest(simulation)
 
+    functions.outside_cluster(simulation)
+
     # locate the diffusion point (within a fixed radius) that has the highest FGF4 concentration.
     functions.highest_fgf4(simulation)
 

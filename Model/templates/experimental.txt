@@ -2,10 +2,10 @@
 Experimental
 -----------------------------------------------------------------------------------------------------------------------
 Number of steps required for a pluripotent cell to divide. Each step is currently equivalent to 30 minutes. Ex. 36
-[ 48 ]
+[ 36 ]
 
 Number of steps required for a differentiated cell to divide. Ex. 24
-[ 96 ]
+[ 72 ]
 
 Number of steps required for a pluripotent cell to differentiate. Ex. 36
 [ 192 ]
@@ -17,7 +17,7 @@ How often are the finite dynamical system values for each cell updated? Ex. 10
 [ 1 ]
 
 Threshold of cells to needed to inhibit the motion of a cell. If lower than this value, no inhibition. Ex. 3
-[ 1 ]
+[ 5 ]
 
 Threshold of cells to denote a cell as lonely or not. If lower than this value, increase death counter. Ex. 1
 [ 1 ]

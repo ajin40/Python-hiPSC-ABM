@@ -765,6 +765,46 @@ def remove_diff_edges(states, edges, delete_edges):
         if states[edges[i][0]] == "Differentiated" or states[edges[i][1]] == "Differentiated":
             delete_edges[i] = i
 
+    return delete_edges
+
 
 @jit(nopython=True, parallel=True)
-def outside_cluster
+def outside_cluster_cpu(number_cells, nearest_distance, bins, bins_help, cell_locations, cell_states,
+                        cell_cluster_nearest, members):
+
+    # loops over all cells, with the current cell index being the focus
+    for focus in prange(number_cells):
+        # offset bins by 2 to avoid missing cells that fall outside the space
+        block_location = cell_locations[focus] // nearest_distance + np.array([2, 2, 2])
+        x, y, z = int(block_location[0]), int(block_location[1]), int(block_location[2])
+
+        # initialize these variables with essentially nothing values and the distance as an initial comparison
+        nearest_outside_index = np.nan
+        nearest_outside_dist = nearest_distance * 2
+
+        # loop over the bin the cell is in and the surrounding bin
+        for i in range(-1, 2):
+            for j in range(-1, 2):
+                for k in range(-1, 2):
+                    # get the count of cells for the current bin
+                    bin_count = bins_help[x + i][y + j][z + k]
+
+                    # go through that bin
+                    for l in range(bin_count):
+                        # get the index of the current cell in question
+                        current = int(bins[x + i][y + j][z + k][l])
+
+                        # check to see if that cell is within the search radius and not the same cell
+                        if not cell_states[current] == "Differentiated" and not cell_states[focus] == "Differentiated":
+                            mag = np.linalg.norm(cell_locations[current] - cell_locations[focus])
+                            if mag <= nearest_distance and focus != current and members[focus] != members[current]:
+                                # if it's closer than the last cell, update the nearest magnitude and index
+                                if mag < nearest_outside_dist:
+                                    nearest_outside_index = current
+                                    nearest_outside_dist = mag
+
+        # update the nearest cell of desired type
+        cell_cluster_nearest[focus] = nearest_outside_index
+
+    # return the updated edges
+    return cell_cluster_nearest
