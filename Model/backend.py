@@ -45,6 +45,7 @@ def divide_cell(simulation, index):
 
     # move the cells to positions that are representative of the new locations of daughter cells
     division_position = random_vector(simulation) * (simulation.max_radius - simulation.min_radius)
+
     simulation.cell_locations[index] += division_position
     simulation.cell_locations[-1] -= division_position
 
@@ -78,16 +79,11 @@ def clean_edges(edges):
     return edges
 
 
-def assign_bins(simulation, distance):
+def assign_bins(simulation, distance, max_cells):
     """ generalizes cell locations to a bin within a multi-
         dimensional array, used for a parallel fixed-radius
         neighbor search
     """
-    # if a static variable has not been created to hold the maximum number of cells in a bin, create one
-    if not hasattr(assign_bins, "max_cells"):
-        # begin with a low number of cells that can be revalued if the max number of cells exceeds this value
-        assign_bins.max_cells = 5
-
     # if there is enough space for all cells that should be in a bin, break out of the loop. if there isn't
     # enough space update the amount of needed space and re-put the cells in bins. this will run once if the prediction
     # of max neighbors is correct, twice if it isn't the first time
@@ -95,25 +91,25 @@ def assign_bins(simulation, distance):
         # calculate the size of the array used to represent the bins and the bins helper array, include extra bins
         # for cells that may fall outside of the space
         bins_help_size = np.ceil(simulation.size / distance).astype(int) + np.array([5, 5, 5], dtype=int)
-        bins_size = np.append(bins_help_size, assign_bins.max_cells)
+        bins_size = np.append(bins_help_size, max_cells)
 
         # create the arrays for "bins" and "bins_help"
         bins_help = np.zeros(bins_help_size, dtype=int)
         bins = np.empty(bins_size, dtype=int)
 
-        # assign the cells to bins so that the searches may be parallel
+        # use jit function to speed up assignment
         bins, bins_help = assign_bins_cpu(simulation.number_cells, simulation.cell_locations, distance, bins, bins_help)
 
         # either break the loop if all cells were accounted for or revalue the maximum number of cells based on
         # the output of the function call
-        max_cells = np.amax(bins_help)
-        if assign_bins.max_cells >= max_cells:
+        new_max_cells = np.amax(bins_help)
+        if max_cells >= new_max_cells:
             break
         else:
-            assign_bins.max_cells = max_cells
+            max_cells = new_max_cells
 
     # return the two arrays
-    return bins, bins_help
+    return bins, bins_help, max_cells
 
 
 @cuda.jit(device=True)
@@ -732,7 +728,7 @@ def normal_vector(vector):
     """
     mag = np.linalg.norm(vector)
     if mag == 0:
-        return np.array([0, 0, 0], dtype=float)
+        return np.array([0, 0, 0])
     else:
         return vector / mag
 
@@ -808,3 +804,47 @@ def outside_cluster_cpu(number_cells, nearest_distance, bins, bins_help, cell_lo
 
     # return the updated edges
     return cell_cluster_nearest
+
+
+@cuda.jit
+def outside_cluster_gpu(nearest_distance, bins, bins_help, cell_locations, cell_states,
+                        cell_cluster_nearest, members):
+
+    # get the index in the array
+    focus = cuda.grid(1)
+
+    # checks to see that position is in the array
+    if focus < cell_locations.shape[0]:
+        if cell_states[focus]:
+            # offset bins by 2 to avoid missing cells that fall outside the space
+            x = int(cell_locations[focus][0] / nearest_distance[0]) + 2
+            y = int(cell_locations[focus][1] / nearest_distance[0]) + 2
+            z = int(cell_locations[focus][2] / nearest_distance[0]) + 2
+
+            # initialize these variables with essentially nothing values and the distance as an initial comparison
+            nearest_outside_index = np.nan
+            nearest_outside_dist = nearest_distance[0] * 2
+
+            # loop over the bin the cell is in and the surrounding bin
+            for i in range(-1, 2):
+                for j in range(-1, 2):
+                    for k in range(-1, 2):
+                        # get the count of cells for the current bin
+                        bin_count = bins_help[x + i][y + j][z + k]
+
+                        # go through that bin
+                        for l in range(bin_count):
+                            # get the index of the current cell in question
+                            current = int(bins[x + i][y + j][z + k][l])
+
+                            # check to see if that cell is within the search radius and not the same cell
+                            if cell_states[current]:
+                                mag = magnitude(cell_locations[current], cell_locations[focus])
+                                if mag <= nearest_distance[0] and focus != current and members[focus] != members[current]:
+                                    # if it's closer than the last cell, update the nearest magnitude and index
+                                    if mag < nearest_outside_dist:
+                                        nearest_outside_index = current
+                                        nearest_outside_dist = mag
+
+            # update the nearest cell of desired type
+            cell_cluster_nearest[focus] = nearest_outside_index

@@ -289,28 +289,36 @@ def check_neighbors(simulation):
         # begin with a low number of neighbors that can be revalued if the max number of neighbors exceeds this value
         check_neighbors.max_neighbors = 5
 
+    # if a static variable has not been created to hold the maximum number of cells in a bin, create one
+    if not hasattr(check_neighbors, "max_cells"):
+        # begin with a low number of cells that can be revalued if the max number of cells exceeds this value
+        check_neighbors.max_cells = 5
+
     # clear all of the edges in the neighbor graph
     simulation.neighbor_graph.delete_edges(None)
 
     # calls the function that generates an array of bins that generalize the cell locations in addition to a
-    # helper array that assists the search method in counting cells in a particular bin
-    bins, bins_help = backend.assign_bins(simulation, neighbor_distance)
+    # creating a helper array that assists the search method in counting cells in a particular bin
+    bins, bins_help, max_cells = backend.assign_bins(simulation, neighbor_distance, check_neighbors.max_cells)
 
-    # this will run once and if all edges are included in edge_holder, the loop will break. if not this will
+    # update the value of the max number of cells in a bin
+    check_neighbors.max_cells = max_cells
+
+    # this will run once and if all edges are included in edge_holder, the loop will break. if not, this will
     # run a second time with an updated value for number of predicted neighbors such that all edges are included
     while True:
-        # create a 3D array used to hold edges for all cells
+        # create a 3D array used to hold edges for all cells as pairs of indices
         edge_holder = np.zeros((simulation.number_cells, check_neighbors.max_neighbors, 2), dtype=int)
         edge_count = np.zeros(simulation.number_cells, dtype=int)
 
         # call the nvidia gpu version
         if simulation.parallel:
             # turn the following into arrays that can be interpreted by the gpu
+            locations_cuda = cuda.to_device(simulation.cell_locations)
             bins_cuda = cuda.to_device(bins)
             bins_help_cuda = cuda.to_device(bins_help)
             distance_cuda = cuda.to_device(neighbor_distance)
             edge_holder_cuda = cuda.to_device(edge_holder)
-            locations_cuda = cuda.to_device(simulation.cell_locations)
             edge_count_cuda = cuda.to_device(edge_count)
 
             # allocate threads and blocks for gpu memory
@@ -339,10 +347,10 @@ def check_neighbors(simulation):
         else:
             check_neighbors.max_neighbors = max_neighbors
 
-    # remove duplicates and loops from the array as these slow down "add_edges"
+    # remove duplicates edges and loops from the array before adding them to the graph
     edge_holder = backend.clean_edges(edge_holder)
 
-    # add the edges to the neighbor graph and simplify the graph to remove any extraneous loops or repeated edges
+    # add the edges to the neighbor graph
     simulation.neighbor_graph.add_edges(edge_holder)
 
     # calculate the total time elapsed for the function
@@ -651,14 +659,8 @@ def cell_motility(simulation):
                 simulation.cell_motion[i] = False
 
             if simulation.cell_motion[i]:
-                if not np.isnan(simulation.cell_cluster_nearest[i]):
-                    pluri_index = int(simulation.cell_cluster_nearest[i])
 
-                    vector = simulation.cell_locations[pluri_index] - simulation.cell_locations[i]
-                    normal = backend.normal_vector(vector)
-
-                    # calculate the motility force
-                    simulation.cell_motility_force[i] += normal * motility_force
+                simulation.cell_motility_force[i] += backend.random_vector(simulation) * motility_force
 
             else:
                 if not np.isnan(simulation.cell_cluster_nearest[i]):
@@ -668,26 +670,7 @@ def cell_motility(simulation):
                     normal = backend.normal_vector(vector)
 
                     # calculate the motility force
-                    simulation.cell_motility_force[i] += normal * motility_force * 0.2
-
-                # create a vector to hold the sum of normal vectors between a cell and its neighbors
-                vector_holder = np.array([0.0, 0.0, 0.0])
-
-                # loop over the neighbors getting the normal and adding to the holder
-                count = 0
-                for j in range(len(neighbors)):
-                    if simulation.cell_states[neighbors[j]] == "Pluripotent":
-                        count += 1
-                        vector = simulation.cell_locations[neighbors[j]] - simulation.cell_locations[i]
-                        vector_holder += vector
-
-                if count > 0:
-                    # get the normal vector
-                    normal = backend.normal_vector(vector_holder)
-
-                    # move in direction opposite to pluripotent cells
-                    simulation.cell_motility_force[i] += motility_force * normal * 0.05
-
+                    simulation.cell_motility_force[i] += normal * motility_force * 0.05
 
             # # apply movement if the cell is "in motion"
             # if simulation.cell_motion[i]:
@@ -863,17 +846,39 @@ def outside_cluster(simulation):
     members = np.array(pluri_graph.clusters().membership)
 
     # radius of search for the nearest pluripotent cell not in the same cluster
-    nearest_distance = 0.0001
+    nearest_distance = 0.0002
 
     # calls the function that generates an array of bins that generalize the cell locations in addition to a
     # helper array that assists the search method in counting cells in a particular bin
     bins, bins_help = backend.assign_bins(simulation, nearest_distance)
 
-    # find the nearest cell of each type with the external method, no gpu function yet
-    nearest_outside = backend.outside_cluster_cpu(simulation.number_cells, nearest_distance, bins, bins_help,
-                                                  simulation.cell_locations, simulation.cell_states,
-                                                  simulation.cell_cluster_nearest, members)
+    if simulation.parallel:
+        nearest_distance_cuda = cuda.to_device(nearest_distance)
+        bins_cuda = cuda.to_device(bins)
+        bins_help_cuda = cuda.to_device(bins_help)
+        locations_cuda = cuda.to_device(simulation.cell_locations)
 
-    # revalue the array holding the indices of nearest pluripotent cells outside cluster
-    simulation.cell_cluster_nearest = nearest_outside
+        a = copy.deepcopy(simulation.cell_states)
+        cell_states = a == "Pluripotent"
+        states_cuda = cuda.to_device(cell_states)
+        cell_cluster_nearest_cuda = cuda.to_device(simulation.cell_cluster_nearest)
+        members_cuda = cuda.to_device(members)
+
+        # allocate threads and blocks for gpu memory
+        threads_per_block = 72
+        blocks_per_grid = math.ceil(simulation.number_cells / threads_per_block)
+
+        backend.outside_cluster_gpu[blocks_per_grid, threads_per_block](nearest_distance_cuda, bins_cuda,
+                                                                        bins_help_cuda, locations_cuda, states_cuda,
+                                                                        cell_cluster_nearest_cuda, members_cuda)
+
+        simulation.cell_cluster_nearest = cell_cluster_nearest_cuda.copy_to_host()
+
+    else:
+        nearest_outside = backend.outside_cluster_cpu(simulation.number_cells, nearest_distance, bins, bins_help,
+                                                      simulation.cell_locations, simulation.cell_states,
+                                                      simulation.cell_cluster_nearest, members)
+
+        # revalue the array holding the indices of nearest pluripotent cells outside cluster
+        simulation.cell_cluster_nearest = nearest_outside
 
