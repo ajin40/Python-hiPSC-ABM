@@ -307,8 +307,10 @@ def check_neighbors(simulation):
     # this will run once and if all edges are included in edge_holder, the loop will break. if not, this will
     # run a second time with an updated value for number of predicted neighbors such that all edges are included
     while True:
-        # create a 3D array used to hold edges for all cells as pairs of indices
-        edge_holder = np.zeros((simulation.number_cells, check_neighbors.max_neighbors, 2), dtype=int)
+        # create an array used to hold edges, an array to say where edges are, and an array to count the edges per cell
+        length = simulation.number_cells * check_neighbors.max_neighbors
+        edge_holder = np.zeros((length, 2), dtype=int)
+        if_nonzero = np.zeros(length, dtype=bool)
         edge_count = np.zeros(simulation.number_cells, dtype=int)
 
         # call the nvidia gpu version
@@ -319,7 +321,9 @@ def check_neighbors(simulation):
             bins_help_cuda = cuda.to_device(bins_help)
             distance_cuda = cuda.to_device(neighbor_distance)
             edge_holder_cuda = cuda.to_device(edge_holder)
+            if_nonzero_cuda = cuda.to_device(if_nonzero)
             edge_count_cuda = cuda.to_device(edge_count)
+            max_neighbors_cuda = cuda.to_device(check_neighbors.max_neighbors)
 
             # allocate threads and blocks for gpu memory
             threads_per_block = 72
@@ -328,16 +332,20 @@ def check_neighbors(simulation):
             # call the cuda kernel with given parameters
             backend.check_neighbors_gpu[blocks_per_grid, threads_per_block](locations_cuda, bins_cuda, bins_help_cuda,
                                                                             distance_cuda, edge_holder_cuda,
-                                                                            edge_count_cuda)
+                                                                            if_nonzero_cuda, edge_count_cuda,
+                                                                            max_neighbors_cuda)
             # return the arrays back from the gpu
             edge_holder = edge_holder_cuda.copy_to_host()
+            if_nonzero = if_nonzero_cuda.copy_to_host()
             edge_count = edge_count_cuda.copy_to_host()
 
         # call the cpu version
         else:
-            edge_holder, edge_count = backend.check_neighbors_cpu(simulation.number_cells, simulation.cell_locations,
-                                                                  bins, bins_help, neighbor_distance, edge_holder,
-                                                                  edge_count, check_neighbors.max_neighbors)
+            edge_holder, edge_count, if_nonzero = backend.check_neighbors_cpu(simulation.number_cells,
+                                                                              simulation.cell_locations, bins,
+                                                                              bins_help, neighbor_distance, edge_holder,
+                                                                              if_nonzero, edge_count,
+                                                                              check_neighbors.max_neighbors)
 
         # either break the loop if all neighbors were accounted for or revalue the maximum number of neighbors
         # based on the output of the function call
@@ -347,8 +355,8 @@ def check_neighbors(simulation):
         else:
             check_neighbors.max_neighbors = max_neighbors
 
-    # remove duplicates edges and loops from the array before adding them to the graph
-    edge_holder = backend.clean_edges(edge_holder)
+    # reduce the edges to only nonzero edges
+    edge_holder = edge_holder[if_nonzero]
 
     # add the edges to the neighbor graph
     simulation.neighbor_graph.add_edges(edge_holder)
@@ -358,9 +366,9 @@ def check_neighbors(simulation):
 
 
 def handle_movement(simulation):
-    """ runs the following functions together for the time
-        period of the step. resets the motility force array
-        to zero after movement is done
+    """ runs the following functions together for the time period
+        of the step. resets the motility force array to zero after
+        movement is done
     """
     # start time of the function
     simulation.handle_movement_time = -1 * time.time()
@@ -368,13 +376,18 @@ def handle_movement(simulation):
     # get the total amount of times the cells will be incrementally moved during the step
     steps = math.ceil(simulation.time_step_value / simulation.move_time_step)
 
-    # run the following functions consecutively for the given amount of steps
+    # run the following movement functions consecutively
     for i in range(steps):
+        # determines which cells will have physical interactions and save this to a graph
         jkr_neighbors(simulation)
+
+        # go through the edges found in the above function and calculate resulting JKR forces
         get_forces(simulation)
+
+        # apply all forces such as motility and JKR to the cells
         apply_forces(simulation)
 
-    # reset all forces back to zero vectors
+    # reset motility forces back to zero vectors
     simulation.cell_motility_force = np.zeros((simulation.number_cells, 3), dtype=float)
 
     # calculate the total time elapsed for the function
@@ -382,9 +395,9 @@ def handle_movement(simulation):
 
 
 def jkr_neighbors(simulation):
-    """ for all cells, determines which cells will have
-        physical interactions with other cells returns
-        this information as an array of edges
+    """ for all cells, determines which cells will have physical
+        interactions with other cells returns this information
+        as an array of edges
     """
     # start time of the function
     simulation.jkr_neighbors_time = -1 * time.time()
@@ -397,9 +410,17 @@ def jkr_neighbors(simulation):
         # begin with a low number of neighbors that can be revalued if the max number of neighbors exceeds this value
         jkr_neighbors.max_neighbors = 5
 
+    # if a static variable has not been created to hold the maximum number of cells in a bin, create one
+    if not hasattr(jkr_neighbors, "max_cells"):
+        # begin with a low number of cells that can be revalued if the max number of cells exceeds this value
+        jkr_neighbors.max_cells = 5
+
     # calls the function that generates an array of bins that generalize the cell locations in addition to a
     # helper array that assists the search method in counting cells in a particular bin
-    bins, bins_help = backend.assign_bins(simulation, jkr_distance)
+    bins, bins_help, max_cells = backend.assign_bins(simulation, jkr_distance, jkr_neighbors.max_cells)
+
+    # update the value of the max number of cells in a bin
+    jkr_neighbors.max_cells = max_cells
 
     # this will run once and if all edges are included in edge_holder, the loop will break. if not this will
     # run a second time with an updated value for number of predicted neighbors such that all edges are included
@@ -411,12 +432,12 @@ def jkr_neighbors(simulation):
         # call the nvidia gpu version
         if simulation.parallel:
             # turn the following into arrays that can be interpreted by the gpu
+            locations_cuda = cuda.to_device(simulation.cell_locations)
+            radii_cuda = cuda.to_device(simulation.cell_radii)
             bins_cuda = cuda.to_device(bins)
             bins_help_cuda = cuda.to_device(bins_help)
             jkr_distance_cuda = cuda.to_device(jkr_distance)
             edge_holder_cuda = cuda.to_device(edge_holder)
-            locations_cuda = cuda.to_device(simulation.cell_locations)
-            radii_cuda = cuda.to_device(simulation.cell_radii)
             edge_count_cuda = cuda.to_device(edge_count)
 
             # allocate threads and blocks for gpu memory
@@ -427,6 +448,7 @@ def jkr_neighbors(simulation):
             backend.jkr_neighbors_gpu[blocks_per_grid, threads_per_block](locations_cuda, radii_cuda, bins_cuda,
                                                                           bins_help_cuda, jkr_distance_cuda,
                                                                           edge_holder_cuda, edge_count_cuda)
+
             # return the arrays back from the gpu
             edge_holder = edge_holder_cuda.copy_to_host()
             edge_count = edge_count_cuda.copy_to_host()
@@ -446,10 +468,11 @@ def jkr_neighbors(simulation):
         else:
             jkr_neighbors.max_neighbors = max_neighbors
 
-    # remove duplicates and loops from the array as these slow down "add_edges"
+    # remove duplicates edges and loops from the array before adding them to the graph
     edge_holder = backend.clean_edges(edge_holder)
 
-    # add the edges and simplify the graph as this is a running graph that is never cleared
+    # add the edges and simplify the graph as this is a running graph that is never cleared due to its use
+    # for holding adhesive JKR bonds from step to step
     simulation.jkr_graph.add_edges(edge_holder)
     simulation.jkr_graph.simplify()
 
