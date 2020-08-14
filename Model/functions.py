@@ -341,7 +341,7 @@ def check_neighbors(simulation):
 
         # call the cpu version
         else:
-            edge_holder, edge_count, if_nonzero = backend.check_neighbors_cpu(simulation.number_cells,
+            edge_holder, if_nonzero, edge_count = backend.check_neighbors_cpu(simulation.number_cells,
                                                                               simulation.cell_locations, bins,
                                                                               bins_help, neighbor_distance, edge_holder,
                                                                               if_nonzero, edge_count,
@@ -379,7 +379,10 @@ def handle_movement(simulation):
     # run the following movement functions consecutively
     for i in range(steps):
         # determines which cells will have physical interactions and save this to a graph
+        start = time.time()
         jkr_neighbors(simulation)
+        end = time.time()
+        print("jkr_neighbors", end-start)
 
         # go through the edges found in the above function and calculate resulting JKR forces
         get_forces(simulation)
@@ -425,8 +428,10 @@ def jkr_neighbors(simulation):
     # this will run once and if all edges are included in edge_holder, the loop will break. if not this will
     # run a second time with an updated value for number of predicted neighbors such that all edges are included
     while True:
-        # create a 3D array used to hold edges for each of the cells
-        edge_holder = np.zeros((simulation.number_cells, jkr_neighbors.max_neighbors, 2), dtype=int)
+        # create an array used to hold edges, an array to say where edges are, and an array to count the edges per cell
+        length = simulation.number_cells * jkr_neighbors.max_neighbors
+        edge_holder = np.zeros((length, 2), dtype=int)
+        if_nonzero = np.zeros(length, dtype=bool)
         edge_count = np.zeros(simulation.number_cells, dtype=int)
 
         # call the nvidia gpu version
@@ -438,7 +443,9 @@ def jkr_neighbors(simulation):
             bins_help_cuda = cuda.to_device(bins_help)
             jkr_distance_cuda = cuda.to_device(jkr_distance)
             edge_holder_cuda = cuda.to_device(edge_holder)
+            if_nonzero_cuda = cuda.to_device(if_nonzero)
             edge_count_cuda = cuda.to_device(edge_count)
+            max_neighbors_cuda = cuda.to_device(jkr_neighbors.max_neighbors)
 
             # allocate threads and blocks for gpu memory
             threads_per_block = 72
@@ -447,18 +454,21 @@ def jkr_neighbors(simulation):
             # call the cuda kernel with given parameters
             backend.jkr_neighbors_gpu[blocks_per_grid, threads_per_block](locations_cuda, radii_cuda, bins_cuda,
                                                                           bins_help_cuda, jkr_distance_cuda,
-                                                                          edge_holder_cuda, edge_count_cuda)
+                                                                          edge_holder_cuda, if_nonzero_cuda,
+                                                                          edge_count_cuda, max_neighbors_cuda)
 
             # return the arrays back from the gpu
             edge_holder = edge_holder_cuda.copy_to_host()
+            if_nonzero = if_nonzero_cuda.copy_to_host()
             edge_count = edge_count_cuda.copy_to_host()
 
         # call the cpu version
         else:
-            edge_holder, edge_count = backend.jkr_neighbors_cpu(simulation.number_cells, simulation.cell_locations,
-                                                                simulation.cell_radii, bins, bins_help,
-                                                                jkr_distance, edge_holder, edge_count,
-                                                                jkr_neighbors.max_neighbors)
+            edge_holder, if_nonzero, edge_count = backend.jkr_neighbors_cpu(simulation.number_cells,
+                                                                            simulation.cell_locations,
+                                                                            simulation.cell_radii, bins, bins_help,
+                                                                            jkr_distance, edge_holder, if_nonzero,
+                                                                            edge_count, jkr_neighbors.max_neighbors)
 
         # either break the loop if all neighbors were accounted for or revalue the maximum number of neighbors
         # based on the output of the function call
@@ -468,8 +478,8 @@ def jkr_neighbors(simulation):
         else:
             jkr_neighbors.max_neighbors = max_neighbors
 
-    # remove duplicates edges and loops from the array before adding them to the graph
-    edge_holder = backend.clean_edges(edge_holder)
+    # reduce the edges to only nonzero edges
+    edge_holder = edge_holder[if_nonzero]
 
     # add the edges and simplify the graph as this is a running graph that is never cleared due to its use
     # for holding adhesive JKR bonds from step to step

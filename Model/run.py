@@ -47,7 +47,7 @@ for simulation.current_step in range(simulation.beginning_step, simulation.end_s
 
     # moves the cells to a state of physical equilibrium so that there is minimal overlap of cells, while also
     # applying forces from the previous cell_motility() function.
-    # functions.handle_movement(simulation)
+    functions.handle_movement(simulation)
 
     # saves multiple forms of information about the simulation at the current step
     # output.step_outputs(simulation)

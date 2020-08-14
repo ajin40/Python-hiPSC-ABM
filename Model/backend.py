@@ -200,7 +200,7 @@ def check_neighbors_cpu(number_cells, cell_locations, bins, bins_help, distance,
         edge_count[focus] = edge_counter
 
     # return the updated edges and the array with the counts of neighbors per cell
-    return edge_holder, edge_count, if_nonzero
+    return edge_holder, if_nonzero, edge_count
 
 
 @cuda.jit
@@ -252,13 +252,16 @@ def check_neighbors_gpu(locations, bins, bins_help, distance, edge_holder, if_no
 
 
 @jit(nopython=True, parallel=True)
-def jkr_neighbors_cpu(number_cells, cell_locations, cell_radii, bins, bins_help, distance, edge_holder, edge_count,
-                      max_neighbors):
+def jkr_neighbors_cpu(number_cells, cell_locations, cell_radii, bins, bins_help, distance, edge_holder, if_nonzero,
+                      edge_count, max_neighbors):
     """ this is the just-in-time compiled version of jkr_neighbors
         that runs in parallel on the cpu
     """
     # loops over all cells, with the current cell index being the focus
     for focus in prange(number_cells):
+        # get the starting index in the edge holder
+        index = focus * max_neighbors
+
         # holds the total amount of edges for a given cell
         edge_counter = 0
 
@@ -286,29 +289,34 @@ def jkr_neighbors_cpu(number_cells, cell_locations, cell_radii, bins, bins_help,
 
                         # if there is 0 or more overlap and not the same cell add the edge
                         if overlap >= 0 and focus != current:
-                            # if within the bounds of the array add the edge
+                            # if within the bounds of the array, add the edge
                             if edge_counter < max_neighbors:
-                                # update the edge array
-                                edge_holder[focus][edge_counter][0] = focus
-                                edge_holder[focus][edge_counter][1] = current
-                            # increase the count of edges for placement of next edge and ensuring all edges are
-                            # counted
+                                # update the edge array and identify that this edge is nonzero
+                                edge_holder[index][0] = focus
+                                edge_holder[index][1] = current
+                                if_nonzero[index] = 1
+
+                            # increase the count of edges for a cell and the index for the next edge
                             edge_counter += 1
+                            index += 1
 
         # update the array with number of edges for the cell
         edge_count[focus] = edge_counter
 
     # return the updated edges and the array with the counts of neighbors per cell
-    return edge_holder, edge_count
+    return edge_holder, if_nonzero, edge_count
 
 
 @cuda.jit
-def jkr_neighbors_gpu(locations, radii, bins, bins_help, distance, edge_holder, edge_count):
+def jkr_neighbors_gpu(locations, radii, bins, bins_help, distance, edge_holder, if_nonzero, edge_count, max_neighbors):
     """ this is the cuda kernel for the jkr_neighbors function
         that runs on a NVIDIA gpu
     """
     # get the index in the array
     focus = cuda.grid(1)
+
+    # get the starting index in the edge holder
+    index = focus * max_neighbors[0]
 
     # checks to see that position is in the array
     if focus < locations.shape[0]:
@@ -339,13 +347,15 @@ def jkr_neighbors_gpu(locations, radii, bins, bins_help, distance, edge_holder, 
                         overlap = radii[focus] + radii[current] - mag
 
                         # if there is 0 or more overlap and not the same cell add the edge
-                        if overlap >= 0 and focus != current:
-                            # update the edge array
-                            edge_holder[focus][edge_counter][0] = focus
-                            edge_holder[focus][edge_counter][1] = current
+                        if overlap >= 0 and focus < current:
+                            # update the edge array and identify that this edge is nonzero
+                            edge_holder[index][0] = focus
+                            edge_holder[index][1] = current
+                            if_nonzero[index] = 1
 
-                            # increase the count of edges for a cell
+                            # increase the count of edges for a cell and the index for the next edge
                             edge_counter += 1
+                            index += 1
 
         # update the array with number of edges for the cell
         edge_count[focus] = edge_counter
