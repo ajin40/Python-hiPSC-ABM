@@ -220,7 +220,7 @@ def cell_pathway(simulation, index):
 
 def update_queue(simulation):
     """ add and removes cells to and from the simulation
-        either all at once or some at a time
+        either all at once or in "groups"
     """
     # start time of the function
     simulation.update_queue_time = -1 * time.time()
@@ -253,9 +253,9 @@ def update_queue(simulation):
         index = simulation.cells_to_remove[i]
         backend.remove_cell(simulation, index)
 
-        # adjusts the indices as deleting part of the array may alter the indices to remove
+        # adjusts the indices as deleting part of the array may alter the other indices to remove
         for j in range(i + 1, len(simulation.cells_to_remove)):
-            # if the current cell being deleted falls after the index, shift the indices by 1
+            # if the current cell being deleted falls before the other cell, shift the indices by 1
             if index < simulation.cells_to_remove[j]:
                 simulation.cells_to_remove[j] -= 1
 
@@ -307,7 +307,7 @@ def check_neighbors(simulation):
     # this will run once and if all edges are included in edge_holder, the loop will break. if not, this will
     # run a second time with an updated value for number of predicted neighbors such that all edges are included
     while True:
-        # create an array used to hold edges, an array to say where edges are, and an array to count the edges per cell
+        # create an array used to hold edges, an array to say if nonzero, and an array to count the edges per cell
         length = simulation.number_cells * check_neighbors.max_neighbors
         edge_holder = np.zeros((length, 2), dtype=int)
         if_nonzero = np.zeros(length, dtype=bool)
@@ -373,16 +373,15 @@ def handle_movement(simulation):
     # start time of the function
     simulation.handle_movement_time = -1 * time.time()
 
-    # get the total amount of times the cells will be incrementally moved during the step
-    steps = math.ceil(simulation.time_step_value / simulation.move_time_step)
+    # if a static variable for holding step time hasn't been created, create one
+    if not hasattr(handle_movement, "steps"):
+        # get the total amount of times the cells will be incrementally moved during the step
+        handle_movement.steps = math.ceil(simulation.time_step_value / simulation.move_time_step)
 
     # run the following movement functions consecutively
-    for i in range(steps):
+    for i in range(handle_movement.steps):
         # determines which cells will have physical interactions and save this to a graph
-        start = time.time()
         jkr_neighbors(simulation)
-        end = time.time()
-        print("jkr_neighbors", end-start)
 
         # go through the edges found in the above function and calculate resulting JKR forces
         get_forces(simulation)
@@ -456,7 +455,6 @@ def jkr_neighbors(simulation):
                                                                           bins_help_cuda, jkr_distance_cuda,
                                                                           edge_holder_cuda, if_nonzero_cuda,
                                                                           edge_count_cuda, max_neighbors_cuda)
-
             # return the arrays back from the gpu
             edge_holder = edge_holder_cuda.copy_to_host()
             if_nonzero = if_nonzero_cuda.copy_to_host()
@@ -491,8 +489,8 @@ def jkr_neighbors(simulation):
 
 
 def get_forces(simulation):
-    """ goes through all of "JKR" edges and quantifies
-        any resulting adhesive or repulsion forces between
+    """ goes through all of "JKR" edges and quantifies any
+        resulting adhesive or repulsion forces between
         pairs of cells
     """
     # start time of the function
@@ -914,4 +912,3 @@ def outside_cluster(simulation):
 
         # revalue the array holding the indices of nearest pluripotent cells outside cluster
         simulation.cell_cluster_nearest = nearest_outside
-

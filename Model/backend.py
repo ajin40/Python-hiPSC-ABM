@@ -5,31 +5,31 @@ import random as r
 
 
 def remove_cell(simulation, index):
-    """ given the index of a cell to remove, this will
-        remove that from each array, graphs, and reduce
-        the total number of cells
+    """ given the index of a cell to remove, this will remove
+        that from each array, graphs, and reduce the total
+        number of cells
     """
     # go through all instance variable names
     for name in simulation.cell_array_names:
         # if the instance variable is 1-dimensional
         if simulation.__dict__[name].ndim == 1:
             simulation.__dict__[name] = np.delete(simulation.__dict__[name], index)
-        # if the instance variable is 2-dimension
+        # if the instance variable is 2-dimensional
         else:
             simulation.__dict__[name] = np.delete(simulation.__dict__[name], index, axis=0)
 
     # remove the particular index from the following graphs
-    for name in simulation.graph_names:
-        simulation.__dict__[name].delete_vertices(index)
+    simulation.neighbor_graph.delete_vertices(index)
+    simulation.jkr_graph.delete_vertices(index)
 
     # reduce the number of cells by 1
     simulation.number_cells -= 1
 
 
 def divide_cell(simulation, index):
-    """ Takes a cell or rather an index in the holder
-        arrays and adds a new cell (index). This also
-        updates factors such as size and counters.
+    """ Takes a cell or rather an index in the holder arrays
+        and adds a new cell (index). This also updates factors
+        such as size and counters.
     """
     # go through all instance variable names and copy the values to a newly appended index
     for name in simulation.cell_array_names:
@@ -39,13 +39,12 @@ def divide_cell(simulation, index):
         # if the instance variable is 1-dimensional
         if simulation.__dict__[name].ndim == 1:
             simulation.__dict__[name] = np.append(simulation.__dict__[name], value)
-        # if the instance variable is 2-dimension
+        # if the instance variable is 2-dimensional
         else:
             simulation.__dict__[name] = np.append(simulation.__dict__[name], [value], axis=0)
 
     # move the cells to positions that are representative of the new locations of daughter cells
     division_position = random_vector(simulation) * (simulation.max_radius - simulation.min_radius)
-
     simulation.cell_locations[index] += division_position
     simulation.cell_locations[-1] -= division_position
 
@@ -54,29 +53,11 @@ def divide_cell(simulation, index):
     simulation.cell_div_counter[index] = simulation.cell_div_counter[-1] = 0
 
     # add the new cell to the following graphs
-    for name in simulation.graph_names:
-        simulation.__dict__[name].add_vertex()
+    simulation.neighbor_graph.add_vertex()
+    simulation.jkr_graph.add_vertex()
 
     # increase the number of cells by 1
     simulation.number_cells += 1
-
-
-def clean_edges(edges):
-    """ takes edges from "check_neighbors" and "jkr_neighbors"
-        search methods and returns an array of edges that is
-        free of duplicates and loops
-    """
-    # reshape the array so that the output is compatible with the igraph library and remove leftover zero columns
-    edges = edges.reshape((-1, 2))
-    edges = edges[~np.all(edges == 0, axis=1)]
-
-    # sort the array to remove duplicate edges produced by the parallel search method
-    edges = np.sort(edges)
-    edges = edges[np.lexsort(np.fliplr(edges).T)]
-    edges = edges[::2]
-
-    # send the edges back
-    return edges
 
 
 def assign_bins(simulation, distance, max_cells):
@@ -108,7 +89,7 @@ def assign_bins(simulation, distance, max_cells):
         else:
             max_cells = new_max_cells
 
-    # return the two arrays
+    # return the three arrays
     return bins, bins_help, max_cells
 
 
@@ -160,7 +141,7 @@ def check_neighbors_cpu(number_cells, cell_locations, bins, bins_help, distance,
     """
     # loops over all cells, with the current cell index being the focus
     for focus in prange(number_cells):
-        # get the starting index in the edge holder
+        # get the starting index for writing to the edge holder array
         index = focus * max_neighbors
 
         # holds the total amount of edges for a given cell
@@ -211,7 +192,7 @@ def check_neighbors_gpu(locations, bins, bins_help, distance, edge_holder, if_no
     # get the index in the array
     focus = cuda.grid(1)
 
-    # get the starting index in the edge holder
+    # get the starting index for writing to the edge holder array
     index = focus * max_neighbors[0]
 
     # checks to see that position is in the array
@@ -238,14 +219,16 @@ def check_neighbors_gpu(locations, bins, bins_help, distance, edge_holder, if_no
 
                         # check to see if that cell is within the search radius and not the same cell
                         if magnitude(locations[focus], locations[current]) <= distance[0] and focus < current:
-                            # update the edge array and identify that this edge is nonzero
-                            edge_holder[index][0] = focus
-                            edge_holder[index][1] = current
-                            if_nonzero[index] = 1
+                            # if within the bounds of the array, add the edge
+                            if edge_counter < max_neighbors[0]:
+                                # update the edge array and identify that this edge is nonzero
+                                edge_holder[index][0] = focus
+                                edge_holder[index][1] = current
+                                if_nonzero[index] = 1
 
-                            # increase the count of edges for a cell and the index for the next edge
-                            edge_counter += 1
-                            index += 1
+                                # increase the count of edges for a cell and the index for the next edge
+                                edge_counter += 1
+                                index += 1
 
         # update the array with number of edges for the cell
         edge_count[focus] = edge_counter
@@ -259,7 +242,7 @@ def jkr_neighbors_cpu(number_cells, cell_locations, cell_radii, bins, bins_help,
     """
     # loops over all cells, with the current cell index being the focus
     for focus in prange(number_cells):
-        # get the starting index in the edge holder
+        # get the starting index for writing to the edge holder array
         index = focus * max_neighbors
 
         # holds the total amount of edges for a given cell
@@ -315,7 +298,7 @@ def jkr_neighbors_gpu(locations, radii, bins, bins_help, distance, edge_holder, 
     # get the index in the array
     focus = cuda.grid(1)
 
-    # get the starting index in the edge holder
+    # get the starting index for writing to the edge holder array
     index = focus * max_neighbors[0]
 
     # checks to see that position is in the array
@@ -348,14 +331,16 @@ def jkr_neighbors_gpu(locations, radii, bins, bins_help, distance, edge_holder, 
 
                         # if there is 0 or more overlap and not the same cell add the edge
                         if overlap >= 0 and focus < current:
-                            # update the edge array and identify that this edge is nonzero
-                            edge_holder[index][0] = focus
-                            edge_holder[index][1] = current
-                            if_nonzero[index] = 1
+                            # if within the bounds of the array, add the edge
+                            if edge_counter < max_neighbors[0]:
+                                # update the edge array and identify that this edge is nonzero
+                                edge_holder[index][0] = focus
+                                edge_holder[index][1] = current
+                                if_nonzero[index] = 1
 
-                            # increase the count of edges for a cell and the index for the next edge
-                            edge_counter += 1
-                            index += 1
+                                # increase the count of edges for a cell and the index for the next edge
+                                edge_counter += 1
+                                index += 1
 
         # update the array with number of edges for the cell
         edge_count[focus] = edge_counter

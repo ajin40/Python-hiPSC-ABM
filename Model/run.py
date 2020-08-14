@@ -24,7 +24,7 @@ for simulation.current_step in range(simulation.beginning_step, simulation.end_s
 
     # updates cells by adjusting trackers for differentiation and division based on intracellular, intercellular,
     # and extracellular conditions.
-    # functions.cell_update(simulation)
+    functions.cell_update(simulation)
 
     # updates each of the extracellular gradients via the finite difference method after cells have interacted
     # with the gradient in cell_update.
@@ -32,7 +32,7 @@ for simulation.current_step in range(simulation.beginning_step, simulation.end_s
 
     # adds/removes cells to/from the simulation either all together or in desired groups of cells. if done in
     # groups, the handle_movement() function will be used to better represent asynchronous division and death.
-    # functions.update_queue(simulation)
+    functions.update_queue(simulation)
 
     # find the nearest NANOG high, GATA6 high, and differentiated cell within a fixed radius, used for movement.
     # functions.nearest(simulation)
