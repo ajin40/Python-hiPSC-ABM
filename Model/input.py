@@ -132,8 +132,8 @@ class Simulation:
             self.extracellular_names = [["fgf4_values", "fgf4_values_temp"]]
 
             # the time in seconds for incremental movement
-            self.time_step_value = 1800
-            self.move_time_step = 200
+            self.step_dt = 1800
+            self.move_dt = 200
 
 
 def setup():

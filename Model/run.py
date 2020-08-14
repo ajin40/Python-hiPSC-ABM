@@ -50,7 +50,7 @@ for simulation.current_step in range(simulation.beginning_step, simulation.end_s
     functions.handle_movement(simulation)
 
     # saves multiple forms of information about the simulation at the current step
-    # output.step_outputs(simulation)
+    output.step_outputs(simulation)
 
 # ends the simulation by closing any necessary files.
 output.create_video(simulation)

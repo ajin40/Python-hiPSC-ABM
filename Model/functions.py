@@ -376,7 +376,7 @@ def handle_movement(simulation):
     # if a static variable for holding step time hasn't been created, create one
     if not hasattr(handle_movement, "steps"):
         # get the total amount of times the cells will be incrementally moved during the step
-        handle_movement.steps = math.ceil(simulation.time_step_value / simulation.move_time_step)
+        handle_movement.steps = math.ceil(simulation.step_dt / simulation.move_dt)
 
     # run the following movement functions consecutively
     for i in range(handle_movement.steps):
@@ -504,21 +504,21 @@ def get_forces(simulation):
     # get the edges as a numpy array, count them, and create an array used to delete edges
     jkr_edges = np.array(simulation.jkr_graph.get_edgelist())
     number_edges = len(jkr_edges)
-    delete_edges = np.zeros(number_edges, dtype=bool)
+    delete_edges = np.zeros(number_edges, dtype=int)
 
-    # only continue if edges exist, otherwise the compiled functions will raise errors
+    # only continue if edges exist, if no edges compiled functions will raise errors
     if number_edges > 0:
         # call the nvidia gpu version
         if simulation.parallel:
             # turn the following into arrays that can be interpreted by the gpu
             jkr_edges_cuda = cuda.to_device(jkr_edges)
             delete_edges_cuda = cuda.to_device(delete_edges)
+            locations_cuda = cuda.to_device(simulation.cell_locations)
+            radii_cuda = cuda.to_device(simulation.cell_radii)
+            forces_cuda = cuda.to_device(simulation.cell_jkr_force)
             poisson_cuda = cuda.to_device(poisson)
             youngs_cuda = cuda.to_device(youngs)
             adhesion_const_cuda = cuda.to_device(adhesion_const)
-            forces_cuda = cuda.to_device(simulation.cell_jkr_force)
-            locations_cuda = cuda.to_device(simulation.cell_locations)
-            radii_cuda = cuda.to_device(simulation.cell_radii)
 
             # allocate threads and blocks for gpu memory
             threads_per_block = 72
@@ -548,8 +548,8 @@ def get_forces(simulation):
 
 
 def apply_forces(simulation):
-    """ Turns the active motility/division forces
-        and inactive JKR forces into movement
+    """ Turns the active motility/division forces and
+        inactive JKR forces into movement
     """
     # start time of the function
     simulation.apply_forces_time = -1 * time.time()
@@ -566,7 +566,7 @@ def apply_forces(simulation):
         radii_cuda = cuda.to_device(simulation.cell_radii)
         viscosity_cuda = cuda.to_device(viscosity)
         size_cuda = cuda.to_device(simulation.size)
-        move_time_step_cuda = cuda.to_device(simulation.move_time_step)
+        move_dt_cuda = cuda.to_device(simulation.move_dt)
 
         # allocate threads and blocks for gpu memory
         threads_per_block = 72
@@ -575,7 +575,7 @@ def apply_forces(simulation):
         # call the cuda kernel with given parameters
         backend.apply_forces_gpu[blocks_per_grid, threads_per_block](jkr_forces_cuda, motility_forces_cuda,
                                                                      locations_cuda, radii_cuda, viscosity_cuda,
-                                                                     size_cuda, move_time_step_cuda)
+                                                                     size_cuda, move_dt_cuda)
         # return the new cell locations from the gpu
         new_locations = locations_cuda.copy_to_host()
 
@@ -584,7 +584,7 @@ def apply_forces(simulation):
         new_locations = backend.apply_forces_cpu(simulation.number_cells, simulation.cell_jkr_force,
                                                  simulation.cell_motility_force, simulation.cell_locations,
                                                  simulation.cell_radii, viscosity, simulation.size,
-                                                 simulation.move_time_step)
+                                                 simulation.move_dt)
 
     # update the locations and reset the jkr forces back to zero
     simulation.cell_locations = new_locations

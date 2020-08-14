@@ -250,8 +250,8 @@ def step_outputs(simulation):
     # turn each of the gradients into a numpy file
     step_gradients(simulation)
 
-    # add a line of information about model efficiency at the current step
-    simulation_data(simulation)
-
-    # create a temporary pickle of the simulation that can be used to continue a simulation
-    temporary(simulation)
+    # # add a line of information about model efficiency at the current step
+    # simulation_data(simulation)
+    #
+    # # create a temporary pickle of the simulation that can be used to continue a simulation
+    # temporary(simulation)

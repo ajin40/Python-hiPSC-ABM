@@ -93,22 +93,6 @@ def assign_bins(simulation, distance, max_cells):
     return bins, bins_help, max_cells
 
 
-@cuda.jit(device=True)
-def magnitude(location_one, location_two):
-    """ this is the cuda kernel device function that is used
-        to calculate the magnitude between two points
-    """
-    # hold the value as the function runs
-    count = 0
-
-    # go through x, y, and z coordinates
-    for i in range(0, 3):
-        count += (location_one[i] - location_two[i]) ** 2
-
-    # return the magnitude
-    return count ** 0.5
-
-
 @jit(nopython=True)
 def assign_bins_cpu(number_cells, cell_locations, distance, bins, bins_help):
     """ this is the just-in-time compiled version of assign_bins
@@ -271,7 +255,7 @@ def jkr_neighbors_cpu(number_cells, cell_locations, cell_radii, bins, bins_help,
                         overlap = cell_radii[current] + cell_radii[focus] - mag
 
                         # if there is 0 or more overlap and not the same cell add the edge
-                        if overlap >= 0 and focus != current:
+                        if overlap >= 0 and focus < current:
                             # if within the bounds of the array, add the edge
                             if edge_counter < max_neighbors:
                                 # update the edge array and identify that this edge is nonzero
@@ -347,14 +331,14 @@ def jkr_neighbors_gpu(locations, radii, bins, bins_help, distance, edge_holder, 
 
 
 @jit(nopython=True, parallel=True)
-def get_forces_cpu(jkr_edges, delete_edges, cell_locations, cell_radii, cell_jkr_force, poisson, youngs,
+def get_forces_cpu(jkr_edges, delete_edges, cell_locations, cell_radii, jkr_forces, poisson, youngs,
                    adhesion_const):
     """ this is the just-in-time compiled version of get_forces
         that runs in parallel on the cpu
     """
     # loops over the jkr edges
     for edge_index in prange(len(jkr_edges)):
-        # get the indices of the edge
+        # get the cell indices of the edge
         cell_1 = jkr_edges[edge_index][0]
         cell_2 = jkr_edges[edge_index][1]
 
@@ -363,11 +347,11 @@ def get_forces_cpu(jkr_edges, delete_edges, cell_locations, cell_radii, cell_jkr
         mag = np.linalg.norm(vector)
         normal = np.array([0.0, 0.0, 0.0])
 
-        # calculate the normalize vector via a reduction as the parallel jit prefers this
+        # calculate the normalized vector via a reduction as the parallel jit prefers this
         if mag != 0:
             normal += vector / mag
 
-        # get the total overlap of the cells used later in calculations
+        # get the total overlap of the cells, used later in calculations
         overlap = cell_radii[cell_1] + cell_radii[cell_2] - mag
 
         # gets two values used for JKR
@@ -377,8 +361,7 @@ def get_forces_cpu(jkr_edges, delete_edges, cell_locations, cell_radii, cell_jkr
         # used to calculate the max adhesive distance after bond has been already formed
         overlap_ = (((math.pi * adhesion_const) / e_hat) ** (2 / 3)) * (r_hat ** (1 / 3))
 
-        # get the nondimensionalized overlap, used for later calculations and checks
-        # also for the use of a polynomial approximation of the force
+        # get the nondimensionalized overlap
         d = overlap / overlap_
 
         # check to see if the cells will have a force interaction
@@ -390,19 +373,19 @@ def get_forces_cpu(jkr_edges, delete_edges, cell_locations, cell_radii, cell_jkr
             jkr_force = f * math.pi * adhesion_const * r_hat
 
             # adds the adhesive force as a vector in opposite directions to each cell's force holder
-            cell_jkr_force[cell_1] += jkr_force * normal
-            cell_jkr_force[cell_2] -= jkr_force * normal
+            jkr_forces[cell_1] += jkr_force * normal
+            jkr_forces[cell_2] -= jkr_force * normal
 
         # remove the edge if the it fails to meet the criteria for distance, JKR simulating that the bond is broken
         else:
             delete_edges[edge_index] = edge_index
 
     # return the updated jkr forces and the edges to be deleted
-    return cell_jkr_force, delete_edges
+    return jkr_forces, delete_edges
 
 
 @cuda.jit
-def get_forces_gpu(jkr_edges, delete_edges, locations, radii, forces, poisson, youngs, adhesion_const):
+def get_forces_gpu(jkr_edges, delete_edges, cell_locations, cell_radii, jkr_forces, poisson, youngs, adhesion_const):
     """ this is the cuda kernel for the get_forces function
         that runs on a NVIDIA gpu
     """
@@ -411,13 +394,13 @@ def get_forces_gpu(jkr_edges, delete_edges, locations, radii, forces, poisson, y
 
     # checks to see that position is in the array
     if edge_index < jkr_edges.shape[0]:
-        # get the indices of the edge
+        # get the cell indices of the edge
         cell_1 = jkr_edges[edge_index][0]
         cell_2 = jkr_edges[edge_index][1]
 
         # get the locations of the two cells
-        location_1 = locations[cell_1]
-        location_2 = locations[cell_2]
+        location_1 = cell_locations[cell_1]
+        location_2 = cell_locations[cell_2]
 
         # get the vector by axis between the two cells
         vector_x = location_1[0] - location_2[0]
@@ -436,17 +419,16 @@ def get_forces_gpu(jkr_edges, delete_edges, locations, radii, forces, poisson, y
             normal_x, normal_y, normal_z = 0, 0, 0
 
         # get the total overlap of the cells used later in calculations
-        overlap = radii[cell_1] + radii[cell_2] - mag
+        overlap = cell_radii[cell_1] + cell_radii[cell_2] - mag
 
         # gets two values used for JKR
         e_hat = (((1 - poisson[0] ** 2) / youngs[0]) + ((1 - poisson[0] ** 2) / youngs[0])) ** -1
-        r_hat = ((1 / radii[cell_1]) + (1 / radii[cell_2])) ** -1
+        r_hat = ((1 / cell_radii[cell_1]) + (1 / cell_radii[cell_2])) ** -1
 
         # used to calculate the max adhesive distance after bond has been already formed
         overlap_ = (((math.pi * adhesion_const[0]) / e_hat) ** (2 / 3)) * (r_hat ** (1 / 3))
 
-        # get the nondimensionalized overlap, used for later calculations and checks
-        # also for the use of a polynomial approximation of the force
+        # get the nondimensionalized overlap
         d = overlap / overlap_
 
         # check to see if the cells will have a force interaction
@@ -459,14 +441,14 @@ def get_forces_gpu(jkr_edges, delete_edges, locations, radii, forces, poisson, y
 
             # adds the adhesive force as a vector in opposite directions to each cell's force holder
             # cell_1
-            forces[cell_1][0] += jkr_force * normal_x
-            forces[cell_1][1] += jkr_force * normal_y
-            forces[cell_1][2] += jkr_force * normal_z
+            jkr_forces[cell_1][0] += jkr_force * normal_x
+            jkr_forces[cell_1][1] += jkr_force * normal_y
+            jkr_forces[cell_1][2] += jkr_force * normal_z
 
             # cell_2
-            forces[cell_2][0] -= jkr_force * normal_x
-            forces[cell_2][1] -= jkr_force * normal_y
-            forces[cell_2][2] -= jkr_force * normal_z
+            jkr_forces[cell_2][0] -= jkr_force * normal_x
+            jkr_forces[cell_2][1] -= jkr_force * normal_y
+            jkr_forces[cell_2][2] -= jkr_force * normal_z
 
         # remove the edge if the it fails to meet the criteria for distance, JKR simulating that the bond is broken
         else:
@@ -517,40 +499,21 @@ def apply_forces_gpu(cell_jkr_force, cell_motility_force, cell_locations, cell_r
         # stokes law for velocity based on force and fluid viscosity
         stokes_friction = 6 * math.pi * viscosity[0] * cell_radii[index]
 
-        # update the velocity of the cell based on the solution
-        velocity_x = (cell_jkr_force[index][0] + cell_motility_force[index][0]) / stokes_friction
-        velocity_y = (cell_jkr_force[index][1] + cell_motility_force[index][1]) / stokes_friction
-        velocity_z = (cell_jkr_force[index][2] + cell_motility_force[index][2]) / stokes_friction
+        # loops over all directions of space
+        for i in range(3):
+            # update the velocity of the cell based on the solution
+            velocity = (cell_jkr_force[index][i] + cell_motility_force[index][i]) / stokes_friction
 
-        # set the possible new location
-        new_location_x = cell_locations[index][0] + velocity_x * move_time_step[0]
-        new_location_y = cell_locations[index][1] + velocity_y * move_time_step[0]
-        new_location_z = cell_locations[index][2] + velocity_z * move_time_step[0]
+            # set the possible new location
+            new_location = cell_locations[index][i] + velocity * move_time_step[0]
 
-        # check if new location is in the space, if not return it to the space limits
-        # for the x direction
-        if new_location_x > size[0]:
-            cell_locations[index][0] = size[0]
-        elif new_location_x < 0:
-            cell_locations[index][0] = 0.0
-        else:
-            cell_locations[index][0] = new_location_x
-
-        # for the y direction
-        if new_location_y > size[1]:
-            cell_locations[index][1] = size[1]
-        elif new_location_y < 0:
-            cell_locations[index][1] = 0.0
-        else:
-            cell_locations[index][1] = new_location_y
-
-        # for the z direction
-        if new_location_z > size[2]:
-            cell_locations[index][2] = size[2]
-        elif new_location_z < 0:
-            cell_locations[index][2] = 0.0
-        else:
-            cell_locations[index][2] = new_location_z
+            # check if new location is in the space, if not return it to the space limits
+            if new_location > size[i]:
+                cell_locations[index][i] = size[i]
+            elif new_location < 0:
+                cell_locations[index][i] = 0.0
+            else:
+                cell_locations[index][i] = new_location
 
 
 @jit(nopython=True, parallel=True)
@@ -727,38 +690,6 @@ def highest_fgf4_cpu(diffuse_radius, diffuse_bins, diffuse_bins_help, diffuse_lo
     return highest_fgf4
 
 
-def normal_vector(vector):
-    """ returns the normalized vector
-    """
-    mag = np.linalg.norm(vector)
-    if mag == 0:
-        return np.array([0, 0, 0])
-    else:
-        return vector / mag
-
-
-def random_vector(simulation):
-    """ computes a random point on a unit sphere centered at the origin
-        Returns - point [x,y,z]
-    """
-    # a random angle on the cell
-    theta = r.random() * 2 * math.pi
-
-    # determine if simulation is 2D or 3D
-    if simulation.size[2] == 0:
-        # 2D vector
-        x, y, z = math.cos(theta), math.sin(theta), 0.0
-
-    else:
-        # 3D vector
-        phi = r.random() * 2 * math.pi
-        radius = math.cos(phi)
-        x, y, z = radius * math.cos(theta), radius * math.sin(theta), math.sin(phi)
-
-    # return random vector
-    return np.array([x, y, z])
-
-
 @jit(nopython=True)
 def remove_diff_edges(states, edges, delete_edges):
     for i in range(len(edges)):
@@ -852,3 +783,51 @@ def outside_cluster_gpu(nearest_distance, bins, bins_help, cell_locations, cell_
 
             # update the nearest cell of desired type
             cell_cluster_nearest[focus] = nearest_outside_index
+
+
+@cuda.jit(device=True)
+def magnitude(location_one, location_two):
+    """ this is the cuda kernel device function that is used
+        to calculate the magnitude between two points
+    """
+    # hold the value as the function runs
+    count = 0
+
+    # go through x, y, and z coordinates
+    for i in range(0, 3):
+        count += (location_one[i] - location_two[i]) ** 2
+
+    # return the magnitude
+    return count ** 0.5
+
+
+def normal_vector(vector):
+    """ returns the normalized vector
+    """
+    mag = np.linalg.norm(vector)
+    if mag == 0:
+        return np.array([0, 0, 0])
+    else:
+        return vector / mag
+
+
+def random_vector(simulation):
+    """ computes a random point on a unit sphere centered at the origin
+        Returns - point [x,y,z]
+    """
+    # a random angle on the cell
+    theta = r.random() * 2 * math.pi
+
+    # determine if simulation is 2D or 3D
+    if simulation.size[2] == 0:
+        # 2D vector
+        x, y, z = math.cos(theta), math.sin(theta), 0.0
+
+    else:
+        # 3D vector
+        phi = r.random() * 2 * math.pi
+        radius = math.cos(phi)
+        x, y, z = radius * math.cos(theta), radius * math.sin(theta), math.sin(phi)
+
+    # return random vector
+    return np.array([x, y, z])
