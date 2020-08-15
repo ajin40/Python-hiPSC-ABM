@@ -169,7 +169,7 @@ def check_neighbors_cpu(number_cells, cell_locations, bins, bins_help, distance,
 
 
 @cuda.jit
-def check_neighbors_gpu(locations, bins, bins_help, distance, edge_holder, if_nonzero, edge_count, max_neighbors):
+def check_neighbors_gpu(cell_locations, bins, bins_help, distance, edge_holder, if_nonzero, edge_count, max_neighbors):
     """ this is the cuda kernel for the check_neighbors function
         that runs on a NVIDIA gpu
     """
@@ -180,14 +180,14 @@ def check_neighbors_gpu(locations, bins, bins_help, distance, edge_holder, if_no
     index = focus * max_neighbors[0]
 
     # checks to see that position is in the array
-    if focus < locations.shape[0]:
+    if focus < cell_locations.shape[0]:
         # holds the total amount of edges for a given cell
         edge_counter = 0
 
         # offset bins by 2 to avoid missing cells that fall outside the space
-        x = int(locations[focus][0] / distance[0]) + 2
-        y = int(locations[focus][1] / distance[0]) + 2
-        z = int(locations[focus][2] / distance[0]) + 2
+        x = int(cell_locations[focus][0] / distance[0]) + 2
+        y = int(cell_locations[focus][1] / distance[0]) + 2
+        z = int(cell_locations[focus][2] / distance[0]) + 2
 
         # loop over the bin the cell is in and the surrounding bins
         for i in range(-1, 2):
@@ -202,7 +202,7 @@ def check_neighbors_gpu(locations, bins, bins_help, distance, edge_holder, if_no
                         current = int(bins[x + i][y + j][z + k][l])
 
                         # check to see if that cell is within the search radius and not the same cell
-                        if magnitude(locations[focus], locations[current]) <= distance[0] and focus < current:
+                        if magnitude(cell_locations[focus], cell_locations[current]) <= distance[0] and focus < current:
                             # if within the bounds of the array, add the edge
                             if edge_counter < max_neighbors[0]:
                                 # update the edge array and identify that this edge is nonzero
@@ -275,7 +275,8 @@ def jkr_neighbors_cpu(number_cells, cell_locations, cell_radii, bins, bins_help,
 
 
 @cuda.jit
-def jkr_neighbors_gpu(locations, radii, bins, bins_help, distance, edge_holder, if_nonzero, edge_count, max_neighbors):
+def jkr_neighbors_gpu(cell_locations, radii, bins, bins_help, distance, edge_holder, if_nonzero, edge_count,
+                      max_neighbors):
     """ this is the cuda kernel for the jkr_neighbors function
         that runs on a NVIDIA gpu
     """
@@ -286,14 +287,14 @@ def jkr_neighbors_gpu(locations, radii, bins, bins_help, distance, edge_holder, 
     index = focus * max_neighbors[0]
 
     # checks to see that position is in the array
-    if focus < locations.shape[0]:
+    if focus < cell_locations.shape[0]:
         # holds the total amount of edges for a given cell
         edge_counter = 0
 
         # offset bins by 2 to avoid missing cells that fall outside the space
-        x = int(locations[focus][0] / distance[0]) + 2
-        y = int(locations[focus][1] / distance[0]) + 2
-        z = int(locations[focus][2] / distance[0]) + 2
+        x = int(cell_locations[focus][0] / distance[0]) + 2
+        y = int(cell_locations[focus][1] / distance[0]) + 2
+        z = int(cell_locations[focus][2] / distance[0]) + 2
 
         # loop over the bin the cell is in and the surrounding bins
         for i in range(-1, 2):
@@ -308,7 +309,7 @@ def jkr_neighbors_gpu(locations, radii, bins, bins_help, distance, edge_holder, 
                         current = int(bins[x + i][y + j][z + k][l])
 
                         # get the magnitude of the distance vector between the cells
-                        mag = magnitude(locations[focus], locations[current])
+                        mag = magnitude(cell_locations[focus], cell_locations[current])
 
                         # calculate the overlap of the cells
                         overlap = radii[focus] + radii[current] - mag
@@ -345,13 +346,8 @@ def get_forces_cpu(jkr_edges, delete_edges, cell_locations, cell_radii, jkr_forc
         # get the vector between the centers of the cells and the magnitude of this vector
         vector = cell_locations[cell_1] - cell_locations[cell_2]
         mag = np.linalg.norm(vector)
-        normal = np.array([0.0, 0.0, 0.0])
 
-        # calculate the normalized vector via a reduction as the parallel jit prefers this
-        if mag != 0:
-            normal += vector / mag
-
-        # get the total overlap of the cells, used later in calculations
+        # get the total overlap of the cells
         overlap = cell_radii[cell_1] + cell_radii[cell_2] - mag
 
         # gets two values used for JKR
@@ -371,6 +367,11 @@ def get_forces_cpu(jkr_edges, delete_edges, cell_locations, cell_radii, jkr_forc
 
             # convert from the nondimensionalization to find the adhesive force
             jkr_force = f * math.pi * adhesion_const * r_hat
+
+            # calculate the normalized vector via a reduction as the parallel jit prefers this
+            normal = np.array([0.0, 0.0, 0.0])
+            if mag != 0:
+                normal += vector / mag
 
             # adds the adhesive force as a vector in opposite directions to each cell's force holder
             jkr_forces[cell_1] += jkr_force * normal
@@ -402,23 +403,10 @@ def get_forces_gpu(jkr_edges, delete_edges, cell_locations, cell_radii, jkr_forc
         location_1 = cell_locations[cell_1]
         location_2 = cell_locations[cell_2]
 
-        # get the vector by axis between the two cells
-        vector_x = location_1[0] - location_2[0]
-        vector_y = location_1[1] - location_2[1]
-        vector_z = location_1[2] - location_2[2]
-
         # get the magnitude of the vector
         mag = magnitude(location_1, location_2)
 
-        # if the magnitude is 0 use the zero vector, otherwise find the normalized vector
-        if mag != 0:
-            normal_x = vector_x / mag
-            normal_y = vector_y / mag
-            normal_z = vector_z / mag
-        else:
-            normal_x, normal_y, normal_z = 0, 0, 0
-
-        # get the total overlap of the cells used later in calculations
+        # get the total overlap of the cells
         overlap = cell_radii[cell_1] + cell_radii[cell_2] - mag
 
         # gets two values used for JKR
@@ -439,16 +427,19 @@ def get_forces_gpu(jkr_edges, delete_edges, cell_locations, cell_radii, jkr_forc
             # convert from the nondimensionalization to find the adhesive force
             jkr_force = f * math.pi * adhesion_const[0] * r_hat
 
-            # adds the adhesive force as a vector in opposite directions to each cell's force holder
-            # cell_1
-            jkr_forces[cell_1][0] += jkr_force * normal_x
-            jkr_forces[cell_1][1] += jkr_force * normal_y
-            jkr_forces[cell_1][2] += jkr_force * normal_z
+            for i in range(3):
+                # get the vector by axis between the two cells
+                vector = location_1[i] - location_2[i]
 
-            # cell_2
-            jkr_forces[cell_2][0] -= jkr_force * normal_x
-            jkr_forces[cell_2][1] -= jkr_force * normal_y
-            jkr_forces[cell_2][2] -= jkr_force * normal_z
+                # if the magnitude is 0 use the zero vector, otherwise find the normalized vector
+                if mag != 0:
+                    normal = vector / mag
+                else:
+                    normal = 0
+
+                # adds the adhesive force as a vector in opposite directions to each cell's force holder
+                jkr_forces[cell_1][i] += jkr_force * normal
+                jkr_forces[cell_2][i] -= jkr_force * normal
 
         # remove the edge if the it fails to meet the criteria for distance, JKR simulating that the bond is broken
         else:
@@ -575,6 +566,68 @@ def nearest_cpu(number_cells, distance, bins, bins_help, cell_locations, nearest
 
     # return the updated edges
     return nearest_gata6, nearest_nanog, nearest_diff
+
+
+@cuda.jit
+def nearest_gpu(cell_locations, bins, bins_help, distance, cell_states, cell_fds, nearest_gata6, nearest_nanog,
+                nearest_diff):
+    """ this is the cuda kernel for the nearest function
+        that runs on a NVIDIA gpu
+    """
+    # get the index in the array
+    focus = cuda.grid(1)
+
+    # checks to see that position is in the array
+    if focus < cell_locations.shape[0]:
+        # offset bins by 2 to avoid missing cells that fall outside the space
+        x = int(cell_locations[focus][0] / distance[0]) + 2
+        y = int(cell_locations[focus][1] / distance[0]) + 2
+        z = int(cell_locations[focus][2] / distance[0]) + 2
+
+        # initialize these variables with essentially nothing values and the distance as an initial comparison
+        nearest_gata6_index, nearest_nanog_index, nearest_diff_index = np.nan, np.nan, np.nan
+        nearest_gata6_dist, nearest_nanog_dist, nearest_diff_dist = distance[0] * 2, distance[0] * 2, distance[0] * 2
+
+        # loop over the bin the cell is in and the surrounding bins
+        for i in range(-1, 2):
+            for j in range(-1, 2):
+                for k in range(-1, 2):
+                    # get the count of cells for the current bin
+                    bin_count = int(bins_help[x + i][y + j][z + k])
+
+                    # go through that bin determining if a cell is a neighbor
+                    for l in range(bin_count):
+                        # get the index of the current cell in question
+                        current = int(bins[x + i][y + j][z + k][l])
+
+                        # check to see if that cell is within the search radius and not the same cell
+                        mag = magnitude(cell_locations[focus], cell_locations[current])
+                        if mag <= distance[0] and focus != current:
+                            # update the nearest differentiated cell first
+                            if cell_states[current] == "Differentiated":
+                                # if it's closer than the last cell, update the nearest magnitude and index
+                                if mag < nearest_diff_dist:
+                                    nearest_diff_index = current
+                                    nearest_diff_dist = mag
+
+                            # update the nearest gata6 high cell
+                            if cell_fds[current][2] == 1:
+                                # if it's closer than the last cell, update the nearest magnitude and index
+                                if mag < nearest_gata6_dist:
+                                    nearest_gata6_index = current
+                                    nearest_gata6_dist = mag
+
+                            # update the nearest nanog high cell
+                            elif cell_fds[current][3] == 1:
+                                # if it's closer than the last cell, update the nearest magnitude and index
+                                if mag < nearest_nanog_dist:
+                                    nearest_nanog_index = current
+                                    nearest_nanog_dist = mag
+
+        # update the nearest cell of certain types
+        nearest_gata6[focus] = nearest_gata6_index
+        nearest_nanog[focus] = nearest_nanog_index
+        nearest_diff[focus] = nearest_diff_index
 
 
 @jit(nopython=True)

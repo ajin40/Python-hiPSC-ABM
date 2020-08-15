@@ -28,22 +28,23 @@ for simulation.current_step in range(simulation.beginning_step, simulation.end_s
 
     # updates each of the extracellular gradients via the finite difference method after cells have interacted
     # with the gradient in cell_update.
-    # functions.update_diffusion(simulation)
+    functions.update_diffusion(simulation)
 
     # adds/removes cells to/from the simulation either all together or in desired groups of cells. if done in
     # groups, the handle_movement() function will be used to better represent asynchronous division and death.
     functions.update_queue(simulation)
 
     # find the nearest NANOG high, GATA6 high, and differentiated cell within a fixed radius, used for movement.
-    # functions.nearest(simulation)
+    functions.nearest(simulation)
 
+    # find the nearest pluripotent cell within a fixed radius that is not part of the same component
     # functions.outside_cluster(simulation)
 
     # locate the diffusion point (within a fixed radius) that has the highest FGF4 concentration.
     # functions.highest_fgf4(simulation)
 
     # gets motility forces depending on a variety of factors involving state, gradient, and presence of neighbors
-    # functions.cell_motility(simulation)
+    functions.cell_motility(simulation)
 
     # moves the cells to a state of physical equilibrium so that there is minimal overlap of cells, while also
     # applying forces from the previous cell_motility() function.

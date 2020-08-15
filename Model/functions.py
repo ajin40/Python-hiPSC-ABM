@@ -596,28 +596,58 @@ def apply_forces(simulation):
 
 def nearest(simulation):
     """ looks at cells within a given radius a determines
-        the closest cells of important types
+        the closest cells of certain types
     """
     # start time of the function
     simulation.nearest_time = -1 * time.time()
 
-    # radius of search for the nearest cells of given type
+    # radius of search for nearest cells
     nearest_distance = 0.000025
 
+    # if a static variable has not been created to hold the maximum number of cells in a bin, create one
+    if not hasattr(nearest, "max_cells"):
+        # begin with a low number of cells that can be revalued if the max number of cells exceeds this value
+        nearest.max_cells = 5
+
     # calls the function that generates an array of bins that generalize the cell locations in addition to a
-    # helper array that assists the search method in counting cells in a particular bin
-    bins, bins_help = backend.assign_bins(simulation, nearest_distance)
+    # creating a helper array that assists the search method in counting cells in a particular bin
+    bins, bins_help, max_cells = backend.assign_bins(simulation, nearest_distance, nearest.max_cells)
+
+    # update the value of the max number of cells in a bin
+    nearest.max_cells = max_cells
 
     # call the nvidia gpu version
     if simulation.parallel:
-        # find the nearest cell of each type with the external method, no gpu function yet
-        gata6, nanog, diff = backend.nearest_cpu(simulation.number_cells, nearest_distance, bins, bins_help,
-                                                 simulation.cell_locations, simulation.cell_nearest_gata6,
-                                                 simulation.cell_nearest_nanog, simulation.cell_nearest_diff,
-                                                 simulation.cell_states, simulation.cell_fds)
+        states = simulation.cells_states == "Differentiated"
+        a[:, 4] == 1
+
+        # turn the following into arrays that can be interpreted by the gpu
+        locations_cuda = cuda.to_device(simulation.cell_locations)
+        bins_cuda = cuda.to_device(bins)
+        bins_help_cuda = cuda.to_device(bins_help)
+        distance_cuda = cuda.to_device(nearest_distance)
+        states_cuda = cuda.to_device(states)
+        fds_cuda = cuda.to_device(simulation.cell_fds)
+        nearest_gata6_cuda = cuda.to_device(simulation.cell_nearest_gata6)
+        nearest_nanog_cuda = cuda.to_device(simulation.cell_nearest_nanog)
+        nearest_diff_cuda = cuda.to_device(simulation.cell_nearest_diff)
+
+        # allocate threads and blocks for gpu memory
+        threads_per_block = 72
+        blocks_per_grid = math.ceil(simulation.number_cells / threads_per_block)
+
+        # call the cuda kernel with given parameters
+        backend.nearest_gpu[blocks_per_grid, threads_per_block](locations_cuda, bins_cuda, bins_help_cuda,
+                                                                distance_cuda, states_cuda, fds_cuda,
+                                                                nearest_gata6_cuda, nearest_nanog_cuda,
+                                                                nearest_diff_cuda)
+        # return the arrays back from the gpu
+        gata6 = nearest_gata6_cuda.copy_to_host()
+        nanog = nearest_nanog_cuda.copy_to_host()
+        diff = nearest_diff_cuda.copy_to_host()
+
     # call the cpu version
     else:
-        # find the nearest cell of each type with the external method, no gpu function yet
         gata6, nanog, diff = backend.nearest_cpu(simulation.number_cells, nearest_distance, bins, bins_help,
                                                  simulation.cell_locations, simulation.cell_nearest_gata6,
                                                  simulation.cell_nearest_nanog, simulation.cell_nearest_diff,
@@ -822,7 +852,7 @@ def update_diffusion(simulation):
     simulation.update_diffusion_time = -1 * time.time()
 
     # calculate the number of times the finite differences diffusion is run
-    diffusion_steps = math.ceil(simulation.time_step_value / simulation.dt)
+    diffusion_steps = math.ceil(simulation.step_dt / simulation.dt)
 
     # go through all gradients and update the diffusion of each
     for gradient, temp in simulation.extracellular_names:
