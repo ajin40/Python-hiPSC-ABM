@@ -35,7 +35,7 @@ Use the Guye movement method? Where GATA6 high cells with move toward differenti
 [ True ]
 
 Use Eunbi's method of motion based on the NetLogo model? Ex. True
-[ True ]
+[ False ]
 
 What is the max value of FGF4 at a diffusion point? Ex. 20
 [ 10 ]

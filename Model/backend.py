@@ -379,7 +379,7 @@ def get_forces_cpu(jkr_edges, delete_edges, cell_locations, cell_radii, jkr_forc
 
         # remove the edge if the it fails to meet the criteria for distance, JKR simulating that the bond is broken
         else:
-            delete_edges[edge_index] = edge_index
+            delete_edges[edge_index] = 1
 
     # return the updated jkr forces and the edges to be deleted
     return jkr_forces, delete_edges
@@ -443,7 +443,7 @@ def get_forces_gpu(jkr_edges, delete_edges, cell_locations, cell_radii, jkr_forc
 
         # remove the edge if the it fails to meet the criteria for distance, JKR simulating that the bond is broken
         else:
-            delete_edges[edge_index] = edge_index
+            delete_edges[edge_index] = 1
 
 
 @jit(nopython=True, parallel=True)
