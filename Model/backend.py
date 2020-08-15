@@ -508,8 +508,8 @@ def apply_forces_gpu(cell_jkr_force, cell_motility_force, cell_locations, cell_r
 
 
 @jit(nopython=True, parallel=True)
-def nearest_cpu(number_cells, distance, bins, bins_help, cell_locations, nearest_gata6, nearest_nanog, nearest_diff,
-                cell_states, cell_fds):
+def nearest_cpu(number_cells, cell_locations, bins, bins_help, distance, if_diff, gata6_high, nanog_high, nearest_gata6,
+                nearest_nanog, nearest_diff):
     """ this is the just-in-time compiled version of nearest
         that runs in parallel on the cpu
     """
@@ -538,26 +538,27 @@ def nearest_cpu(number_cells, distance, bins, bins_help, cell_locations, nearest
                         # check to see if that cell is within the search radius and not the same cell
                         mag = np.linalg.norm(cell_locations[current] - cell_locations[focus])
                         if mag <= distance and focus != current:
-                            # update the nearest gata6 high cell
-                            if cell_fds[current][2] == 1 and not cell_states[current] == "Differentiated":
-                                # if it's closer than the last cell, update the nearest magnitude and index
-                                if mag < nearest_gata6_dist:
-                                    nearest_gata6_index = current
-                                    nearest_gata6_dist = mag
-
-                            # update the nearest nanog high cell
-                            elif cell_fds[current][3] == 1:
-                                # if it's closer than the last cell, update the nearest magnitude and index
-                                if mag < nearest_nanog_dist:
-                                    nearest_nanog_index = current
-                                    nearest_nanog_dist = mag
-
-                            # update the nearest differentiated cell
-                            elif cell_states[current] == "Differentiated":
+                            # update the nearest differentiated cell first
+                            if if_diff[current]:
                                 # if it's closer than the last cell, update the nearest magnitude and index
                                 if mag < nearest_diff_dist:
                                     nearest_diff_index = current
                                     nearest_diff_dist = mag
+
+                            # update the nearest gata6 high cell making sure not nanog high
+                            elif gata6_high[current]:
+                                if not nanog_high[current]:
+                                    # if it's closer than the last cell, update the nearest magnitude and index
+                                    if mag < nearest_gata6_dist:
+                                        nearest_gata6_index = current
+                                        nearest_gata6_dist = mag
+
+                            # update the nearest nanog high cell
+                            elif nanog_high[current]:
+                                # if it's closer than the last cell, update the nearest magnitude and index
+                                if mag < nearest_nanog_dist:
+                                    nearest_nanog_index = current
+                                    nearest_nanog_dist = mag
 
         # update the nearest cell of desired type
         nearest_gata6[focus] = nearest_gata6_index
@@ -569,8 +570,8 @@ def nearest_cpu(number_cells, distance, bins, bins_help, cell_locations, nearest
 
 
 @cuda.jit
-def nearest_gpu(cell_locations, bins, bins_help, distance, cell_states, cell_fds, nearest_gata6, nearest_nanog,
-                nearest_diff):
+def nearest_gpu(cell_locations, bins, bins_help, distance, if_diff, gata6_high, nanog_high, nearest_gata6,
+                nearest_nanog, nearest_diff):
     """ this is the cuda kernel for the nearest function
         that runs on a NVIDIA gpu
     """
@@ -604,21 +605,22 @@ def nearest_gpu(cell_locations, bins, bins_help, distance, cell_states, cell_fds
                         mag = magnitude(cell_locations[focus], cell_locations[current])
                         if mag <= distance[0] and focus != current:
                             # update the nearest differentiated cell first
-                            if cell_states[current] == "Differentiated":
+                            if if_diff[current]:
                                 # if it's closer than the last cell, update the nearest magnitude and index
                                 if mag < nearest_diff_dist:
                                     nearest_diff_index = current
                                     nearest_diff_dist = mag
 
-                            # update the nearest gata6 high cell
-                            if cell_fds[current][2] == 1:
-                                # if it's closer than the last cell, update the nearest magnitude and index
-                                if mag < nearest_gata6_dist:
-                                    nearest_gata6_index = current
-                                    nearest_gata6_dist = mag
+                            # update the nearest gata6 high cell making sure not nanog high
+                            elif gata6_high[current]:
+                                if not nanog_high[current]:
+                                    # if it's closer than the last cell, update the nearest magnitude and index
+                                    if mag < nearest_gata6_dist:
+                                        nearest_gata6_index = current
+                                        nearest_gata6_dist = mag
 
                             # update the nearest nanog high cell
-                            elif cell_fds[current][3] == 1:
+                            elif nanog_high[current]:
                                 # if it's closer than the last cell, update the nearest magnitude and index
                                 if mag < nearest_nanog_dist:
                                     nearest_nanog_index = current
@@ -743,13 +745,26 @@ def highest_fgf4_cpu(diffuse_radius, diffuse_bins, diffuse_bins_help, diffuse_lo
     return highest_fgf4
 
 
-@jit(nopython=True)
-def remove_diff_edges(states, edges, delete_edges):
-    for i in range(len(edges)):
-        if states[edges[i][0]] == "Differentiated" or states[edges[i][1]] == "Differentiated":
-            delete_edges[i] = i
+@jit(nopython=True, parallel=True)
+def remove_diff_edges(states, edges):
+    """ used by the outside cluster function to
+        remove differentiated edges.
+    """
+    # create an array to hold edges to delete
+    length = len(edges)
+    delete = np.zeros(length, dtype=int)
+    delete_help = np.zeros(length, type=bool)
 
-    return delete_edges
+    # go through edges
+    for i in prange(length):
+        # add to the delete array if either node is differentiated
+        if states[edges[i][0]] == "Differentiated" or states[edges[i][1]] == "Differentiated":
+            delete[i] = i
+            delete_help[i] = 1
+
+    # remove edges that should be deleted based on the help array
+    delete = delete[delete_help]
+    return delete
 
 
 @jit(nopython=True, parallel=True)
