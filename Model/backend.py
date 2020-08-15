@@ -633,15 +633,15 @@ def nearest_gpu(cell_locations, bins, bins_help, distance, if_diff, gata6_high, 
 
 
 @jit(nopython=True)
-def setup_diffuse_bins_cpu(diffuse_locations, x_steps, y_steps, z_steps, diffuse_radius, diffuse_bins,
+def setup_diffuse_bins_cpu(diffuse_locations, shape, diffuse_radius, diffuse_bins,
                            diffuse_bins_help):
     """ this is the just-in-time compiled version of
         setup_diffusion_bins that runs solely on the cpu
     """
     # loop over all diffusion points
-    for i in range(0, x_steps):
-        for j in range(0, y_steps):
-            for k in range(0, z_steps):
+    for i in range(shape[0]):
+        for j in range(shape[0]):
+            for k in range(shape[0]):
                 # get the location in the bin array
                 bin_location = diffuse_locations[i][j][k] // diffuse_radius + np.array([2, 2, 2])
                 x, y, z = int(bin_location[0]), int(bin_location[1]), int(bin_location[2])
@@ -660,7 +660,7 @@ def setup_diffuse_bins_cpu(diffuse_locations, x_steps, y_steps, z_steps, diffuse
 
 
 @jit(nopython=True)
-def update_diffusion_cpu(gradient, gradient_temp, time_steps, dt, dx2, dy2, dz2, diffuse, size):
+def update_diffusion_cpu(base, temp_base, time_steps, dt, dx2, dy2, dz2, diffuse, size):
     """ this is the just-in-time compiled version of
         update_diffusion that runs solely on the cpu
     """
@@ -669,31 +669,31 @@ def update_diffusion_cpu(gradient, gradient_temp, time_steps, dt, dx2, dy2, dz2,
     if size[2] == 0:
         for i in range(time_steps):
             # add the temporary gradient to the main gradient to slowly increment concentrations
-            gradient += gradient_temp
+            base += temp_base
 
             # perform the first part of the calculation
-            x = (gradient[2:, 1:-1, 1:-1] - 2 * gradient[1:-1, 1:-1, 1:-1] + gradient[:-2, 1:-1, 1:-1]) / dx2
-            y = (gradient[1:-1, 2:, 1:-1] - 2 * gradient[1:-1, 1:-1, 1:-1] + gradient[1:-1, :-2, 1:-1]) / dy2
+            x = (base[2:, 1:-1, 1:-1] - 2 * base[1:-1, 1:-1, 1:-1] + base[:-2, 1:-1, 1:-1]) / dx2
+            y = (base[1:-1, 2:, 1:-1] - 2 * base[1:-1, 1:-1, 1:-1] + base[1:-1, :-2, 1:-1]) / dy2
 
             # update the gradient array
-            gradient[1:-1, 1:-1, 1:-1] = gradient[1:-1, 1:-1, 1:-1] + diffuse * dt * (x + y)
+            base[1:-1, 1:-1, 1:-1] = base[1:-1, 1:-1, 1:-1] + diffuse * dt * (x + y)
 
     # 3D
     else:
         for i in range(time_steps):
             # add the temporary gradient to the main gradient to slowly increment concentrations
-            gradient += gradient_temp
+            base += temp_base
 
             # perform the first part of the calculation
-            x = (gradient[2:, 1:-1, 1:-1] - 2 * gradient[1:-1, 1:-1, 1:-1] + gradient[:-2, 1:-1, 1:-1]) / dx2
-            y = (gradient[1:-1, 2:, 1:-1] - 2 * gradient[1:-1, 1:-1, 1:-1] + gradient[1:-1, :-2, 1:-1]) / dy2
-            z = (gradient[1:-1, 1:-1, 2:] - 2 * gradient[1:-1, 1:-1, 1:-1] + gradient[1:-1, 1:-1, :-2]) / dz2
+            x = (base[2:, 1:-1, 1:-1] - 2 * base[1:-1, 1:-1, 1:-1] + base[:-2, 1:-1, 1:-1]) / dx2
+            y = (base[1:-1, 2:, 1:-1] - 2 * base[1:-1, 1:-1, 1:-1] + base[1:-1, :-2, 1:-1]) / dy2
+            z = (base[1:-1, 1:-1, 2:] - 2 * base[1:-1, 1:-1, 1:-1] + base[1:-1, 1:-1, :-2]) / dz2
 
             # update the gradient array
-            gradient[1:-1, 1:-1, 1:-1] = gradient[1:-1, 1:-1, 1:-1] + diffuse * dt * (x + y + z)
+            base[1:-1, 1:-1, 1:-1] = base[1:-1, 1:-1, 1:-1] + diffuse * dt * (x + y + z)
 
     # return the gradient back to the simulation
-    return gradient
+    return base
 
 
 @jit(nopython=True)
@@ -746,15 +746,10 @@ def highest_fgf4_cpu(diffuse_radius, diffuse_bins, diffuse_bins_help, diffuse_lo
 
 
 @jit(nopython=True, parallel=True)
-def remove_diff_edges(states, edges):
+def remove_diff_edges(length, states, edges, delete, delete_help):
     """ used by the outside cluster function to
         remove differentiated edges.
     """
-    # create an array to hold edges to delete
-    length = len(edges)
-    delete = np.zeros(length, dtype=int)
-    delete_help = np.zeros(length, type=bool)
-
     # go through edges
     for i in prange(length):
         # add to the delete array if either node is differentiated
@@ -762,71 +757,25 @@ def remove_diff_edges(states, edges):
             delete[i] = i
             delete_help[i] = 1
 
-    # remove edges that should be deleted based on the help array
-    delete = delete[delete_help]
-    return delete
+    return delete, delete_help
 
 
 @jit(nopython=True, parallel=True)
-def outside_cluster_cpu(number_cells, nearest_distance, bins, bins_help, cell_locations, cell_states,
-                        cell_cluster_nearest, members):
-
+def nearest_cluster_cpu(number_cells, cell_locations, bins, bins_help, distance, if_pluri, cell_cluster_nearest,
+                        members):
+    """ This is the Numba optimized version of
+        the nearest_cluster function.
+    """
     # loops over all cells, with the current cell index being the focus
     for focus in prange(number_cells):
-        # offset bins by 2 to avoid missing cells that fall outside the space
-        block_location = cell_locations[focus] // nearest_distance + np.array([2, 2, 2])
-        x, y, z = int(block_location[0]), int(block_location[1]), int(block_location[2])
-
-        # initialize these variables with essentially nothing values and the distance as an initial comparison
-        nearest_outside_index = np.nan
-        nearest_outside_dist = nearest_distance * 2
-
-        # loop over the bin the cell is in and the surrounding bin
-        for i in range(-1, 2):
-            for j in range(-1, 2):
-                for k in range(-1, 2):
-                    # get the count of cells for the current bin
-                    bin_count = bins_help[x + i][y + j][z + k]
-
-                    # go through that bin
-                    for l in range(bin_count):
-                        # get the index of the current cell in question
-                        current = int(bins[x + i][y + j][z + k][l])
-
-                        # check to see if that cell is within the search radius and not the same cell
-                        if not cell_states[current] == "Differentiated" and not cell_states[focus] == "Differentiated":
-                            mag = np.linalg.norm(cell_locations[current] - cell_locations[focus])
-                            if mag <= nearest_distance and focus != current and members[focus] != members[current]:
-                                # if it's closer than the last cell, update the nearest magnitude and index
-                                if mag < nearest_outside_dist:
-                                    nearest_outside_index = current
-                                    nearest_outside_dist = mag
-
-        # update the nearest cell of desired type
-        cell_cluster_nearest[focus] = nearest_outside_index
-
-    # return the updated edges
-    return cell_cluster_nearest
-
-
-@cuda.jit
-def outside_cluster_gpu(nearest_distance, bins, bins_help, cell_locations, cell_states,
-                        cell_cluster_nearest, members):
-
-    # get the index in the array
-    focus = cuda.grid(1)
-
-    # checks to see that position is in the array
-    if focus < cell_locations.shape[0]:
-        if cell_states[focus]:
+        if if_pluri[focus]:
             # offset bins by 2 to avoid missing cells that fall outside the space
-            x = int(cell_locations[focus][0] / nearest_distance[0]) + 2
-            y = int(cell_locations[focus][1] / nearest_distance[0]) + 2
-            z = int(cell_locations[focus][2] / nearest_distance[0]) + 2
+            block_location = cell_locations[focus] // distance + np.array([2, 2, 2])
+            x, y, z = int(block_location[0]), int(block_location[1]), int(block_location[2])
 
             # initialize these variables with essentially nothing values and the distance as an initial comparison
-            nearest_outside_index = np.nan
-            nearest_outside_dist = nearest_distance[0] * 2
+            nearest_cell_index = np.nan
+            nearest_cell_dist = distance * 2
 
             # loop over the bin the cell is in and the surrounding bin
             for i in range(-1, 2):
@@ -840,17 +789,67 @@ def outside_cluster_gpu(nearest_distance, bins, bins_help, cell_locations, cell_
                             # get the index of the current cell in question
                             current = int(bins[x + i][y + j][z + k][l])
 
-                            # check to see if that cell is within the search radius and not the same cell
-                            if cell_states[current]:
-                                mag = magnitude(cell_locations[current], cell_locations[focus])
-                                if mag <= nearest_distance[0] and focus != current and members[focus] != members[current]:
+                            # make sure not differentiated, not same cell, and not in the same cluster
+                            if if_pluri[current] and focus != current and members[focus] != members[current]:
+                                # check to see if that cell is within the search radius and not the same cell
+                                mag = np.linalg.norm(cell_locations[current] - cell_locations[focus])
+                                if mag <= distance:
                                     # if it's closer than the last cell, update the nearest magnitude and index
-                                    if mag < nearest_outside_dist:
-                                        nearest_outside_index = current
-                                        nearest_outside_dist = mag
+                                    if mag < nearest_cell_dist:
+                                        nearest_cell_index = current
+                                        nearest_cell_dist = mag
 
             # update the nearest cell of desired type
-            cell_cluster_nearest[focus] = nearest_outside_index
+            cell_cluster_nearest[focus] = nearest_cell_index
+
+    # return the updated edges
+    return cell_cluster_nearest
+
+
+@cuda.jit
+def nearest_cluster_gpu(cell_locations, bins, bins_help, distance, if_pluri, cell_nearest_cluster, members):
+    """ this is the cuda kernel for the nearest function
+        that runs on a NVIDIA gpu
+    """
+    # get the index in the array
+    focus = cuda.grid(1)
+
+    # checks to see that position is in the array
+    if focus < cell_locations.shape[0]:
+        if if_pluri[focus]:
+            # offset bins by 2 to avoid missing cells that fall outside the space
+            x = int(cell_locations[focus][0] / distance[0]) + 2
+            y = int(cell_locations[focus][1] / distance[0]) + 2
+            z = int(cell_locations[focus][2] / distance[0]) + 2
+
+            # initialize these variables with essentially nothing values and the distance as an initial comparison
+            nearest_cell_index = np.nan
+            nearest_cell_dist = distance[0] * 2
+
+            # loop over the bin the cell is in and the surrounding bin
+            for i in range(-1, 2):
+                for j in range(-1, 2):
+                    for k in range(-1, 2):
+                        # get the count of cells for the current bin
+                        bin_count = bins_help[x + i][y + j][z + k]
+
+                        # go through that bin
+                        for l in range(bin_count):
+                            # get the index of the current cell in question
+                            current = int(bins[x + i][y + j][z + k][l])
+
+                            # make sure not differentiated, not same cell, and not in the same cluster
+                            if if_pluri[current] and focus != current and members[focus] != members[current]:
+                                # check to see if that cell is within the search radius and not the same cell
+                                mag = magnitude(cell_locations[current], cell_locations[focus])
+                                if mag <= distance[0]:
+                                    # if it's closer than the last cell, update the nearest magnitude and index
+                                    if mag < nearest_cell_dist:
+                                        nearest_cell_index = current
+                                        nearest_cell_dist = mag
+
+            # update the nearest cell of desired type
+            cell_nearest_cluster[focus] = nearest_cell_index
 
 
 @cuda.jit(device=True)

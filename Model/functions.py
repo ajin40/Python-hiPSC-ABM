@@ -806,10 +806,20 @@ def nearest_cluster(simulation):
     # radius of search for the nearest pluripotent cell not in the same cluster
     nearest_distance = 0.0002
 
-    # create a copy of the neighbor graph and remove edges with differentiated cells
+    # create a copy of the neighbor graph and get the edges
     pluri_graph = copy.deepcopy(simulation.neighbor_graph)
     edges = np.array(pluri_graph.get_edgelist())
-    delete = backend.remove_diff_edges(simulation.cell_states, edges)
+
+    # create an array to hold edges to delete
+    length = len(edges)
+    delete = np.zeros(length, dtype=int)
+    delete_help = np.zeros(length, dtype=bool)
+
+    # use parallel jit function to find differentiated nodes/edges
+    delete, delete_help = backend.remove_diff_edges(length, simulation.cell_states, edges, delete, delete_help)
+
+    # only delete edges meant to be deleted by the help array
+    delete = delete[delete_help]
     pluri_graph.delete_edges(delete)
 
     # get the membership to corresponding clusters
@@ -825,7 +835,7 @@ def nearest_cluster(simulation):
     bins, bins_help, max_cells = backend.assign_bins(simulation, nearest_distance, nearest_cluster.max_cells)
 
     # turn the following array into True/False
-    cell_states = simulation.cell_states == "Pluripotent"
+    if_pluri = simulation.cell_states == "Pluripotent"
 
     # call the nvidia gpu version
     if simulation.parallel:
@@ -834,7 +844,7 @@ def nearest_cluster(simulation):
         bins_cuda = cuda.to_device(bins)
         bins_help_cuda = cuda.to_device(bins_help)
         locations_cuda = cuda.to_device(simulation.cell_locations)
-        states_cuda = cuda.to_device(cell_states)
+        if_pluri_cuda = cuda.to_device(if_pluri)
         cell_nearest_cluster_cuda = cuda.to_device(simulation.cell_nearest_cluster)
         members_cuda = cuda.to_device(members)
 
@@ -843,20 +853,23 @@ def nearest_cluster(simulation):
         blocks_per_grid = math.ceil(simulation.number_cells / threads_per_block)
 
         # call the cuda kernel with given parameters
-        backend.outside_cluster_gpu[blocks_per_grid, threads_per_block](locations_cuda, bins_cuda, distance_cuda,
-                                                                        bins_help_cuda, states_cuda,
+        backend.nearest_cluster_gpu[blocks_per_grid, threads_per_block](locations_cuda, bins_cuda, bins_help_cuda,
+                                                                        distance_cuda, if_pluri_cuda,
                                                                         cell_nearest_cluster_cuda, members_cuda)
 
         # return the array back from the gpu
-        simulation.cell_cluster_nearest = cell_cluster_nearest_cuda.copy_to_host()
+        nearest_cell = cell_nearest_cluster_cuda.copy_to_host()
 
+    # call the cpu version
     else:
-        nearest_outside = backend.outside_cluster_cpu(simulation.number_cells, nearest_distance, bins, bins_help,
-                                                      simulation.cell_locations, simulation.cell_states,
-                                                      simulation.cell_cluster_nearest, members)
+        nearest_cell = backend.nearest_cluster_cpu(simulation.number_cells, simulation.cell_locations, bins, bins_help,
+                                                   nearest_distance, if_pluri, simulation.cell_nearest_cluster, members)
 
-        # revalue the array holding the indices of nearest pluripotent cells outside cluster
-        simulation.cell_cluster_nearest = nearest_outside
+    # revalue the array holding the indices of nearest pluripotent cells outside cluster
+    simulation.cell_cluster_nearest = nearest_cell
+
+    # calculate the total time elapsed for the function
+    simulation.nearest_cluster_time += time.time()
 
 
 def setup_diffusion_bins(simulation):
@@ -870,12 +883,10 @@ def setup_diffusion_bins(simulation):
         setup_diffusion_bins.max_points = 10
 
     # get the dimensions of the array representing the diffusion points
-    x_steps = simulation.fgf4_values.shape[0]
-    y_steps = simulation.fgf4_values.shape[1]
-    z_steps = simulation.fgf4_values.shape[2]
+    shape = simulation.fgf4_values.shape
 
     # set up the locations of the diffusion points
-    x, y, z = np.meshgrid(np.arange(x_steps), np.arange(y_steps), np.arange(z_steps), indexing='ij')
+    x, y, z = np.meshgrid(np.arange(shape[0]), np.arange(shape[1]), np.arange(shape[2]), indexing='ij')
     x, y, z = x * simulation.dx, y * simulation.dy, z * simulation.dz
     simulation.diffuse_locations = np.stack((x, y, z), axis=3)
 
@@ -893,9 +904,9 @@ def setup_diffusion_bins(simulation):
         diffuse_bins_help = np.zeros(bins_help_size, dtype=int)
 
         # assign the points to bins via the jit function
-        diffuse_bins, diffuse_bins_help = backend.setup_diffuse_bins_cpu(simulation.diffuse_locations, x_steps, y_steps,
-                                                                         z_steps, simulation.diffuse_radius,
-                                                                         diffuse_bins, diffuse_bins_help)
+        diffuse_bins, diffuse_bins_help = backend.setup_diffuse_bins_cpu(simulation.diffuse_locations, shape,
+                                                                         simulation.diffuse_radius, diffuse_bins,
+                                                                         diffuse_bins_help)
 
         # either break the loop if all points were accounted for or revalue the maximum number of points based on
         # the output of the function call
@@ -917,27 +928,29 @@ def update_diffusion(simulation):
     # start time of the function
     simulation.update_diffusion_time = -1 * time.time()
 
-    # calculate the number of times the finite differences diffusion is run
-    diffusion_steps = math.ceil(simulation.step_dt / simulation.dt)
+    # if a static variable for holding step time hasn't been created, create one
+    if not hasattr(update_diffusion, "steps"):
+        # get the total amount of times the cells will be incrementally moved during the step
+        update_diffusion.steps = math.ceil(simulation.step_dt / simulation.dt)
 
     # go through all gradients and update the diffusion of each
     for gradient, temp in simulation.extracellular_names:
         # divide the temporary gradient by the number of steps to simulate the incremental increase in concentration
-        simulation.__dict__[temp] /= diffusion_steps
+        simulation.__dict__[temp] /= update_diffusion.steps
 
-        # get the dimensions of an array that is 2 bigger in all directions
+        # get the dimensions of an array that is 2 bigger along all axes
         size = np.array(simulation.__dict__[gradient].shape) + 2 * np.ones(3, dtype=int)
 
         # create arrays that will give the gradient arrays a border of zeros
         gradient_base = np.zeros(size)
         temp_base = np.zeros(size)
 
-        # add the gradient array and the temp array to the middle of the base arrays
+        # add the gradient array and the temp array to the middle of the base arrays so create border of zeros
         gradient_base[1:-1, 1:-1, 1:-1] = simulation.fgf4_values
         temp_base[1:-1, 1:-1, 1:-1] = simulation.fgf4_values_temp
 
         # return the gradient base after it has been updated by the finite differences method
-        gradient_base = backend.update_diffusion_cpu(gradient_base, temp_base, diffusion_steps, simulation.dt,
+        gradient_base = backend.update_diffusion_cpu(gradient_base, temp_base, update_diffusion.steps, simulation.dt,
                                                      simulation.dx2, simulation.dy2, simulation.dz2, simulation.diffuse,
                                                      simulation.size)
         # get the gradient

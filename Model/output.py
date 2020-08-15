@@ -157,7 +157,7 @@ def simulation_data(simulation):
                              simulation.update_diffusion_time, simulation.check_neighbors_time, simulation.nearest_time,
                              simulation.cell_motility_time, simulation.cell_update_time, simulation.update_queue_time,
                              simulation.handle_movement_time, simulation.jkr_neighbors_time, simulation.get_forces_time,
-                             simulation.apply_forces_time])
+                             simulation.apply_forces_time, simulation.nearest_cluster_time])
 
 
 def temporary(simulation):
@@ -225,7 +225,7 @@ def initialize_outputs(simulation):
         csv_object = csv.writer(file_object)
         csv_object.writerow(["Step Number", "Number Cells", "Step Time", "Memory (MB)", "update_diffusion",
                              "check_neighbors", "nearest_diff", "cell_motility", "update_cells", "update_cell_queue",
-                             "handle_movement", "jkr_neighbors", "get_forces", "apply_forces"])
+                             "handle_movement", "jkr_neighbors", "get_forces", "apply_forces", "nearest_cluster"])
 
     # make the directories for images, cell values, and gradients
     if not os.path.isdir(simulation.images_path) and simulation.output_images:

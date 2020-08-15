@@ -38,7 +38,7 @@ for simulation.current_step in range(simulation.beginning_step, simulation.end_s
     functions.nearest(simulation)
 
     # find the nearest pluripotent cell within a fixed radius that is not part of the same component
-    # functions.outside_cluster(simulation)
+    functions.nearest_cluster(simulation)
 
     # locate the diffusion point (within a fixed radius) that has the highest FGF4 concentration.
     # functions.highest_fgf4(simulation)

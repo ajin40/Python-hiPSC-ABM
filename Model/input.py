@@ -84,14 +84,14 @@ class Simulation:
             self.cell_nearest_nanog = np.empty(self.number_cells)
             self.cell_nearest_diff = np.empty(self.number_cells)
             self.cell_highest_fgf4 = np.empty((self.number_cells, 3))
-            self.cell_cluster_nearest = np.empty(self.number_cells)
+            self.cell_nearest_cluster = np.empty(self.number_cells)
 
             # the names of the cell arrays should be in this list as this will be used to delete and add cells
             self.cell_array_names = ["cell_locations", "cell_radii", "cell_motion", "cell_fds", "cell_states",
                                      "cell_diff_counter", "cell_div_counter", "cell_death_counter", "cell_fds_counter",
                                      "cell_motility_force", "cell_jkr_force", "cell_nearest_gata6",
                                      "cell_nearest_nanog", "cell_nearest_diff", "cell_highest_fgf4",
-                                     "cell_cluster_nearest"]
+                                     "cell_nearest_cluster"]
 
             # holds all indices of cells that will divide at a current step or be removed at that step
             self.cells_to_divide, self.cells_to_remove = np.array([], dtype=int), np.array([], dtype=int)
