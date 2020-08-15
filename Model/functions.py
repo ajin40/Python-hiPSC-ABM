@@ -872,6 +872,46 @@ def nearest_cluster(simulation):
     simulation.nearest_cluster_time += time.time()
 
 
+def highest_fgf4(simulation):
+    """ Search for the highest concentration of
+        fgf4 within a fixed radius
+    """
+    # call the nvidia gpu version
+    if simulation.parallel:
+        # make sure the gradient array is contiguous
+        fgf4_values = np.ascontiguousarray(simulation.fgf4_values)
+
+        # turn the following into arrays that can be interpreted by the gpu
+        locations_cuda = cuda.to_device(simulation.cell_locations)
+        diffuse_bins_cuda = cuda.to_device(simulation.diffuse_bins)
+        diffuse_bins_help_cuda = cuda.to_device(simulation.diffuse_bins_help)
+        diffuse_locations_cuda = cuda.to_device(simulation.diffuse_locations)
+        distance_cuda = cuda.to_device(simulation.diffuse_radius)
+        highest_fgf4_cuda = cuda.to_device(simulation.cell_highest_fgf4)
+        fgf4_values_cuda = cuda.to_device(fgf4_values)
+
+        # allocate threads and blocks for gpu memory
+        threads_per_block = 72
+        blocks_per_grid = math.ceil(simulation.number_cells / threads_per_block)
+
+        # call the cuda kernel with given parameters
+        backend.highest_fgf4_gpu[blocks_per_grid, threads_per_block](locations_cuda, diffuse_bins_cuda,
+                                                                     diffuse_bins_help_cuda, diffuse_locations_cuda,
+                                                                     distance_cuda, highest_fgf4_cuda, fgf4_values_cuda)
+        # return the array back from the gpu
+        cell_highest_fgf4 = highest_fgf4_cuda.copy_to_host()
+
+    # call the cpu version
+    else:
+        cell_highest_fgf4 = backend.highest_fgf4_cpu(simulation.number_cells, simulation.cell_locations,
+                                                     simulation.diffuse_bins, simulation.diffuse_bins_help,
+                                                     simulation.diffuse_locations, simulation.diffuse_radius,
+                                                     simulation.cell_highest_fgf4, simulation.fgf4_values)
+
+    # revalue the array holding the indices of diffusion points of highest fgf4
+    simulation.cell_highest_fgf4 = cell_highest_fgf4
+
+
 def setup_diffusion_bins(simulation):
     """ This function will put the diffusion points
         into corresponding bins that will be used to
@@ -958,13 +998,3 @@ def update_diffusion(simulation):
 
     # calculate the total time elapsed for the function
     simulation.update_diffusion_time += time.time()
-
-
-def highest_fgf4(simulation):
-    """ Search for the highest concentration of
-        fgf4 within a fixed radius
-    """
-    simulation.cell_highest_fgf4 = backend.highest_fgf4_cpu(simulation.diffuse_radius, simulation.diffuse_bins,
-                                                            simulation.diffuse_bins_help, simulation.diffuse_locations,
-                                                            simulation.cell_locations, simulation.number_cells,
-                                                            simulation.cell_highest_fgf4, simulation.fgf4_values)
