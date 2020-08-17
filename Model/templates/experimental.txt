@@ -45,3 +45,5 @@ Use FGF4 concentrations for NANOG high movements? Ex. False
 
 Differentiated cell motion inhibition. Ex. 3
 [ 10 ]
+
+------------------------------------------------------------------------------------------------------------------------

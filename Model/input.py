@@ -8,6 +8,7 @@ import pickle
 import igraph
 import shutil
 import natsort
+import webbrowser
 
 import output
 
@@ -52,7 +53,7 @@ class Simulation:
         self.pluri_to_diff = int(experimental[10][2:-3])
         self.death_thresh = int(experimental[13][2:-3])
         self.fds_thresh = int(experimental[16][2:-3])
-        self.move_thresh = int(experimental[19][2:-3])
+        self.pluri_move_thresh = int(experimental[19][2:-3])
         self.lonely_cell = int(experimental[22][2:-3])
         self.diff_surround = int(experimental[25][2:-3])
         self.contact_inhibit = int(experimental[28][2:-3])
@@ -86,6 +87,13 @@ class Simulation:
             self.cell_highest_fgf4 = np.empty((self.number_cells, 3))
             self.cell_nearest_cluster = np.empty(self.number_cells)
 
+            # these arrays need to be initialized with the numpy equivalent of None
+            self.cell_nearest_gata6[:] = np.nan
+            self.cell_nearest_nanog[:] = np.nan
+            self.cell_nearest_diff[:] = np.nan
+            self.cell_highest_fgf4[:] = np.nan
+            self.cell_nearest_cluster[:] = np.nan
+
             # the names of the cell arrays should be in this list as this will be used to delete and add cells
             self.cell_array_names = ["cell_locations", "cell_radii", "cell_motion", "cell_fds", "cell_states",
                                      "cell_diff_counter", "cell_div_counter", "cell_death_counter", "cell_fds_counter",
@@ -98,9 +106,6 @@ class Simulation:
 
             # create graphs used to all cells and their neighbors, initialize them with the number of cells
             self.neighbor_graph, self.jkr_graph = igraph.Graph(self.number_cells), igraph.Graph(self.number_cells)
-
-            # the names of the graphs should be in this list as this will be used to delete and add cells
-            self.graph_names = ["neighbor_graph", "jkr_graph"]
 
             # min and max radius lengths are used to calculate linear growth of the radius over time in 2D
             self.max_radius = 0.000005
@@ -323,7 +328,9 @@ def setup():
         exit()
 
     else:
-        print("Incorrect mode, see documentation")
+        # open NetLogo if mode is incorrect
+        webbrowser.open("https://ccl.northwestern.edu/netlogo/")
+        exit()
 
     # return the modified simulation instance
     return simulation
