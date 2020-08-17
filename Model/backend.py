@@ -2,6 +2,8 @@ import numpy as np
 from numba import jit, cuda, prange
 import math
 import random as r
+from functools import wraps
+import time
 
 
 def remove_cell(simulation, index):
@@ -949,3 +951,23 @@ def random_vector(simulation):
 
     # return random vector
     return np.array([x, y, z])
+
+
+def record_time(function):
+    """ a decorator used to time individual functions
+    """
+    @wraps(function)
+    def wrap(simulation):
+        # start time of the function
+        start = time.perf_counter()
+
+        # call the actual function
+        function(simulation)
+
+        # end time of the function
+        end = time.perf_counter()
+
+        # update the time of the function dictionary
+        simulation.function_times[function.__name__] = end - start
+
+    return wrap

@@ -32,6 +32,7 @@ class Simulation:
         self.images_path = path + name + "_images" + separator
         self.values_path = path + name + "_values" + separator
         self.gradients_path = path + name + "_gradients" + separator
+        self.tda_path = path + name + "_tda" + separator
 
         # general template file
         self.parallel = eval(general[4][2:-3])
@@ -63,6 +64,7 @@ class Simulation:
         self.max_fgf4 = float(experimental[40][2:-3])
         self.fgf4_move = eval(experimental[43][2:-3])
         self.diff_move_thresh = int(experimental[46][2:-3])
+        self.output_tda = eval(experimental[49][2:-3])
 
         # the following only need to be created if this is a normal simulation and not a special mode
         if mode == 0:
@@ -139,6 +141,9 @@ class Simulation:
             # the time in seconds for incremental movement
             self.step_dt = 1800
             self.move_dt = 200
+
+            # used to hold the run times of each individual function
+            self.function_times = dict()
 
 
 def setup():

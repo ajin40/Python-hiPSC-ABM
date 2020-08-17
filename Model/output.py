@@ -10,6 +10,39 @@ import natsort
 import os
 
 
+def initialize_outputs(simulation):
+    """ sets up the simulation data csv and makes directories
+        for images, values, and the gradients
+    """
+    # make the directories for images, cell values, and gradients
+    if not os.path.isdir(simulation.images_path) and simulation.output_images:
+        os.mkdir(simulation.images_path)
+    if not os.path.isdir(simulation.values_path):
+        os.mkdir(simulation.values_path)
+    if not os.path.isdir(simulation.gradients_path):
+        os.mkdir(simulation.gradients_path)
+    if not os.path.isdir(simulation.tda_path) and simulation.output_tda:
+        os.mkdir(simulation.tda_path)
+
+
+def step_outputs(simulation):
+    """ calls multiple functions that each output some
+        sort of file relating to the simulation at a
+        particular step
+    """
+    # information about the cells/environment at current step
+    step_image(simulation)
+    step_csv(simulation)
+    step_gradients(simulation)
+    step_tda(simulation)
+
+    # number of cells, memory, step time, and individual function times
+    simulation_data(simulation)
+
+    # a temporary pickled file of the simulation, used for continuing past simulations
+    temporary(simulation)
+
+
 def step_image(simulation):
     """ Creates an image representation of the
         space in which the cells reside and
@@ -136,28 +169,34 @@ def step_csv(simulation):
         csv_file.writerows(cell_data)
 
 
-def simulation_data(simulation):
-    """ Adds a new line to the running csv for data amount
-        the simulation such as memory, step time, number of
-        cells, and various other stats.
+def step_gradients(simulation):
+    """ saves the gradient arrays as .npy files
     """
-    # get path to data csv
-    data_path = simulation.path + simulation.name + "_data.csv"
+    for gradient, temp in simulation.extracellular_names:
+        np.save(simulation.gradients_path + simulation.name + "_" + gradient + "_" + str(simulation.current_step)
+                + ".npy", simulation.__dict__[gradient])
 
-    # open file
-    with open(data_path, "a", newline="") as file_object:
-        csv_object = csv.writer(file_object)
 
-        # calculate the step time and the memory
-        step_time = time.time() - simulation.step_start
-        memory = memory_profiler.memory_usage(max_usage=True)
+def step_tda(simulation):
+    # get file path
+    file_path = simulation.tda_path + simulation.name + "_tda_" + str(int(simulation.current_step)) + ".csv"
 
-        # write the row with the corresponding values
-        csv_object.writerow([simulation.current_step, simulation.number_cells, step_time, memory,
-                             simulation.update_diffusion_time, simulation.check_neighbors_time, simulation.nearest_time,
-                             simulation.cell_motility_time, simulation.cell_update_time, simulation.update_queue_time,
-                             simulation.handle_movement_time, simulation.jkr_neighbors_time, simulation.get_forces_time,
-                             simulation.apply_forces_time, simulation.nearest_cluster_time])
+    # open a new file
+    with open(file_path, "w", newline="") as new_file:
+        csv_file = csv.writer(new_file)
+
+        for i in range(simulation.number_cells):
+            if not (simulation.cell_fds[i][2] == 1 and simulation.cell_fds[i][3] == 1) and not\
+                    (simulation.cell_fds[i][2] == 0 and simulation.cell_fds[i][3] == 0):
+                if simulation.cell_states[i] == "Differentiated":
+                    color = "Red"
+                elif simulation.cell_fds[i][2] == 1:
+                    color = "White"
+                elif simulation.cell_fds[i][3] == 1:
+                    color = "Green"
+
+                # write the list containing the new csv rows
+                csv_file.writerow([simulation.cell_locations[i][0], simulation.cell_locations[i][1], color])
 
 
 def temporary(simulation):
@@ -166,6 +205,39 @@ def temporary(simulation):
     """
     with open(simulation.path + simulation.name + '_temp.pkl', 'wb') as file:
         pickle.dump(simulation, file, -1)
+
+
+def simulation_data(simulation):
+    """ Creates/adds a new line to the running csv for data amount
+        the simulation such as memory, step time, number of cells,
+         and run time of functions.
+    """
+    # get path to data csv
+    data_path = simulation.path + simulation.name + "_data.csv"
+
+    # open the file and create csv object
+    with open(data_path, "w", newline="") as file_object:
+        csv_object = csv.writer(file_object)
+
+        # create header if this is the beginning of a new simulation
+        if simulation.current_step == 1:
+            # add/remove custom elements of the header
+            custom_header = ["Step Number", "Number Cells", "Step Time", "Memory (MB)"]
+
+            # header with all the names of the functions with the "record_time" decorator
+            functions_header = list(simulation.function_times.keys())
+
+            # add the headers together and write the row to the csv
+            csv_object.writerow(custom_header + functions_header)
+
+        # calculate the total step time and the max memory used
+        step_time = time.time() - simulation.step_start
+        memory = memory_profiler.memory_usage(max_usage=True)
+
+        # write the row with the corresponding values
+        custom = [simulation.current_step, simulation.number_cells, step_time, memory]
+        functions = list(simulation.function_times.values())
+        csv_object.writerow(custom + functions)
 
 
 def create_video(simulation):
@@ -203,55 +275,3 @@ def create_video(simulation):
 
     # print end statement
     print("The simulation is finished. May the force be with you.")
-
-
-def step_gradients(simulation):
-    """ saves the gradient arrays as .npy files
-    """
-    for gradient, temp in simulation.extracellular_names:
-        np.save(simulation.gradients_path + simulation.name + "_" + gradient + "_" + str(simulation.current_step)
-                + ".npy", simulation.__dict__[gradient])
-
-
-def initialize_outputs(simulation):
-    """ sets up the simulation data csv and makes directories
-        for images, values, and the gradients
-    """
-    # get path to data csv
-    data_path = simulation.path + simulation.name + "_data.csv"
-
-    # open the file and create a csv object and write a header as the first line
-    with open(data_path, "w", newline="") as file_object:
-        csv_object = csv.writer(file_object)
-        csv_object.writerow(["Step Number", "Number Cells", "Step Time", "Memory (MB)", "update_diffusion",
-                             "check_neighbors", "nearest_diff", "cell_motility", "update_cells", "update_cell_queue",
-                             "handle_movement", "jkr_neighbors", "get_forces", "apply_forces", "nearest_cluster"])
-
-    # make the directories for images, cell values, and gradients
-    if not os.path.isdir(simulation.images_path) and simulation.output_images:
-        os.mkdir(simulation.images_path)
-    if not os.path.isdir(simulation.values_path):
-        os.mkdir(simulation.values_path)
-    if not os.path.isdir(simulation.gradients_path):
-        os.mkdir(simulation.gradients_path)
-
-
-def step_outputs(simulation):
-    """ calls multiple functions that each output some
-        sort of file relating to the simulation at a
-        particular step
-    """
-    # get the image of the space
-    step_image(simulation)
-
-    # create a csv with all the cell values
-    step_csv(simulation)
-
-    # turn each of the gradients into a numpy file
-    step_gradients(simulation)
-
-    # add a line of information about model efficiency at the current step
-    simulation_data(simulation)
-
-    # create a temporary pickle of the simulation that can be used to continue a simulation
-    temporary(simulation)

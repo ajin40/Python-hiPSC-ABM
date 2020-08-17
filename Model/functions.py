@@ -20,6 +20,7 @@ def info(simulation):
     print("Number of cells: " + str(simulation.number_cells))
 
 
+@backend.record_time
 def cell_update(simulation):
     """ loops over all indices of cells and updates
         them accordingly
@@ -155,7 +156,7 @@ def cell_pathway(simulation, index):
         simulation.fgf4_values_temp[index_x][index_y][index_z] += 1
 
     # activate the following pathway based on if dox (after 24 hours) has been induced yet
-    if simulation.current_step >= 49:
+    if simulation.current_step >= 1:
         # if the FGF4 amount for the location is greater than 0, set the fgf4_bool value to be 1 for the
         # functions
         if simulation.fgf4_values[index_x][index_y][index_z] > 0:
@@ -218,6 +219,7 @@ def cell_pathway(simulation, index):
                 simulation.cell_motion[index] = True
 
 
+@backend.record_time
 def cell_motility(simulation):
     """ gives the cells a motive force depending on
         set rules for the cell types.
@@ -351,6 +353,7 @@ def cell_motility(simulation):
     simulation.cell_motility_time += time.time()
 
 
+@backend.record_time
 def update_queue(simulation):
     """ add and removes cells to and from the simulation
         either all at once or in "groups"
@@ -406,6 +409,7 @@ def update_queue(simulation):
     simulation.update_queue_time += time.time()
 
 
+@backend.record_time
 def check_neighbors(simulation):
     """ for all cells, determines which cells fall within a fixed
         radius to denote a neighbor then stores this information
@@ -498,6 +502,7 @@ def check_neighbors(simulation):
     simulation.check_neighbors_time += time.time()
 
 
+@backend.record_time
 def handle_movement(simulation):
     """ runs the following functions together for the time period
         of the step. resets the motility force array to zero after
@@ -529,6 +534,7 @@ def handle_movement(simulation):
     simulation.handle_movement_time += time.time()
 
 
+@backend.record_time
 def jkr_neighbors(simulation):
     """ for all cells, determines which cells will have physical
         interactions with other cells returns this information
@@ -621,6 +627,7 @@ def jkr_neighbors(simulation):
     simulation.jkr_neighbors_time += time.time()
 
 
+@backend.record_time
 def get_forces(simulation):
     """ goes through all of "JKR" edges and quantifies any
         resulting adhesive or repulsion forces between
@@ -680,6 +687,7 @@ def get_forces(simulation):
     simulation.get_forces_time += time.time()
 
 
+@backend.record_time
 def apply_forces(simulation):
     """ Turns the active motility/division forces and
         inactive JKR forces into movement
@@ -727,6 +735,7 @@ def apply_forces(simulation):
     simulation.apply_forces_time += time.time()
 
 
+@backend.record_time
 def nearest(simulation):
     """ looks at cells within a given radius a determines
         the closest cells of certain types
@@ -798,6 +807,7 @@ def nearest(simulation):
     simulation.nearest_time += time.time()
 
 
+@backend.record_time
 def nearest_cluster(simulation):
     """ find the nearest pluripotent cells outside the cluster
         that the cell is currently in
@@ -818,7 +828,8 @@ def nearest_cluster(simulation):
     delete_help = np.zeros(length, dtype=bool)
 
     # use parallel jit function to find differentiated nodes/edges
-    delete, delete_help = backend.remove_diff_edges(length, simulation.cell_states, edges, delete, delete_help)
+    if length != 0:
+        delete, delete_help = backend.remove_diff_edges(length, simulation.cell_states, edges, delete, delete_help)
 
     # only delete edges meant to be deleted by the help array
     delete = delete[delete_help]
@@ -874,6 +885,7 @@ def nearest_cluster(simulation):
     simulation.nearest_cluster_time += time.time()
 
 
+@backend.record_time
 def highest_fgf4(simulation):
     """ Search for the highest concentration of
         fgf4 within a fixed radius
@@ -963,6 +975,7 @@ def setup_diffusion_bins(simulation):
     simulation.diffuse_bins_help = diffuse_bins_help
 
 
+@backend.record_time
 def update_diffusion(simulation):
     """ goes through all extracellular gradients and
         approximates the diffusion of that molecule
