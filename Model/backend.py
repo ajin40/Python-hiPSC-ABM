@@ -128,7 +128,7 @@ def check_neighbors_cpu(number_cells, cell_locations, bins, bins_help, distance,
     # loops over all cells, with the current cell index being the focus
     for focus in prange(number_cells):
         # get the starting index for writing to the edge holder array
-        index = focus * max_neighbors
+        start = focus * max_neighbors
 
         # holds the total amount of edges for a given cell
         edge_counter = 0
@@ -154,6 +154,9 @@ def check_neighbors_cpu(number_cells, cell_locations, bins, bins_help, distance,
                         if np.linalg.norm(vector) <= distance and focus < current:
                             # if within the bounds of the array, add the edge
                             if edge_counter < max_neighbors:
+                                # get the index to place the edge
+                                index = start + edge_counter
+
                                 # update the edge array and identify that this edge is nonzero
                                 edge_holder[index][0] = focus
                                 edge_holder[index][1] = current
@@ -161,7 +164,6 @@ def check_neighbors_cpu(number_cells, cell_locations, bins, bins_help, distance,
 
                             # increase the count of edges for a cell and the index for the next edge
                             edge_counter += 1
-                            index += 1
 
         # update the array with number of edges for the cell
         edge_count[focus] = edge_counter
@@ -179,7 +181,7 @@ def check_neighbors_gpu(cell_locations, bins, bins_help, distance, edge_holder, 
     focus = cuda.grid(1)
 
     # get the starting index for writing to the edge holder array
-    index = focus * max_neighbors[0]
+    start = focus * max_neighbors[0]
 
     # checks to see that position is in the array
     if focus < cell_locations.shape[0]:
@@ -207,14 +209,16 @@ def check_neighbors_gpu(cell_locations, bins, bins_help, distance, edge_holder, 
                         if magnitude(cell_locations[focus], cell_locations[current]) <= distance[0] and focus < current:
                             # if within the bounds of the array, add the edge
                             if edge_counter < max_neighbors[0]:
+                                # get the index to place the edge
+                                index = start + edge_counter
+
                                 # update the edge array and identify that this edge is nonzero
                                 edge_holder[index][0] = focus
                                 edge_holder[index][1] = current
                                 if_nonzero[index] = 1
 
                                 # increase the count of edges for a cell and the index for the next edge
-                                edge_counter += 1
-                                index += 1
+                            edge_counter += 1
 
         # update the array with number of edges for the cell
         edge_count[focus] = edge_counter
@@ -229,7 +233,7 @@ def jkr_neighbors_cpu(number_cells, cell_locations, cell_radii, bins, bins_help,
     # loops over all cells, with the current cell index being the focus
     for focus in prange(number_cells):
         # get the starting index for writing to the edge holder array
-        index = focus * max_neighbors
+        start = focus * max_neighbors
 
         # holds the total amount of edges for a given cell
         edge_counter = 0
@@ -260,14 +264,16 @@ def jkr_neighbors_cpu(number_cells, cell_locations, cell_radii, bins, bins_help,
                         if overlap >= 0 and focus < current:
                             # if within the bounds of the array, add the edge
                             if edge_counter < max_neighbors:
+                                # get the index to place the edge
+                                index = start + edge_counter
+
                                 # update the edge array and identify that this edge is nonzero
                                 edge_holder[index][0] = focus
                                 edge_holder[index][1] = current
                                 if_nonzero[index] = 1
 
-                            # increase the count of edges for a cell and the index for the next edge
+                                # increase the count of edges for a cell and the index for the next edge
                             edge_counter += 1
-                            index += 1
 
         # update the array with number of edges for the cell
         edge_count[focus] = edge_counter
@@ -286,7 +292,7 @@ def jkr_neighbors_gpu(cell_locations, radii, bins, bins_help, distance, edge_hol
     focus = cuda.grid(1)
 
     # get the starting index for writing to the edge holder array
-    index = focus * max_neighbors[0]
+    start = focus * max_neighbors[0]
 
     # checks to see that position is in the array
     if focus < cell_locations.shape[0]:
@@ -320,14 +326,16 @@ def jkr_neighbors_gpu(cell_locations, radii, bins, bins_help, distance, edge_hol
                         if overlap >= 0 and focus < current:
                             # if within the bounds of the array, add the edge
                             if edge_counter < max_neighbors[0]:
+                                # get the index to place the edge
+                                index = start + edge_counter
+
                                 # update the edge array and identify that this edge is nonzero
                                 edge_holder[index][0] = focus
                                 edge_holder[index][1] = current
                                 if_nonzero[index] = 1
 
                                 # increase the count of edges for a cell and the index for the next edge
-                                edge_counter += 1
-                                index += 1
+                            edge_counter += 1
 
         # update the array with number of edges for the cell
         edge_count[focus] = edge_counter
