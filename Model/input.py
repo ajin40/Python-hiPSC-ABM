@@ -8,9 +8,9 @@ import pickle
 import igraph
 import shutil
 import natsort
-import webbrowser
 
 import output
+import functions
 
 
 # used to hold all values necessary to the simulation as it moves from one step to the next
@@ -250,13 +250,17 @@ def setup():
         # make a directories for outputting images, csvs, gradients, etc.
         output.initialize_outputs(simulation)
 
+        # places all of the diffusion points into bins so that the model can use a bin sorting method to when
+        # determining highest/lowest concentrations of the extracellular gradient(s) only needed when beginning
+        # a new simulation
+        functions.setup_diffusion_bins(simulation)
+
     # continue a past simulation
     elif mode == 1:
-        with open(templates_path + "general.txt") as general_file:
-            general = general_file.readlines()
-            end_step = int(general[7][2:-3])
+        # get the new end step of the simulation
+        end_step = int(input("What is the final step of this continuation? "))
 
-        # open the temporary pickled simulation
+        # open the temporary pickled simulation and update the beginning step and the end step
         with open(path + name + "_temp.pkl", "rb") as temp_file:
             simulation = pickle.load(temp_file)
             simulation.beginning_step = simulation.current_step + 1
@@ -339,8 +343,11 @@ def setup():
         exit()
 
     else:
-        # open NetLogo if mode is incorrect
-        webbrowser.open("https://ccl.northwestern.edu/netlogo/")
+        print("See proper modes below:\n")
+        print("new simulation: 0")
+        print("continuation of past simulation: 1")
+        print("turn simulation images to video: 2")
+        print("turn simulation csvs to images/video: 3")
         exit()
 
     # return the modified simulation instance

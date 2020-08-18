@@ -89,9 +89,11 @@ def step_image(simulation):
 
             # color the cells according to the mode
             if simulation.color_mode:
-                # True yields pluripotent/differentiated coloring
+                # True yields pluripotent/differentiated/gata6 high coloring
                 if simulation.cell_states[i] == "Differentiated":
                     color = (230, 0, 0)
+                elif simulation.cell_fds[i][2] and not simulation.cell_fds[i][3]:
+                    color = (255, 255, 255)
                 else:
                     color = (22, 252, 32)
 
@@ -204,9 +206,25 @@ def step_tda(simulation):
     with open(file_path, "w", newline="") as new_file:
         csv_file = csv.writer(new_file)
 
+        # create an array to write cell colors to
+        cell_color = np.empty(simulation.number_cells, dtype="<U14")
+
+        # go through all cells giving the corresponding color
+        for i in range(simulation.number_cells):
+            if simulation.cell_states[i] == "Differentiated":
+                color = "red"
+            elif simulation.cell_fds[i][2] and not simulation.cell_fds[i][3]:
+                color = "white"
+            elif not simulation.cell_fds[i][2] and simulation.cell_fds[i][3]:
+                color = "green"
+            else:
+                color = "other"
+
+            # update color
+            cell_color[i] = color
+
         # combine the multiple cell arrays into a single 2D list
-        cell_data = list(zip(simulation.cell_locations[:, 0], simulation.cell_locations[:, 1], simulation.cell_states,
-                             simulation.cell_fds[:, 2], simulation.cell_fds[:, 3]))
+        cell_data = list(zip(simulation.cell_locations[:, 0], simulation.cell_locations[:, 1], cell_color))
 
         # write the 2D list to the csv
         csv_file.writerows(cell_data)

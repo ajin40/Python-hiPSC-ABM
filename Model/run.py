@@ -6,10 +6,6 @@ import functions
 # this is done by reading some template files that contains initial parameters of the model.
 simulation = input.setup()
 
-# places all of the diffusion points into bins so that the model can use a bin sorting method to when
-# determining highest/lowest concentrations of the extracellular gradient(s).
-functions.setup_diffusion_bins(simulation)
-
 # this will loop over all steps defined in the general template file in addition to updating the current step
 # of the simulation. this is done to explicitly/easily show what happens at each step
 for simulation.current_step in range(simulation.beginning_step, simulation.end_step + 1):
