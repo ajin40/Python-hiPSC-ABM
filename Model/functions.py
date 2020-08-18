@@ -12,8 +12,8 @@ def info(simulation):
     """ gives an idea of how the simulation is running
         and records the beginning of the step in real time
     """
-    # records the real time value of when a step begins
-    simulation.step_start = time.time()
+    # records when the step begins, used for measuring efficiency
+    simulation.step_start = time.perf_counter()
 
     # prints the current step number and the number of cells
     print("Step: " + str(simulation.current_step))
@@ -25,9 +25,6 @@ def cell_update(simulation):
     """ loops over all indices of cells and updates
         them accordingly
     """
-    # start time of the function
-    simulation.cell_update_time = -1 * time.time()
-
     # loop over the cells
     for i in range(simulation.number_cells):
         # Cell death
@@ -44,9 +41,6 @@ def cell_update(simulation):
 
         # Extracellular interaction and GATA6 pathway
         cell_pathway(simulation, i)
-
-    # calculate the total time elapsed for the function
-    simulation.cell_update_time += time.time()
 
 
 def cell_death(simulation, index):
@@ -156,7 +150,7 @@ def cell_pathway(simulation, index):
         simulation.fgf4_values_temp[index_x][index_y][index_z] += 1
 
     # activate the following pathway based on if dox (after 24 hours) has been induced yet
-    if simulation.current_step >= 1:
+    if simulation.current_step >= 49:
         # if the FGF4 amount for the location is greater than 0, set the fgf4_bool value to be 1 for the
         # functions
         if simulation.fgf4_values[index_x][index_y][index_z] > 0:
@@ -224,9 +218,6 @@ def cell_motility(simulation):
     """ gives the cells a motive force depending on
         set rules for the cell types.
     """
-    # start time of the function
-    simulation.cell_motility_time = -1 * time.time()
-
     # this is the motility force of the cells
     motility_force = 0.000000005
 
@@ -349,18 +340,12 @@ def cell_motility(simulation):
                     # calculate the motility force
                     simulation.cell_motility_force[i] += normal * motility_force * 0.05
 
-    # calculate the total time elapsed for the function
-    simulation.cell_motility_time += time.time()
-
 
 @backend.record_time
 def update_queue(simulation):
     """ add and removes cells to and from the simulation
         either all at once or in "groups"
     """
-    # start time of the function
-    simulation.update_queue_time = -1 * time.time()
-
     # give how many cells are being added/removed during a given step
     print("Adding " + str(len(simulation.cells_to_divide)) + " cells...")
     print("Removing " + str(len(simulation.cells_to_remove)) + " cells...")
@@ -405,9 +390,6 @@ def update_queue(simulation):
     simulation.cells_to_divide = np.array([], dtype=int)
     simulation.cells_to_remove = np.array([], dtype=int)
 
-    # calculate the total time elapsed for the function
-    simulation.update_queue_time += time.time()
-
 
 @backend.record_time
 def check_neighbors(simulation):
@@ -415,9 +397,6 @@ def check_neighbors(simulation):
         radius to denote a neighbor then stores this information
         in a graph (uses a bin/bucket sorting method)
     """
-    # start time of the function
-    simulation.check_neighbors_time = -1 * time.time()
-
     # radius of search (meters) in which all cells within are classified as neighbors
     neighbor_distance = 0.000015
 
@@ -498,9 +477,6 @@ def check_neighbors(simulation):
     # add the edges to the neighbor graph
     simulation.neighbor_graph.add_edges(edge_holder)
 
-    # calculate the total time elapsed for the function
-    simulation.check_neighbors_time += time.time()
-
 
 @backend.record_time
 def handle_movement(simulation):
@@ -508,9 +484,6 @@ def handle_movement(simulation):
         of the step. resets the motility force array to zero after
         movement is done
     """
-    # start time of the function
-    simulation.handle_movement_time = -1 * time.time()
-
     # if a static variable for holding step time hasn't been created, create one
     if not hasattr(handle_movement, "steps"):
         # get the total amount of times the cells will be incrementally moved during the step
@@ -530,9 +503,6 @@ def handle_movement(simulation):
     # reset motility forces back to zero vectors
     simulation.cell_motility_force = np.zeros((simulation.number_cells, 3), dtype=float)
 
-    # calculate the total time elapsed for the function
-    simulation.handle_movement_time += time.time()
-
 
 @backend.record_time
 def jkr_neighbors(simulation):
@@ -540,9 +510,6 @@ def jkr_neighbors(simulation):
         interactions with other cells returns this information
         as an array of edges
     """
-    # start time of the function
-    simulation.jkr_neighbors_time = -1 * time.time()
-
     # radius of search (meters) in which neighbors will have physical interactions, double the max cell radius
     jkr_distance = 2 * simulation.max_radius
 
@@ -623,9 +590,6 @@ def jkr_neighbors(simulation):
     simulation.jkr_graph.add_edges(edge_holder)
     simulation.jkr_graph.simplify()
 
-    # calculate the total time elapsed for the function
-    simulation.jkr_neighbors_time += time.time()
-
 
 @backend.record_time
 def get_forces(simulation):
@@ -633,9 +597,6 @@ def get_forces(simulation):
         resulting adhesive or repulsion forces between
         pairs of cells
     """
-    # start time of the function
-    simulation.get_forces_time = -1 * time.time()
-
     # parameters that rarely change
     adhesion_const = 0.000107    # the adhesion constant in kg/s from P Pathmanathan et al.
     poisson = 0.5    # Poisson's ratio for the cells, 0.5 means incompressible
@@ -683,18 +644,12 @@ def get_forces(simulation):
         simulation.jkr_graph.delete_edges(delete_edges_indices)
         simulation.cell_jkr_force = forces
 
-    # calculate the total time elapsed for the function
-    simulation.get_forces_time += time.time()
-
 
 @backend.record_time
 def apply_forces(simulation):
     """ Turns the active motility/division forces and
         inactive JKR forces into movement
     """
-    # start time of the function
-    simulation.apply_forces_time = -1 * time.time()
-
     # parameters that rarely change
     viscosity = 10000    # the viscosity of the medium in Ns/m used for stokes friction
 
@@ -731,18 +686,12 @@ def apply_forces(simulation):
     simulation.cell_locations = new_locations
     simulation.cell_jkr_force = np.zeros((simulation.number_cells, 3), dtype=float)
 
-    # calculate the total time elapsed for the function
-    simulation.apply_forces_time += time.time()
-
 
 @backend.record_time
 def nearest(simulation):
     """ looks at cells within a given radius a determines
         the closest cells of certain types
     """
-    # start time of the function
-    simulation.nearest_time = -1 * time.time()
-
     # radius of search for nearest cells
     nearest_distance = 0.000025
 
@@ -803,18 +752,12 @@ def nearest(simulation):
     simulation.cell_nearest_nanog = nanog
     simulation.cell_nearest_diff = diff
 
-    # calculate the total time elapsed for the function
-    simulation.nearest_time += time.time()
-
 
 @backend.record_time
 def nearest_cluster(simulation):
     """ find the nearest pluripotent cells outside the cluster
         that the cell is currently in
     """
-    # start time of the function
-    simulation.nearest_cluster_time = -1 * time.time()
-
     # radius of search for the nearest pluripotent cell not in the same cluster
     nearest_distance = 0.0002
 
@@ -880,9 +823,6 @@ def nearest_cluster(simulation):
 
     # revalue the array holding the indices of nearest pluripotent cells outside cluster
     simulation.cell_cluster_nearest = nearest_cell
-
-    # calculate the total time elapsed for the function
-    simulation.nearest_cluster_time += time.time()
 
 
 @backend.record_time
@@ -980,9 +920,6 @@ def update_diffusion(simulation):
     """ goes through all extracellular gradients and
         approximates the diffusion of that molecule
     """
-    # start time of the function
-    simulation.update_diffusion_time = -1 * time.time()
-
     # if a static variable for holding step time hasn't been created, create one
     if not hasattr(update_diffusion, "steps"):
         # get the total amount of times the cells will be incrementally moved during the step
@@ -1010,6 +947,3 @@ def update_diffusion(simulation):
                                                      simulation.size)
         # get the gradient
         simulation.__dict__[gradient] = gradient_base[1:-1, 1:-1, 1:-1]
-
-    # calculate the total time elapsed for the function
-    simulation.update_diffusion_time += time.time()
