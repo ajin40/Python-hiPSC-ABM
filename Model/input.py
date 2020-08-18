@@ -247,6 +247,9 @@ def setup():
             simulation.cell_nearest_diff[i] = np.nan
             simulation.cell_highest_fgf4[i] = np.array([np.nan, np.nan, np.nan])
 
+        # make a directories for outputting images, csvs, gradients, etc.
+        output.initialize_outputs(simulation)
+
     # continue a past simulation
     elif mode == 1:
         with open(templates_path + "general.txt") as general_file:
@@ -258,6 +261,9 @@ def setup():
             simulation = pickle.load(temp_file)
             simulation.beginning_step = simulation.current_step + 1
             simulation.end_step = end_step
+
+        # make sure the proper output directories exist
+        output.initialize_outputs(simulation)
 
     # images to video mode
     elif mode == 2:

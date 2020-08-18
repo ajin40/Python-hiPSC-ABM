@@ -14,7 +14,7 @@ def initialize_outputs(simulation):
     """ Sets up the simulation data csv and makes directories
         for images, values, and the gradients
     """
-    # make the directories for images, cell values, and gradients
+    # make directories for the following given initial parameters and if directories already exist
     if not os.path.isdir(simulation.images_path) and simulation.output_images:
         os.mkdir(simulation.images_path)
     if not os.path.isdir(simulation.values_path):

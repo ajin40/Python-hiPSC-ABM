@@ -10,9 +10,6 @@ simulation = input.setup()
 # determining highest/lowest concentrations of the extracellular gradient(s).
 functions.setup_diffusion_bins(simulation)
 
-# make directories for the outputs and create a header for the model efficiency csv
-output.initialize_outputs(simulation)
-
 # this will loop over all steps defined in the general template file in addition to updating the current step
 # of the simulation. this is done to explicitly/easily show what happens at each step
 for simulation.current_step in range(simulation.beginning_step, simulation.end_step + 1):

@@ -89,7 +89,7 @@ def assign_bins(simulation, distance, max_cells):
         if max_cells >= new_max_cells:
             break
         else:
-            max_cells = new_max_cells
+            max_cells = new_max_cells * 2
 
     # return the three arrays
     return bins, bins_help, max_cells

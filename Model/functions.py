@@ -417,7 +417,7 @@ def check_neighbors(simulation):
     # creating a helper array that assists the search method in counting cells in a particular bin
     bins, bins_help, max_cells = backend.assign_bins(simulation, neighbor_distance, check_neighbors.max_cells)
 
-    # update the value of the max number of cells in a bin
+    # update the value of the max number of cells in a bin and double it
     check_neighbors.max_cells = max_cells
 
     # this will run once and if all edges are included in edge_holder, the loop will break. if not, this will
@@ -464,12 +464,12 @@ def check_neighbors(simulation):
                                                                               check_neighbors.max_neighbors)
 
         # either break the loop if all neighbors were accounted for or revalue the maximum number of neighbors
-        # based on the output of the function call
+        # based on the output of the function call and double it
         max_neighbors = np.amax(edge_count)
         if check_neighbors.max_neighbors >= max_neighbors:
             break
         else:
-            check_neighbors.max_neighbors = max_neighbors
+            check_neighbors.max_neighbors = max_neighbors * 2
 
     # reduce the edges to only nonzero edges
     edge_holder = edge_holder[if_nonzero]
@@ -575,12 +575,12 @@ def jkr_neighbors(simulation):
                                                                             edge_count, jkr_neighbors.max_neighbors)
 
         # either break the loop if all neighbors were accounted for or revalue the maximum number of neighbors
-        # based on the output of the function call
+        # based on the output of the function call and double it
         max_neighbors = np.amax(edge_count)
         if jkr_neighbors.max_neighbors >= max_neighbors:
             break
         else:
-            jkr_neighbors.max_neighbors = max_neighbors
+            jkr_neighbors.max_neighbors = max_neighbors * 2
 
     # reduce the edges to only nonzero edges
     edge_holder = edge_holder[if_nonzero]
@@ -704,7 +704,7 @@ def nearest(simulation):
     # creating a helper array that assists the search method in counting cells in a particular bin
     bins, bins_help, max_cells = backend.assign_bins(simulation, nearest_distance, nearest.max_cells)
 
-    # update the value of the max number of cells in a bin
+    # update the value of the max number of cells in a bin and double it
     nearest.max_cells = max_cells
 
     # turn the following arrays into True/False
@@ -789,6 +789,9 @@ def nearest_cluster(simulation):
     # calls the function that generates an array of bins that generalize the cell locations in addition to a
     # creating a helper array that assists the search method in counting cells in a particular bin
     bins, bins_help, max_cells = backend.assign_bins(simulation, nearest_distance, nearest_cluster.max_cells)
+
+    # update the value of the max number of cells in a bin and double it
+    nearest_cluster.max_cells = max_cells
 
     # turn the following array into True/False
     if_pluri = simulation.cell_states == "Pluripotent"
@@ -903,7 +906,7 @@ def setup_diffusion_bins(simulation):
                                                                          diffuse_bins_help)
 
         # either break the loop if all points were accounted for or revalue the maximum number of points based on
-        # the output of the function call
+        # the output of the function call. this will only be changed at most once
         max_points = np.amax(diffuse_bins_help)
         if setup_diffusion_bins.max_points >= max_points:
             break
