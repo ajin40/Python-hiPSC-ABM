@@ -26,7 +26,7 @@ class Simulation:
         with open(templates_path + "experimental.txt") as experimental_file:
             experimental = experimental_file.readlines()
 
-        # hold the name and the output path of the simulation
+        # hold the name and the output paths of the simulation
         self.name = name
         self.path = path
         self.images_path = path + name + "_images" + separator
@@ -89,14 +89,8 @@ class Simulation:
             self.cell_highest_fgf4 = np.empty((self.number_cells, 3))
             self.cell_nearest_cluster = np.empty(self.number_cells)
 
-            # these arrays need to be initialized with the numpy equivalent of None
-            self.cell_nearest_gata6[:] = np.nan
-            self.cell_nearest_nanog[:] = np.nan
-            self.cell_nearest_diff[:] = np.nan
-            self.cell_highest_fgf4[:] = np.nan
-            self.cell_nearest_cluster[:] = np.nan
-
             # the names of the cell arrays should be in this list as this will be used to delete and add cells
+            # automatically without the need to update add/delete functions
             self.cell_array_names = ["cell_locations", "cell_radii", "cell_motion", "cell_fds", "cell_states",
                                      "cell_diff_counter", "cell_div_counter", "cell_death_counter", "cell_fds_counter",
                                      "cell_motility_force", "cell_jkr_force", "cell_nearest_gata6",
@@ -115,11 +109,11 @@ class Simulation:
             self.pluri_growth = (self.max_radius - self.min_radius) / self.pluri_div_thresh
             self.diff_growth = (self.max_radius - self.min_radius) / self.diff_div_thresh
 
-            # get the size of the space and the approximation of the differential
+            # get the approximation of the differential
             self.dx, self.dy, self.dz = 0.00001, 0.00001, 1
             self.dx2, self.dy2, self.dz2 = self.dx ** 2, self.dy ** 2, self.dz ** 2
 
-            # the diffusion constant for the molecule gradients
+            # the diffusion constant for the molecule gradients and the radius of search for high concentrations
             self.diffuse = 0.0000000000001
             self.diffuse_radius = 0.000025
 
@@ -135,14 +129,14 @@ class Simulation:
             self.fgf4_values_temp = np.zeros(gradient_size.astype(int))
 
             # much like the cell arrays add any gradient names to list this so that a diffusion function can
-            # act on them automatically
+            # act on them automatically, the temp is used to incrementally add concentration
             self.extracellular_names = [["fgf4_values", "fgf4_values_temp"]]
 
-            # the time in seconds for incremental movement
+            # the time in seconds for an entire step and the incremental movement time
             self.step_dt = 1800
             self.move_dt = 200
 
-            # used to hold the run times of each individual function
+            # used to hold the run times of functions
             self.function_times = dict()
 
 
@@ -179,8 +173,9 @@ def setup():
         if output_path[-1] != "\\" or output_path[-1] != "/":
             output_path += separator
 
-    # if no command line attributes besides the file, run the mini gui to get the name and the mode
+    # if no command line attributes besides the file, run the mini gui
     if len(sys.argv) == 1:
+        # get the name of the simulation
         while True:
             name = input("What is the \"name\" of the simulation? Type \"help\" for more information: ")
             if name == "help":
@@ -188,9 +183,11 @@ def setup():
             else:
                 break
 
+        # get the mode of the simulation
         while True:
             mode = input("What is the \"mode\" of the simulation? Type \"help\" for more information: ")
             if mode == "help":
+                print("\nHere are the following modes:")
                 print("new simulation: 0")
                 print("continuation of past simulation: 1")
                 print("turn simulation images to video: 2")
@@ -246,6 +243,7 @@ def setup():
             simulation.cell_nearest_nanog[i] = np.nan
             simulation.cell_nearest_diff[i] = np.nan
             simulation.cell_highest_fgf4[i] = np.array([np.nan, np.nan, np.nan])
+            simulation.cell_nearest_cluster[i] = np.nan
 
         # make a directories for outputting images, csvs, gradients, etc.
         output.initialize_outputs(simulation)
@@ -293,9 +291,8 @@ def setup():
         gradients_list = os.listdir(simulation.gradients_path)
         gradients_list = natsort.natsorted(gradients_list)
 
-        # if a image directory doesn't exist make one
-        if not os.path.isdir(simulation.images_path):
-            os.mkdir(simulation.images_path)
+        # make sure the proper output directories for imaging exist
+        output.initialize_outputs(simulation)
 
         # loop over all csvs defined in the template file
         for i in range(len(csv_list)):
@@ -343,12 +340,22 @@ def setup():
         exit()
 
     else:
-        print("See proper modes below:\n")
-        print("new simulation: 0")
-        print("continuation of past simulation: 1")
-        print("turn simulation images to video: 2")
-        print("turn simulation csvs to images/video: 3")
-        exit()
+        print("Incorrect mode")
+        # get the mode of the simulation
+        while True:
+            mode = input("What is the \"mode\" of the simulation? Type \"help\" for more information: ")
+            if mode == "help":
+                print("\nHere are the following modes:")
+                print("new simulation: 0")
+                print("continuation of past simulation: 1")
+                print("turn simulation images to video: 2")
+                print("turn simulation csvs to images/video: 3\n")
+            else:
+                try:
+                    mode = int(mode)
+                    break
+                except ValueError:
+                    print("\"mode\" should be an integer")
 
     # return the modified simulation instance
     return simulation

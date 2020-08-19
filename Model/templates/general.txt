@@ -5,13 +5,13 @@ Do you want the model to use a discrete NVIDIA gpu to accelerate some computatio
 [ True ]
 
 What will the final step number be? Use for when you are beginning a new simulation or continuing an existing. Ex. 192
-[ 90 ]
+[ 5 ]
 
 How many cells to begin the simulation? All cells will begin as NANOG high and pluripotent. Ex. 1000
-[ 100 ]
+[ 4 ]
 
 What are the dimensions of the space in meters? Ex. (0.001, 0.001, 0)
-[ (0.001, 0.001, 0) ]
+[ (0.002, 0.002, 0) ]
 
 The time has come. Execute Order Sixty-Six? Ex. True
 [ True ]

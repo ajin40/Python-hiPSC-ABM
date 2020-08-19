@@ -967,15 +967,12 @@ def record_time(function):
     @wraps(function)
     def wrap(simulation):
         # start time of the function
-        start = time.perf_counter()
+        simulation.function_times[function.__name__] = -1 * time.perf_counter()
 
         # call the actual function
         function(simulation)
 
         # end time of the function
-        end = time.perf_counter()
-
-        # update the time of the function dictionary
-        simulation.function_times[function.__name__] = end - start
+        simulation.function_times[function.__name__] += time.perf_counter()
 
     return wrap

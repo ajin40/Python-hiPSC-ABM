@@ -9,6 +9,8 @@ import pickle
 import natsort
 import os
 
+import backend
+
 
 def initialize_outputs(simulation):
     """ Sets up the simulation data csv and makes directories
@@ -35,13 +37,14 @@ def step_outputs(simulation):
     step_gradients(simulation)
     step_tda(simulation)
 
-    # number of cells, memory, step time, and individual function times
-    simulation_data(simulation)
-
     # a temporary pickled file of the simulation, used for continuing past simulations
     temporary(simulation)
 
+    # number of cells, memory, step time, and individual function times
+    simulation_data(simulation)
 
+
+@backend.record_time
 def step_image(simulation):
     """ Creates an image representation of the space in which
         the cells reside including the extracellular gradient.
@@ -153,6 +156,7 @@ def step_image(simulation):
             base.save(image_path, 'PNG')
 
 
+@backend.record_time
 def step_csv(simulation):
     """ Outputs a .csv file containing information about
         all cells with each row corresponding to a cell
@@ -181,6 +185,7 @@ def step_csv(simulation):
         csv_file.writerows(cell_data)
 
 
+@backend.record_time
 def step_gradients(simulation):
     """ Saves the gradient arrays as .npy files for use in
         later imaging and/or continuation of previous
@@ -195,6 +200,7 @@ def step_gradients(simulation):
         np.save(simulation.gradients_path + simulation.name + gradient_name + ".npy", simulation.__dict__[gradient])
 
 
+@backend.record_time
 def step_tda(simulation):
     """ Output a csv similar to the step_csv though this
         contains no header and only key cell info
@@ -230,6 +236,7 @@ def step_tda(simulation):
         csv_file.writerows(cell_data)
 
 
+@backend.record_time
 def temporary(simulation):
     """ Pickle a copy of the simulation class that can be used
         to continue a past simulation without losing information.
