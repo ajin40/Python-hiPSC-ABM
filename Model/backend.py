@@ -807,14 +807,14 @@ def highest_fgf4_gpu(cell_locations, diffuse_bins, diffuse_bins_help, diffuse_lo
 
 
 @jit(nopython=True, parallel=True)
-def remove_diff_edges(length, states, edges, delete, delete_help):
+def remove_gata6_edges(length, fds, edges, delete, delete_help):
     """ used by the outside cluster function to
-        remove differentiated edges.
+        remove differentiated/gata6 high edges.
     """
     # go through edges
     for i in prange(length):
-        # add to the delete array if either node is differentiated
-        if states[edges[i][0]] == "Differentiated" or states[edges[i][1]] == "Differentiated":
+        # add to the delete array if either node is differentiated/gata6 high
+        if fds[edges[i][0]][2] or fds[edges[i][1]][2]:
             delete[i] = i
             delete_help[i] = 1
 
@@ -822,14 +822,14 @@ def remove_diff_edges(length, states, edges, delete, delete_help):
 
 
 @jit(nopython=True, parallel=True)
-def nearest_cluster_cpu(number_cells, cell_locations, bins, bins_help, distance, if_pluri, cell_cluster_nearest,
+def nearest_cluster_cpu(number_cells, cell_locations, bins, bins_help, distance, if_nanog, cell_cluster_nearest,
                         members):
     """ This is the Numba optimized version of
         the nearest_cluster function.
     """
     # loops over all cells, with the current cell index being the focus
     for focus in prange(number_cells):
-        if if_pluri[focus]:
+        if if_nanog[focus]:
             # offset bins by 2 to avoid missing cells that fall outside the space
             block_location = cell_locations[focus] // distance + np.array([2, 2, 2])
             x, y, z = int(block_location[0]), int(block_location[1]), int(block_location[2])
@@ -851,7 +851,7 @@ def nearest_cluster_cpu(number_cells, cell_locations, bins, bins_help, distance,
                             current = int(bins[x + i][y + j][z + k][l])
 
                             # make sure not differentiated, not same cell, and not in the same cluster
-                            if if_pluri[current] and focus != current and members[focus] != members[current]:
+                            if if_nanog[current] and focus != current and members[focus] != members[current]:
                                 # check to see if that cell is within the search radius and not the same cell
                                 mag = np.linalg.norm(cell_locations[current] - cell_locations[focus])
                                 if mag <= distance:
@@ -868,7 +868,7 @@ def nearest_cluster_cpu(number_cells, cell_locations, bins, bins_help, distance,
 
 
 @cuda.jit
-def nearest_cluster_gpu(cell_locations, bins, bins_help, distance, if_pluri, cell_nearest_cluster, members):
+def nearest_cluster_gpu(cell_locations, bins, bins_help, distance, if_nanog, cell_nearest_cluster, members):
     """ this is the cuda kernel for the nearest function
         that runs on a NVIDIA gpu
     """
@@ -877,7 +877,7 @@ def nearest_cluster_gpu(cell_locations, bins, bins_help, distance, if_pluri, cel
 
     # checks to see that position is in the array
     if focus < cell_locations.shape[0]:
-        if if_pluri[focus]:
+        if if_nanog[focus]:
             # offset bins by 2 to avoid missing cells that fall outside the space
             x = int(cell_locations[focus][0] / distance[0]) + 2
             y = int(cell_locations[focus][1] / distance[0]) + 2
@@ -900,7 +900,7 @@ def nearest_cluster_gpu(cell_locations, bins, bins_help, distance, if_pluri, cel
                             current = int(bins[x + i][y + j][z + k][l])
 
                             # make sure not differentiated, not same cell, and not in the same cluster
-                            if if_pluri[current] and focus != current and members[focus] != members[current]:
+                            if if_nanog[current] and focus != current and members[focus] != members[current]:
                                 # check to see if that cell is within the search radius and not the same cell
                                 mag = magnitude(cell_locations[current], cell_locations[focus])
                                 if mag <= distance[0]:

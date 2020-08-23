@@ -43,9 +43,10 @@ What is the max value of FGF4 at a diffusion point? Ex. 20
 Use FGF4 concentrations for NANOG high movements? Ex. False
 [ False ]
 
-Differentiated cell motion inhibition. Ex. 3
-[ 10 ]
-
 Output Topological Data Analysis csv files? Ex. True
 [ True ]
+
+Percent of cells (as a decimal) that will receive sufficient dox to activate GATA6 pathway
+[ 0.5 ]
+
 ------------------------------------------------------------------------------------------------------------------------

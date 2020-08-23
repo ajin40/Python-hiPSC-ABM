@@ -54,7 +54,7 @@ class Simulation:
         self.pluri_to_diff = int(experimental[10][2:-3])
         self.death_thresh = int(experimental[13][2:-3])
         self.fds_thresh = int(experimental[16][2:-3])
-        self.pluri_move_thresh = int(experimental[19][2:-3])
+        self.move_thresh = int(experimental[19][2:-3])
         self.lonely_cell = int(experimental[22][2:-3])
         self.diff_surround = int(experimental[25][2:-3])
         self.contact_inhibit = int(experimental[28][2:-3])
@@ -63,8 +63,8 @@ class Simulation:
         self.eunbi_move = eval(experimental[37][2:-3])
         self.max_fgf4 = float(experimental[40][2:-3])
         self.fgf4_move = eval(experimental[43][2:-3])
-        self.diff_move_thresh = int(experimental[46][2:-3])
-        self.output_tda = eval(experimental[49][2:-3])
+        self.output_tda = eval(experimental[46][2:-3])
+        self.dox_value = float(experimental[49][2:-3])
 
         # the following only need to be created if this is a normal simulation and not a special mode
         if mode == 0:
@@ -88,6 +88,7 @@ class Simulation:
             self.cell_nearest_diff = np.empty(self.number_cells)
             self.cell_highest_fgf4 = np.empty((self.number_cells, 3))
             self.cell_nearest_cluster = np.empty(self.number_cells)
+            self.cell_dox_value = np.empty(self.number_cells, dtype=float)
 
             # the names of the cell arrays should be in this list as this will be used to delete and add cells
             # automatically without the need to update add/delete functions
@@ -244,6 +245,7 @@ def setup():
             simulation.cell_nearest_diff[i] = np.nan
             simulation.cell_highest_fgf4[i] = np.array([np.nan, np.nan, np.nan])
             simulation.cell_nearest_cluster[i] = np.nan
+            simulation.cell_dox_value[i] = r.random()
 
         # make a directories for outputting images, csvs, gradients, etc.
         output.initialize_outputs(simulation)
@@ -341,21 +343,22 @@ def setup():
 
     else:
         print("Incorrect mode")
+        exit()
         # get the mode of the simulation
-        while True:
-            mode = input("What is the \"mode\" of the simulation? Type \"help\" for more information: ")
-            if mode == "help":
-                print("\nHere are the following modes:")
-                print("new simulation: 0")
-                print("continuation of past simulation: 1")
-                print("turn simulation images to video: 2")
-                print("turn simulation csvs to images/video: 3\n")
-            else:
-                try:
-                    mode = int(mode)
-                    break
-                except ValueError:
-                    print("\"mode\" should be an integer")
+        # while True:
+        #     mode = input("What is the \"mode\" of the simulation? Type \"help\" for more information: ")
+        #     if mode == "help":
+        #         print("\nHere are the following modes:")
+        #         print("new simulation: 0")
+        #         print("continuation of past simulation: 1")
+        #         print("turn simulation images to video: 2")
+        #         print("turn simulation csvs to images/video: 3\n")
+        #     else:
+        #         try:
+        #             mode = int(mode)
+        #             break
+        #         except ValueError:
+        #             print("\"mode\" should be an integer")
 
     # return the modified simulation instance
     return simulation
