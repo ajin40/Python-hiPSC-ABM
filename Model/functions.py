@@ -190,10 +190,6 @@ def cell_pathway(simulation, index):
                 if simulation.fgf4_values[index_x][index_y][index_z] > 1:
                     simulation.fgf4_values_temp[index_x][index_y][index_z] -= 1
 
-            # if cell goes from gata6 low to gata6 high allow it to move again
-            if temp_gata6 == 0 and new_gata6 == 1:
-                simulation.cell_motion[index] = True
-
         # increase the finite dynamical system counter
         simulation.cell_fds_counter[index] += 1
 
@@ -227,11 +223,11 @@ def cell_motility(simulation):
         neighbors = simulation.neighbor_graph.neighbors(i)
 
         # if the cell state is differentiated
-        if simulation.cell_states[i] == "Differentiated" or simulation.cell_fds[i][2]:
+        if simulation.cell_states[i] == "Differentiated":
             # set the motion to be false if there are enough differentiated or gata6 high neighbors
             count = 0
             for index in neighbors:
-                if simulation.cell_states[index] == "Differentiated":
+                if simulation.cell_states[index] == "Differentiated" or simulation.cell_fds[index][2]:
                     count += 1
                     if count >= 6:
                         simulation.cell_motion[i] = False
@@ -267,11 +263,12 @@ def cell_motility(simulation):
             # set the motion to be false if there are enough differentiated or gata6 high neighbors
             count = 0
             for index in neighbors:
-                if simulation.cell_states[index] == "Differentiated" or simulation.cell_fds[i][2]:
+                if simulation.cell_states[index] == "Differentiated":
                     count += 1
-                    if count >= 6:
-                        simulation.cell_motion[i] = False
-                        break
+            if count >= 1:
+                simulation.cell_motion[i] = False
+            else:
+                simulation.cell_motion[i] = True
 
             # if the cell is actively moving
             if simulation.cell_motion[i]:
