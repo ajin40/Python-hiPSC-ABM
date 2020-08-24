@@ -96,7 +96,7 @@ class Simulation:
                                      "cell_diff_counter", "cell_div_counter", "cell_death_counter", "cell_fds_counter",
                                      "cell_motility_force", "cell_jkr_force", "cell_nearest_gata6",
                                      "cell_nearest_nanog", "cell_nearest_diff", "cell_highest_fgf4",
-                                     "cell_nearest_cluster"]
+                                     "cell_nearest_cluster", "cell_dox_value"]
 
             # holds all indices of cells that will divide at a current step or be removed at that step
             self.cells_to_divide, self.cells_to_remove = np.array([], dtype=int), np.array([], dtype=int)

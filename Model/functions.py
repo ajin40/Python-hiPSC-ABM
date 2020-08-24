@@ -150,7 +150,7 @@ def cell_pathway(simulation, index):
         simulation.fgf4_values_temp[index_x][index_y][index_z] += 1
 
     # activate the following pathway based on if dox (after 24 hours) has been induced yet
-    if simulation.current_step >= 49 and simulation.dox_value > simulation.cell_dox_value:
+    if simulation.current_step >= 49 and simulation.dox_value > simulation.cell_dox_value[index]:
         # if the FGF4 amount for the location is greater than 0, set the fgf4_bool value to be 1 for the
         # functions
         if simulation.fgf4_values[index_x][index_y][index_z] > 0:
@@ -161,6 +161,7 @@ def cell_pathway(simulation, index):
         # Finite dynamical system and state change
         # temporarily hold the FGFR value
         temp_fgfr = simulation.cell_fds[index][0]
+        temp_gata6 = simulation.cell_fds[index][2]
 
         # only update the booleans when the counter matches the boolean update rate
         if simulation.cell_fds_counter[index] % simulation.fds_thresh == 0:
@@ -188,6 +189,10 @@ def cell_pathway(simulation, index):
             if temp_fgfr == 0 and new_fgfr == 1:
                 if simulation.fgf4_values[index_x][index_y][index_z] > 1:
                     simulation.fgf4_values_temp[index_x][index_y][index_z] -= 1
+
+            # if cell goes from gata6 low to gata6 high allow it to move again
+            if temp_gata6 == 0 and new_gata6 == 1:
+                simulation.cell_motion[index] = True
 
         # increase the finite dynamical system counter
         simulation.cell_fds_counter[index] += 1
@@ -222,18 +227,18 @@ def cell_motility(simulation):
         neighbors = simulation.neighbor_graph.neighbors(i)
 
         # if the cell state is differentiated
-        if simulation.cell_states[i] == "Differentiated":
+        if simulation.cell_states[i] == "Differentiated" or simulation.cell_fds[i][2]:
             # set the motion to be false if there are enough differentiated or gata6 high neighbors
             count = 0
             for index in neighbors:
-                if simulation.cell_states[index] == "Differentiated" or simulation.cell_fds[index][2]:
+                if simulation.cell_states[index] == "Differentiated":
                     count += 1
-                    if count >= simulation.pluri_move_thresh:
+                    if count >= 6:
                         simulation.cell_motion[i] = False
                         break
 
             # if the cell is actively moving
-            if simulation.cell_motion[index]:
+            if simulation.cell_motion[i]:
                 # create a vector to hold the sum of normal vectors between a cell and its neighbors
                 vector_holder = np.array([0.0, 0.0, 0.0])
 
@@ -254,7 +259,6 @@ def cell_motility(simulation):
                     # move in direction opposite to nanog high cells
                     simulation.cell_motility_force[i] += motility_force * normal * -1
 
-                # if no nanog high cell move randomly
                 else:
                     simulation.cell_motility_force[i] += backend.random_vector(simulation) * motility_force
 
@@ -263,9 +267,9 @@ def cell_motility(simulation):
             # set the motion to be false if there are enough differentiated or gata6 high neighbors
             count = 0
             for index in neighbors:
-                if simulation.cell_states[index] == "Differentiated" or simulation.cell_fds[index][2]:
+                if simulation.cell_states[index] == "Differentiated" or simulation.cell_fds[i][2]:
                     count += 1
-                    if count >= simulation.pluri_move_thresh:
+                    if count >= 6:
                         simulation.cell_motion[i] = False
                         break
 
@@ -285,7 +289,28 @@ def cell_motility(simulation):
 
                 # if no nearby differentiated cells or gata6 high cells move randomly
                 else:
-                    simulation.cell_motility_force[i] += backend.random_vector(simulation) * motility_force
+                    # create a vector to hold the sum of normal vectors between a cell and its neighbors
+                    vector_holder = np.array([0.0, 0.0, 0.0])
+
+                    # loop over the neighbors
+                    count = 0
+                    for j in range(len(neighbors)):
+                        # if neighbor is nanog high, add vector to the cell to the holder
+                        if simulation.cell_fds[neighbors[j]][3]:
+                            count += 1
+                            vector = simulation.cell_locations[neighbors[j]] - simulation.cell_locations[i]
+                            vector_holder += vector
+
+                    # if there is at least one nanog high cell move away from it
+                    if count > 0:
+                        # get the normal vector
+                        normal = backend.normal_vector(vector_holder)
+
+                        # move in direction opposite to nanog high cells
+                        simulation.cell_motility_force[i] += motility_force * normal * -1
+
+                    else:
+                        simulation.cell_motility_force[i] += backend.random_vector(simulation) * motility_force
 
         # if the cell is nanog high and gata6 low
         elif simulation.cell_fds[i][3] == 1 and not simulation.cell_fds[i][2] == 1:
@@ -294,9 +319,8 @@ def cell_motility(simulation):
             for index in neighbors:
                 if simulation.cell_fds[index][3]:
                     count += 1
-                    if count >= simulation.pluri_move_thresh:
+                    if count >= simulation.move_thresh:
                         simulation.cell_motion[i] = False
-                        break
 
             # if the cell is actively moving
             if simulation.cell_motion[i]:
@@ -351,10 +375,10 @@ def cell_motility(simulation):
         else:
             # get general neighbors for inhibiting movement
             if len(neighbors) >= simulation.move_thresh:
-                simulation.cell_motion[index] = False
+                simulation.cell_motion[i] = False
 
             # if actively moving, move randomly
-            if simulation.cell_motion[index]:
+            if simulation.cell_motion[i]:
                 simulation.cell_motility_force[i] += backend.random_vector(simulation) * motility_force
 
 

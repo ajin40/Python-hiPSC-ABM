@@ -32,7 +32,7 @@ How many cells are added/removed to the simulation at once, per time step? Type 
 [ 0 ]
 
 Use the Guye movement method? Where GATA6 high cells with move toward differentiated cells. Ex. True
-[ True ]
+[ False ]
 
 Use Eunbi's method of motion based on the NetLogo model? Ex. True
 [ False ]
@@ -47,6 +47,6 @@ Output Topological Data Analysis csv files? Ex. True
 [ True ]
 
 Percent of cells (as a decimal) that will receive sufficient dox to activate GATA6 pathway
-[ 0.5 ]
+[ 0.75 ]
 
 ------------------------------------------------------------------------------------------------------------------------
