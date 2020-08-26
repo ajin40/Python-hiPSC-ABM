@@ -2,13 +2,13 @@
 Experimental
 -----------------------------------------------------------------------------------------------------------------------
 Number of steps required for a pluripotent cell to divide. Each step is currently equivalent to 30 minutes. Ex. 36
-[ 48 ]
+[ 60 ]
 
 Number of steps required for a differentiated cell to divide. Ex. 24
-[ 96 ]
+[ 120 ]
 
 Number of steps required for a pluripotent cell to differentiate. Ex. 36
-[ 192 ]
+[ 144 ]
 
 How many consecutive steps can a pluripotent cell go without neighbors before dying? Ex. 36
 [ 72 ]

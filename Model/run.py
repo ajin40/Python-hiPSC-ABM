@@ -42,6 +42,7 @@ for simulation.current_step in range(simulation.beginning_step, simulation.end_s
     # calculates the direction/magnitude of the movement of the cell depending on a variety of factors such as state,
     # extracellular gradient, and presence of neighbors
     functions.cell_motility(simulation)
+    # functions.alt_cell_motility(simulation)
 
     # moves the cells to a state of physical equilibrium between adhesive and repulsive forces acting on the cells,
     # while also applying active movement forces from the previous cell_motility() function.

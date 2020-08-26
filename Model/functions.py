@@ -28,7 +28,7 @@ def cell_update(simulation):
     # loop over the cells
     for i in range(simulation.number_cells):
         # Cell death
-        cell_death(simulation, i)
+        # cell_death(simulation, i)
 
         # Differentiated surround
         cell_diff_surround(simulation, i)
@@ -105,30 +105,30 @@ def cell_division(simulation, index):
     """ either marks the cell for division or increases the
         counter to division given certain criteria
     """
-    # checks to see if the non-moving cell should divide or increase its division counter
-    if not simulation.cell_motion[index]:
-        # if it's a differentiated cell
-        if simulation.cell_states[index] == "Differentiated":
-            # check the threshold
-            if simulation.cell_div_counter[index] >= simulation.diff_div_thresh:
-                # if under the threshold
-                neighbors = simulation.neighbor_graph.neighbors(index)
-                if len(neighbors) < simulation.contact_inhibit:
-                    simulation.cells_to_divide = np.append(simulation.cells_to_divide, index)
-
-            else:
-                # stochastically increase the division counter by either 0, 1, or 2
-                simulation.cell_div_counter[index] += r.randint(0, 2)
-
-        # no contact inhibition for pluripotent cells
-        else:
-            # check the threshold
-            if simulation.cell_div_counter[index] >= simulation.pluri_div_thresh:
+    # # checks to see if the non-moving cell should divide or increase its division counter
+    # if not simulation.cell_motion[index]:
+    # if it's a differentiated cell
+    if simulation.cell_states[index] == "Differentiated":
+        # check the threshold
+        if simulation.cell_div_counter[index] >= simulation.diff_div_thresh:
+            # if under the threshold
+            neighbors = simulation.neighbor_graph.neighbors(index)
+            if len(neighbors) < simulation.contact_inhibit:
                 simulation.cells_to_divide = np.append(simulation.cells_to_divide, index)
 
-            else:
-                # stochastically increase the division counter by either 0, 1, or 2
-                simulation.cell_div_counter[index] += r.randint(0, 2)
+        else:
+            # stochastically increase the division counter by either 0, 1, or 2
+            simulation.cell_div_counter[index] += r.randint(0, 2)
+
+    # no contact inhibition for pluripotent cells
+    else:
+        # check the threshold
+        if simulation.cell_div_counter[index] >= simulation.pluri_div_thresh:
+            simulation.cells_to_divide = np.append(simulation.cells_to_divide, index)
+
+        else:
+            # stochastically increase the division counter by either 0, 1, or 2
+            simulation.cell_div_counter[index] += r.randint(0, 2)
 
 
 def cell_pathway(simulation, index):
@@ -161,7 +161,6 @@ def cell_pathway(simulation, index):
         # Finite dynamical system and state change
         # temporarily hold the FGFR value
         temp_fgfr = simulation.cell_fds[index][0]
-        temp_gata6 = simulation.cell_fds[index][2]
 
         # only update the booleans when the counter matches the boolean update rate
         if simulation.cell_fds_counter[index] % simulation.fds_thresh == 0:
@@ -215,26 +214,17 @@ def cell_motility(simulation):
         set rules for the cell types.
     """
     # this is the motility force of the cells
-    motility_force = 0.000000005
+    motility_force = 0.0000000025
 
     # loop over all of the cells
     for i in range(simulation.number_cells):
         # get the neighbors of the cell
         neighbors = simulation.neighbor_graph.neighbors(i)
 
-        # if the cell state is differentiated
-        if simulation.cell_states[i] == "Differentiated":
-            # set the motion to be false if there are enough differentiated or gata6 high neighbors
-            count = 0
-            for index in neighbors:
-                if simulation.cell_states[index] == "Differentiated" or simulation.cell_fds[index][2]:
-                    count += 1
-                    if count >= 6:
-                        simulation.cell_motion[i] = False
-                        break
-
-            # if the cell is actively moving
-            if simulation.cell_motion[i]:
+        # if the cell state is differentiated and moving
+        if simulation.cell_states[i] == "Differentiated" and simulation.cell_motion[i]:
+            # if not surrounded by more than 8 cells, move away from surrounding nanog high cells
+            if len(neighbors) < 8:
                 # create a vector to hold the sum of normal vectors between a cell and its neighbors
                 vector_holder = np.array([0.0, 0.0, 0.0])
 
@@ -255,23 +245,18 @@ def cell_motility(simulation):
                     # move in direction opposite to nanog high cells
                     simulation.cell_motility_force[i] += motility_force * normal * -1
 
+                # if no nanog high cells around, move randomly
                 else:
                     simulation.cell_motility_force[i] += backend.random_vector(simulation) * motility_force
 
+            # set the motion to be false if it is surrounded by more than 8 cells
+            else:
+                simulation.cell_motion[i] = False
+
         # if the cell is gata6 high and nanog low
         elif simulation.cell_fds[i][2] == 1 and not simulation.cell_fds[i][3] == 1:
-            # set the motion to be false if there are enough differentiated or gata6 high neighbors
-            count = 0
-            for index in neighbors:
-                if simulation.cell_states[index] == "Differentiated":
-                    count += 1
-            if count >= 1:
-                simulation.cell_motion[i] = False
-            else:
-                simulation.cell_motion[i] = True
-
-            # if the cell is actively moving
-            if simulation.cell_motion[i]:
+            # if not surrounded by more than 8 cells, move to nearest differentiated cell
+            if len(neighbors) < 8:
                 # continue if using Guye et al. movement and if there exists differentiated cells
                 if simulation.guye_move and not np.isnan(simulation.cell_nearest_diff[i]):
                     # get the differentiated neighbors
@@ -284,40 +269,19 @@ def cell_motility(simulation):
                     # calculate the motility force
                     simulation.cell_motility_force[i] += normal * motility_force
 
-                # if no nearby differentiated cells or gata6 high cells move randomly
+                # if no Guye movement or no differentiated cells nearby, move randomly
                 else:
-                    # create a vector to hold the sum of normal vectors between a cell and its neighbors
-                    vector_holder = np.array([0.0, 0.0, 0.0])
+                    simulation.cell_motility_force[i] += backend.random_vector(simulation) * motility_force
 
-                    # loop over the neighbors
-                    count = 0
-                    for j in range(len(neighbors)):
-                        # if neighbor is nanog high, add vector to the cell to the holder
-                        if simulation.cell_fds[neighbors[j]][3]:
-                            count += 1
-                            vector = simulation.cell_locations[neighbors[j]] - simulation.cell_locations[i]
-                            vector_holder += vector
-
-                    # if there is at least one nanog high cell move away from it
-                    if count > 0:
-                        # get the normal vector
-                        normal = backend.normal_vector(vector_holder)
-
-                        # move in direction opposite to nanog high cells
-                        simulation.cell_motility_force[i] += motility_force * normal * -1
-
-                    else:
-                        simulation.cell_motility_force[i] += backend.random_vector(simulation) * motility_force
+            # set the motion to be false if it is surrounded by more than 8 cells
+            else:
+                simulation.cell_motion[i] = False
 
         # if the cell is nanog high and gata6 low
         elif simulation.cell_fds[i][3] == 1 and not simulation.cell_fds[i][2] == 1:
             # set the motion to be false if there are enough nanog high neighbors
-            count = 0
-            for index in neighbors:
-                if simulation.cell_fds[index][3]:
-                    count += 1
-                    if count >= simulation.move_thresh:
-                        simulation.cell_motion[i] = False
+            if len(neighbors) >= simulation.move_thresh:
+                simulation.cell_motion[i] = False
 
             # if the cell is actively moving
             if simulation.cell_motion[i]:
@@ -361,22 +325,92 @@ def cell_motility(simulation):
             else:
                 if not np.isnan(simulation.cell_cluster_nearest[i]):
                     pluri_index = int(simulation.cell_cluster_nearest[i])
-
                     vector = simulation.cell_locations[pluri_index] - simulation.cell_locations[i]
                     normal = backend.normal_vector(vector)
-
-                    # calculate the motility force
                     simulation.cell_motility_force[i] += normal * motility_force * 0.05
 
         # if both gata6/nanog high or both low
         else:
             # get general neighbors for inhibiting movement
-            if len(neighbors) >= simulation.move_thresh:
+            if len(neighbors) >= 8:
                 simulation.cell_motion[i] = False
 
             # if actively moving, move randomly
             if simulation.cell_motion[i]:
                 simulation.cell_motility_force[i] += backend.random_vector(simulation) * motility_force
+
+
+@backend.record_time
+def alt_cell_motility(simulation):
+    """ gives the cells a motive force depending on
+        set rules for the cell types expect these rules
+        are more similar to NetLogo
+    """
+    # this is the motility force of the cells
+    motility_force = 0.0000000005
+
+    # loop over all of the cells
+    for i in range(simulation.number_cells):
+        # see if the cell is moving or not
+        if simulation.cell_motion[i]:
+            # get the neighbors of the cell if the cell is actively moving
+            neighbors = simulation.neighbor_graph.neighbors(i)
+
+            # if cell is surrounded by other cells, inhibit the motion
+            if len(neighbors) >= 16:
+                simulation.cell_motion[i] = False
+
+            # if not, calculate the active movement for the step
+            else:
+                if simulation.cell_states[i] == "Differentiated":
+                    # if there is a nanog high cell nearby, move away from it
+                    if not np.isnan(simulation.cell_nearest_nanog[i]):
+                        nearest_index = int(simulation.cell_nearest_nanog[i])
+                        vector = simulation.cell_locations[nearest_index] - simulation.cell_locations[i]
+                        normal = backend.normal_vector(vector)
+                        simulation.cell_motility_force[i] += normal * motility_force * -1
+
+                    # if no nearby nanog high cells, move randomly
+                    else:
+                        simulation.cell_motility_force[i] += backend.random_vector(simulation) * motility_force
+
+                # if the cell is gata6 high and nanog low
+                elif simulation.cell_fds[i][2] == 1 and not simulation.cell_fds[i][3] == 1:
+                    # # if there is a differentiated cell nearby, move toward it
+                    # if not np.isnan(simulation.cell_nearest_diff[i]):
+                    #     nearest_index = int(simulation.cell_nearest_diff[i])
+                    #     vector = simulation.cell_locations[nearest_index] - simulation.cell_locations[i]
+                    #     normal = backend.normal_vector(vector)
+                    #     simulation.cell_motility_force[i] += normal * motility_force
+                    #
+                    # # if no nearby differentiated cells, move randomly
+                    # else:
+                    #     simulation.cell_motility_force[i] += backend.random_vector(simulation) * motility_force
+                    simulation.cell_motility_force[i] += backend.random_vector(simulation) * motility_force
+
+                # if the cell is nanog high and gata6 low
+                elif simulation.cell_fds[i][3] == 1 and not simulation.cell_fds[i][2] == 1:
+                    # if there is a nanog high cell nearby, move toward it
+                    if not np.isnan(simulation.cell_nearest_nanog[i]):
+                        nearest_index = int(simulation.cell_nearest_nanog[i])
+                        vector = simulation.cell_locations[nearest_index] - simulation.cell_locations[i]
+                        normal = backend.normal_vector(vector)
+                        simulation.cell_motility_force[i] += normal * motility_force * 0.25
+                        simulation.cell_motility_force[i] += backend.random_vector(simulation) * motility_force * 0.75
+
+                    # if there is a gata6 high cell nearby, move away from it
+                    elif not np.isnan(simulation.cell_nearest_gata6[i]):
+                        nearest_index = int(simulation.cell_nearest_gata6[i])
+                        vector = simulation.cell_locations[nearest_index] - simulation.cell_locations[i]
+                        normal = backend.normal_vector(vector)
+                        simulation.cell_motility_force[i] += normal * motility_force * -1
+
+                    else:
+                        simulation.cell_motility_force[i] += backend.random_vector(simulation) * motility_force
+
+                # if both gata6/nanog high or both low, move randomly
+                else:
+                    simulation.cell_motility_force[i] += backend.random_vector(simulation) * motility_force
 
 
 @backend.record_time
@@ -731,7 +765,7 @@ def nearest(simulation):
         the closest cells of certain types
     """
     # radius of search for nearest cells
-    nearest_distance = 0.000025
+    nearest_distance = 0.000015
 
     # if a static variable has not been created to hold the maximum number of cells in a bin, create one
     if not hasattr(nearest, "max_cells"):
