@@ -214,7 +214,7 @@ def cell_motility(simulation):
         set rules for the cell types.
     """
     # this is the motility force of the cells
-    motility_force = 0.0000000025
+    motility_force = 0.000000002
 
     # loop over all of the cells
     for i in range(simulation.number_cells):
@@ -224,7 +224,7 @@ def cell_motility(simulation):
         # if the cell state is differentiated and moving
         if simulation.cell_states[i] == "Differentiated" and simulation.cell_motion[i]:
             # if not surrounded by more than 8 cells, move away from surrounding nanog high cells
-            if len(neighbors) < 8:
+            if len(neighbors) < 6:
                 # create a vector to hold the sum of normal vectors between a cell and its neighbors
                 vector_holder = np.array([0.0, 0.0, 0.0])
 
@@ -256,7 +256,7 @@ def cell_motility(simulation):
         # if the cell is gata6 high and nanog low
         elif simulation.cell_fds[i][2] == 1 and not simulation.cell_fds[i][3] == 1:
             # if not surrounded by more than 8 cells, move to nearest differentiated cell
-            if len(neighbors) < 8:
+            if len(neighbors) < 6:
                 # continue if using Guye et al. movement and if there exists differentiated cells
                 if simulation.guye_move and not np.isnan(simulation.cell_nearest_diff[i]):
                     # get the differentiated neighbors
@@ -332,7 +332,7 @@ def cell_motility(simulation):
         # if both gata6/nanog high or both low
         else:
             # get general neighbors for inhibiting movement
-            if len(neighbors) >= 8:
+            if len(neighbors) >= 6:
                 simulation.cell_motion[i] = False
 
             # if actively moving, move randomly
@@ -470,7 +470,7 @@ def check_neighbors(simulation):
         in a graph (uses a bin/bucket sorting method)
     """
     # radius of search (meters) in which all cells within are classified as neighbors
-    neighbor_distance = 0.000015
+    neighbor_distance = 0.00001
 
     # if a static variable has not been created to hold the maximum number of neighbors, create one
     if not hasattr(check_neighbors, "max_neighbors"):

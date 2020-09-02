@@ -2,7 +2,7 @@
 Experimental
 -----------------------------------------------------------------------------------------------------------------------
 Number of steps required for a pluripotent cell to divide. Each step is currently equivalent to 30 minutes. Ex. 36
-[ 60 ]
+[ 50 ]
 
 Number of steps required for a differentiated cell to divide. Ex. 24
 [ 120 ]
@@ -47,6 +47,6 @@ Output Topological Data Analysis csv files? Ex. True
 [ True ]
 
 Percent of cells (as a decimal) that will receive sufficient dox to activate GATA6 pathway
-[ 0.75 ]
+[ 1.00 ]
 
 ------------------------------------------------------------------------------------------------------------------------

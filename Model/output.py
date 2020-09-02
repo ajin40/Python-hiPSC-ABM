@@ -1,5 +1,5 @@
-from PIL import Image, ImageDraw
-from matplotlib.cm import ScalarMappable
+import matplotlib.pyplot as plt
+import matplotlib.collections
 import cv2
 import csv
 import time
@@ -51,109 +51,114 @@ def step_image(simulation):
     """
     # continue if images are desired
     if simulation.output_images:
-        # create a dilation factor to adjust the coordinates to the image resolution
-        dilation_x = simulation.image_quality[0] / simulation.size[0]
-        dilation_y = simulation.image_quality[1] / simulation.size[1]
-
-        # draws the background of the cell space
-        base = Image.new("RGBA", simulation.image_quality, simulation.background_color)
-        image = ImageDraw.Draw(base)
-
         # create an image of the FGF4 gradient if desired
         if simulation.output_gradient:
-            # normalize the concentrations of the FGF4 array and reshape the array to 2D as before it's a 3D
-            # equivalent of a 2D array
-            fgf4_array = simulation.fgf4_values / simulation.max_fgf4
-            fgf4_array = np.reshape(fgf4_array, (fgf4_array.shape[0], fgf4_array.shape[1]))
+            # create a figure with two subplots one for the space image and one for the gradient
+            fig, axes = plt.subplots(1, 2, figsize=(10, 5))
 
-            # create a color map object that is used to turn the fgf4 array into a rgba array
-            cmap_object = ScalarMappable(cmap='Blues')
-            fgf4_as_rgba = cmap_object.to_rgba(fgf4_array, bytes=True, norm=False)
-
-            # create an image from the fgf4 rgba array
-            cmap_base = Image.fromarray(fgf4_as_rgba, mode="RGBA")
-            cmap_base = cmap_base.resize(simulation.image_quality, resample=Image.BICUBIC)
-
-            # transpose the image due to the way matplotlib/pillow interpret the array
-            cmap_base = cmap_base.transpose(Image.TRANSPOSE)
-
-            # draw the gradient color map
-            cmap_image = ImageDraw.Draw(cmap_base)
-
-        # loops over all of the cells, adding their image to the background image
-        for i in range(simulation.number_cells):
-            # determine the radius based on the dilation
-            x_radius = dilation_x * simulation.cell_radii[i]
-            y_radius = dilation_y * simulation.cell_radii[i]
-
-            # get location in 2D with the dilation
-            x = dilation_x * simulation.cell_locations[i][0]
-            y = dilation_y * simulation.cell_locations[i][1]
-
-            # color the cells according to the mode
-            if simulation.color_mode:
-                # True yields pluripotent/differentiated/gata6 high coloring
-                if simulation.cell_states[i] == "Differentiated":
-                    color = (230, 0, 0)
-                elif simulation.cell_fds[i][2] and not simulation.cell_fds[i][3]:
-                    color = (255, 255, 255)
-                else:
-                    color = (22, 252, 32)
-
-            # False yields coloring based on the finite dynamical system
-            else:
-                # color red if differentiated
-                if simulation.cell_states[i] == "Differentiated":
-                    color = (230, 0, 0)
-                # color yellow if both high
-                elif simulation.cell_fds[i][2] == 1 and simulation.cell_fds[i][3] == 1:
-                    color = (255, 255, 30)
-                # color blue if both low
-                elif simulation.cell_fds[i][2] == 0 and simulation.cell_fds[i][3] == 0:
-                    color = (50, 50, 255)
-                # color white if gata6 high
-                elif simulation.cell_fds[i][2] == 1:
-                    color = (255, 255, 255)
-                # color green if nanog high
-                else:
-                    color = (22, 252, 32)
-
-            # get the four points that are the max/min along the x and y axes
-            membrane_circle = (x - x_radius, y - y_radius, x + x_radius, y + y_radius)
-
-            # draw the cell in the normal image
-            image.ellipse(membrane_circle, fill=color, outline="black")
-
-            # if outputting the gradient, draw a small outline of the cell to give an idea of where it without
-            # hindering the gradient image
-            if simulation.output_gradient:
-                cmap_image.ellipse(membrane_circle, outline='gray', width=1)
-
-        # get the image path
-        image_path = simulation.images_path + simulation.name + "_image_" + str(int(simulation.current_step)) + ".png"
-
-        # if including the gradient, combine the two images
-        if simulation.output_gradient:
-            # create a new background to paste to
-            background = Image.new('RGBA', (base.width + cmap_base.width, base.height))
-
-            # base both images
-            background.paste(base, (0, 0))
-            background.paste(cmap_base, (base.width, 0))
-
-            # flip the image so that (0, 0) is bottom left
-            background = background.transpose(Image.FLIP_TOP_BOTTOM)
-
-            # save the image
-            background.save(image_path, 'PNG')
-
-        # no gradient, save only the cell space image
+        # no gradient image
         else:
-            # flip the image so that (0, 0) is bottom left
-            base = base.transpose(Image.FLIP_TOP_BOTTOM)
+            # create a figure with one subplot for the space image
+            fig, axes = plt.subplots(1, 1, figsize=(5, 5))
+            axes = [axes]
 
-            # save the image
-            base.save(image_path, 'PNG')
+        # get the 2D locations and minor/major axes of the ellipses which are just circles for now
+        locations = simulation.cell_locations[:, :2]
+        minor = simulation.cell_radii
+        major = simulation.cell_radii
+        rotate = np.zeros(simulation.number_cells)
+
+        # create an array to write cell colors to
+        colors = np.empty((simulation.number_cells, 3), dtype=tuple)
+
+        # color the cells according to the mode
+        if simulation.color_mode:
+            # color differentiated cells red
+            diff_indices = simulation.cell_states == "Differentiated"
+            colors[diff_indices] = (230, 0, 0)
+
+            # color gata6 high/nanog low cells white
+            gata6_indices = simulation.cell_fds[:, 2] == True
+            nanog_indices = simulation.cell_fds[:, 3] == False
+            gh_nl_indices = (gata6_indices == nanog_indices) != diff_indices
+            colors[gh_nl_indices] = (255, 255, 255)
+
+            # color all other pluripotent cells green
+            pluri_indices = simulation.cell_states == "Pluripotent"
+            other_indices = pluri_indices != gh_nl_indices
+            colors[other_indices] = (22, 252, 32)
+
+        # False yields coloring based on the finite dynamical system
+        else:
+            # color differentiated cells red
+            diff_indices = simulation.cell_states == "Differentiated"
+            colors[diff_indices] = (230, 0, 0)
+
+            # color gata6 high/nanog high cells yellow
+            gata6_indices = simulation.cell_fds[:, 2] == True
+            nanog_indices = simulation.cell_fds[:, 3] == True
+            gh_nh_indices = gata6_indices == nanog_indices != diff_indices
+            colors[gh_nh_indices] = (255, 255, 30)
+
+            # color gata6 low/nanog low cells blue
+            gata6_indices = simulation.cell_fds[:, 2] == False
+            nanog_indices = simulation.cell_fds[:, 3] == False
+            gl_nl_indices = gata6_indices == nanog_indices
+            colors[gl_nl_indices] = (50, 50, 255)
+
+            # color gata6 high/nanog low cells white
+            gata6_indices = simulation.cell_fds[:, 2] == True
+            nanog_indices = simulation.cell_fds[:, 3] == False
+            gh_nl_indices = gata6_indices == nanog_indices != diff_indices
+            colors[gh_nl_indices] = (255, 255, 255)
+
+            # color all other pluripotent cells green
+            pluri_indices = simulation.cell_states == "Pluripotent"
+            other_indices = pluri_indices != gh_nl_indices != gh_nh_indices != gl_nl_indices
+            colors[other_indices] = (22, 252, 32)
+
+        colors /= 255
+        colors = tuple(map(tuple, colors))
+
+        # create a collection of ellipses representing the cells
+        ellipses = matplotlib.collections.EllipseCollection(major, minor, rotate, offsets=locations, units='xy',
+                                                            facecolors=colors, edgecolors="black", linewidths=0.1,
+                                                            transOffset=axes[0].transData)
+
+        # apply the following edits to the plot
+        axes[0].add_collection(ellipses)
+        axes[0].margins(0, 0)
+        axes[0].set_xlim(0, simulation.size[0])
+        axes[0].set_ylim(0, simulation.size[1])
+        axes[0].axis("off")
+        axes[0].set_facecolor("k")
+        axes[0].add_artist(axes[0].patch)
+        axes[0].patch.set_zorder(-1)
+
+        if simulation.output_gradient:
+            # plot the gradient
+            axes[1].imshow(simulation.fgf4_values, cmap="Blues", interpolation="nearest",
+                           extent=[0, simulation.size[0], 0, simulation.size[1]], norm=False)
+
+            # add outlines of cells to gradient image
+            ellipses_ = matplotlib.collections.EllipseCollection(major, minor, rotate, offsets=locations, units='xy',
+                                                                 facecolors="none", edgecolors="black", linewidths=0.1,
+                                                                 transOffset=axes[1].transData)
+
+            # apply the following edits to the plot
+            axes[1].add_collection(ellipses_)
+            axes[1].margins(0, 0)
+            axes[1].axis("off")
+
+        # remove margins
+        plt.tight_layout(pad=0)
+
+        # save the image
+        image_path = simulation.images_path + simulation.name + "_image_" + str(int(simulation.current_step)) + ".png"
+        plt.savefig(image_path, dpi=200)
+        plt.cla()
+        plt.clf()
+        plt.close("all")
 
 
 @backend.record_time

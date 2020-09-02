@@ -2,7 +2,7 @@
 Imaging
 -----------------------------------------------------------------------------------------------------------------------
 Do you want an image produced at each step and a video at the end of the simulation? Ex. True
-[ True ]
+[ False ]
 
 What is the image resolution in pixels? Currently imaging is supported for a 2D space, though a 3D space will yield
 a bird's eye view of the space. Image slicing/3D images to come... Ex. (1000, 1000)
