@@ -8,6 +8,7 @@ import numpy as np
 import pickle
 import natsort
 import os
+import gc
 
 import backend
 
@@ -64,68 +65,61 @@ def step_image(simulation):
 
         # get the 2D locations and minor/major axes of the ellipses which are just circles for now
         locations = simulation.cell_locations[:, :2]
-        minor = simulation.cell_radii
-        major = simulation.cell_radii
+        minor = simulation.cell_radii * 2
+        major = simulation.cell_radii * 2
         rotate = np.zeros(simulation.number_cells)
 
         # create an array to write cell colors to
-        colors = np.empty((simulation.number_cells, 3), dtype=tuple)
+        colors = np.empty((simulation.number_cells, 3), dtype=float)
 
         # color the cells according to the mode
         if simulation.color_mode:
-            # color differentiated cells red
-            diff_indices = simulation.cell_states == "Differentiated"
-            colors[diff_indices] = (230, 0, 0)
+            for i in range(simulation.number_cells):
+                # if the cell is differentiated, color red
+                if simulation.cell_states[i] == "Differentiated":
+                    colors[i] = [230, 0, 0]
 
-            # color gata6 high/nanog low cells white
-            gata6_indices = simulation.cell_fds[:, 2] == True
-            nanog_indices = simulation.cell_fds[:, 3] == False
-            gh_nl_indices = (gata6_indices == nanog_indices) != diff_indices
-            colors[gh_nl_indices] = (255, 255, 255)
+                # if the cell is gata6 high and nanog low, color white
+                elif simulation.cell_fds[i][2] * (simulation.cell_fds[i][3] + 1) % 2:
+                    colors[i] = [255, 255, 255]
 
-            # color all other pluripotent cells green
-            pluri_indices = simulation.cell_states == "Pluripotent"
-            other_indices = pluri_indices != gh_nl_indices
-            colors[other_indices] = (22, 252, 32)
+                # if anything else, color green
+                else:
+                    colors[i] = [22, 252, 32]
 
         # False yields coloring based on the finite dynamical system
         else:
-            # color differentiated cells red
-            diff_indices = simulation.cell_states == "Differentiated"
-            colors[diff_indices] = (230, 0, 0)
+            for i in range(simulation.number_cells):
+                # if the cell is differentiated, color red
+                if simulation.cell_states[i] == "Differentiated":
+                    colors[i] = [230, 0, 0]
 
-            # color gata6 high/nanog high cells yellow
-            gata6_indices = simulation.cell_fds[:, 2] == True
-            nanog_indices = simulation.cell_fds[:, 3] == True
-            gh_nh_indices = gata6_indices == nanog_indices != diff_indices
-            colors[gh_nh_indices] = (255, 255, 30)
+                # if the cell is both gata6 high and nanog high, color yellow
+                elif simulation.cell_fds[i][2] * simulation.cell_fds[i][3] % 2:
+                    colors[i] = [255, 255, 30]
 
-            # color gata6 low/nanog low cells blue
-            gata6_indices = simulation.cell_fds[:, 2] == False
-            nanog_indices = simulation.cell_fds[:, 3] == False
-            gl_nl_indices = gata6_indices == nanog_indices
-            colors[gl_nl_indices] = (50, 50, 255)
+                # if the cell is both gata6 low and nanog low, color blue
+                elif (simulation.cell_fds[i][2] + 1) * (simulation.cell_fds[i][3] + 1) % 2:
+                    colors[i] = [50, 50, 255]
 
-            # color gata6 high/nanog low cells white
-            gata6_indices = simulation.cell_fds[:, 2] == True
-            nanog_indices = simulation.cell_fds[:, 3] == False
-            gh_nl_indices = gata6_indices == nanog_indices != diff_indices
-            colors[gh_nl_indices] = (255, 255, 255)
+                # if the cell is gata6 high and nanog low, color white
+                elif simulation.cell_fds[i][2] * (simulation.cell_fds[i][3] + 1) % 2:
+                    colors[i] = [255, 255, 255]
 
-            # color all other pluripotent cells green
-            pluri_indices = simulation.cell_states == "Pluripotent"
-            other_indices = pluri_indices != gh_nl_indices != gh_nh_indices != gl_nl_indices
-            colors[other_indices] = (22, 252, 32)
+                # if anything else, color green
+                else:
+                    colors[i] = [22, 252, 32]
 
+        # convert colors to floats and turn entries into tuples
         colors /= 255
         colors = tuple(map(tuple, colors))
 
-        # create a collection of ellipses representing the cells
+        # create a collection of ellipses representing the cells for the space image
         ellipses = matplotlib.collections.EllipseCollection(major, minor, rotate, offsets=locations, units='xy',
                                                             facecolors=colors, edgecolors="black", linewidths=0.1,
                                                             transOffset=axes[0].transData)
 
-        # apply the following edits to the plot
+        # add the ellipses to the plot and perform the following edits to the plot
         axes[0].add_collection(ellipses)
         axes[0].margins(0, 0)
         axes[0].set_xlim(0, simulation.size[0])
@@ -135,17 +129,18 @@ def step_image(simulation):
         axes[0].add_artist(axes[0].patch)
         axes[0].patch.set_zorder(-1)
 
+        # create the image of the gradient
         if simulation.output_gradient:
             # plot the gradient
-            axes[1].imshow(simulation.fgf4_values, cmap="Blues", interpolation="nearest",
-                           extent=[0, simulation.size[0], 0, simulation.size[1]], norm=False)
+            axes[1].imshow(simulation.fgf4_values[:, :, 0], cmap="Blues", interpolation="nearest", origin="lower",
+                           extent=[0, simulation.size[0], 0, simulation.size[1]], vmin=0, vmax=simulation.max_fgf4)
 
             # add outlines of cells to gradient image
             ellipses_ = matplotlib.collections.EllipseCollection(major, minor, rotate, offsets=locations, units='xy',
                                                                  facecolors="none", edgecolors="black", linewidths=0.1,
                                                                  transOffset=axes[1].transData)
 
-            # apply the following edits to the plot
+            # add the ellipses to the plot and perform the following edits to the plot
             axes[1].add_collection(ellipses_)
             axes[1].margins(0, 0)
             axes[1].axis("off")
@@ -156,8 +151,6 @@ def step_image(simulation):
         # save the image
         image_path = simulation.images_path + simulation.name + "_image_" + str(int(simulation.current_step)) + ".png"
         plt.savefig(image_path, dpi=200)
-        plt.cla()
-        plt.clf()
         plt.close("all")
 
 
@@ -275,8 +268,11 @@ def simulation_data(simulation):
             # add the headers together and write the row to the csv
             csv_object.writerow(custom_header + functions_header)
 
-        # calculate the total step time and the max memory used
+        # calculate the total step time
         step_time = time.perf_counter() - simulation.step_start
+
+        # run a garbage collect before getting the memory
+        gc.collect()
         memory = memory_profiler.memory_usage(max_usage=True)
 
         # write the row with the corresponding values

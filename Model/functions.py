@@ -137,8 +137,8 @@ def cell_pathway(simulation, index):
     """
     # take the location of a cell and determine the nearest diffusion point by creating a zone around a
     # diffusion point an any cells in the zone will base their value off of that
-    half_index_x = simulation.cell_locations[index][0] // (simulation.dx / 2)
-    half_index_y = simulation.cell_locations[index][1] // (simulation.dy / 2)
+    half_index_x = simulation.cell_locations[index][1] // (simulation.dx / 2)
+    half_index_y = simulation.cell_locations[index][0] // (simulation.dy / 2)
     half_index_z = simulation.cell_locations[index][2] // (simulation.dz / 2)
     index_x = math.ceil(half_index_x / 2)
     index_y = math.ceil(half_index_y / 2)
