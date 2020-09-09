@@ -35,7 +35,7 @@ def step_outputs(simulation):
     """
     # information about the cells/environment at current step
     step_image(simulation)
-    step_image_new(simulation)
+    # step_image_new(simulation)
     step_csv(simulation)
     step_gradients(simulation)
     step_tda(simulation)
@@ -168,7 +168,7 @@ def step_image_new(simulation):
     y_size = math.ceil(pixels * simulation.size[1] / simulation.size[0])
 
     # create the array
-    image = np.zeros((x_size, y_size, 3), dtype=np.uint8)
+    image = np.zeros((y_size, x_size, 3), dtype=np.uint8)
 
     # go through all of the cells
     for i in range(simulation.number_cells):
@@ -218,9 +218,10 @@ def step_image_new(simulation):
 
         # update the array with the cell image
         image = cv2.ellipse(image, point, (major, minor), rotation, 0, 360, color, -1)
+        image = cv2.ellipse(image, point, (major, minor), rotation, 0, 360, (0, 0, 0), 1)
 
     image = cv2.flip(image, 0)
-    image_path = simulation.images_path + simulation.name + "_imagenew_" + str(int(simulation.current_step)) + ".png"
+    image_path = simulation.images_path + simulation.name + "_image_" + str(int(simulation.current_step)) + ".png"
     cv2.imwrite(image_path, image)
 
 

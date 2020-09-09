@@ -126,8 +126,9 @@ class Simulation:
 
             # the points at which the diffusion values are calculated
             gradient_size = self.size / np.array([self.dx, self.dy, self.dz]) + np.ones(3)
-            self.fgf4_values = np.zeros(gradient_size.astype(int))
-            self.fgf4_values_temp = np.zeros(gradient_size.astype(int))
+            gradient_size = gradient_size.astype(int)
+            self.fgf4_values = np.zeros((gradient_size[1], gradient_size[0], gradient_size[2]))
+            self.fgf4_values_temp = np.zeros((gradient_size[1], gradient_size[0], gradient_size[2]))
 
             # much like the cell arrays add any gradient names to list this so that a diffusion function can
             # act on them automatically, the temp is used to incrementally add concentration
