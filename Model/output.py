@@ -9,6 +9,7 @@ import pickle
 import natsort
 import os
 import gc
+import math
 
 import backend
 
@@ -34,6 +35,7 @@ def step_outputs(simulation):
     """
     # information about the cells/environment at current step
     step_image(simulation)
+    step_image_new(simulation)
     step_csv(simulation)
     step_gradients(simulation)
     step_tda(simulation)
@@ -152,6 +154,74 @@ def step_image(simulation):
         image_path = simulation.images_path + simulation.name + "_image_" + str(int(simulation.current_step)) + ".png"
         plt.savefig(image_path, dpi=200)
         plt.close("all")
+
+
+@backend.record_time
+def step_image_new(simulation):
+    """ Creates an image representation of the space in which
+        the cells reside including the extracellular gradient.
+    """
+    # get the size of the array used for imaging
+    pixels = 2000
+    scale = pixels/simulation.size[0]
+    x_size = pixels
+    y_size = math.ceil(pixels * simulation.size[1] / simulation.size[0])
+
+    # create the array
+    image = np.zeros((x_size, y_size, 3), dtype=np.uint8)
+
+    # go through all of the cells
+    for i in range(simulation.number_cells):
+        # get the following values
+        x = math.ceil(simulation.cell_locations[i][0] * scale)
+        y = math.ceil(simulation.cell_locations[i][1] * scale)
+        point = (x, y)
+        major = math.ceil(simulation.cell_radii[i] * scale)
+        minor = math.ceil(simulation.cell_radii[i] * scale)
+        rotation = 0
+
+        # color the cells according to the mode
+        if simulation.color_mode:
+            # if the cell is differentiated, color red
+            if simulation.cell_states[i] == "Differentiated":
+                color = (0, 0, 230)
+
+            # if the cell is gata6 high and nanog low, color white
+            elif simulation.cell_fds[i][2] * (simulation.cell_fds[i][3] + 1) % 2:
+                color = (255, 255, 255)
+
+            # if anything else, color green
+            else:
+                color = (32, 252, 22)
+
+        # False yields coloring based on the finite dynamical system
+        else:
+            # if the cell is differentiated, color red
+            if simulation.cell_states[i] == "Differentiated":
+                color = (0, 0, 230)
+
+            # if the cell is both gata6 high and nanog high, color yellow
+            elif simulation.cell_fds[i][2] * simulation.cell_fds[i][3] % 2:
+                color = (30, 255, 255)
+
+            # if the cell is both gata6 low and nanog low, color blue
+            elif (simulation.cell_fds[i][2] + 1) * (simulation.cell_fds[i][3] + 1) % 2:
+                color = (255, 50, 50)
+
+            # if the cell is gata6 high and nanog low, color white
+            elif simulation.cell_fds[i][2] * (simulation.cell_fds[i][3] + 1) % 2:
+                color = (255, 255, 255)
+
+            # if anything else, color green
+            else:
+                color = (32, 252, 22)
+
+        # update the array with the cell image
+        image = cv2.ellipse(image, point, (major, minor), rotation, 0, 360, color, -1)
+
+    image = cv2.flip(image, 0)
+    image_path = simulation.images_path + simulation.name + "_imagenew_" + str(int(simulation.current_step)) + ".png"
+    cv2.imwrite(image_path, image)
 
 
 @backend.record_time

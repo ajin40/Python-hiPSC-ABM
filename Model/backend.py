@@ -800,10 +800,10 @@ def highest_fgf4_gpu(cell_locations, diffuse_bins, diffuse_bins_help, diffuse_lo
                                 highest_index_z = z_
                                 highest_value = fgf4_values[x_][y_][z_]
 
-                # update the highest fgf4 diffusion point
-                cell_highest_fgf4[focus][0] = highest_index_x
-                cell_highest_fgf4[focus][1] = highest_index_y
-                cell_highest_fgf4[focus][2] = highest_index_z
+        # update the highest fgf4 diffusion point
+        cell_highest_fgf4[focus][0] = highest_index_x
+        cell_highest_fgf4[focus][1] = highest_index_y
+        cell_highest_fgf4[focus][2] = highest_index_z
 
 
 @jit(nopython=True, parallel=True)

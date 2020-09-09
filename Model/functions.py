@@ -280,11 +280,7 @@ def cell_motility(simulation):
         # if the cell is nanog high and gata6 low
         elif simulation.cell_fds[i][3] == 1 and not simulation.cell_fds[i][2] == 1:
             # set the motion to be false if there are enough nanog high neighbors
-            if len(neighbors) >= simulation.move_thresh:
-                simulation.cell_motion[i] = False
-
-            # if the cell is actively moving
-            if simulation.cell_motion[i]:
+            if len(neighbors) < 6:
                 # move based on fgf4 concentrations
                 if simulation.fgf4_move:
                     # makes sure not the numpy nan type, proceed if actual value
@@ -321,13 +317,14 @@ def cell_motility(simulation):
                 else:
                     simulation.cell_motility_force[i] += backend.random_vector(simulation) * motility_force
 
-            # if not actively moving, use cluster movement
             else:
-                if not np.isnan(simulation.cell_cluster_nearest[i]):
-                    pluri_index = int(simulation.cell_cluster_nearest[i])
-                    vector = simulation.cell_locations[pluri_index] - simulation.cell_locations[i]
-                    normal = backend.normal_vector(vector)
-                    simulation.cell_motility_force[i] += normal * motility_force * 0.05
+                simulation.cell_motion[i] = False
+
+                # if not np.isnan(simulation.cell_cluster_nearest[i]):
+                #     pluri_index = int(simulation.cell_cluster_nearest[i])
+                #     vector = simulation.cell_locations[pluri_index] - simulation.cell_locations[i]
+                #     normal = backend.normal_vector(vector)
+                #     simulation.cell_motility_force[i] += normal * motility_force * 0.05
 
         # if both gata6/nanog high or both low
         else:
@@ -347,7 +344,7 @@ def alt_cell_motility(simulation):
         are more similar to NetLogo
     """
     # this is the motility force of the cells
-    motility_force = 0.0000000005
+    motility_force = 0.000000002
 
     # loop over all of the cells
     for i in range(simulation.number_cells):
@@ -357,7 +354,7 @@ def alt_cell_motility(simulation):
             neighbors = simulation.neighbor_graph.neighbors(i)
 
             # if cell is surrounded by other cells, inhibit the motion
-            if len(neighbors) >= 16:
+            if len(neighbors) >= 6:
                 simulation.cell_motion[i] = False
 
             # if not, calculate the active movement for the step
@@ -376,17 +373,17 @@ def alt_cell_motility(simulation):
 
                 # if the cell is gata6 high and nanog low
                 elif simulation.cell_fds[i][2] == 1 and not simulation.cell_fds[i][3] == 1:
-                    # # if there is a differentiated cell nearby, move toward it
-                    # if not np.isnan(simulation.cell_nearest_diff[i]):
-                    #     nearest_index = int(simulation.cell_nearest_diff[i])
-                    #     vector = simulation.cell_locations[nearest_index] - simulation.cell_locations[i]
-                    #     normal = backend.normal_vector(vector)
-                    #     simulation.cell_motility_force[i] += normal * motility_force
-                    #
-                    # # if no nearby differentiated cells, move randomly
-                    # else:
-                    #     simulation.cell_motility_force[i] += backend.random_vector(simulation) * motility_force
-                    simulation.cell_motility_force[i] += backend.random_vector(simulation) * motility_force
+                    # if there is a differentiated cell nearby, move toward it
+                    if not np.isnan(simulation.cell_nearest_diff[i]):
+                        nearest_index = int(simulation.cell_nearest_diff[i])
+                        vector = simulation.cell_locations[nearest_index] - simulation.cell_locations[i]
+                        normal = backend.normal_vector(vector)
+                        simulation.cell_motility_force[i] += normal * motility_force
+
+                    # if no nearby differentiated cells, move randomly
+                    else:
+                        simulation.cell_motility_force[i] += backend.random_vector(simulation) * motility_force
+                    # simulation.cell_motility_force[i] += backend.random_vector(simulation) * motility_force
 
                 # if the cell is nanog high and gata6 low
                 elif simulation.cell_fds[i][3] == 1 and not simulation.cell_fds[i][2] == 1:
@@ -395,8 +392,8 @@ def alt_cell_motility(simulation):
                         nearest_index = int(simulation.cell_nearest_nanog[i])
                         vector = simulation.cell_locations[nearest_index] - simulation.cell_locations[i]
                         normal = backend.normal_vector(vector)
-                        simulation.cell_motility_force[i] += normal * motility_force * 0.25
-                        simulation.cell_motility_force[i] += backend.random_vector(simulation) * motility_force * 0.75
+                        simulation.cell_motility_force[i] += normal * motility_force * 0.8
+                        simulation.cell_motility_force[i] += backend.random_vector(simulation) * motility_force * 0.2
 
                     # if there is a gata6 high cell nearby, move away from it
                     elif not np.isnan(simulation.cell_nearest_gata6[i]):
@@ -1009,7 +1006,7 @@ def update_diffusion(simulation):
         size = np.array(simulation.__dict__[gradient].shape) + 2 * np.ones(3, dtype=int)
 
         # create arrays that will give the gradient arrays a border of zeros
-        gradient_base = np.zeros(size)
+        gradient_base = np.ones(size) * np.mean(simulation.__dict__[gradient])
         temp_base = np.zeros(size)
 
         # add the gradient array and the temp array to the middle of the base arrays so create border of zeros
@@ -1022,3 +1019,4 @@ def update_diffusion(simulation):
                                                      simulation.size)
         # get the gradient
         simulation.__dict__[gradient] = gradient_base[1:-1, 1:-1, 1:-1]
+        simulation.__dict__[temp][:, :, :] = 0
