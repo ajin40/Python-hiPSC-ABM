@@ -674,16 +674,18 @@ def update_diffusion_cpu(base, temp_base, time_steps, dt, dx2, dy2, dz2, diffuse
     """ this is the just-in-time compiled version of
         update_diffusion that runs solely on the cpu
     """
-    # finite differences to solve laplacian diffusion equation
+    # finite difference to solve laplacian diffusion equation
     # 2D
     if size[2] == 0:
         for i in range(time_steps):
             # add the temporary gradient to the main gradient to slowly increment concentrations
             base += temp_base
-            base[1:-1, 0, 1] += temp_base[:, 0, 0]
-            base[1:-1, -1, 1] += temp_base[:, -1, 0]
-            base[0, 1:-1, 1] += temp_base[0, :, 0]
-            base[-1, 1:-1, 1] += temp_base[-1, :, 0]
+
+            # mirror the edges of the diffusion space to create initial conditions
+            base[:, 0, 1:-1] = base[:, 1, 1:-1]
+            base[:, -1, 1:-1] = base[:, -2, 1:-1]
+            base[0, :, 1:-1] = base[1, :, 1:-1]
+            base[-1, :, 1:-1] = base[-2, :, 1:-1]
 
             # perform the first part of the calculation
             x = (base[2:, 1:-1, 1:-1] - 2 * base[1:-1, 1:-1, 1:-1] + base[:-2, 1:-1, 1:-1]) / dx2
@@ -697,6 +699,25 @@ def update_diffusion_cpu(base, temp_base, time_steps, dt, dx2, dy2, dz2, diffuse
         for i in range(time_steps):
             # add the temporary gradient to the main gradient to slowly increment concentrations
             base += temp_base
+
+            # mirror the edges of the diffusion space to create initial conditions
+            # x and y direction
+            base[:, 0, 1:-1] = base[:, 1, 1:-1]
+            base[:, -1, 1:-1] = base[:, -2, 1:-1]
+            base[0, :, 1:-1] = base[1, :, 1:-1]
+            base[-1, :, 1:-1] = base[-2, :, 1:-1]
+
+            # x and z direction
+            base[:, 1:-1, 0] = base[:, 1:-1, 1]
+            base[:, 1:-1, -1] = base[:, 1:-1, -2]
+            base[0, 1:-1, :] = base[1, 1:-1, :]
+            base[-1, 1:-1, :] = base[-2, 1:-1, :]
+
+            # y and z direction
+            base[1:-1, :, 0] = base[1:-1, :, 1]
+            base[1:-1, :, -1] = base[1:-1, :, -2]
+            base[1:-1, 0, :] = base[1:-1, 1, :]
+            base[1:-1, -1, :] = base[1:-1, -2, :]
 
             # perform the first part of the calculation
             x = (base[2:, 1:-1, 1:-1] - 2 * base[1:-1, 1:-1, 1:-1] + base[:-2, 1:-1, 1:-1]) / dx2

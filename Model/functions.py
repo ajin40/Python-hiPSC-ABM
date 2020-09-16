@@ -1003,26 +1003,22 @@ def update_diffusion(simulation):
         # divide the temporary gradient by the number of steps to simulate the incremental increase in concentration
         simulation.__dict__[temp] /= update_diffusion.steps
 
-        # get the dimensions of an array that is 2 bigger along all axes
+        # get the dimensions of an array that will hold initial conditions
         size = np.array(simulation.__dict__[gradient].shape) + 2 * np.ones(3, dtype=int)
 
-        # create arrays that will give the gradient arrays a border of zeros
-        # gradient_base = np.ones(size) * np.mean(simulation.__dict__[gradient])
+        # create arrays that will hold initial conditions
         gradient_base = np.zeros(size)
-        gradient_base[1:-1, 0, 1] = simulation.__dict__[gradient][:, 0, 0]
-        gradient_base[1:-1, -1, 1] = simulation.__dict__[gradient][:, -1, 0]
-        gradient_base[0, 1:-1, 1] = simulation.__dict__[gradient][0, :, 0]
-        gradient_base[-1, 1:-1, 1] = simulation.__dict__[gradient][-1, :, 0]
         temp_base = np.zeros(size)
 
-        # add the gradient array and the temp array to the middle of the base arrays so create border of zeros
-        gradient_base[1:-1, 1:-1, 1:-1] = simulation.fgf4_values
-        temp_base[1:-1, 1:-1, 1:-1] = simulation.fgf4_values_temp
+        # add the gradient array and the temp array to the middle of the base arrays
+        gradient_base[1:-1, 1:-1, 1:-1] = simulation.__dict__[gradient]
+        temp_base[1:-1, 1:-1, 1:-1] = simulation.__dict__[temp]
 
-        # return the gradient base after it has been updated by the finite differences method
+        # return the gradient base after it has been updated by the finite difference method
         gradient_base = backend.update_diffusion_cpu(gradient_base, temp_base, update_diffusion.steps, simulation.dt,
                                                      simulation.dx2, simulation.dy2, simulation.dz2, simulation.diffuse,
                                                      simulation.size)
-        # get the gradient
+
+        # update the gradient and set the temp back to zero
         simulation.__dict__[gradient] = gradient_base[1:-1, 1:-1, 1:-1]
         simulation.__dict__[temp][:, :, :] = 0
