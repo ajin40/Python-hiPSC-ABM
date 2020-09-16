@@ -29,11 +29,11 @@ for simulation.current_step in range(simulation.beginning_step, simulation.end_s
 
     # find the nearest NANOG high, GATA6 high, and differentiated cell within a fixed radius. this provides information
     # that can potentially be used for movement such as moving toward the nearest NANOG high cell
-    functions.nearest(simulation)
+    # functions.nearest(simulation)
 
     # find the nearest pluripotent cell within a fixed radius that is not part of the same component of the underlying
     # graph of all pluripotent cells. used to represent the movement of pluripotent clusters
-    functions.nearest_cluster(simulation)
+    # functions.nearest_cluster(simulation)
 
     # locate the diffusion point (within a fixed radius) that has the highest FGF4 concentration. can be used to
     # represent chemotactic movement of cells
@@ -41,8 +41,8 @@ for simulation.current_step in range(simulation.beginning_step, simulation.end_s
 
     # calculates the direction/magnitude of the movement of the cell depending on a variety of factors such as state,
     # extracellular gradient, and presence of neighbors
-    # functions.cell_motility(simulation)
-    functions.alt_cell_motility(simulation)
+    functions.cell_motility(simulation)
+    # functions.alt_cell_motility(simulation)
 
     # moves the cells to a state of physical equilibrium between adhesive and repulsive forces acting on the cells,
     # while also applying active movement forces from the previous cell_motility() function.

@@ -10,6 +10,7 @@ import natsort
 import os
 import gc
 import math
+import random as r
 
 import backend
 
@@ -34,11 +35,11 @@ def step_outputs(simulation):
         file relating to the simulation at a particular step
     """
     # information about the cells/environment at current step
-    step_image(simulation)
-    # step_image_new(simulation)
-    step_csv(simulation)
-    step_gradients(simulation)
-    step_tda(simulation)
+    # step_image(simulation)
+    step_image_new(simulation)
+    # step_csv(simulation)
+    # step_gradients(simulation)
+    # step_tda(simulation)
 
     # a temporary pickled file of the simulation, used for continuing past simulations
     temporary(simulation)
@@ -178,7 +179,7 @@ def step_image_new(simulation):
         point = (x, y)
         major = math.ceil(simulation.cell_radii[i] * scale)
         minor = math.ceil(simulation.cell_radii[i] * scale)
-        rotation = 0
+        rotation = r.randint(0, 360)
 
         # color the cells according to the mode
         if simulation.color_mode:
@@ -219,6 +220,31 @@ def step_image_new(simulation):
         # update the array with the cell image
         image = cv2.ellipse(image, point, (major, minor), rotation, 0, 360, color, -1)
         image = cv2.ellipse(image, point, (major, minor), rotation, 0, 360, (0, 0, 0), 1)
+
+    if simulation.output_gradient:
+
+        a = simulation.fgf4_values[:, :, 0] / simulation.max_fgf4
+
+        a *= 255
+        b = np.ones((a.shape[0], a.shape[1]), dtype=np.uint8) * 255
+        a = b - a
+        a = a.astype(np.uint8)
+        a = cv2.applyColorMap(a, cv2.COLORMAP_OCEAN)
+
+        a = cv2.resize(a, (x_size, y_size), interpolation=cv2.INTER_NEAREST)
+
+        # go through all of the cells
+        for i in range(simulation.number_cells):
+            # get the following values
+            x = math.ceil(simulation.cell_locations[i][0] * scale)
+            y = math.ceil(simulation.cell_locations[i][1] * scale)
+            point = (x, y)
+            major = math.ceil(simulation.cell_radii[i] * scale)
+            minor = math.ceil(simulation.cell_radii[i] * scale)
+            rotation = r.randint(0, 360)
+            a = cv2.ellipse(a, point, (major, minor), rotation, 0, 360, (75, 75, 75), 1)
+
+        image = np.concatenate((image, a), axis=1)
 
     image = cv2.flip(image, 0)
     image_path = simulation.images_path + simulation.name + "_image_" + str(int(simulation.current_step)) + ".png"

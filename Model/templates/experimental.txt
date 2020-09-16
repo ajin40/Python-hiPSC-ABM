@@ -2,10 +2,10 @@
 Experimental
 -----------------------------------------------------------------------------------------------------------------------
 Number of steps required for a pluripotent cell to divide. Each step is currently equivalent to 30 minutes. Ex. 36
-[ 50 ]
+[ 48 ]
 
 Number of steps required for a differentiated cell to divide. Ex. 24
-[ 120 ]
+[ 96 ]
 
 Number of steps required for a pluripotent cell to differentiate. Ex. 36
 [ 144 ]
@@ -20,7 +20,7 @@ Threshold of cells to needed to inhibit the motion of a cell. If lower than this
 [ 2 ]
 
 Threshold of cells to denote a cell as lonely or not. If lower than this value, increase death counter. Ex. 1
-[ 1 ]
+[ 3 ]
 
 Threshold of differentiated neighbors for increasing differentiation. If lower than this value no increase. Ex. 8
 [ 8 ]
@@ -37,11 +37,11 @@ Use the Guye movement method? Where GATA6 high cells with move toward differenti
 Use Eunbi's method of motion based on the NetLogo model? Ex. True
 [ False ]
 
-What is the max value of FGF4 at a diffusion point? Ex. 20
-[ 40 ]
+What is the max value of FGF4 at a diffusion point? Ex. 80
+[ 80 ]
 
 Use FGF4 concentrations for NANOG high movements? Ex. False
-[ True ]
+[ True  ]
 
 Output Topological Data Analysis csv files? Ex. True
 [ True ]

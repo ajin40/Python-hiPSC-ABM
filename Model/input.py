@@ -116,7 +116,7 @@ class Simulation:
 
             # the diffusion constant for the molecule gradients and the radius of search for high concentrations
             self.diffuse = 0.000000000000001
-            self.diffuse_radius = 0.00005
+            self.diffuse_radius = 0.0000141421356
 
             # get the time step value for diffusion updates depending on whether 2D or 3D
             if self.size[2] == 0:

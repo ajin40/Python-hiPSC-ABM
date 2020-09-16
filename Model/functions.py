@@ -28,7 +28,7 @@ def cell_update(simulation):
     # loop over the cells
     for i in range(simulation.number_cells):
         # Cell death
-        # cell_death(simulation, i)
+        cell_death(simulation, i)
 
         # Differentiated surround
         cell_diff_surround(simulation, i)
@@ -280,6 +280,7 @@ def cell_motility(simulation):
         # if the cell is nanog high and gata6 low
         elif simulation.cell_fds[i][3] == 1 and not simulation.cell_fds[i][2] == 1:
             # set the motion to be false if there are enough nanog high neighbors
+            # if len(neighbors) < simulation.move_thresh:
             if len(neighbors) < 6:
                 # move based on fgf4 concentrations
                 if simulation.fgf4_move:
@@ -300,7 +301,7 @@ def cell_motility(simulation):
                         nearest_index = int(simulation.cell_nearest_gata6[i])
                         vector = simulation.cell_locations[nearest_index] - simulation.cell_locations[i]
                         normal = backend.normal_vector(vector)
-                        simulation.cell_motility_force[i] += normal * motility_force * -1
+                        simulation.cell_motility_force[i] += normal * motility_force
 
                     # if there is a nanog high cell nearby, move to it
                     elif not np.isnan(simulation.cell_nearest_nanog[i]):
@@ -344,7 +345,7 @@ def alt_cell_motility(simulation):
         are more similar to NetLogo
     """
     # this is the motility force of the cells
-    motility_force = 0.000000002
+    motility_force = 0.0000000001
 
     # loop over all of the cells
     for i in range(simulation.number_cells):
@@ -1006,7 +1007,12 @@ def update_diffusion(simulation):
         size = np.array(simulation.__dict__[gradient].shape) + 2 * np.ones(3, dtype=int)
 
         # create arrays that will give the gradient arrays a border of zeros
-        gradient_base = np.ones(size) * np.mean(simulation.__dict__[gradient])
+        # gradient_base = np.ones(size) * np.mean(simulation.__dict__[gradient])
+        gradient_base = np.zeros(size)
+        gradient_base[1:-1, 0, 1] = simulation.__dict__[gradient][:, 0, 0]
+        gradient_base[1:-1, -1, 1] = simulation.__dict__[gradient][:, -1, 0]
+        gradient_base[0, 1:-1, 1] = simulation.__dict__[gradient][0, :, 0]
+        gradient_base[-1, 1:-1, 1] = simulation.__dict__[gradient][-1, :, 0]
         temp_base = np.zeros(size)
 
         # add the gradient array and the temp array to the middle of the base arrays so create border of zeros
