@@ -1,8 +1,6 @@
 opencv-python
-pillow
 numpy
 python-igraph
 numba
 memory_profiler
-matplotlib
 natsort

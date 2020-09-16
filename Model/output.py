@@ -1,5 +1,3 @@
-import matplotlib.pyplot as plt
-import matplotlib.collections
 import cv2
 import csv
 import time
@@ -8,9 +6,7 @@ import numpy as np
 import pickle
 import natsort
 import os
-import gc
 import math
-import random as r
 
 import backend
 
@@ -35,11 +31,10 @@ def step_outputs(simulation):
         file relating to the simulation at a particular step
     """
     # information about the cells/environment at current step
-    # step_image(simulation)
-    step_image_new(simulation)
-    # step_csv(simulation)
-    # step_gradients(simulation)
-    # step_tda(simulation)
+    step_image(simulation)
+    step_csv(simulation)
+    step_gradients(simulation)
+    step_tda(simulation)
 
     # a temporary pickled file of the simulation, used for continuing past simulations
     temporary(simulation)
@@ -52,134 +47,39 @@ def step_outputs(simulation):
 def step_image(simulation):
     """ Creates an image representation of the space in which
         the cells reside including the extracellular gradient.
+        Uses BGR instead of RGB.
     """
-    # continue if images are desired
-    if simulation.output_images:
-        # create an image of the FGF4 gradient if desired
-        if simulation.output_gradient:
-            # create a figure with two subplots one for the space image and one for the gradient
-            fig, axes = plt.subplots(1, 2, figsize=(10, 5))
-
-        # no gradient image
-        else:
-            # create a figure with one subplot for the space image
-            fig, axes = plt.subplots(1, 1, figsize=(5, 5))
-            axes = [axes]
-
-        # get the 2D locations and minor/major axes of the ellipses which are just circles for now
-        locations = simulation.cell_locations[:, :2]
-        minor = simulation.cell_radii * 2
-        major = simulation.cell_radii * 2
-        rotate = np.zeros(simulation.number_cells)
-
-        # create an array to write cell colors to
-        colors = np.empty((simulation.number_cells, 3), dtype=float)
-
-        # color the cells according to the mode
-        if simulation.color_mode:
-            for i in range(simulation.number_cells):
-                # if the cell is differentiated, color red
-                if simulation.cell_states[i] == "Differentiated":
-                    colors[i] = [230, 0, 0]
-
-                # if the cell is gata6 high and nanog low, color white
-                elif simulation.cell_fds[i][2] * (simulation.cell_fds[i][3] + 1) % 2:
-                    colors[i] = [255, 255, 255]
-
-                # if anything else, color green
-                else:
-                    colors[i] = [22, 252, 32]
-
-        # False yields coloring based on the finite dynamical system
-        else:
-            for i in range(simulation.number_cells):
-                # if the cell is differentiated, color red
-                if simulation.cell_states[i] == "Differentiated":
-                    colors[i] = [230, 0, 0]
-
-                # if the cell is both gata6 high and nanog high, color yellow
-                elif simulation.cell_fds[i][2] * simulation.cell_fds[i][3] % 2:
-                    colors[i] = [255, 255, 30]
-
-                # if the cell is both gata6 low and nanog low, color blue
-                elif (simulation.cell_fds[i][2] + 1) * (simulation.cell_fds[i][3] + 1) % 2:
-                    colors[i] = [50, 50, 255]
-
-                # if the cell is gata6 high and nanog low, color white
-                elif simulation.cell_fds[i][2] * (simulation.cell_fds[i][3] + 1) % 2:
-                    colors[i] = [255, 255, 255]
-
-                # if anything else, color green
-                else:
-                    colors[i] = [22, 252, 32]
-
-        # convert colors to floats and turn entries into tuples
-        colors /= 255
-        colors = tuple(map(tuple, colors))
-
-        # create a collection of ellipses representing the cells for the space image
-        ellipses = matplotlib.collections.EllipseCollection(major, minor, rotate, offsets=locations, units='xy',
-                                                            facecolors=colors, edgecolors="black", linewidths=0.1,
-                                                            transOffset=axes[0].transData)
-
-        # add the ellipses to the plot and perform the following edits to the plot
-        axes[0].add_collection(ellipses)
-        axes[0].margins(0, 0)
-        axes[0].set_xlim(0, simulation.size[0])
-        axes[0].set_ylim(0, simulation.size[1])
-        axes[0].axis("off")
-        axes[0].set_facecolor("k")
-        axes[0].add_artist(axes[0].patch)
-        axes[0].patch.set_zorder(-1)
-
-        # create the image of the gradient
-        if simulation.output_gradient:
-            # plot the gradient
-            axes[1].imshow(simulation.fgf4_values[:, :, 0], cmap="Blues", interpolation="nearest", origin="lower",
-                           extent=[0, simulation.size[0], 0, simulation.size[1]], vmin=0, vmax=simulation.max_fgf4)
-
-            # add outlines of cells to gradient image
-            ellipses_ = matplotlib.collections.EllipseCollection(major, minor, rotate, offsets=locations, units='xy',
-                                                                 facecolors="none", edgecolors="black", linewidths=0.1,
-                                                                 transOffset=axes[1].transData)
-
-            # add the ellipses to the plot and perform the following edits to the plot
-            axes[1].add_collection(ellipses_)
-            axes[1].margins(0, 0)
-            axes[1].axis("off")
-
-        # remove margins
-        plt.tight_layout(pad=0)
-
-        # save the image
-        image_path = simulation.images_path + simulation.name + "_image_" + str(int(simulation.current_step)) + ".png"
-        plt.savefig(image_path, dpi=200)
-        plt.close("all")
-
-
-@backend.record_time
-def step_image_new(simulation):
-    """ Creates an image representation of the space in which
-        the cells reside including the extracellular gradient.
-    """
-    # get the size of the array used for imaging
+    # get the size of the array used for imaging in addition to the scale factor
     pixels = 2000
     scale = pixels/simulation.size[0]
     x_size = pixels
     y_size = math.ceil(pixels * simulation.size[1] / simulation.size[0])
 
-    # create the array
+    # create the cell space background image
     image = np.zeros((y_size, x_size, 3), dtype=np.uint8)
+
+    # create the gradient image
+    if simulation.output_gradient:
+        # normalize the concentration values and multiple by 255 to create grayscale image
+        grad_image = simulation.fgf4_values[:, :, 0] * (255 / simulation.max_fgf4)
+        grad_image = grad_image.astype(np.uint8)
+
+        # invert the colors so white becomes black and vice versa
+        invert = np.ones((grad_image.shape[0], grad_image.shape[1]), dtype=np.uint8) * 255
+        grad_image = invert - grad_image
+
+        # recolor the grayscale image into a colormap and resize to match the cell space array
+        grad_image = cv2.applyColorMap(grad_image, cv2.COLORMAP_OCEAN)
+        grad_image = cv2.resize(grad_image, (x_size, y_size), interpolation=cv2.INTER_NEAREST)
 
     # go through all of the cells
     for i in range(simulation.number_cells):
-        # get the following values
-        x = math.ceil(simulation.cell_locations[i][0] * scale)
-        y = math.ceil(simulation.cell_locations[i][1] * scale)
-        point = (x, y)
-        major = math.ceil(simulation.cell_radii[i] * scale)
-        minor = math.ceil(simulation.cell_radii[i] * scale)
-        rotation = r.randint(0, 360)
+        x = math.ceil(simulation.cell_locations[i][0] * scale)    # the x-coordinate
+        y = math.ceil(simulation.cell_locations[i][1] * scale)    # the y-coordinate
+        point = (x, y)    # the x,y point
+        major = math.ceil(simulation.cell_radii[i] * scale)    # the major axis length
+        minor = math.ceil(simulation.cell_radii[i] * scale)    # the minor axis length
+        rotation = 0    # the rotation of the ellipse
 
         # color the cells according to the mode
         if simulation.color_mode:
@@ -217,36 +117,22 @@ def step_image_new(simulation):
             else:
                 color = (32, 252, 22)
 
-        # update the array with the cell image
+        # draw the cell and a outline
         image = cv2.ellipse(image, point, (major, minor), rotation, 0, 360, color, -1)
         image = cv2.ellipse(image, point, (major, minor), rotation, 0, 360, (0, 0, 0), 1)
 
+        # draw the outline of the cell on the gradient image
+        if simulation.output_gradient:
+            grad_image = cv2.ellipse(grad_image, point, (major, minor), rotation, 0, 360, (75, 75, 75), 1)
+
+    # combine the to images side by side if including gradient
     if simulation.output_gradient:
+        image = np.concatenate((image, grad_image), axis=1)
 
-        a = simulation.fgf4_values[:, :, 0] / simulation.max_fgf4
-
-        a *= 255
-        b = np.ones((a.shape[0], a.shape[1]), dtype=np.uint8) * 255
-        a = b - a
-        a = a.astype(np.uint8)
-        a = cv2.applyColorMap(a, cv2.COLORMAP_OCEAN)
-
-        a = cv2.resize(a, (x_size, y_size), interpolation=cv2.INTER_NEAREST)
-
-        # go through all of the cells
-        for i in range(simulation.number_cells):
-            # get the following values
-            x = math.ceil(simulation.cell_locations[i][0] * scale)
-            y = math.ceil(simulation.cell_locations[i][1] * scale)
-            point = (x, y)
-            major = math.ceil(simulation.cell_radii[i] * scale)
-            minor = math.ceil(simulation.cell_radii[i] * scale)
-            rotation = r.randint(0, 360)
-            a = cv2.ellipse(a, point, (major, minor), rotation, 0, 360, (75, 75, 75), 1)
-
-        image = np.concatenate((image, a), axis=1)
-
+    # flip the image horizontally so origin is bottom left
     image = cv2.flip(image, 0)
+
+    # save the image as a png
     image_path = simulation.images_path + simulation.name + "_image_" + str(int(simulation.current_step)) + ".png"
     cv2.imwrite(image_path, image)
 
@@ -365,12 +251,9 @@ def simulation_data(simulation):
             # add the headers together and write the row to the csv
             csv_object.writerow(custom_header + functions_header)
 
-        # calculate the total step time
+        # calculate the total step time and get the memory
         step_time = time.perf_counter() - simulation.step_start
-
-        # run a garbage collect before getting the memory
-        gc.collect()
-        memory = memory_profiler.memory_usage(max_usage=True)
+        memory = memory_profiler.memory_usage()[0]
 
         # write the row with the corresponding values
         custom = [simulation.current_step, simulation.number_cells, step_time, memory]
