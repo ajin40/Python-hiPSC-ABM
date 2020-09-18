@@ -42,11 +42,10 @@ class Simulation:
 
         # imaging template file
         self.output_images = eval(imaging[4][2:-3])
-        self.image_quality = eval(imaging[8][2:-3])
+        self.image_quality = int(imaging[8][2:-3])
         self.fps = float(imaging[11][2:-3])
-        self.background_color = eval(imaging[15][2:-3])
-        self.color_mode = eval(imaging[19][2:-3])
-        self.output_gradient = eval(imaging[22][2:-3])
+        self.color_mode = eval(imaging[15][2:-3])
+        self.output_gradient = eval(imaging[18][2:-3])
 
         # experimental template file
         self.pluri_div_thresh = int(experimental[4][2:-3])
@@ -115,8 +114,8 @@ class Simulation:
             self.dx2, self.dy2, self.dz2 = self.dx ** 2, self.dy ** 2, self.dz ** 2
 
             # the diffusion constant for the molecule gradients and the radius of search for high concentrations
-            self.diffuse = 0.00000000000001
-            self.diffuse_radius = 0.0000141421356
+            self.diffuse = 0.0000000000001
+            self.diffuse_radius = 0.000007071067
 
             # get the time step value for diffusion updates depending on whether 2D or 3D
             if self.size[2] == 0:

@@ -2,13 +2,13 @@
 Experimental
 -----------------------------------------------------------------------------------------------------------------------
 Number of steps required for a pluripotent cell to divide. Each step is currently equivalent to 30 minutes. Ex. 36
-[ 48 ]
+[ 36 ]
 
 Number of steps required for a differentiated cell to divide. Ex. 24
-[ 96 ]
+[ 72 ]
 
 Number of steps required for a pluripotent cell to differentiate. Ex. 36
-[ 144 ]
+[ 72 ]
 
 How many consecutive steps can a pluripotent cell go without neighbors before dying? Ex. 36
 [ 72 ]
@@ -41,7 +41,7 @@ What is the max value of FGF4 at a diffusion point? Ex. 80
 [ 80 ]
 
 Use FGF4 concentrations for NANOG high movements? Ex. False
-[ True  ]
+[ True ]
 
 Output Topological Data Analysis csv files? Ex. True
 [ True ]

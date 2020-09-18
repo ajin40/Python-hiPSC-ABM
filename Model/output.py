@@ -50,7 +50,7 @@ def step_image(simulation):
         Uses BGR instead of RGB.
     """
     # get the size of the array used for imaging in addition to the scale factor
-    pixels = 2000
+    pixels = 4000
     scale = pixels/simulation.size[0]
     x_size = pixels
     y_size = math.ceil(pixels * simulation.size[1] / simulation.size[0])
@@ -63,10 +63,6 @@ def step_image(simulation):
         # normalize the concentration values and multiple by 255 to create grayscale image
         grad_image = simulation.fgf4_values[:, :, 0] * (255 / simulation.max_fgf4)
         grad_image = grad_image.astype(np.uint8)
-
-        # invert the colors so white becomes black and vice versa
-        invert = np.ones((grad_image.shape[0], grad_image.shape[1]), dtype=np.uint8) * 255
-        grad_image = invert - grad_image
 
         # recolor the grayscale image into a colormap and resize to match the cell space array
         grad_image = cv2.applyColorMap(grad_image, cv2.COLORMAP_OCEAN)
@@ -123,7 +119,7 @@ def step_image(simulation):
 
         # draw the outline of the cell on the gradient image
         if simulation.output_gradient:
-            grad_image = cv2.ellipse(grad_image, point, (major, minor), rotation, 0, 360, (75, 75, 75), 1)
+            grad_image = cv2.ellipse(grad_image, point, (major, minor), rotation, 0, 360, (255, 255, 255), 1)
 
     # combine the to images side by side if including gradient
     if simulation.output_gradient:

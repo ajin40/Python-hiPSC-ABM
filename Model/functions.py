@@ -28,7 +28,7 @@ def cell_update(simulation):
     # loop over the cells
     for i in range(simulation.number_cells):
         # Cell death
-        cell_death(simulation, i)
+        # cell_death(simulation, i)
 
         # Differentiated surround
         cell_diff_surround(simulation, i)
@@ -82,7 +82,7 @@ def cell_diff_surround(simulation, index):
 
             # if the number of differentiated meets the threshold, increase the counter and break the loop
             if num_diff_neighbors >= simulation.diff_surround:
-                simulation.cell_diff_counter[index] += r.randint(0, 2)
+                simulation.cell_diff_counter[index] += r.randint(0, 1)
                 break
 
 
@@ -118,7 +118,7 @@ def cell_division(simulation, index):
 
         else:
             # stochastically increase the division counter by either 0, 1, or 2
-            simulation.cell_div_counter[index] += r.randint(0, 2)
+            simulation.cell_div_counter[index] += r.randint(0, 1)
 
     # no contact inhibition for pluripotent cells
     else:
@@ -128,7 +128,7 @@ def cell_division(simulation, index):
 
         else:
             # stochastically increase the division counter by either 0, 1, or 2
-            simulation.cell_div_counter[index] += r.randint(0, 2)
+            simulation.cell_div_counter[index] += r.randint(0, 1)
 
 
 def cell_pathway(simulation, index):
@@ -146,7 +146,7 @@ def cell_pathway(simulation, index):
 
     # if the diffusion point value is less than the max FGF4 it can hold and the cell is NANOG high
     # increase the FGF4 value by 1
-    if simulation.cell_fds[index][3] == 1 and simulation.fgf4_values[index_x][index_y][index_z] < simulation.max_fgf4:
+    if simulation.cell_fds[index][3] == 1:
         simulation.fgf4_values_temp[index_x][index_y][index_z] += 1
 
     # activate the following pathway based on if dox (after 24 hours) has been induced yet
@@ -186,15 +186,14 @@ def cell_pathway(simulation, index):
             # if the temporary FGFR value is 0 and the new FGFR value is 1 decrease the amount of FGF4 by 1
             # this simulates FGFR using FGF4
             if temp_fgfr == 0 and new_fgfr == 1:
-                if simulation.fgf4_values[index_x][index_y][index_z] > 1:
-                    simulation.fgf4_values_temp[index_x][index_y][index_z] -= 1
+                simulation.fgf4_values_temp[index_x][index_y][index_z] -= 1
 
         # increase the finite dynamical system counter
         simulation.cell_fds_counter[index] += 1
 
         # if the cell is GATA6 high and pluripotent increase the differentiation counter by 1
         if simulation.cell_fds[index][2] == 1 and simulation.cell_states[index] == "Pluripotent":
-            simulation.cell_diff_counter[index] += r.randint(0, 2)
+            simulation.cell_diff_counter[index] += r.randint(0, 1)
 
             # if the differentiation counter is greater than the threshold, differentiate
             if simulation.cell_diff_counter[index] >= simulation.pluri_to_diff:
@@ -953,9 +952,9 @@ def setup_diffusion_bins(simulation):
     shape = simulation.fgf4_values.shape
 
     # set up the locations of the diffusion points
-    x, y, z = np.meshgrid(np.arange(shape[0]), np.arange(shape[1]), np.arange(shape[2]), indexing='ij')
-    x, y, z = x * simulation.dx, y * simulation.dy, z * simulation.dz
-    simulation.diffuse_locations = np.stack((x, y, z), axis=3)
+    i, j, k = np.meshgrid(np.arange(shape[1]), np.arange(shape[0]), np.arange(shape[2]), indexing='ij')
+    i, j, k = i * simulation.dx, j * simulation.dy, k * simulation.dz
+    simulation.diffuse_locations = np.stack((i, j, k), axis=3)
 
     # if there is enough space for all points that should be in a bin, break out of the loop. if there isn't
     # enough space update the amount of needed space and re-put the points in bins. this will run once if the prediction
@@ -971,7 +970,7 @@ def setup_diffusion_bins(simulation):
         diffuse_bins_help = np.zeros(bins_help_size, dtype=int)
 
         # assign the points to bins via the jit function
-        diffuse_bins, diffuse_bins_help = backend.setup_diffuse_bins_cpu(simulation.diffuse_locations, shape,
+        diffuse_bins, diffuse_bins_help = backend.setup_diffuse_bins_cpu(simulation.diffuse_locations,
                                                                          simulation.diffuse_radius, diffuse_bins,
                                                                          diffuse_bins_help)
 
@@ -1017,7 +1016,11 @@ def update_diffusion(simulation):
         # return the gradient base after it has been updated by the finite difference method
         gradient_base = backend.update_diffusion_cpu(gradient_base, temp_base, update_diffusion.steps, simulation.dt,
                                                      simulation.dx2, simulation.dy2, simulation.dz2, simulation.diffuse,
-                                                     simulation.size)
+                                                     simulation.size, simulation.max_fgf4)
+
+        # set max and min concentration values
+        gradient_base[gradient_base > simulation.max_fgf4] = simulation.max_fgf4
+        gradient_base[gradient_base < 0] = 0
 
         # update the gradient and set the temp back to zero
         simulation.__dict__[gradient] = gradient_base[1:-1, 1:-1, 1:-1]

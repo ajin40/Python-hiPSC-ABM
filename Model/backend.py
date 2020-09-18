@@ -642,16 +642,15 @@ def nearest_gpu(cell_locations, bins, bins_help, distance, if_diff, gata6_high, 
         nearest_diff[focus] = nearest_diff_index
 
 
-@jit(nopython=True)
-def setup_diffuse_bins_cpu(diffuse_locations, shape, diffuse_radius, diffuse_bins,
-                           diffuse_bins_help):
+# @jit(nopython=True)
+def setup_diffuse_bins_cpu(diffuse_locations, diffuse_radius, diffuse_bins, diffuse_bins_help):
     """ this is the just-in-time compiled version of
         setup_diffusion_bins that runs solely on the cpu
     """
     # loop over all diffusion points
-    for i in range(shape[0]):
-        for j in range(shape[1]):
-            for k in range(shape[2]):
+    for i in range(diffuse_locations.shape[0]):
+        for j in range(diffuse_locations.shape[1]):
+            for k in range(diffuse_locations.shape[2]):
                 # get the location in the bin array
                 bin_location = diffuse_locations[i][j][k] // diffuse_radius + np.array([2, 2, 2])
                 x, y, z = int(bin_location[0]), int(bin_location[1]), int(bin_location[2])
@@ -669,8 +668,8 @@ def setup_diffuse_bins_cpu(diffuse_locations, shape, diffuse_radius, diffuse_bin
     return diffuse_bins, diffuse_bins_help
 
 
-@jit(nopython=True)
-def update_diffusion_cpu(base, temp_base, time_steps, dt, dx2, dy2, dz2, diffuse, size):
+# @jit(nopython=True)
+def update_diffusion_cpu(base, temp_base, time_steps, dt, dx2, dy2, dz2, diffuse, size, max_fgf4):
     """ this is the just-in-time compiled version of
         update_diffusion that runs solely on the cpu
     """
@@ -680,6 +679,10 @@ def update_diffusion_cpu(base, temp_base, time_steps, dt, dx2, dy2, dz2, diffuse
         for i in range(time_steps):
             # add the temporary gradient to the main gradient to slowly increment concentrations
             base += temp_base
+
+            # set max and min concentration values
+            base[base > max_fgf4] = max_fgf4
+            base[base < 0] = 0
 
             # mirror the edges of the diffusion space to create initial conditions
             base[:, 0, 1:-1] = base[:, 1, 1:-1]
@@ -737,9 +740,9 @@ def highest_fgf4_cpu(number_cells, cell_locations, diffuse_bins, diffuse_bins_he
     """ This is the Numba optimized version of
         the highest_fgf4 function.
     """
-    for pivot_index in prange(number_cells):
-        # offset bins by 2 to avoid missing cells
-        block_location = cell_locations[pivot_index] // diffuse_radius + np.array([2, 2, 2])
+    for focus in prange(number_cells):
+        # offset bins by 2 to avoid missing points
+        block_location = cell_locations[focus] // diffuse_radius + np.array([2, 2, 2])
         x, y, z = int(block_location[0]), int(block_location[1]), int(block_location[2])
 
         # create an initial value to check for the highest fgf4 point in a radius
@@ -748,12 +751,12 @@ def highest_fgf4_cpu(number_cells, cell_locations, diffuse_bins, diffuse_bins_he
         highest_index_z = np.nan
         highest_value = 0
 
-        # loop over the bins that surround the current bin
+        # loop over the bin the cell is in and the surrounding bins
         for i in range(-1, 2):
             for j in range(-1, 2):
                 for k in range(-1, 2):
-                    # get the count of cells in a bin
-                    bin_count = diffuse_bins_help[x + i][y + j][z + k]
+                    # get the count of cells for the current bin
+                    bin_count = int(diffuse_bins_help[x + i][y + j][z + k])
 
                     # go through the bin determining if a cell is a neighbor
                     for l in range(bin_count):
@@ -763,8 +766,8 @@ def highest_fgf4_cpu(number_cells, cell_locations, diffuse_bins, diffuse_bins_he
                         z_ = int(diffuse_bins[x + i][y + j][z + k][l][2])
 
                         # check to see if that cell is within the search radius and not the same cell
-                        m = np.linalg.norm(diffuse_locations[x_][y_][z_] - cell_locations[pivot_index])
-                        if m < diffuse_radius:
+                        mag = np.linalg.norm(diffuse_locations[x_][y_][z_] - cell_locations[focus])
+                        if mag < diffuse_radius:
                             if fgf4_values[x_][y_][z_] > highest_value:
                                 highest_index_x = x_
                                 highest_index_y = y_
@@ -772,9 +775,59 @@ def highest_fgf4_cpu(number_cells, cell_locations, diffuse_bins, diffuse_bins_he
                                 highest_value = fgf4_values[x_][y_][z_]
 
         # update the highest fgf4 diffusion point
-        cell_highest_fgf4[pivot_index][0] = highest_index_x
-        cell_highest_fgf4[pivot_index][1] = highest_index_y
-        cell_highest_fgf4[pivot_index][2] = highest_index_z
+        cell_highest_fgf4[focus][0] = highest_index_x
+        cell_highest_fgf4[focus][1] = highest_index_y
+        cell_highest_fgf4[focus][2] = highest_index_z
+
+        # # create a holder for nearby diffusion points, a counter for the number, and values
+        # holder = np.zeros((8, 3))
+        # count = 0
+        # values = np.zeros(8)
+        #
+        # # loop over the bins that surround the current bin
+        # for i in range(-1, 2):
+        #     for j in range(-1, 2):
+        #         for k in range(-1, 2):
+        #             # get the count of points in a bin
+        #             bin_count = diffuse_bins_help[x + i][y + j][z + k]
+        #
+        #             # go through the bin determining if a bin is within the search radius
+        #             for l in range(bin_count):
+        #                 # get the indices of the current point in question
+        #                 x_ = int(diffuse_bins[x + i][y + j][z + k][l][0])
+        #                 y_ = int(diffuse_bins[x + i][y + j][z + k][l][1])
+        #                 z_ = int(diffuse_bins[x + i][y + j][z + k][l][2])
+        #
+        #                 # check to see if that point is within the search radius
+        #                 m = np.linalg.norm(diffuse_locations[x_][y_][z_] - cell_locations[pivot_index])
+        #                 if m < diffuse_radius:
+        #                     # if it is, add it to the holder and its value to values
+        #                     holder[count][0] = x_
+        #                     holder[count][1] = y_
+        #                     holder[count][2] = z_
+        #                     values[count] = fgf4_values[x_][y_][z_]
+        #                     count += 1
+        #
+        # # get the sum of the array
+        # sum_ = np.sum(values)
+        #
+        # # calculate probability of moving toward each point
+        # if sum_ == 0:
+        #     probs = np.zeros(8)
+        # else:
+        #     probs = values / sum_
+        #
+        # # randomly choose based on a custom distribution the diffusion point to move to
+        # thing = np.random.choice(np.arange(8), p=probs)
+        # print(probs)
+        #
+        # # get the index
+        # index = holder[thing]
+        #
+        # # update the highest fgf4 diffusion point
+        # cell_highest_fgf4[pivot_index][0] = index[0]
+        # cell_highest_fgf4[pivot_index][1] = index[1]
+        # cell_highest_fgf4[pivot_index][2] = index[2]
 
     # return the array back
     return cell_highest_fgf4
