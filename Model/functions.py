@@ -137,23 +137,23 @@ def cell_pathway(simulation, index):
     """
     # take the location of a cell and determine the nearest diffusion point by creating a zone around a
     # diffusion point an any cells in the zone will base their value off of that
-    half_index_x = simulation.cell_locations[index][1] // (simulation.dx / 2)
-    half_index_y = simulation.cell_locations[index][0] // (simulation.dy / 2)
-    half_index_z = simulation.cell_locations[index][2] // (simulation.dz / 2)
-    index_x = math.ceil(half_index_x / 2)
+    half_index_y = simulation.cell_locations[index][0] // (simulation.spat_res / 2)
+    half_index_x = simulation.cell_locations[index][1] // (simulation.spat_res / 2)
+    half_index_z = simulation.cell_locations[index][2] // (simulation.spat_res / 2)
     index_y = math.ceil(half_index_y / 2)
+    index_x = math.ceil(half_index_x / 2)
     index_z = math.ceil(half_index_z / 2)
 
     # if the diffusion point value is less than the max FGF4 it can hold and the cell is NANOG high
     # increase the FGF4 value by 1
     if simulation.cell_fds[index][3] == 1:
-        simulation.fgf4_values_temp[index_x][index_y][index_z] += 1
+        simulation.fgf4_values_temp[index_y][index_x][index_z] += 1
 
     # activate the following pathway based on if dox (after 24 hours) has been induced yet
     if simulation.current_step >= 49 and simulation.dox_value > simulation.cell_dox_value[index]:
         # if the FGF4 amount for the location is greater than 0, set the fgf4_bool value to be 1 for the
         # functions
-        if simulation.fgf4_values[index_x][index_y][index_z] > 0:
+        if simulation.fgf4_values[index_y][index_x][index_z] > 0:
             fgf4_bool = 1
         else:
             fgf4_bool = 0
@@ -186,7 +186,7 @@ def cell_pathway(simulation, index):
             # if the temporary FGFR value is 0 and the new FGFR value is 1 decrease the amount of FGF4 by 1
             # this simulates FGFR using FGF4
             if temp_fgfr == 0 and new_fgfr == 1:
-                simulation.fgf4_values_temp[index_x][index_y][index_z] -= 1
+                simulation.fgf4_values_temp[index_y][index_x][index_z] -= 1
 
         # increase the finite dynamical system counter
         simulation.cell_fds_counter[index] += 1
@@ -286,10 +286,10 @@ def cell_motility(simulation):
                     # makes sure not the numpy nan type, proceed if actual value
                     if (np.isnan(simulation.cell_highest_fgf4[i]) == np.zeros(3, dtype=bool)).all():
                         # get the location of the diffusion point and move toward it
-                        x = int(simulation.cell_highest_fgf4[i][0])
-                        y = int(simulation.cell_highest_fgf4[i][1])
+                        y = int(simulation.cell_highest_fgf4[i][0])
+                        x = int(simulation.cell_highest_fgf4[i][1])
                         z = int(simulation.cell_highest_fgf4[i][2])
-                        vector = simulation.cell_locations[i] - simulation.diffuse_locations[x][y][z]
+                        vector = simulation.diffuse_locations[y][x][z] - simulation.cell_locations[i]
                         normal = backend.normal_vector(vector)
                         simulation.cell_motility_force[i] += normal * motility_force
 
@@ -903,7 +903,7 @@ def highest_fgf4(simulation):
         fgf4 within a fixed radius
     """
     # call the nvidia gpu version
-    if simulation.parallel:
+    if simulation.parallel and False:
         # make sure the gradient array is contiguous
         fgf4_values = np.ascontiguousarray(simulation.fgf4_values)
 
@@ -952,8 +952,8 @@ def setup_diffusion_bins(simulation):
     shape = simulation.fgf4_values.shape
 
     # set up the locations of the diffusion points
-    i, j, k = np.meshgrid(np.arange(shape[1]), np.arange(shape[0]), np.arange(shape[2]), indexing='ij')
-    i, j, k = i * simulation.dx, j * simulation.dy, k * simulation.dz
+    i, j, k = np.meshgrid(np.arange(shape[0]), np.arange(shape[1]), np.arange(shape[2]), indexing='ij')
+    i, j, k = i * simulation.spat_res, j * simulation.spat_res, k * simulation.spat_res
     simulation.diffuse_locations = np.stack((i, j, k), axis=3)
 
     # if there is enough space for all points that should be in a bin, break out of the loop. if there isn't
@@ -1015,7 +1015,7 @@ def update_diffusion(simulation):
 
         # return the gradient base after it has been updated by the finite difference method
         gradient_base = backend.update_diffusion_cpu(gradient_base, temp_base, update_diffusion.steps, simulation.dt,
-                                                     simulation.dx2, simulation.dy2, simulation.dz2, simulation.diffuse,
+                                                     simulation.spat_res2, simulation.diffuse,
                                                      simulation.size, simulation.max_fgf4)
 
         # set max and min concentration values
