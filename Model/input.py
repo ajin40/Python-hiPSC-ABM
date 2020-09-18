@@ -109,25 +109,26 @@ class Simulation:
             self.pluri_growth = (self.max_radius - self.min_radius) / self.pluri_div_thresh
             self.diff_growth = (self.max_radius - self.min_radius) / self.diff_div_thresh
 
-            # get the approximation of the differential
-            self.dx, self.dy, self.dz = 0.00001, 0.00001, 1
-            self.dx2, self.dy2, self.dz2 = self.dx ** 2, self.dy ** 2, self.dz ** 2
+            # the spatial resolution of the space
+            self.spat_res = 0.00001
+            self.spat_res2 = self.spat_res ** 2
 
-            # the diffusion constant for the molecule gradients and the radius of search for high concentrations
+            # the diffusion constant for the molecule gradients and the radius of search for diffusion points
             self.diffuse = 0.0000000000001
-            self.diffuse_radius = 0.000007071067
+            self.diffuse_radius = self.spat_res * 0.707106781187
 
             # get the time step value for diffusion updates depending on whether 2D or 3D
             if self.size[2] == 0:
-                self.dt = (self.dx2 * self.dy2) / (2 * self.diffuse * (self.dx2 + self.dy2))
+                self.dt = (self.spat_res2 ** 2) / (2 * self.diffuse * (2 * self.spat_res2))
             else:
-                self.dt = (self.dx2 * self.dy2 * self.dz2) / (2 * self.diffuse * (self.dx2 + self.dy2 + self.dz2))
+                self.dt = (self.spat_res2 ** 3) / (2 * self.diffuse * (3 * self.spat_res2))
 
-            # the points at which the diffusion values are calculated
-            gradient_size = self.size / np.array([self.dx, self.dy, self.dz]) + np.ones(3)
-            gradient_size = gradient_size.astype(int)
-            self.fgf4_values = np.zeros((gradient_size[1], gradient_size[0], gradient_size[2]))
-            self.fgf4_values_temp = np.zeros((gradient_size[1], gradient_size[0], gradient_size[2]))
+            # calculate the size of the array holding the diffusion points
+            gradient_size = np.ceil(self.size / self.spat_res).astype(int) + np.ones(3, dtype=int)
+
+            # create a primary array for the diffusion points and one to add in a step-wise fashion
+            self.fgf4_values = np.zeros(gradient_size)
+            self.fgf4_values_temp = np.zeros(gradient_size)
 
             # much like the cell arrays add any gradient names to list this so that a diffusion function can
             # act on them automatically, the temp is used to incrementally add concentration
