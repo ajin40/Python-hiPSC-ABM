@@ -53,19 +53,17 @@ class Simulation:
         self.pluri_to_diff = int(experimental[10][2:-3])
         self.death_thresh = int(experimental[13][2:-3])
         self.fds_thresh = int(experimental[16][2:-3])
-        self.move_thresh = int(experimental[19][2:-3])
+        self.fgf4_thresh = int(experimental[19][2:-3])
         self.lonely_cell = int(experimental[22][2:-3])
-        self.diff_surround = int(experimental[25][2:-3])
-        self.contact_inhibit = int(experimental[28][2:-3])
-        self.group = int(experimental[31][2:-3])
-        self.guye_move = eval(experimental[34][2:-3])
-        self.eunbi_move = eval(experimental[37][2:-3])
-        self.max_fgf4 = float(experimental[40][2:-3])
-        self.fgf4_move = eval(experimental[43][2:-3])
-        self.output_tda = eval(experimental[46][2:-3])
-        self.dox_value = float(experimental[49][2:-3])
+        self.group = int(experimental[25][2:-3])
+        self.guye_move = eval(experimental[28][2:-3])
+        self.eunbi_move = eval(experimental[31][2:-3])
+        self.max_fgf4 = float(experimental[34][2:-3])
+        self.fgf4_move = eval(experimental[37][2:-3])
+        self.output_tda = eval(experimental[40][2:-3])
+        self.dox_value = float(experimental[43][2:-3])
 
-        # the following only need to be created if this is a normal simulation and not a special mode
+        # the following only need to be created if this is a normal simulation
         if mode == 0:
             # the step to begin at
             self.beginning_step = 1
@@ -322,16 +320,6 @@ def setup():
             simulation.cell_motion = cell_data[4] == "True"
             simulation.cell_fds = cell_data[5:9, :].transpose().astype(float).astype(int)
             simulation.cell_states = cell_data[9].astype(str)
-            simulation.cell_diff_counter = cell_data[10].astype(int)
-            simulation.cell_div_counter = cell_data[11].astype(int)
-            simulation.cell_death_counter = cell_data[12].astype(int)
-            simulation.cell_fds_counter = cell_data[12].astype(int)
-            simulation.cell_motility_force = np.zeros((simulation.number_cells, 3), dtype=float)
-            simulation.cell_jkr_force = np.zeros((simulation.number_cells, 3), dtype=float)
-            simulation.cell_nearest_gata6 = np.empty((simulation.number_cells, 3))
-            simulation.cell_nearest_nanog = np.empty((simulation.number_cells, 3))
-            simulation.cell_nearest_diff = np.empty((simulation.number_cells, 3))
-            simulation.cell_highest_fgf4 = np.empty((simulation.number_cells, 3))
 
             # create image of simulation space
             output.step_image(simulation)

@@ -60,7 +60,7 @@ def cell_diff_surround(simulation):
                     num_diff_neighbors += 1
 
                 # if the number of differentiated meets the threshold, increase the counter and break the loop
-                if num_diff_neighbors >= simulation.diff_surround:
+                if num_diff_neighbors >= 8:
                     simulation.cell_diff_counter[index] += 1
                     break
 
@@ -103,7 +103,7 @@ def cell_division(simulation):
             # check the division counter against the threshold
             if simulation.cell_div_counter[index] >= simulation.diff_div_thresh:
                 # check for contact inhibition
-                if len(simulation.neighbor_graph.neighbors(index)) < simulation.contact_inhibit:
+                if len(simulation.neighbor_graph.neighbors(index)) < 8:
                     simulation.cells_to_divide = np.append(simulation.cells_to_divide, index)
 
             # if under, stochastically increase the division counter by either 0 or 1
@@ -113,12 +113,12 @@ def cell_division(simulation):
 
 @backend.record_time
 def cell_pathway(simulation):
-    """ simulates the gata6 pathway and extracellular
-        interaction of the cell
+    """ updates finite dynamical system variables and
+        extracellular conditions
     """
     for index in range(simulation.number_cells):
         # take the location of a cell and determine the nearest diffusion point by creating a zone around a
-        # diffusion point an any cells in the zone will base their value off of that
+        # diffusion point for any cells in that zone to base the fgf4 concentration off of
         half_index_y = simulation.cell_locations[index][0] // (simulation.spat_res / 2)
         half_index_x = simulation.cell_locations[index][1] // (simulation.spat_res / 2)
         half_index_z = simulation.cell_locations[index][2] // (simulation.spat_res / 2)
@@ -126,21 +126,20 @@ def cell_pathway(simulation):
         index_x = math.ceil(half_index_x / 2)
         index_z = math.ceil(half_index_z / 2)
 
-        # if the diffusion point value is less than the max FGF4 it can hold and the cell is NANOG high
-        # increase the FGF4 value by 1
-        if simulation.cell_fds[index][3] == 1:
+        # if the cell is NANOG high increase the FGF4 value by 1, diffusion method will address values above max
+        if simulation.cell_fds[index][3]:
             simulation.fgf4_values_temp[index_y][index_x][index_z] += 1
 
         # activate the following pathway based on if dox (after 24 hours) has been induced yet
-        if simulation.current_step >= 49 and simulation.dox_value > simulation.cell_dox_value[index]:
-            # if the FGF4 amount for the location is greater than 0, set the fgf4_bool value to be 1 for the
-            # functions
-            if simulation.fgf4_values[index_y][index_x][index_z] > 0:
+        # if simulation.current_step > 48 and simulation.dox_value > simulation.cell_dox_value[index]:
+        if simulation.current_step > 48:
+            # if the FGF4 amount for the location is greater than the threshold, set the fgf4_bool value to be 1,
+            # designating it as high
+            if simulation.fgf4_values[index_y][index_x][index_z] > simulation.fgf4_thresh:
                 fgf4_bool = 1
             else:
                 fgf4_bool = 0
 
-            # Finite dynamical system and state change
             # temporarily hold the FGFR value
             temp_fgfr = simulation.cell_fds[index][0]
 
@@ -167,14 +166,14 @@ def cell_pathway(simulation):
 
                 # if the temporary FGFR value is 0 and the new FGFR value is 1 decrease the amount of FGF4 by 1
                 # this simulates FGFR using FGF4
-                if temp_fgfr == 0 and new_fgfr == 1:
+                if not temp_fgfr and new_fgfr:
                     simulation.fgf4_values_temp[index_y][index_x][index_z] -= 1
 
             # increase the finite dynamical system counter
             simulation.cell_fds_counter[index] += 1
 
-            # if the cell is GATA6 high and pluripotent increase the differentiation counter by 1
-            if simulation.cell_fds[index][2] == 1 and simulation.cell_states[index] == "Pluripotent":
+            # if the cell is GATA6 high and pluripotent increase the differentiation counter by 0 or 1
+            if simulation.cell_fds[index][2] and simulation.cell_states[index] == "Pluripotent":
                 simulation.cell_diff_counter[index] += r.randint(0, 1)
 
                 # if the differentiation counter is greater than the threshold, differentiate
@@ -203,9 +202,12 @@ def cell_motility(simulation):
         neighbors = simulation.neighbor_graph.neighbors(i)
 
         # if the cell state is differentiated and moving
-        if simulation.cell_states[i] == "Differentiated" and simulation.cell_motion[i]:
-            # if not surrounded by more than 8 cells, move away from surrounding nanog high cells
+        if simulation.cell_states[i] == "Differentiated":
+            # if not surrounded 6 or more cells, move away from surrounding nanog high cells
             if len(neighbors) < 6:
+                # set motion to True
+                simulation.cell_motion[i] = True
+
                 # create a vector to hold the sum of normal vectors between a cell and its neighbors
                 vector_holder = np.array([0.0, 0.0, 0.0])
 
@@ -230,14 +232,17 @@ def cell_motility(simulation):
                 else:
                     simulation.cell_motility_force[i] += backend.random_vector(simulation) * motility_force
 
-            # set the motion to be false if it is surrounded by more than 8 cells
+            # set the motion to False
             else:
                 simulation.cell_motion[i] = False
 
         # if the cell is gata6 high and nanog low
         elif simulation.cell_fds[i][2] == 1 and not simulation.cell_fds[i][3] == 1:
-            # if not surrounded by more than 8 cells, move to nearest differentiated cell
+            # if not surrounded 6 or more cells
             if len(neighbors) < 6:
+                # set motion to True
+                simulation.cell_motion[i] = True
+
                 # continue if using Guye et al. movement and if there exists differentiated cells
                 if simulation.guye_move and not np.isnan(simulation.cell_nearest_diff[i]):
                     # get the differentiated neighbors
@@ -254,15 +259,17 @@ def cell_motility(simulation):
                 else:
                     simulation.cell_motility_force[i] += backend.random_vector(simulation) * motility_force
 
-            # set the motion to be false if it is surrounded by more than 8 cells
+            # set the motion to False
             else:
                 simulation.cell_motion[i] = False
 
         # if the cell is nanog high and gata6 low
         elif simulation.cell_fds[i][3] == 1 and not simulation.cell_fds[i][2] == 1:
-            # set the motion to be false if there are enough nanog high neighbors
-            # if len(neighbors) < simulation.move_thresh:
+            # if not surrounded 6 or more cells
             if len(neighbors) < 6:
+                # set motion to True
+                simulation.cell_motion[i] = True
+
                 # move based on fgf4 concentrations
                 if simulation.fgf4_move:
                     # makes sure not the numpy nan type, proceed if actual value
@@ -302,9 +309,11 @@ def cell_motility(simulation):
                 else:
                     simulation.cell_motility_force[i] += backend.random_vector(simulation) * motility_force
 
+            # set the motion to False
             else:
                 simulation.cell_motion[i] = False
 
+                # cluster movement...not in use
                 # if not np.isnan(simulation.cell_cluster_nearest[i]):
                 #     pluri_index = int(simulation.cell_cluster_nearest[i])
                 #     vector = simulation.cell_locations[pluri_index] - simulation.cell_locations[i]
@@ -313,23 +322,23 @@ def cell_motility(simulation):
 
         # if both gata6/nanog high or both low
         else:
-            # get general neighbors for inhibiting movement
-            if len(neighbors) >= 6:
-                simulation.cell_motion[i] = False
-
-            # if actively moving, move randomly
-            if simulation.cell_motion[i]:
+            # if not surrounded 6 or more cells
+            if len(neighbors) < 6:
                 simulation.cell_motility_force[i] += backend.random_vector(simulation) * motility_force
+
+            # set the motion to False
+            else:
+                simulation.cell_motion[i] = False
 
 
 @backend.record_time
 def alt_cell_motility(simulation):
     """ gives the cells a motive force depending on
         set rules for the cell types expect these rules
-        are more similar to NetLogo
+        are very similar to NetLogo
     """
     # this is the motility force of the cells
-    motility_force = 0.0000000001
+    motility_force = 0.000000002
 
     # loop over all of the cells
     for i in range(simulation.number_cells):
@@ -922,6 +931,69 @@ def highest_fgf4(simulation):
 
     # revalue the array holding the indices of diffusion points of highest fgf4
     simulation.cell_highest_fgf4 = cell_highest_fgf4
+
+
+@backend.record_time
+def alt_highest_fgf4(simulation):
+    """ Search for the highest concentrations of
+        fgf4 within a fixed radius
+    """
+    for focus in range(simulation.number_cells):
+        # offset bins by 2 to avoid missing points
+        block_location = simulation.cell_locations[focus] // simulation.diffuse_radius + np.array([2, 2, 2])
+        y, x, z = int(block_location[0]), int(block_location[1]), int(block_location[2])
+
+        # create a holder for nearby diffusion points, a counter for the number, and values
+        holder = np.zeros((4, 3))
+        count = 0
+        values = np.zeros(4)
+
+        # loop over the bins that surround the current bin
+        for i in range(-1, 2):
+            for j in range(-1, 2):
+                for k in range(-1, 2):
+                    # get the count of points in a bin
+                    bin_count = simulation.diffuse_bins_help[y + i][x + j][z + k]
+
+                    # go through the bin determining if a bin is within the search radius
+                    for l in range(bin_count):
+                        # get the indices of the current point in question
+                        y_ = int(simulation.diffuse_bins[y + i][x + j][z + k][l][0])
+                        x_ = int(simulation.diffuse_bins[y + i][x + j][z + k][l][1])
+                        z_ = int(simulation.diffuse_bins[y + i][x + j][z + k][l][2])
+
+                        # check to see if that point is within the search radius
+                        m = np.linalg.norm(simulation.diffuse_locations[y_][x_][z_] - simulation.cell_locations[focus])
+                        if m < simulation.diffuse_radius:
+                            # if it is, add it to the holder and its value to values
+                            holder[count][0] = y_
+                            holder[count][1] = x_
+                            holder[count][2] = z_
+                            values[count] = simulation.fgf4_values[y_][x_][z_]
+                            count += 1
+
+        # get the sum of the array
+        sum_ = np.sum(values)
+
+        # calculate probability of moving toward each point
+        if sum_ == 0:
+            # update the highest fgf4 diffusion point
+            simulation.cell_highest_fgf4[focus][0] = np.nan
+            simulation.cell_highest_fgf4[focus][1] = np.nan
+            simulation.cell_highest_fgf4[focus][2] = np.nan
+        else:
+            probs = values / sum_
+
+            # randomly choose based on a custom distribution the diffusion point to move to
+            thing = np.random.choice(np.arange(4), p=probs)
+
+            # get the index
+            index = holder[thing]
+
+            # update the highest fgf4 diffusion point
+            simulation.cell_highest_fgf4[focus][0] = index[0]
+            simulation.cell_highest_fgf4[focus][1] = index[1]
+            simulation.cell_highest_fgf4[focus][2] = index[2]
 
 
 def setup_diffusion_bins(simulation):
