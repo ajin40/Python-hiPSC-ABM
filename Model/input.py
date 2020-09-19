@@ -115,7 +115,7 @@ class Simulation:
 
             # the diffusion constant for the molecule gradients and the radius of search for diffusion points
             self.diffuse = 0.0000000000001
-            self.diffuse_radius = self.spat_res * 0.707106781187 * 2
+            self.diffuse_radius = self.spat_res * 0.707106781187 * 2    # 0.707106 is too small
 
             # get the time step value for diffusion updates depending on whether 2D or 3D
             if self.size[2] == 0:
@@ -345,21 +345,6 @@ def setup():
     else:
         print("Incorrect mode")
         exit()
-        # get the mode of the simulation
-        # while True:
-        #     mode = input("What is the \"mode\" of the simulation? Type \"help\" for more information: ")
-        #     if mode == "help":
-        #         print("\nHere are the following modes:")
-        #         print("new simulation: 0")
-        #         print("continuation of past simulation: 1")
-        #         print("turn simulation images to video: 2")
-        #         print("turn simulation csvs to images/video: 3\n")
-        #     else:
-        #         try:
-        #             mode = int(mode)
-        #             break
-        #         except ValueError:
-        #             print("\"mode\" should be an integer")
 
     # return the modified simulation instance
     return simulation

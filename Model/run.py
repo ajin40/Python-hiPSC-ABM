@@ -16,8 +16,12 @@ for simulation.current_step in range(simulation.beginning_step, simulation.end_s
     functions.check_neighbors(simulation)
 
     # updates cells by adjusting trackers for differentiation and division based on intracellular, intercellular,
-    # and extracellular conditions.
-    functions.cell_update(simulation)
+    # and extracellular conditions. this is done through a series of methods
+    functions.cell_death(simulation)
+    functions.cell_diff_surround(simulation)
+    functions.cell_growth(simulation)
+    functions.cell_division(simulation)
+    functions.cell_pathway(simulation)
 
     # updates each of the extracellular gradients via the finite difference method after cells have interacted
     # with the gradient in cell_update().
@@ -38,6 +42,7 @@ for simulation.current_step in range(simulation.beginning_step, simulation.end_s
     # locate the diffusion point (within a fixed radius) that has the highest FGF4 concentration. can be used to
     # represent chemotactic movement of cells
     functions.highest_fgf4(simulation)
+    # functions.alt_highest_fgf4(simulation)
 
     # calculates the direction/magnitude of the movement of the cell depending on a variety of factors such as state,
     # extracellular gradient, and presence of neighbors

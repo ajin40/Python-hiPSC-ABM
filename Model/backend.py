@@ -789,23 +789,23 @@ def highest_fgf4_cpu(number_cells, cell_locations, diffuse_bins, diffuse_bins_he
         #     for j in range(-1, 2):
         #         for k in range(-1, 2):
         #             # get the count of points in a bin
-        #             bin_count = diffuse_bins_help[x + i][y + j][z + k]
+        #             bin_count = diffuse_bins_help[y + i][x + j][z + k]
         #
         #             # go through the bin determining if a bin is within the search radius
         #             for l in range(bin_count):
         #                 # get the indices of the current point in question
-        #                 x_ = int(diffuse_bins[x + i][y + j][z + k][l][0])
-        #                 y_ = int(diffuse_bins[x + i][y + j][z + k][l][1])
-        #                 z_ = int(diffuse_bins[x + i][y + j][z + k][l][2])
+        #                 y_ = int(diffuse_bins[y + i][x + j][z + k][l][0])
+        #                 x_ = int(diffuse_bins[y + i][x + j][z + k][l][1])
+        #                 z_ = int(diffuse_bins[y + i][x + j][z + k][l][2])
         #
         #                 # check to see if that point is within the search radius
-        #                 m = np.linalg.norm(diffuse_locations[x_][y_][z_] - cell_locations[pivot_index])
+        #                 m = np.linalg.norm(diffuse_locations[y_][x_][z_] - cell_locations[focus])
         #                 if m < diffuse_radius:
         #                     # if it is, add it to the holder and its value to values
-        #                     holder[count][0] = x_
-        #                     holder[count][1] = y_
+        #                     holder[count][0] = y_
+        #                     holder[count][1] = x_
         #                     holder[count][2] = z_
-        #                     values[count] = fgf4_values[x_][y_][z_]
+        #                     values[count] = fgf4_values[y_][x_][z_]
         #                     count += 1
         #
         # # get the sum of the array
@@ -813,21 +813,23 @@ def highest_fgf4_cpu(number_cells, cell_locations, diffuse_bins, diffuse_bins_he
         #
         # # calculate probability of moving toward each point
         # if sum_ == 0:
-        #     probs = np.zeros(8)
+        #     # update the highest fgf4 diffusion point
+        #     cell_highest_fgf4[focus][0] = np.nan
+        #     cell_highest_fgf4[focus][1] = np.nan
+        #     cell_highest_fgf4[focus][2] = np.nan
         # else:
         #     probs = values / sum_
         #
-        # # randomly choose based on a custom distribution the diffusion point to move to
-        # thing = np.random.choice(np.arange(8), p=probs)
-        # print(probs)
+        #     # randomly choose based on a custom distribution the diffusion point to move to
+        #     thing = np.random.choice(np.arange(8), p=probs)
         #
-        # # get the index
-        # index = holder[thing]
+        #     # get the index
+        #     index = holder[thing]
         #
-        # # update the highest fgf4 diffusion point
-        # cell_highest_fgf4[pivot_index][0] = index[0]
-        # cell_highest_fgf4[pivot_index][1] = index[1]
-        # cell_highest_fgf4[pivot_index][2] = index[2]
+        #     # update the highest fgf4 diffusion point
+        #     cell_highest_fgf4[focus][0] = index[0]
+        #     cell_highest_fgf4[focus][1] = index[1]
+        #     cell_highest_fgf4[focus][2] = index[2]
 
     # return the array back
     return cell_highest_fgf4
@@ -835,7 +837,7 @@ def highest_fgf4_cpu(number_cells, cell_locations, diffuse_bins, diffuse_bins_he
 
 @cuda.jit
 def highest_fgf4_gpu(cell_locations, diffuse_bins, diffuse_bins_help, diffuse_locations, diffuse_radius,
-                     cell_highest_fgf4, fgf4_values):
+                     cell_highest_fgf4, fgf4_values, max_fgf4):
     """ this is the cuda kernel for the highest_fgf4
         function that runs on a NVIDIA gpu
     """
@@ -872,7 +874,7 @@ def highest_fgf4_gpu(cell_locations, diffuse_bins, diffuse_bins_help, diffuse_lo
                         # check to see if that cell is within the search radius and not the same cell
                         mag = magnitude(diffuse_locations[x_][y_][z_], cell_locations[focus])
                         if mag < diffuse_radius[0]:
-                            if fgf4_values[x_][y_][z_] > highest_value:
+                            if fgf4_values[x_][y_][z_] > highest_value and fgf4_values[x_][y_][z_] != max_fgf4[0]:
                                 highest_index_x = x_
                                 highest_index_y = y_
                                 highest_index_z = z_

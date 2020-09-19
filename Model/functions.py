@@ -9,8 +9,8 @@ import backend
 
 
 def info(simulation):
-    """ gives an idea of how the simulation is running
-        and records the beginning of the step in real time
+    """ records the beginning of the step in real time and
+        prints the current step/number of cells
     """
     # records when the step begins, used for measuring efficiency
     simulation.step_start = time.perf_counter()
@@ -21,190 +21,172 @@ def info(simulation):
 
 
 @backend.record_time
-def cell_update(simulation):
-    """ loops over all indices of cells and updates
-        them accordingly
-    """
-    # loop over the cells
-    for i in range(simulation.number_cells):
-        # Cell death
-        # cell_death(simulation, i)
-
-        # Differentiated surround
-        cell_diff_surround(simulation, i)
-
-        # Growth
-        cell_growth(simulation, i)
-
-        # Division
-        cell_division(simulation, i)
-
-        # Extracellular interaction and GATA6 pathway
-        cell_pathway(simulation, i)
-
-
-def cell_death(simulation, index):
+def cell_death(simulation):
     """ marks the cell for removal if it meets
         the criteria for cell death
     """
-    # checks to see if cell is pluripotent
-    if simulation.cell_states[index] == "Pluripotent":
-        # looks at the neighbors and counts them, increasing the death counter if not enough neighbors
-        neighbors = simulation.neighbor_graph.neighbors(index)
-        if len(neighbors) < simulation.lonely_cell:
-            simulation.cell_death_counter[index] += 1
-        # if not reset the death counter back to zero
-        else:
-            simulation.cell_death_counter[index] = 0
-
-        # removes cell if it meets the parameters
-        if simulation.cell_death_counter[index] >= simulation.death_thresh:
-            simulation.cells_to_remove = np.append(simulation.cells_to_remove, index)
-
-
-def cell_diff_surround(simulation, index):
-    """ simulates the phenomenon that differentiated cells
-        induce the differentiation of a pluripotent cell
-    """
-    # checks to see if cell is pluripotent and GATA6 low
-    if simulation.cell_states[index] == "Pluripotent" and simulation.cell_fds[index][2] == 0:
-        # finds neighbors of a cell
-        neighbors = simulation.neighbor_graph.neighbors(index)
-
-        # holds the current number differentiated neighbors
-        num_diff_neighbors = 0
-
-        # loops over the neighbors of a cell
-        for j in range(len(neighbors)):
-            # checks to see if current neighbor is differentiated if so add it to the counter
-            if simulation.cell_states[neighbors[j]] == "Differentiated":
-                num_diff_neighbors += 1
-
-            # if the number of differentiated meets the threshold, increase the counter and break the loop
-            if num_diff_neighbors >= simulation.diff_surround:
-                simulation.cell_diff_counter[index] += r.randint(0, 1)
-                break
-
-
-def cell_growth(simulation, index):
-    """ simulates the growth of a cell leading up to its
-        division, currently linear, radius growth
-    """
-    # increase the cell radius based on the state and whether or not it has reached the max size
-    if simulation.cell_radii[index] < simulation.max_radius:
-        # pluripotent growth
+    for index in range(simulation.number_cells):
+        # checks to see if cell is pluripotent
         if simulation.cell_states[index] == "Pluripotent":
-            simulation.cell_radii[index] += simulation.pluri_growth
+            # gets the number of neighbors for a cell, increasing the death counter if not enough neighbors
+            if len(simulation.neighbor_graph.neighbors(index)) < simulation.lonely_cell:
+                simulation.cell_death_counter[index] += 1
 
-        # differentiated growth
-        else:
-            simulation.cell_radii[index] += simulation.diff_growth
+            # if not, reset the death counter back to zero
+            else:
+                simulation.cell_death_counter[index] = 0
+
+            # removes cell if it meets the parameters
+            if simulation.cell_death_counter[index] >= simulation.death_thresh:
+                simulation.cells_to_remove = np.append(simulation.cells_to_remove, index)
 
 
-def cell_division(simulation, index):
-    """ either marks the cell for division or increases the
-        counter to division given certain criteria
+@backend.record_time
+def cell_diff_surround(simulation):
+    """ simulates differentiated cells inducing the
+        differentiation of a pluripotent cell
     """
-    # # checks to see if the non-moving cell should divide or increase its division counter
-    # if not simulation.cell_motion[index]:
-    # if it's a differentiated cell
-    if simulation.cell_states[index] == "Differentiated":
-        # check the threshold
-        if simulation.cell_div_counter[index] >= simulation.diff_div_thresh:
-            # if under the threshold
+    for index in range(simulation.number_cells):
+        # checks to see if cell is pluripotent and GATA6 low
+        if simulation.cell_states[index] == "Pluripotent" and not simulation.cell_fds[index][2]:
+            # get the list of neighbors for the cell
             neighbors = simulation.neighbor_graph.neighbors(index)
-            if len(neighbors) < simulation.contact_inhibit:
+
+            # loop over neighbors, counting the ones that are differentiated
+            num_diff_neighbors = 0
+            for neighbor_index in neighbors:
+                # checks to see if current neighbor is differentiated and if so add to the counter
+                if simulation.cell_states[neighbor_index] == "Differentiated":
+                    num_diff_neighbors += 1
+
+                # if the number of differentiated meets the threshold, increase the counter and break the loop
+                if num_diff_neighbors >= simulation.diff_surround:
+                    simulation.cell_diff_counter[index] += 1
+                    break
+
+
+@backend.record_time
+def cell_growth(simulation):
+    """ simulates the growth of a cell currently linear,
+        radial growth
+    """
+    for index in range(simulation.number_cells):
+        # increase the cell radius based on the state and whether or not it has reached the max size
+        if simulation.cell_radii[index] < simulation.max_radius:
+            # pluripotent growth
+            if simulation.cell_states[index] == "Pluripotent":
+                simulation.cell_radii[index] += simulation.pluri_growth
+
+            # differentiated growth
+            else:
+                simulation.cell_radii[index] += simulation.diff_growth
+
+
+@backend.record_time
+def cell_division(simulation):
+    """ increases the counter to division and if the
+        cell meets criteria marks it for division
+    """
+    for index in range(simulation.number_cells):
+        # pluripotent cell
+        if simulation.cell_states[index] == "Pluripotent":
+            # check the division counter against the threshold
+            if simulation.cell_div_counter[index] >= simulation.pluri_div_thresh:
                 simulation.cells_to_divide = np.append(simulation.cells_to_divide, index)
 
+            # if under, stochastically increase the division counter by either 0 or 1
+            else:
+                simulation.cell_div_counter[index] += r.randint(0, 1)
+
+        # differentiated cell
         else:
-            # stochastically increase the division counter by either 0, 1, or 2
-            simulation.cell_div_counter[index] += r.randint(0, 1)
+            # check the division counter against the threshold
+            if simulation.cell_div_counter[index] >= simulation.diff_div_thresh:
+                # check for contact inhibition
+                if len(simulation.neighbor_graph.neighbors(index)) < simulation.contact_inhibit:
+                    simulation.cells_to_divide = np.append(simulation.cells_to_divide, index)
 
-    # no contact inhibition for pluripotent cells
-    else:
-        # check the threshold
-        if simulation.cell_div_counter[index] >= simulation.pluri_div_thresh:
-            simulation.cells_to_divide = np.append(simulation.cells_to_divide, index)
-
-        else:
-            # stochastically increase the division counter by either 0, 1, or 2
-            simulation.cell_div_counter[index] += r.randint(0, 1)
+            # if under, stochastically increase the division counter by either 0 or 1
+            else:
+                simulation.cell_div_counter[index] += r.randint(0, 1)
 
 
-def cell_pathway(simulation, index):
+@backend.record_time
+def cell_pathway(simulation):
     """ simulates the gata6 pathway and extracellular
         interaction of the cell
     """
-    # take the location of a cell and determine the nearest diffusion point by creating a zone around a
-    # diffusion point an any cells in the zone will base their value off of that
-    half_index_y = simulation.cell_locations[index][0] // (simulation.spat_res / 2)
-    half_index_x = simulation.cell_locations[index][1] // (simulation.spat_res / 2)
-    half_index_z = simulation.cell_locations[index][2] // (simulation.spat_res / 2)
-    index_y = math.ceil(half_index_y / 2)
-    index_x = math.ceil(half_index_x / 2)
-    index_z = math.ceil(half_index_z / 2)
+    for index in range(simulation.number_cells):
+        # take the location of a cell and determine the nearest diffusion point by creating a zone around a
+        # diffusion point an any cells in the zone will base their value off of that
+        half_index_y = simulation.cell_locations[index][0] // (simulation.spat_res / 2)
+        half_index_x = simulation.cell_locations[index][1] // (simulation.spat_res / 2)
+        half_index_z = simulation.cell_locations[index][2] // (simulation.spat_res / 2)
+        index_y = math.ceil(half_index_y / 2)
+        index_x = math.ceil(half_index_x / 2)
+        index_z = math.ceil(half_index_z / 2)
 
-    # if the diffusion point value is less than the max FGF4 it can hold and the cell is NANOG high
-    # increase the FGF4 value by 1
-    if simulation.cell_fds[index][3] == 1:
-        simulation.fgf4_values_temp[index_y][index_x][index_z] += 1
+        # if the diffusion point value is less than the max FGF4 it can hold and the cell is NANOG high
+        # increase the FGF4 value by 1
+        if simulation.cell_fds[index][3] == 1:
+            simulation.fgf4_values_temp[index_y][index_x][index_z] += 1
 
-    # activate the following pathway based on if dox (after 24 hours) has been induced yet
-    if simulation.current_step >= 49 and simulation.dox_value > simulation.cell_dox_value[index]:
-        # if the FGF4 amount for the location is greater than 0, set the fgf4_bool value to be 1 for the
-        # functions
-        if simulation.fgf4_values[index_y][index_x][index_z] > 0:
-            fgf4_bool = 1
-        else:
-            fgf4_bool = 0
+        # activate the following pathway based on if dox (after 24 hours) has been induced yet
+        if simulation.current_step >= 49 and simulation.dox_value > simulation.cell_dox_value[index]:
+            # if the FGF4 amount for the location is greater than 0, set the fgf4_bool value to be 1 for the
+            # functions
+            if simulation.fgf4_values[index_y][index_x][index_z] > 0:
+                fgf4_bool = 1
+            else:
+                fgf4_bool = 0
 
-        # Finite dynamical system and state change
-        # temporarily hold the FGFR value
-        temp_fgfr = simulation.cell_fds[index][0]
+            # Finite dynamical system and state change
+            # temporarily hold the FGFR value
+            temp_fgfr = simulation.cell_fds[index][0]
 
-        # only update the booleans when the counter matches the boolean update rate
-        if simulation.cell_fds_counter[index] % simulation.fds_thresh == 0:
-            # number of states for the finite dynamical system
-            num_states = 2
+            # only update the booleans when the counter matches the boolean update rate
+            if simulation.cell_fds_counter[index] % simulation.fds_thresh == 0:
+                # number of states for the finite dynamical system
+                num_states = 2
 
-            # xn is equal to the value corresponding to its function
-            x1 = fgf4_bool
-            x2 = simulation.cell_fds[index][0]
-            x3 = simulation.cell_fds[index][1]
-            x4 = simulation.cell_fds[index][2]
-            x5 = simulation.cell_fds[index][3]
+                # xn is equal to the value corresponding to its function
+                x1 = fgf4_bool
+                x2 = simulation.cell_fds[index][0]
+                x3 = simulation.cell_fds[index][1]
+                x4 = simulation.cell_fds[index][2]
+                x5 = simulation.cell_fds[index][3]
 
-            # evaluate the functions by turning them from strings to equations
-            new_fgfr = (x1 * x4) % num_states
-            new_erk = x2 % num_states
-            new_gata6 = (1 + x5 + x5 * x4) % num_states
-            new_nanog = ((x3 + 1) * (x4 + 1)) % num_states
+                # evaluate the functions by turning them from strings to equations
+                new_fgfr = (x1 * x4) % num_states
+                new_erk = x2 % num_states
+                new_gata6 = (1 + x5 + x5 * x4) % num_states
+                new_nanog = ((x3 + 1) * (x4 + 1)) % num_states
 
-            # updates self.booleans with the new boolean values
-            simulation.cell_fds[index] = np.array([new_fgfr, new_erk, new_gata6, new_nanog])
+                # updates self.booleans with the new boolean values
+                simulation.cell_fds[index] = np.array([new_fgfr, new_erk, new_gata6, new_nanog])
 
-            # if the temporary FGFR value is 0 and the new FGFR value is 1 decrease the amount of FGF4 by 1
-            # this simulates FGFR using FGF4
-            if temp_fgfr == 0 and new_fgfr == 1:
-                simulation.fgf4_values_temp[index_y][index_x][index_z] -= 1
+                # if the temporary FGFR value is 0 and the new FGFR value is 1 decrease the amount of FGF4 by 1
+                # this simulates FGFR using FGF4
+                if temp_fgfr == 0 and new_fgfr == 1:
+                    simulation.fgf4_values_temp[index_y][index_x][index_z] -= 1
 
-        # increase the finite dynamical system counter
-        simulation.cell_fds_counter[index] += 1
+            # increase the finite dynamical system counter
+            simulation.cell_fds_counter[index] += 1
 
-        # if the cell is GATA6 high and pluripotent increase the differentiation counter by 1
-        if simulation.cell_fds[index][2] == 1 and simulation.cell_states[index] == "Pluripotent":
-            simulation.cell_diff_counter[index] += r.randint(0, 1)
+            # if the cell is GATA6 high and pluripotent increase the differentiation counter by 1
+            if simulation.cell_fds[index][2] == 1 and simulation.cell_states[index] == "Pluripotent":
+                simulation.cell_diff_counter[index] += r.randint(0, 1)
 
-            # if the differentiation counter is greater than the threshold, differentiate
-            if simulation.cell_diff_counter[index] >= simulation.pluri_to_diff:
-                # change the state to differentiated
-                simulation.cell_states[index] = "Differentiated"
+                # if the differentiation counter is greater than the threshold, differentiate
+                if simulation.cell_diff_counter[index] >= simulation.pluri_to_diff:
+                    # change the state to differentiated
+                    simulation.cell_states[index] = "Differentiated"
 
-                # make sure NANOG is low or rather 0
-                simulation.cell_fds[index][3] = 0
+                    # make sure NANOG is low or rather 0
+                    simulation.cell_fds[index][3] = 0
 
-                # allow the cell to actively move again
-                simulation.cell_motion[index] = True
+                    # allow the cell to actively move again
+                    simulation.cell_motion[index] = True
 
 
 @backend.record_time
@@ -292,6 +274,9 @@ def cell_motility(simulation):
                         vector = simulation.diffuse_locations[y][x][z] - simulation.cell_locations[i]
                         normal = backend.normal_vector(vector)
                         simulation.cell_motility_force[i] += normal * motility_force
+
+                    else:
+                        simulation.cell_motility_force[i] += backend.random_vector(simulation) * motility_force
 
                 # move based on Eunbi's model
                 elif simulation.eunbi_move:
@@ -383,7 +368,6 @@ def alt_cell_motility(simulation):
                     # if no nearby differentiated cells, move randomly
                     else:
                         simulation.cell_motility_force[i] += backend.random_vector(simulation) * motility_force
-                    # simulation.cell_motility_force[i] += backend.random_vector(simulation) * motility_force
 
                 # if the cell is nanog high and gata6 low
                 elif simulation.cell_fds[i][3] == 1 and not simulation.cell_fds[i][2] == 1:
@@ -903,7 +887,7 @@ def highest_fgf4(simulation):
         fgf4 within a fixed radius
     """
     # call the nvidia gpu version
-    if simulation.parallel and False:
+    if simulation.parallel:
         # make sure the gradient array is contiguous
         fgf4_values = np.ascontiguousarray(simulation.fgf4_values)
 
@@ -915,6 +899,7 @@ def highest_fgf4(simulation):
         distance_cuda = cuda.to_device(simulation.diffuse_radius)
         highest_fgf4_cuda = cuda.to_device(simulation.cell_highest_fgf4)
         fgf4_values_cuda = cuda.to_device(fgf4_values)
+        max_fgf4_cuda = cuda.to_device(simulation.max_fgf4)
 
         # allocate threads and blocks for gpu memory
         threads_per_block = 72
@@ -923,7 +908,8 @@ def highest_fgf4(simulation):
         # call the cuda kernel with given parameters
         backend.highest_fgf4_gpu[blocks_per_grid, threads_per_block](locations_cuda, diffuse_bins_cuda,
                                                                      diffuse_bins_help_cuda, diffuse_locations_cuda,
-                                                                     distance_cuda, highest_fgf4_cuda, fgf4_values_cuda)
+                                                                     distance_cuda, highest_fgf4_cuda, fgf4_values_cuda,
+                                                                     max_fgf4_cuda)
         # return the array back from the gpu
         cell_highest_fgf4 = highest_fgf4_cuda.copy_to_host()
 

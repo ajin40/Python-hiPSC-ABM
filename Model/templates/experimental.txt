@@ -48,5 +48,4 @@ Output Topological Data Analysis csv files? Ex. True
 
 Percent of cells (as a decimal) that will receive sufficient dox to activate GATA6 pathway
 [ 1.00 ]
-
 ------------------------------------------------------------------------------------------------------------------------
