@@ -917,8 +917,7 @@ def highest_fgf4(simulation):
         # call the cuda kernel with given parameters
         backend.highest_fgf4_gpu[blocks_per_grid, threads_per_block](locations_cuda, diffuse_bins_cuda,
                                                                      diffuse_bins_help_cuda, diffuse_locations_cuda,
-                                                                     distance_cuda, highest_fgf4_cuda, fgf4_values_cuda,
-                                                                     max_fgf4_cuda)
+                                                                     distance_cuda, highest_fgf4_cuda, fgf4_values_cuda)
         # return the array back from the gpu
         cell_highest_fgf4 = highest_fgf4_cuda.copy_to_host()
 

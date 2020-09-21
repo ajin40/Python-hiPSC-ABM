@@ -785,7 +785,7 @@ def highest_fgf4_cpu(number_cells, cell_locations, diffuse_bins, diffuse_bins_he
 
 @cuda.jit
 def highest_fgf4_gpu(cell_locations, diffuse_bins, diffuse_bins_help, diffuse_locations, diffuse_radius,
-                     cell_highest_fgf4, fgf4_values, max_fgf4):
+                     cell_highest_fgf4, fgf4_values):
     """ this is the cuda kernel for the highest_fgf4
         function that runs on a NVIDIA gpu
     """
@@ -822,7 +822,7 @@ def highest_fgf4_gpu(cell_locations, diffuse_bins, diffuse_bins_help, diffuse_lo
                         # check to see if that cell is within the search radius and not the same cell
                         mag = magnitude(diffuse_locations[y_][x_][z_], cell_locations[focus])
                         if mag < diffuse_radius[0]:
-                            if fgf4_values[y_][x_][z_] > highest_value and fgf4_values[y_][x_][z_] != max_fgf4[0]:
+                            if fgf4_values[y_][x_][z_] > highest_value:
                                 highest_index_y = y_
                                 highest_index_x = x_
                                 highest_index_z = z_
