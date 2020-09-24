@@ -908,7 +908,6 @@ def highest_fgf4(simulation):
         distance_cuda = cuda.to_device(simulation.diffuse_radius)
         highest_fgf4_cuda = cuda.to_device(simulation.cell_highest_fgf4)
         fgf4_values_cuda = cuda.to_device(fgf4_values)
-        max_fgf4_cuda = cuda.to_device(simulation.max_fgf4)
 
         # allocate threads and blocks for gpu memory
         threads_per_block = 72
