@@ -1,48 +1,52 @@
-# Python hiPSC CBM
-#### Center-based model of pluripotent colonies patterning through differentiation.
+# Python-hiPSC-CBM
+#### Description
+This center-based model aims to understand the emergent patterning of human induced pluripotent
+ stem cells (hiPSCs) throughout differentiation. Efficient algorithms combined with Graphical
+ Processing Unit (GPU) parallelization, allow the model to simulate upwards of 200,000+ cells,
+ while remaining in development friendly Python.
 
-Developed from a seed project with the Southeast Center for Mathematics and Biology at Georgia Tech.
-
-Project Description: [https://scmb.gatech.edu](https://scmb.gatech.edu/elena-dimitrova-clemson-melissa-kemp-gt-modeling-emergent-patterning-within-pluripotent-colonies)
-
-Lab website: [https://kemp.gatech.edu](https://kemp.gatech.edu)
+Developed as an offshoot of a Southeast Center for Mathematics and Biology (SCMB) seed project
+ housed at Georgia Tech. [https://scmb.gatech.edu](https://scmb.gatech.edu/elena-dimitrova-clemson-melissa-kemp-gt-modeling-emergent-patterning-within-pluripotent-colonies)
 
 ##
-![Picture2](https://user-images.githubusercontent.com/57497258/80270182-8f35f980-867b-11ea-80c4-b954540a8fcd.jpg)
-Experimental immunofluorescence results from Eunbi Park
 
-### Download and Libraries:
-Use "Clone or download" to either open the model in GitHub Desktop or download as a ZIP.
+![image](images/front_page.png)
 
-This command will achieve the above too.
+##
+
+### Setup Guide
+Download the model either through GitHub or with the following command.
 ```
 $ git clone https://github.com/JackToppen/Python-hiPSC-CBM.git
 ```
-The model requires Python 3.7. Install any necessary modules. Shown below.
+Requires Python 3.6 or later. All necessary modules are Python packages, so use pip to download them.
 ```
 $ pip install -r requirements.txt
 ```
+
+Under the ***Model*** directory, update ***paths.txt*** such the model knows where to find the template
+ files and where to output the directory corresponding to each simulation.
+
+You can specify certain parameters in the ***templates*** directory that tailor each of the simulations. 
+
+The following command will start a text-based GUI to get the name of the simulation and the mode.
+```
+$ python run.py
+```
+Different simulation modes:
+- 0 -> New simulation
+- 1 -> Continue a past simulation
+- 2 -> Turn past simulation images to video
+- 3 -> CSVs to images/video
+
+The name and mode can be passed at the command line...without the parentheses.
+```
+$ python run.py (name) (mode)
+```
+
 ##
 
-### Quick Setup Guide
-
-- Place the "Setup_files" directory wherever you so choose. This contains all of the simulation 
-templates txt files. Each template corresponds to a separate simulation run by the model. If you put
-multiple files in the directory, the model will run them successively.
-
-- Indicate the path of the "Setup_files" directory in "Locations.txt". "Setup_files" can be renamed and relocated as 
-long as this is updated in "Locations.txt". Additionally, update the path to which the model will output data as it runs
-
-- Edit the template files as you wish. Recommended values will be indicated with "Ex."
-
-- Run the model. See Documentation.docx for further explanations of classes, functions, and parameters.
-```
-$ python Run.py
-```
-
-##
-
-### Parallel GPU Processing
+### NVIDIA CUDA support
 Currently the model only supports NVIDIA CUDA. Though in the future, AMD ROCm tools will be implemented.
 
 - Download from NVIDIA directly.
@@ -62,6 +66,7 @@ and solving any issues.
 ### Issues, Problems, or Questions
 
 Contact Jack Toppen (jtoppen3 at gatech.edu)... or not that's ok too.
+Lab website: [https://kemp.gatech.edu](https://kemp.gatech.edu)
 
 ##
 
