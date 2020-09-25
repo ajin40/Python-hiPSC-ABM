@@ -6,26 +6,29 @@ from functools import wraps
 import time
 
 
-def remove_cell(simulation, index):
-    """ given the index of a cell to remove, this will remove
-        that from each array, graphs, and reduce the total
+def remove_cells(simulation):
+    """ given the indices of a cells to remove, this will remove
+        them from each array, graphs, and reduce the total
         number of cells
     """
-    # go through all instance variable names
+    # get the indices of the cells leaving the simulation
+    indices = simulation.cells_to_remove
+
+    # remove the indices from the following graphs
+    simulation.neighbor_graph.delete_vertices(indices)
+    simulation.jkr_graph.delete_vertices(indices)
+
+    # go through the cell arrays remove the indices
     for name in simulation.cell_array_names:
-        # if the instance variable is 1-dimensional
+        # if the array is 1-dimensional
         if simulation.__dict__[name].ndim == 1:
-            simulation.__dict__[name] = np.delete(simulation.__dict__[name], index)
-        # if the instance variable is 2-dimensional
+            simulation.__dict__[name] = np.delete(simulation.__dict__[name], indices)
+        # if the array is 2-dimensional
         else:
-            simulation.__dict__[name] = np.delete(simulation.__dict__[name], index, axis=0)
+            simulation.__dict__[name] = np.delete(simulation.__dict__[name], indices, axis=0)
 
-    # remove the particular index from the following graphs
-    simulation.neighbor_graph.delete_vertices(index)
-    simulation.jkr_graph.delete_vertices(index)
-
-    # reduce the number of cells by 1
-    simulation.number_cells -= 1
+    # update the number of cells
+    simulation.number_cells -= len(simulation.cells_to_remove)
 
 
 def divide_cell(simulation, index):

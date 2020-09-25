@@ -412,6 +412,7 @@ def update_queue(simulation):
     print("Adding " + str(len(simulation.cells_to_divide)) + " cells...")
     print("Removing " + str(len(simulation.cells_to_remove)) + " cells...")
 
+    start = time.perf_counter()
     # loops over all indices that are set to divide
     for i in range(len(simulation.cells_to_divide)):
         # get the index and divide that cell
@@ -430,23 +431,14 @@ def update_queue(simulation):
                 # call the handle movement function, which should reduce the problems described above
                 handle_movement(simulation)
 
-    # loops over all indices that are set to be removed
-    for i in range(len(simulation.cells_to_remove)):
-        # get the index and remove it
-        index = simulation.cells_to_remove[i]
-        backend.remove_cell(simulation, index)
+    end = time.perf_counter()
+    print(end-start)
 
-        # adjusts the indices as deleting part of the array may alter the other indices to remove
-        for j in range(i + 1, len(simulation.cells_to_remove)):
-            # if the current cell being deleted falls before the other cell, shift the indices by 1
-            if index < simulation.cells_to_remove[j]:
-                simulation.cells_to_remove[j] -= 1
-
-        # if group is equal to 0, all will be removed at once
-        if simulation.group != 0:
-            if (i + 1) % simulation.group == 0:
-                # call the handle movement function, which should reduce the problems described above
-                handle_movement(simulation)
+    start = time.perf_counter()
+    # remove the cells marked for removal
+    backend.remove_cells(simulation)
+    end = time.perf_counter()
+    print(end-start)
 
     # clear the arrays for the next step
     simulation.cells_to_divide = np.array([], dtype=int)
