@@ -51,9 +51,9 @@ def step_image(simulation):
     """
     # get the size of the array used for imaging in addition to the scale factor
     pixels = simulation.image_quality
-    scale = pixels/simulation.size[1]
+    scale = pixels/simulation.size[0]
     x_size = pixels
-    y_size = math.ceil(pixels * simulation.size[0] / simulation.size[1])
+    y_size = math.ceil(scale * simulation.size[1])
 
     # create the cell space background image
     image = np.zeros((y_size, x_size, 3), dtype=np.uint8)
@@ -66,12 +66,16 @@ def step_image(simulation):
 
         # recolor the grayscale image into a colormap and resize to match the cell space array
         grad_image = cv2.applyColorMap(grad_image, cv2.COLORMAP_OCEAN)
-        grad_image = cv2.resize(grad_image, (x_size, y_size), interpolation=cv2.INTER_NEAREST)
+        grad_image = cv2.resize(grad_image, (y_size, x_size), interpolation=cv2.INTER_NEAREST)
+
+        # flip and rotate to turn go from (y, x) to (x, y)
+        grad_image = cv2.rotate(grad_image, cv2.ROTATE_90_COUNTERCLOCKWISE)
+        grad_image = cv2.flip(grad_image, 0)
 
     # go through all of the cells
     for i in range(simulation.number_cells):
-        x = math.ceil(simulation.cell_locations[i][1] * scale)    # the x-coordinate
-        y = math.ceil(simulation.cell_locations[i][0] * scale)    # the y-coordinate
+        x = math.ceil(simulation.cell_locations[i][0] * scale)    # the x-coordinate
+        y = math.ceil(simulation.cell_locations[i][1] * scale)    # the y-coordinate
         point = (x, y)    # the x,y point
         major = math.ceil(simulation.cell_radii[i] * scale)    # the major axis length
         minor = math.ceil(simulation.cell_radii[i] * scale)    # the minor axis length

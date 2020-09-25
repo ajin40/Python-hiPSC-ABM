@@ -104,16 +104,16 @@ def assign_bins_cpu(number_cells, cell_locations, distance, bins, bins_help):
     for i in range(number_cells):
         # generalize location and offset it by 2 to avoid missing cells
         block_location = cell_locations[i] // distance + np.array([2, 2, 2])
-        y, x, z = int(block_location[0]), int(block_location[1]), int(block_location[2])
+        x, y, z = int(block_location[0]), int(block_location[1]), int(block_location[2])
 
         # use the help array to get the new index for the cell in the bin
-        place = bins_help[y][x][z]
+        place = bins_help[x][y][z]
 
         # adds the index in the cell array to the bin
-        bins[y][x][z][place] = i
+        bins[x][y][z][place] = i
 
         # update the number of cells in a bin
-        bins_help[y][x][z] += 1
+        bins_help[x][y][z] += 1
 
     # return the arrays now filled with cell indices
     return bins, bins_help
@@ -135,19 +135,19 @@ def check_neighbors_cpu(number_cells, cell_locations, bins, bins_help, distance,
 
         # offset bins by 2 to avoid missing cells that fall outside the space
         block_location = cell_locations[focus] // distance + np.array([2, 2, 2])
-        y, x, z = int(block_location[0]), int(block_location[1]), int(block_location[2])
+        x, y, z = int(block_location[0]), int(block_location[1]), int(block_location[2])
 
         # loop over the bin the cell is in and the surrounding bins
         for i in range(-1, 2):
             for j in range(-1, 2):
                 for k in range(-1, 2):
                     # get the count of cells for the current bin
-                    bin_count = bins_help[y + i][x + j][z + k]
+                    bin_count = bins_help[x + i][y + j][z + k]
 
                     # go through that bin determining if a cell is a neighbor
                     for l in range(bin_count):
                         # get the index of the current cell in question
-                        current = int(bins[y + i][x + j][z + k][l])
+                        current = int(bins[x + i][y + j][z + k][l])
 
                         # check to see if that cell is within the search radius and not the same cell
                         vector = cell_locations[current] - cell_locations[focus]
@@ -189,8 +189,8 @@ def check_neighbors_gpu(cell_locations, bins, bins_help, distance, edge_holder, 
         edge_counter = 0
 
         # offset bins by 2 to avoid missing cells that fall outside the space
-        y = int(cell_locations[focus][0] / distance[0]) + 2
-        x = int(cell_locations[focus][1] / distance[0]) + 2
+        x = int(cell_locations[focus][0] / distance[0]) + 2
+        y = int(cell_locations[focus][1] / distance[0]) + 2
         z = int(cell_locations[focus][2] / distance[0]) + 2
 
         # loop over the bin the cell is in and the surrounding bins
@@ -198,12 +198,12 @@ def check_neighbors_gpu(cell_locations, bins, bins_help, distance, edge_holder, 
             for j in range(-1, 2):
                 for k in range(-1, 2):
                     # get the count of cells for the current bin
-                    bin_count = int(bins_help[y + i][x + j][z + k])
+                    bin_count = int(bins_help[x + i][y + j][z + k])
 
                     # go through that bin determining if a cell is a neighbor
                     for l in range(bin_count):
                         # get the index of the current cell in question
-                        current = int(bins[y + i][x + j][z + k][l])
+                        current = int(bins[x + i][y + j][z + k][l])
 
                         # check to see if that cell is within the search radius and not the same cell
                         if magnitude(cell_locations[focus], cell_locations[current]) <= distance[0] and focus < current:
@@ -240,19 +240,19 @@ def jkr_neighbors_cpu(number_cells, cell_locations, cell_radii, bins, bins_help,
 
         # offset bins by 2 to avoid missing cells that fall outside the space
         block_location = cell_locations[focus] // distance + np.array([2, 2, 2])
-        y, x, z = int(block_location[0]), int(block_location[1]), int(block_location[2])
+        x, y, z = int(block_location[0]), int(block_location[1]), int(block_location[2])
 
         # loop over the bin the cell is in and the surrounding bins
         for i in range(-1, 2):
             for j in range(-1, 2):
                 for k in range(-1, 2):
                     # get the count of cells for the current bin
-                    bin_count = bins_help[y + i][x + j][z + k]
+                    bin_count = bins_help[x + i][y + j][z + k]
 
                     # go through that bin determining if a cell is a neighbor
                     for l in range(bin_count):
                         # get the index of the current cell in question
-                        current = int(bins[y + i][x + j][z + k][l])
+                        current = int(bins[x + i][y + j][z + k][l])
 
                         # get the magnitude of the distance vector between the cells
                         mag = np.linalg.norm(cell_locations[current] - cell_locations[focus])
@@ -300,8 +300,8 @@ def jkr_neighbors_gpu(cell_locations, radii, bins, bins_help, distance, edge_hol
         edge_counter = 0
 
         # offset bins by 2 to avoid missing cells that fall outside the space
-        y = int(cell_locations[focus][0] / distance[0]) + 2
-        x = int(cell_locations[focus][1] / distance[0]) + 2
+        x = int(cell_locations[focus][0] / distance[0]) + 2
+        y = int(cell_locations[focus][1] / distance[0]) + 2
         z = int(cell_locations[focus][2] / distance[0]) + 2
 
         # loop over the bin the cell is in and the surrounding bins
@@ -309,12 +309,12 @@ def jkr_neighbors_gpu(cell_locations, radii, bins, bins_help, distance, edge_hol
             for j in range(-1, 2):
                 for k in range(-1, 2):
                     # get the count of cells for the current bin
-                    bin_count = int(bins_help[y + i][x + j][z + k])
+                    bin_count = int(bins_help[x + i][y + j][z + k])
 
                     # go through that bin determining if a cell is a neighbor
                     for l in range(bin_count):
                         # get the index of the current cell in question
-                        current = int(bins[y + i][x + j][z + k][l])
+                        current = int(bins[x + i][y + j][z + k][l])
 
                         # get the magnitude of the distance vector between the cells
                         mag = magnitude(cell_locations[focus], cell_locations[current])
@@ -527,7 +527,7 @@ def nearest_cpu(number_cells, cell_locations, bins, bins_help, distance, if_diff
     for focus in prange(number_cells):
         # offset bins by 2 to avoid missing cells that fall outside the space
         block_location = cell_locations[focus] // distance + np.array([2, 2, 2])
-        y, x, z = int(block_location[0]), int(block_location[1]), int(block_location[2])
+        x, y, z = int(block_location[0]), int(block_location[1]), int(block_location[2])
 
         # initialize these variables with essentially nothing values and the distance as an initial comparison
         nearest_gata6_index, nearest_nanog_index, nearest_diff_index = np.nan, np.nan, np.nan
@@ -538,12 +538,12 @@ def nearest_cpu(number_cells, cell_locations, bins, bins_help, distance, if_diff
             for j in range(-1, 2):
                 for k in range(-1, 2):
                     # get the count of cells for the current bin
-                    bin_count = bins_help[y + i][x + j][z + k]
+                    bin_count = bins_help[x + i][y + j][z + k]
 
                     # go through that bin
                     for l in range(bin_count):
                         # get the index of the current cell in question
-                        current = int(bins[y + i][x + j][z + k][l])
+                        current = int(bins[x + i][y + j][z + k][l])
 
                         # check to see if that cell is within the search radius and not the same cell
                         mag = np.linalg.norm(cell_locations[current] - cell_locations[focus])
@@ -591,8 +591,8 @@ def nearest_gpu(cell_locations, bins, bins_help, distance, if_diff, gata6_high, 
     # checks to see that position is in the array
     if focus < cell_locations.shape[0]:
         # offset bins by 2 to avoid missing cells that fall outside the space
-        y = int(cell_locations[focus][0] / distance[0]) + 2
-        x = int(cell_locations[focus][1] / distance[0]) + 2
+        x = int(cell_locations[focus][0] / distance[0]) + 2
+        y = int(cell_locations[focus][1] / distance[0]) + 2
         z = int(cell_locations[focus][2] / distance[0]) + 2
 
         # initialize these variables with essentially nothing values and the distance as an initial comparison
@@ -604,12 +604,12 @@ def nearest_gpu(cell_locations, bins, bins_help, distance, if_diff, gata6_high, 
             for j in range(-1, 2):
                 for k in range(-1, 2):
                     # get the count of cells for the current bin
-                    bin_count = int(bins_help[y + i][x + j][z + k])
+                    bin_count = int(bins_help[x + i][y + j][z + k])
 
                     # go through that bin determining if a cell is a neighbor
                     for l in range(bin_count):
                         # get the index of the current cell in question
-                        current = int(bins[y + i][x + j][z + k][l])
+                        current = int(bins[x + i][y + j][z + k][l])
 
                         # check to see if that cell is within the search radius and not the same cell
                         mag = magnitude(cell_locations[focus], cell_locations[current])
@@ -642,7 +642,7 @@ def nearest_gpu(cell_locations, bins, bins_help, distance, if_diff, gata6_high, 
         nearest_diff[focus] = nearest_diff_index
 
 
-# @jit(nopython=True)
+@jit(nopython=True)
 def setup_diffuse_bins_cpu(diffuse_locations, diffuse_radius, diffuse_bins, diffuse_bins_help):
     """ this is the just-in-time compiled version of
         setup_diffusion_bins that runs solely on the cpu
@@ -653,16 +653,16 @@ def setup_diffuse_bins_cpu(diffuse_locations, diffuse_radius, diffuse_bins, diff
             for k in range(diffuse_locations.shape[2]):
                 # get the location in the bin array
                 bin_location = diffuse_locations[i][j][k] // diffuse_radius + np.array([2, 2, 2])
-                y, x, z = int(bin_location[0]), int(bin_location[1]), int(bin_location[2])
+                x, y, z = int(bin_location[0]), int(bin_location[1]), int(bin_location[2])
 
                 # get the index of the where the point will be added
-                place = diffuse_bins_help[y][x][z]
+                place = diffuse_bins_help[x][y][z]
 
                 # add the diffusion point to a corresponding bin and increase the place index
-                diffuse_bins[y][x][z][place][0] = i
-                diffuse_bins[y][x][z][place][1] = j
-                diffuse_bins[y][x][z][place][2] = k
-                diffuse_bins_help[y][x][z] += 1
+                diffuse_bins[x][y][z][place][0] = i
+                diffuse_bins[x][y][z][place][1] = j
+                diffuse_bins[x][y][z][place][2] = k
+                diffuse_bins_help[x][y][z] += 1
 
     # return the arrays now filled with points
     return diffuse_bins, diffuse_bins_help
@@ -743,11 +743,11 @@ def highest_fgf4_cpu(number_cells, cell_locations, diffuse_bins, diffuse_bins_he
     for focus in prange(number_cells):
         # offset bins by 2 to avoid missing points
         block_location = cell_locations[focus] // diffuse_radius + np.array([2, 2, 2])
-        y, x, z = int(block_location[0]), int(block_location[1]), int(block_location[2])
+        x, y, z = int(block_location[0]), int(block_location[1]), int(block_location[2])
 
         # create an initial value to check for the highest fgf4 point in a radius
-        highest_index_y = np.nan
         highest_index_x = np.nan
+        highest_index_y = np.nan
         highest_index_z = np.nan
         highest_value = 0
 
@@ -756,27 +756,27 @@ def highest_fgf4_cpu(number_cells, cell_locations, diffuse_bins, diffuse_bins_he
             for j in range(-1, 2):
                 for k in range(-1, 2):
                     # get the count of cells for the current bin
-                    bin_count = int(diffuse_bins_help[y + i][x + j][z + k])
+                    bin_count = int(diffuse_bins_help[x + i][y + j][z + k])
 
                     # go through the bin determining if a cell is a neighbor
                     for l in range(bin_count):
                         # get the index of the current cell in question
-                        y_ = int(diffuse_bins[y + i][x + j][z + k][l][0])
-                        x_ = int(diffuse_bins[y + i][x + j][z + k][l][1])
-                        z_ = int(diffuse_bins[y + i][x + j][z + k][l][2])
+                        x_ = int(diffuse_bins[x + i][y + j][z + k][l][0])
+                        y_ = int(diffuse_bins[x + i][y + j][z + k][l][1])
+                        z_ = int(diffuse_bins[x + i][y + j][z + k][l][2])
 
                         # check to see if that cell is within the search radius and not the same cell
-                        mag = np.linalg.norm(diffuse_locations[y_][x_][z_] - cell_locations[focus])
+                        mag = np.linalg.norm(diffuse_locations[x_][y_][z_] - cell_locations[focus])
                         if mag < diffuse_radius:
-                            if fgf4_values[y_][x_][z_] > highest_value:
-                                highest_index_y = y_
+                            if fgf4_values[x_][y_][z_] > highest_value:
                                 highest_index_x = x_
+                                highest_index_y = y_
                                 highest_index_z = z_
-                                highest_value = fgf4_values[y_][x_][z_]
+                                highest_value = fgf4_values[x_][y_][z_]
 
         # update the highest fgf4 diffusion point
-        cell_highest_fgf4[focus][0] = highest_index_y
-        cell_highest_fgf4[focus][1] = highest_index_x
+        cell_highest_fgf4[focus][0] = highest_index_x
+        cell_highest_fgf4[focus][1] = highest_index_y
         cell_highest_fgf4[focus][2] = highest_index_z
 
     # return the array back
@@ -795,13 +795,13 @@ def highest_fgf4_gpu(cell_locations, diffuse_bins, diffuse_bins_help, diffuse_lo
     # checks to see that position is in the array
     if focus < cell_locations.shape[0]:
         # offset bins by 2 to avoid missing cells that fall outside the space
-        y = int(cell_locations[focus][0] / diffuse_radius[0]) + 2
-        x = int(cell_locations[focus][1] / diffuse_radius[0]) + 2
+        x = int(cell_locations[focus][0] / diffuse_radius[0]) + 2
+        y = int(cell_locations[focus][1] / diffuse_radius[0]) + 2
         z = int(cell_locations[focus][2] / diffuse_radius[0]) + 2
 
         # create an initial value to check for the highest fgf4 point in a radius
-        highest_index_y = np.nan
         highest_index_x = np.nan
+        highest_index_y = np.nan
         highest_index_z = np.nan
         highest_value = 0
 
@@ -810,27 +810,27 @@ def highest_fgf4_gpu(cell_locations, diffuse_bins, diffuse_bins_help, diffuse_lo
             for j in range(-1, 2):
                 for k in range(-1, 2):
                     # get the count of cells for the current bin
-                    bin_count = int(diffuse_bins_help[y + i][x + j][z + k])
+                    bin_count = int(diffuse_bins_help[x + i][y + j][z + k])
 
                     # go through the bin determining if a cell is a neighbor
                     for l in range(bin_count):
                         # get the index of the current cell in question
-                        y_ = int(diffuse_bins[y + i][x + j][z + k][l][0])
-                        x_ = int(diffuse_bins[y + i][x + j][z + k][l][1])
-                        z_ = int(diffuse_bins[y + i][x + j][z + k][l][2])
+                        x_ = int(diffuse_bins[x + i][y + j][z + k][l][0])
+                        y_ = int(diffuse_bins[x + i][y + j][z + k][l][1])
+                        z_ = int(diffuse_bins[x + i][y + j][z + k][l][2])
 
                         # check to see if that cell is within the search radius and not the same cell
-                        mag = magnitude(diffuse_locations[y_][x_][z_], cell_locations[focus])
+                        mag = magnitude(diffuse_locations[x_][y_][z_], cell_locations[focus])
                         if mag < diffuse_radius[0]:
-                            if fgf4_values[y_][x_][z_] > highest_value:
-                                highest_index_y = y_
+                            if fgf4_values[x_][y_][z_] > highest_value:
                                 highest_index_x = x_
+                                highest_index_y = y_
                                 highest_index_z = z_
-                                highest_value = fgf4_values[y_][x_][z_]
+                                highest_value = fgf4_values[x_][y_][z_]
 
         # update the highest fgf4 diffusion point
-        cell_highest_fgf4[focus][0] = highest_index_y
-        cell_highest_fgf4[focus][1] = highest_index_x
+        cell_highest_fgf4[focus][0] = highest_index_x
+        cell_highest_fgf4[focus][1] = highest_index_y
         cell_highest_fgf4[focus][2] = highest_index_z
 
 
@@ -860,7 +860,7 @@ def nearest_cluster_cpu(number_cells, cell_locations, bins, bins_help, distance,
         if if_nanog[focus]:
             # offset bins by 2 to avoid missing cells that fall outside the space
             block_location = cell_locations[focus] // distance + np.array([2, 2, 2])
-            y, x, z = int(block_location[0]), int(block_location[1]), int(block_location[2])
+            x, y, z = int(block_location[0]), int(block_location[1]), int(block_location[2])
 
             # initialize these variables with essentially nothing values and the distance as an initial comparison
             nearest_cell_index = np.nan
@@ -871,12 +871,12 @@ def nearest_cluster_cpu(number_cells, cell_locations, bins, bins_help, distance,
                 for j in range(-1, 2):
                     for k in range(-1, 2):
                         # get the count of cells for the current bin
-                        bin_count = bins_help[y + i][x + j][z + k]
+                        bin_count = bins_help[x + i][y + j][z + k]
 
                         # go through that bin
                         for l in range(bin_count):
                             # get the index of the current cell in question
-                            current = int(bins[y + i][x + j][z + k][l])
+                            current = int(bins[x + i][y + j][z + k][l])
 
                             # make sure not differentiated, not same cell, and not in the same cluster
                             if if_nanog[current] and focus != current and members[focus] != members[current]:
@@ -907,8 +907,8 @@ def nearest_cluster_gpu(cell_locations, bins, bins_help, distance, if_nanog, cel
     if focus < cell_locations.shape[0]:
         if if_nanog[focus]:
             # offset bins by 2 to avoid missing cells that fall outside the space
-            y = int(cell_locations[focus][0] / distance[0]) + 2
-            x = int(cell_locations[focus][1] / distance[0]) + 2
+            x = int(cell_locations[focus][0] / distance[0]) + 2
+            y = int(cell_locations[focus][1] / distance[0]) + 2
             z = int(cell_locations[focus][2] / distance[0]) + 2
 
             # initialize these variables with essentially nothing values and the distance as an initial comparison
@@ -920,12 +920,12 @@ def nearest_cluster_gpu(cell_locations, bins, bins_help, distance, if_nanog, cel
                 for j in range(-1, 2):
                     for k in range(-1, 2):
                         # get the count of cells for the current bin
-                        bin_count = bins_help[y + i][x + j][z + k]
+                        bin_count = bins_help[x + i][y + j][z + k]
 
                         # go through that bin
                         for l in range(bin_count):
                             # get the index of the current cell in question
-                            current = int(bins[y + i][x + j][z + k][l])
+                            current = int(bins[x + i][y + j][z + k][l])
 
                             # make sure not differentiated, not same cell, and not in the same cluster
                             if if_nanog[current] and focus != current and members[focus] != members[current]:
