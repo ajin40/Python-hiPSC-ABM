@@ -14,7 +14,7 @@ Developed as an offshoot of a Southeast Center for Mathematics and Biology (SCMB
 
 ##
 
-### Setup Guide
+### Setup guide
 Download the model either through GitHub or with the following command.
 ```
 $ git clone https://github.com/JackToppen/Python-hiPSC-CBM.git
@@ -47,28 +47,24 @@ $ python run.py (name) (mode)
 ##
 
 ### NVIDIA CUDA support
-Currently the model only supports NVIDIA CUDA. Though in the future, AMD ROCm tools will be implemented.
+The model has optional GPU parallelization for some elements of the code. Currently its only
+available for NVIDIA CUDA though AMD ROCm support will come in the future. Download NVIDIA's CUDA 
+toolkit so that Numba library can create CUDA kernels.
+
+If you do not have Microsoft Visual Studio, download that prior to the toolkit. 
 
 - Download from NVIDIA directly.
 CUDA Toolkit: [https://developer.nvidia.com/cuda-downloads](https://developer.nvidia.com/cuda-downloads)
-- If you do not have Microsoft Visual Studio, download that prior to the toolkit.
 
-If you are using Anaconda, you can simply use the following.
+If you are using Anaconda, simply use conda.
 ```
 $ conda install cudatoolkit
 ```
-See [http://numba.pydata.org](http://numba.pydata.org/) for additional information about parallel processing 
-and solving any issues.
-
 
 ##
 
-### Issues, Problems, or Questions
+### Issues, problems, or questions
 
-Contact Jack Toppen (jtoppen3 at gatech.edu)... or not that's ok too.
-Lab website: [https://kemp.gatech.edu](https://kemp.gatech.edu)
+Contact Jack Toppen (jtoppen3 at gatech.edu)...or not that's ok too.
 
 ##
-
-
-
