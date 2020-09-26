@@ -412,33 +412,11 @@ def update_queue(simulation):
     print("Adding " + str(len(simulation.cells_to_divide)) + " cells...")
     print("Removing " + str(len(simulation.cells_to_remove)) + " cells...")
 
-    start = time.perf_counter()
-    # loops over all indices that are set to divide
-    for i in range(len(simulation.cells_to_divide)):
-        # get the index and divide that cell
-        index = simulation.cells_to_divide[i]
-        backend.divide_cell(simulation, index)
+    # add new cells from cells marked for division
+    backend.divide_cells(simulation)
 
-        # Cannot add all of the new cells, otherwise several cells are likely to be added in
-        #   close proximity to each other at later time steps. Such addition, coupled with
-        #   handling collisions, make give rise to sudden changes in overall positions of
-        #   cells within the simulation. Instead, collisions are handled after 'group' number
-        #   of cells are added.
-
-        # if group is equal to 0, all will be added in at once
-        if simulation.group != 0:
-            if (i + 1) % simulation.group == 0:
-                # call the handle movement function, which should reduce the problems described above
-                handle_movement(simulation)
-
-    end = time.perf_counter()
-    print(end-start)
-
-    start = time.perf_counter()
     # remove the cells marked for removal
     backend.remove_cells(simulation)
-    end = time.perf_counter()
-    print(end-start)
 
     # clear the arrays for the next step
     simulation.cells_to_divide = np.array([], dtype=int)

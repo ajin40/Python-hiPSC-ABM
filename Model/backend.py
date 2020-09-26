@@ -5,6 +5,8 @@ import random as r
 from functools import wraps
 import time
 
+import functions
+
 
 def remove_cells(simulation):
     """ given the indices of a cells to remove, this will remove
@@ -31,38 +33,73 @@ def remove_cells(simulation):
     simulation.number_cells -= len(simulation.cells_to_remove)
 
 
-def divide_cell(simulation, index):
-    """ Takes a cell or rather an index in the holder arrays
-        and adds a new cell (index). This also updates factors
-        such as size and counters.
+def divide_cells(simulation):
+    """ add all new cells at once, then update values such
+        as radius for then new daughter cells, finally call
+        handle_movement() to if adding cells in groups
     """
-    # go through all instance variable names and copy the values to a newly appended index
+    # get the indices of the dividing cells
+    indices = simulation.cells_to_divide
+
+    # go through all instance variable names and copy the values of the dividing cells to end of the array
     for name in simulation.cell_array_names:
         # get the instance variable from the class attribute dictionary
-        value = simulation.__dict__[name][index]
+        values = simulation.__dict__[name][indices]
 
         # if the instance variable is 1-dimensional
         if simulation.__dict__[name].ndim == 1:
-            simulation.__dict__[name] = np.append(simulation.__dict__[name], value)
+            simulation.__dict__[name] = np.concatenate((simulation.__dict__[name], values))
         # if the instance variable is 2-dimensional
         else:
-            simulation.__dict__[name] = np.append(simulation.__dict__[name], [value], axis=0)
+            simulation.__dict__[name] = np.concatenate((simulation.__dict__[name], values), axis=0)
 
-    # move the cells to positions that are representative of the new locations of daughter cells
-    division_position = random_vector(simulation) * (simulation.max_radius - simulation.min_radius)
-    simulation.cell_locations[index] += division_position
-    simulation.cell_locations[-1] -= division_position
+    # go through the dividing cells and update the mother and daughter cells
+    for i in range(len(simulation.cells_to_divide)):
+        mother_index = simulation.cells_to_divide[i]
+        daughter_index = simulation.number_cells + i
 
-    # reduce both radii to minimum size and set the division counters to zero
-    simulation.cell_radii[index] = simulation.cell_radii[-1] = simulation.min_radius
-    simulation.cell_div_counter[index] = simulation.cell_div_counter[-1] = 0
+        # move the cells to positions that are representative of the new locations of daughter cells
+        division_position = random_vector(simulation) * (simulation.max_radius - simulation.min_radius)
+        simulation.cell_locations[mother_index] += division_position
+        simulation.cell_locations[daughter_index] -= division_position
 
-    # add the new cell to the following graphs
-    simulation.neighbor_graph.add_vertex()
-    simulation.jkr_graph.add_vertex()
+        # reduce both radii to minimum size and set the division counters to zero
+        simulation.cell_radii[mother_index] = simulation.cell_radii[daughter_index] = simulation.min_radius
+        simulation.cell_div_counter[mother_index] = simulation.cell_div_counter[daughter_index] = 0
 
-    # increase the number of cells by 1
-    simulation.number_cells += 1
+    # if not adding all cells at once
+    if simulation.group != 0:
+        # Cannot add all of the new cells, otherwise several cells are likely to be added in
+        #   close proximity to each other at later time steps. Such addition, coupled with
+        #   handling collisions, make give rise to sudden changes in overall positions of
+        #   cells within the simulation. Instead, collisions are handled after 'group' number
+        #   of cells are added.
+
+        # get the remaining number of cells to be added
+        remaining = len(simulation.cells_to_divide)
+
+        # stagger the addition of cells, subtracting from the remaining number to add
+        while remaining > 0:
+            # if more cells than how many we would add in a group
+            if remaining >= simulation.group:
+                # add the group number of cells
+                n = simulation.group
+            else:
+                # if less than the group, only add the remaining number
+                n = remaining
+
+            # add the number of new cells to the following graphs
+            simulation.neighbor_graph.add_vertices(n)
+            simulation.jkr_graph.add_vertices(n)
+
+            # increase the number of cells by how many were added
+            simulation.number_cells += n
+
+            # call the handle movement function given the addition of specified number of cells
+            functions.handle_movement(simulation)
+
+            # subtract how many were added
+            remaining -= n
 
 
 def assign_bins(simulation, distance, max_cells):
