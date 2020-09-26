@@ -88,7 +88,7 @@ def step_image(simulation):
                 color = (0, 0, 230)
 
             # if the cell is gata6 high and nanog low, color white
-            elif simulation.cell_fds[i][2] * (simulation.cell_fds[i][3] + 1) % 2:
+            elif simulation.cell_fds[i][2] > simulation.cell_fds[i][3]:
                 color = (255, 255, 255)
 
             # if anything else, color green

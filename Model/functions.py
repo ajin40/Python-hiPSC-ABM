@@ -48,7 +48,7 @@ def cell_diff_surround(simulation):
     """
     for index in range(simulation.number_cells):
         # checks to see if cell is pluripotent and GATA6 low
-        if simulation.cell_states[index] == "Pluripotent" and not simulation.cell_fds[index][2]:
+        if simulation.cell_states[index] == "Pluripotent" and simulation.cell_fds[index][2] < simulation.field-1:
             # get the list of neighbors for the cell
             neighbors = simulation.neighbor_graph.neighbors(index)
 
@@ -59,9 +59,10 @@ def cell_diff_surround(simulation):
                 if simulation.cell_states[neighbor_index] == "Differentiated":
                     num_diff_neighbors += 1
 
-                # if the number of differentiated meets the threshold, increase the counter and break the loop
-                if num_diff_neighbors >= 8:
-                    simulation.cell_diff_counter[index] += 1
+                # if the number of differentiated meets the threshold, set the cell as gata6 high and nanog low
+                if num_diff_neighbors >= 6:
+                    simulation.cell_fds[index][2] = simulation.field-1
+                    simulation.cell_fds[index][3] = 0
                     break
 
 
@@ -127,53 +128,85 @@ def cell_pathway(simulation):
         index_z = math.ceil(half_index_z / 2)
 
         # if the cell is NANOG high increase the FGF4 value by 1, diffusion method will address values above max
-        if simulation.cell_fds[index][3]:
-            simulation.fgf4_values_temp[index_x][index_y][index_z] += 1
+        if simulation.cell_fds[index][3] > 0:
+            simulation.fgf4_values_temp[index_x][index_y][index_z] += simulation.cell_fds[index][3]
 
         # activate the following pathway based on if dox (after 24 hours) has been induced yet
         # if simulation.current_step > 48 and simulation.dox_value > simulation.cell_dox_value[index]:
         if simulation.current_step > 48:
             # if the FGF4 amount for the location is greater than the threshold, set the fgf4_bool value to be 1,
             # designating it as high
-            if simulation.fgf4_values[index_x][index_y][index_z] > simulation.fgf4_thresh:
-                fgf4_bool = 1
+            fgf4_value = simulation.fgf4_values[index_x][index_y][index_z]
+            if simulation.field == 2:
+                if fgf4_value > simulation.max_fgf4 * 0.5:
+                    fgf4_fds = 1
+                else:
+                    fgf4_fds = 0
+
             else:
-                fgf4_bool = 0
+                if fgf4_value > simulation.max_fgf4 * 2/3:
+                    fgf4_fds = 2
+                elif fgf4_value > simulation.max_fgf4 * 1/3:
+                    fgf4_fds = 1
+                else:
+                    fgf4_fds = 0
 
             # temporarily hold the FGFR value
             temp_fgfr = simulation.cell_fds[index][0]
 
             # only update the booleans when the counter matches the boolean update rate
             if simulation.cell_fds_counter[index] % simulation.fds_thresh == 0:
-                # number of states for the finite dynamical system
-                num_states = 2
+                if simulation.field == 2:
+                    # xn is equal to the value corresponding to its function
+                    x1 = fgf4_fds
+                    x2 = simulation.cell_fds[index][0]
+                    x3 = simulation.cell_fds[index][1]
+                    x4 = simulation.cell_fds[index][2]
+                    x5 = simulation.cell_fds[index][3]
 
-                # xn is equal to the value corresponding to its function
-                x1 = fgf4_bool
-                x2 = simulation.cell_fds[index][0]
-                x3 = simulation.cell_fds[index][1]
-                x4 = simulation.cell_fds[index][2]
-                x5 = simulation.cell_fds[index][3]
+                    # evaluate the functions by turning them from strings to equations
+                    new_fgfr = (x1 * x4) % 2
+                    new_erk = x2 % 2
+                    new_gata6 = (1 + x5 + x5 * x4) % 2
+                    new_nanog = ((x3 + 1) * (x4 + 1)) % 2
 
-                # evaluate the functions by turning them from strings to equations
-                new_fgfr = (x1 * x4) % num_states
-                new_erk = x2 % num_states
-                new_gata6 = (1 + x5 + x5 * x4) % num_states
-                new_nanog = ((x3 + 1) * (x4 + 1)) % num_states
+                    # updates self.booleans with the new boolean values
+                    simulation.cell_fds[index] = np.array([new_fgfr, new_erk, new_gata6, new_nanog])
 
-                # updates self.booleans with the new boolean values
-                simulation.cell_fds[index] = np.array([new_fgfr, new_erk, new_gata6, new_nanog])
+                    # if the temporary FGFR value is 0 and the new FGFR value is 1 decrease the amount of FGF4 by 1
+                    # this simulates FGFR using FGF4
+                    if temp_fgfr == 0 and new_fgfr == 1:
+                        simulation.fgf4_values_temp[index_x][index_y][index_z] -= 1
 
-                # if the temporary FGFR value is 0 and the new FGFR value is 1 decrease the amount of FGF4 by 1
-                # this simulates FGFR using FGF4
-                if not temp_fgfr and new_fgfr:
-                    simulation.fgf4_values_temp[index_x][index_y][index_z] -= 1
+                else:
+                    # xn is equal to the value corresponding to its function
+                    x1 = fgf4_fds
+                    x2 = simulation.cell_fds[index][0]
+                    x3 = simulation.cell_fds[index][1]
+                    x4 = simulation.cell_fds[index][2]
+                    x5 = simulation.cell_fds[index][3]
+
+                    # evaluate the functions by turning them from strings to equations
+                    new_fgfr = (x1*x4*((2*x1 + 1)*(2*x4 + 1) + x1*x4)) % 3
+                    new_erk = x2 % 3
+                    new_gata6 = ((x4**2)*(x5 + 1) + (x5**2)*(x4 + 1) + 2*x5 + 1) % 3
+                    new_nanog = (x5**2 + x5*(x5+1)*(x3*(2*x4**2 + 2*x3 + 1) + x4*(2*x3**2 + 2*x4 + 1)) +
+                                 (2*x3**2 + 1)*(2*x4**2 + 1)) % 3
+
+                    # updates self.booleans with the new ternary values
+                    simulation.cell_fds[index] = np.array([new_fgfr, new_erk, new_gata6, new_nanog])
+
+                    if temp_fgfr == 0 and new_fgfr == 1:
+                        simulation.fgf4_values_temp[index_x][index_y][index_z] -= 1
+
+                    elif temp_fgfr == 0 and new_fgfr == 2:
+                        simulation.fgf4_values_temp[index_x][index_y][index_z] -= 2
 
             # increase the finite dynamical system counter
             simulation.cell_fds_counter[index] += 1
 
             # if the cell is GATA6 high and pluripotent increase the differentiation counter by 0 or 1
-            if simulation.cell_fds[index][2] and simulation.cell_states[index] == "Pluripotent":
+            if simulation.cell_fds[index][2] == simulation.field-1 and simulation.cell_states[index] == "Pluripotent":
                 simulation.cell_diff_counter[index] += r.randint(0, 1)
 
                 # if the differentiation counter is greater than the threshold, differentiate
@@ -186,7 +219,7 @@ def cell_pathway(simulation):
 
                     # allow the cell to actively move again
                     simulation.cell_motion[index] = True
-                    
+
 
 @backend.record_time
 def cell_motility(simulation):
@@ -215,7 +248,7 @@ def cell_motility(simulation):
                 count = 0
                 for j in range(len(neighbors)):
                     # if neighbor is nanog high, add vector to the cell to the holder
-                    if simulation.cell_fds[neighbors[j]][3]:
+                    if simulation.cell_fds[neighbors[j]][3] > simulation.cell_fds[neighbors[j]][2]:
                         count += 1
                         vector = simulation.cell_locations[neighbors[j]] - simulation.cell_locations[i]
                         vector_holder += vector
@@ -237,7 +270,7 @@ def cell_motility(simulation):
                 simulation.cell_motion[i] = False
 
         # if the cell is gata6 high and nanog low
-        elif simulation.cell_fds[i][2] == 1 and not simulation.cell_fds[i][3] == 1:
+        elif simulation.cell_fds[i][2] > simulation.cell_fds[i][3]:
             # if not surrounded 6 or more cells
             if len(neighbors) < 6:
                 # set motion to True
@@ -264,7 +297,7 @@ def cell_motility(simulation):
                 simulation.cell_motion[i] = False
 
         # if the cell is nanog high and gata6 low
-        elif simulation.cell_fds[i][3] == 1 and not simulation.cell_fds[i][2] == 1:
+        elif simulation.cell_fds[i][3] > simulation.cell_fds[i][2]:
             # if not surrounded 6 or more cells
             if len(neighbors) < 6:
                 # set motion to True
@@ -366,7 +399,7 @@ def alt_cell_motility(simulation):
                         simulation.cell_motility_force[i] += backend.random_vector(simulation) * motility_force
 
                 # if the cell is gata6 high and nanog low
-                elif simulation.cell_fds[i][2] == 1 and not simulation.cell_fds[i][3] == 1:
+                elif simulation.cell_fds[i][2] > simulation.cell_fds[i][3]:
                     # if there is a differentiated cell nearby, move toward it
                     if not np.isnan(simulation.cell_nearest_diff[i]):
                         nearest_index = int(simulation.cell_nearest_diff[i])
@@ -379,7 +412,7 @@ def alt_cell_motility(simulation):
                         simulation.cell_motility_force[i] += backend.random_vector(simulation) * motility_force
 
                 # if the cell is nanog high and gata6 low
-                elif simulation.cell_fds[i][3] == 1 and not simulation.cell_fds[i][2] == 1:
+                elif simulation.cell_fds[i][3] > simulation.cell_fds[i][2]:
                     # if there is a nanog high cell nearby, move toward it
                     if not np.isnan(simulation.cell_nearest_nanog[i]):
                         nearest_index = int(simulation.cell_nearest_nanog[i])

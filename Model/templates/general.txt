@@ -8,7 +8,7 @@ What will the final step number be? Use for when you are beginning a new simulat
 [ 192 ]
 
 How many cells to begin the simulation? All cells will begin as NANOG high and pluripotent. Ex. 1000
-[ 10 ]
+[ 5000 ]
 
 What are the dimensions of the space in meters? Order as (x, y, z). Ex. (0.001, 0.001, 0)
 [ (0.002, 0.002, 0) ]

@@ -62,6 +62,7 @@ class Simulation:
         self.fgf4_move = eval(experimental[37][2:-3])
         self.output_tda = eval(experimental[40][2:-3])
         self.dox_value = float(experimental[43][2:-3])
+        self.field = int(experimental[46][2:-3])
 
         # the following only need to be created if this is a normal simulation
         if mode == 0:
@@ -225,13 +226,14 @@ def setup():
 
         # go through all cell arrays giving initial parameters of the cells
         for i in range(simulation.number_cells):
+            n = simulation.field-1
             div_counter = r.randint(0, simulation.pluri_div_thresh)
             simulation.cell_locations[i] = np.array([r.random() * simulation.size[0],
                                                      r.random() * simulation.size[1],
                                                      r.random() * simulation.size[2]])
             simulation.cell_radii[i] = simulation.min_radius + simulation.pluri_growth * div_counter
             simulation.cell_motion[i] = True
-            simulation.cell_fds[i] = np.array([r.randint(0, 1), r.randint(0, 1), 0, 1])
+            simulation.cell_fds[i] = np.array([r.randint(0, n), r.randint(0, n), 0, r.randint(1, n)])
             simulation.cell_states[i] = "Pluripotent"
             simulation.cell_diff_counter[i] = r.randint(0, simulation.pluri_to_diff)
             simulation.cell_div_counter[i] = div_counter
