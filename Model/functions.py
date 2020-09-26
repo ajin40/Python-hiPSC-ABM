@@ -412,10 +412,37 @@ def update_queue(simulation):
     print("Adding " + str(len(simulation.cells_to_divide)) + " cells...")
     print("Removing " + str(len(simulation.cells_to_remove)) + " cells...")
 
-    # add new cells from cells marked for division
-    backend.divide_cells(simulation)
+    # Division
+    # get the indices of the dividing cells
+    indices = simulation.cells_to_divide
 
-    # get the remaining number of cells to be added
+    # go through all instance variable names and copy the values of the dividing cells to end of the array
+    for name in simulation.cell_array_names:
+        # get the instance variable from the class attribute dictionary
+        values = simulation.__dict__[name][indices]
+
+        # if the instance variable is 1-dimensional
+        if simulation.__dict__[name].ndim == 1:
+            simulation.__dict__[name] = np.concatenate((simulation.__dict__[name], values))
+        # if the instance variable is 2-dimensional
+        else:
+            simulation.__dict__[name] = np.concatenate((simulation.__dict__[name], values), axis=0)
+
+    # go through the dividing cells and update the mother and daughter cells
+    for i in range(len(simulation.cells_to_divide)):
+        mother_index = simulation.cells_to_divide[i]
+        daughter_index = simulation.number_cells + i
+
+        # move the cells to positions that are representative of the new locations of daughter cells
+        division_position = backend.random_vector(simulation) * (simulation.max_radius - simulation.min_radius)
+        simulation.cell_locations[mother_index] += division_position
+        simulation.cell_locations[daughter_index] -= division_position
+
+        # reduce both radii to minimum size and set the division counters to zero
+        simulation.cell_radii[mother_index] = simulation.cell_radii[daughter_index] = simulation.min_radius
+        simulation.cell_div_counter[mother_index] = simulation.cell_div_counter[daughter_index] = 0
+
+    # get the number of cells to be added
     remaining = len(simulation.cells_to_divide)
 
     # if not adding all cells at once
@@ -449,13 +476,29 @@ def update_queue(simulation):
             # subtract how many were added
             remaining -= n
 
+    # add the cells in all at once
     else:
         simulation.neighbor_graph.add_vertices(remaining)
         simulation.jkr_graph.add_vertices(remaining)
         simulation.number_cells += remaining
 
-    # remove the cells marked for removal
-    backend.remove_cells(simulation)
+    # Removal
+    # get the indices of the cells leaving the simulation
+    indices = simulation.cells_to_remove
+
+    # go through the cell arrays remove the indices
+    for name in simulation.cell_array_names:
+        # if the array is 1-dimensional
+        if simulation.__dict__[name].ndim == 1:
+            simulation.__dict__[name] = np.delete(simulation.__dict__[name], indices)
+        # if the array is 2-dimensional
+        else:
+            simulation.__dict__[name] = np.delete(simulation.__dict__[name], indices, axis=0)
+
+    # update the graphs and number of cells
+    simulation.neighbor_graph.delete_vertices(indices)
+    simulation.jkr_graph.delete_vertices(indices)
+    simulation.number_cells -= len(simulation.cells_to_remove)
 
     # clear the arrays for the next step
     simulation.cells_to_divide = np.array([], dtype=int)

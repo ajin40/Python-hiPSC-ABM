@@ -6,66 +6,6 @@ from functools import wraps
 import time
 
 
-def remove_cells(simulation):
-    """ given the indices of a cells to remove, this will remove
-        them from each array, graphs, and reduce the total
-        number of cells
-    """
-    # get the indices of the cells leaving the simulation
-    indices = simulation.cells_to_remove
-
-    # remove the indices from the following graphs
-    simulation.neighbor_graph.delete_vertices(indices)
-    simulation.jkr_graph.delete_vertices(indices)
-
-    # go through the cell arrays remove the indices
-    for name in simulation.cell_array_names:
-        # if the array is 1-dimensional
-        if simulation.__dict__[name].ndim == 1:
-            simulation.__dict__[name] = np.delete(simulation.__dict__[name], indices)
-        # if the array is 2-dimensional
-        else:
-            simulation.__dict__[name] = np.delete(simulation.__dict__[name], indices, axis=0)
-
-    # update the number of cells
-    simulation.number_cells -= len(simulation.cells_to_remove)
-
-
-def divide_cells(simulation):
-    """ add all new cells at once, then update values such
-        as radius for then new daughter cells, finally call
-        handle_movement() to if adding cells in groups
-    """
-    # get the indices of the dividing cells
-    indices = simulation.cells_to_divide
-
-    # go through all instance variable names and copy the values of the dividing cells to end of the array
-    for name in simulation.cell_array_names:
-        # get the instance variable from the class attribute dictionary
-        values = simulation.__dict__[name][indices]
-
-        # if the instance variable is 1-dimensional
-        if simulation.__dict__[name].ndim == 1:
-            simulation.__dict__[name] = np.concatenate((simulation.__dict__[name], values))
-        # if the instance variable is 2-dimensional
-        else:
-            simulation.__dict__[name] = np.concatenate((simulation.__dict__[name], values), axis=0)
-
-    # go through the dividing cells and update the mother and daughter cells
-    for i in range(len(simulation.cells_to_divide)):
-        mother_index = simulation.cells_to_divide[i]
-        daughter_index = simulation.number_cells + i
-
-        # move the cells to positions that are representative of the new locations of daughter cells
-        division_position = random_vector(simulation) * (simulation.max_radius - simulation.min_radius)
-        simulation.cell_locations[mother_index] += division_position
-        simulation.cell_locations[daughter_index] -= division_position
-
-        # reduce both radii to minimum size and set the division counters to zero
-        simulation.cell_radii[mother_index] = simulation.cell_radii[daughter_index] = simulation.min_radius
-        simulation.cell_div_counter[mother_index] = simulation.cell_div_counter[daughter_index] = 0
-
-
 def assign_bins(simulation, distance, max_cells):
     """ generalizes cell locations to a bin within a multi-
         dimensional array, used for a parallel fixed-radius
