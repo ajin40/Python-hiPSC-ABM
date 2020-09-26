@@ -186,7 +186,7 @@ def cell_pathway(simulation):
 
                     # allow the cell to actively move again
                     simulation.cell_motion[index] = True
-
+                    
 
 @backend.record_time
 def cell_motility(simulation):
@@ -414,6 +414,45 @@ def update_queue(simulation):
 
     # add new cells from cells marked for division
     backend.divide_cells(simulation)
+
+    # get the remaining number of cells to be added
+    remaining = len(simulation.cells_to_divide)
+
+    # if not adding all cells at once
+    if simulation.group != 0:
+        # Cannot add all of the new cells, otherwise several cells are likely to be added in
+        #   close proximity to each other at later time steps. Such addition, coupled with
+        #   handling collisions, make give rise to sudden changes in overall positions of
+        #   cells within the simulation. Instead, collisions are handled after 'group' number
+        #   of cells are added.
+
+        # stagger the addition of cells, subtracting from the remaining number to add
+        while remaining > 0:
+            # if more cells than how many we would add in a group
+            if remaining >= simulation.group:
+                # add the group number of cells
+                n = simulation.group
+            else:
+                # if less than the group, only add the remaining number
+                n = remaining
+
+            # add the number of new cells to the following graphs
+            simulation.neighbor_graph.add_vertices(n)
+            simulation.jkr_graph.add_vertices(n)
+
+            # increase the number of cells by how many were added
+            simulation.number_cells += n
+
+            # call the handle movement function given the addition of specified number of cells
+            handle_movement(simulation)
+
+            # subtract how many were added
+            remaining -= n
+
+    else:
+        simulation.neighbor_graph.add_vertices(remaining)
+        simulation.jkr_graph.add_vertices(remaining)
+        simulation.number_cells += remaining
 
     # remove the cells marked for removal
     backend.remove_cells(simulation)

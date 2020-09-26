@@ -5,8 +5,6 @@ import random as r
 from functools import wraps
 import time
 
-import functions
-
 
 def remove_cells(simulation):
     """ given the indices of a cells to remove, this will remove
@@ -66,40 +64,6 @@ def divide_cells(simulation):
         # reduce both radii to minimum size and set the division counters to zero
         simulation.cell_radii[mother_index] = simulation.cell_radii[daughter_index] = simulation.min_radius
         simulation.cell_div_counter[mother_index] = simulation.cell_div_counter[daughter_index] = 0
-
-    # if not adding all cells at once
-    if simulation.group != 0:
-        # Cannot add all of the new cells, otherwise several cells are likely to be added in
-        #   close proximity to each other at later time steps. Such addition, coupled with
-        #   handling collisions, make give rise to sudden changes in overall positions of
-        #   cells within the simulation. Instead, collisions are handled after 'group' number
-        #   of cells are added.
-
-        # get the remaining number of cells to be added
-        remaining = len(simulation.cells_to_divide)
-
-        # stagger the addition of cells, subtracting from the remaining number to add
-        while remaining > 0:
-            # if more cells than how many we would add in a group
-            if remaining >= simulation.group:
-                # add the group number of cells
-                n = simulation.group
-            else:
-                # if less than the group, only add the remaining number
-                n = remaining
-
-            # add the number of new cells to the following graphs
-            simulation.neighbor_graph.add_vertices(n)
-            simulation.jkr_graph.add_vertices(n)
-
-            # increase the number of cells by how many were added
-            simulation.number_cells += n
-
-            # call the handle movement function given the addition of specified number of cells
-            functions.handle_movement(simulation)
-
-            # subtract how many were added
-            remaining -= n
 
 
 def assign_bins(simulation, distance, max_cells):
