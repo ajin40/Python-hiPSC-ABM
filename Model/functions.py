@@ -657,6 +657,8 @@ def jkr_neighbors(simulation):
         interactions with other cells returns this information
         as an array of edges
     """
+    start = time.perf_counter()
+
     # radius of search (meters) in which neighbors will have physical interactions, double the max cell radius
     jkr_distance = 2 * simulation.max_radius
 
@@ -677,6 +679,9 @@ def jkr_neighbors(simulation):
     # update the value of the max number of cells in a bin
     jkr_neighbors.max_cells = max_cells
 
+    end = time.perf_counter()
+    print("assign", end - start)
+
     # this will run once and if all edges are included in edge_holder, the loop will break. if not this will
     # run a second time with an updated value for number of predicted neighbors such that all edges are included
     while True:
@@ -688,6 +693,8 @@ def jkr_neighbors(simulation):
 
         # call the nvidia gpu version
         if simulation.parallel:
+            start = time.perf_counter()
+
             # turn the following into arrays that can be interpreted by the gpu
             locations_cuda = cuda.to_device(simulation.cell_locations)
             radii_cuda = cuda.to_device(simulation.cell_radii)
@@ -699,19 +706,33 @@ def jkr_neighbors(simulation):
             edge_count_cuda = cuda.to_device(edge_count)
             max_neighbors_cuda = cuda.to_device(jkr_neighbors.max_neighbors)
 
+            end = time.perf_counter()
+            print("send", end - start)
+
             # allocate threads and blocks for gpu memory
             threads_per_block = 72
             blocks_per_grid = math.ceil(simulation.number_cells / threads_per_block)
+
+            # start = time.perf_counter()
 
             # call the cuda kernel with given parameters
             backend.jkr_neighbors_gpu[blocks_per_grid, threads_per_block](locations_cuda, radii_cuda, bins_cuda,
                                                                           bins_help_cuda, jkr_distance_cuda,
                                                                           edge_holder_cuda, if_nonzero_cuda,
                                                                           edge_count_cuda, max_neighbors_cuda)
+
+            end = time.perf_counter()
+            print("compute", end - start)
+
+            start = time.perf_counter()
+
             # return the arrays back from the gpu
             edge_holder = edge_holder_cuda.copy_to_host()
             if_nonzero = if_nonzero_cuda.copy_to_host()
             edge_count = edge_count_cuda.copy_to_host()
+
+            end = time.perf_counter()
+            print("back", end - start)
 
         # call the cpu version
         else:
@@ -729,6 +750,8 @@ def jkr_neighbors(simulation):
         else:
             jkr_neighbors.max_neighbors = max_neighbors * 2
 
+    start = time.perf_counter()
+
     # reduce the edges to only nonzero edges
     edge_holder = edge_holder[if_nonzero]
 
@@ -736,6 +759,9 @@ def jkr_neighbors(simulation):
     # for holding adhesive JKR bonds from step to step
     simulation.jkr_graph.add_edges(edge_holder)
     simulation.jkr_graph.simplify()
+
+    end = time.perf_counter()
+    print("graph", end - start)
 
 
 @backend.record_time

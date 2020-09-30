@@ -24,8 +24,12 @@ def assign_bins(simulation, distance, max_cells):
         bins_help = np.zeros(bins_help_size, dtype=int)
         bins = np.empty(bins_size, dtype=int)
 
+        # general the cell locations to bin indices and offset by 2
+        bin_locations = np.floor_divide(simulation.cell_locations, distance).astype(int)
+        bin_locations += 2 * np.ones((simulation.number_cells, 3), dtype=int)
+
         # use jit function to speed up assignment
-        bins, bins_help = assign_bins_cpu(simulation.number_cells, simulation.cell_locations, distance, bins, bins_help)
+        bins, bins_help = assign_bins_cpu(simulation.number_cells, bin_locations, bins, bins_help)
 
         # either break the loop if all cells were accounted for or revalue the maximum number of cells based on
         # the output of the function call
@@ -40,15 +44,14 @@ def assign_bins(simulation, distance, max_cells):
 
 
 @jit(nopython=True)
-def assign_bins_cpu(number_cells, cell_locations, distance, bins, bins_help):
+def assign_bins_cpu(number_cells, cell_locations, bins, bins_help):
     """ this is the just-in-time compiled version of assign_bins
         that runs solely on the cpu
     """
     # go through all cells
     for i in range(number_cells):
-        # generalize location and offset it by 2 to avoid missing cells
-        block_location = cell_locations[i] // distance + np.array([2, 2, 2])
-        x, y, z = int(block_location[0]), int(block_location[1]), int(block_location[2])
+        # get the indices of the generalized cell location
+        x, y, z = cell_locations[i][0], cell_locations[i][1], cell_locations[i][2]
 
         # use the help array to get the new index for the cell in the bin
         place = bins_help[x][y][z]
