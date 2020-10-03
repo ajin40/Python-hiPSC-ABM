@@ -151,40 +151,25 @@ def cell_pathway(simulation):
             # temporarily hold the FGFR value
             temp_fgfr = simulation.cell_fds[index][0]
 
-            # update the FDS every step or periodically based on the threshold
+            # if updating the FDS values this step
             if simulation.cell_fds_counter[index] % simulation.fds_thresh == 0:
+                # get the current FDS values of the cell
+                x1 = fgf4_fds
+                x2 = simulation.cell_fds[index][0]
+                x3 = simulation.cell_fds[index][1]
+                x4 = simulation.cell_fds[index][2]
+                x5 = simulation.cell_fds[index][3]
+
                 # if the FDS is boolean
                 if simulation.field == 2:
-                    # xn is equal to the value corresponding to its function
-                    x1 = fgf4_fds
-                    x2 = simulation.cell_fds[index][0]
-                    x3 = simulation.cell_fds[index][1]
-                    x4 = simulation.cell_fds[index][2]
-                    x5 = simulation.cell_fds[index][3]
-
                     # update boolean values based on FDS functions
                     new_fgfr = (x1 * x4) % 2
                     new_erk = x2 % 2
                     new_gata6 = (1 + x5 + x5 * x4) % 2
                     new_nanog = ((x3 + 1) * (x4 + 1)) % 2
 
-                    # update the boolean values of the cell
-                    simulation.cell_fds[index] = np.array([new_fgfr, new_erk, new_gata6, new_nanog])
-
-                    # if the temporary FGFR value is 0 and the new FGFR value is 1 decrease the amount of FGF4 by 1
-                    # this simulates FGFR using FGF4
-                    if temp_fgfr == 0 and new_fgfr == 1:
-                        backend.update_concentrations(simulation, "fgf4_values_temp", index, -1, "nearest")
-
                 # otherwise assume ternary
                 else:
-                    # xn is equal to the value corresponding to its function
-                    x1 = fgf4_fds
-                    x2 = simulation.cell_fds[index][0]
-                    x3 = simulation.cell_fds[index][1]
-                    x4 = simulation.cell_fds[index][2]
-                    x5 = simulation.cell_fds[index][3]
-
                     # update ternary values based on FDS functions
                     new_fgfr = (x1*x4*((2*x1 + 1)*(2*x4 + 1) + x1*x4)) % 3
                     new_erk = x2 % 3
@@ -192,15 +177,13 @@ def cell_pathway(simulation):
                     new_nanog = (x5**2 + x5*(x5+1)*(x3*(2*x4**2 + 2*x3 + 1) + x4*(2*x3**2 + 2*x4 + 1)) +
                                  (2*x3**2 + 1)*(2*x4**2 + 1)) % 3
 
-                    # update the ternary values of the cell
-                    simulation.cell_fds[index] = np.array([new_fgfr, new_erk, new_gata6, new_nanog])
+                # if the amount of FGFR has increased, subtract that much FGF4 from the gradient
+                fgfr_change = new_fgfr - temp_fgfr
+                if fgfr_change > 0:
+                    backend.update_concentrations(simulation, "fgf4_values_temp", index, -1 * fgfr_change, "nearest")
 
-                    # if FGFR is taken up by the cell subtract the corresponding amount
-                    if temp_fgfr == 0 and new_fgfr == 1:
-                        backend.update_concentrations(simulation, "fgf4_values_temp", index, -1, "nearest")
-
-                    elif temp_fgfr == 0 and new_fgfr == 2:
-                        backend.update_concentrations(simulation, "fgf4_values_temp", index, -2, "nearest")
+                # update the FDS values of the cell
+                simulation.cell_fds[index] = np.array([new_fgfr, new_erk, new_gata6, new_nanog])
 
             # increase the finite dynamical system counter
             simulation.cell_fds_counter[index] += 1
