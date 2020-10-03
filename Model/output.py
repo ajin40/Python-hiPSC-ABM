@@ -31,7 +31,8 @@ def step_outputs(simulation):
         file relating to the simulation at a particular step
     """
     # information about the cells/environment at current step
-    step_image(simulation)
+    # step_image(simulation)
+    alt_step_image(simulation)
     step_csv(simulation)
     step_gradients(simulation)
     step_tda(simulation)
@@ -61,7 +62,7 @@ def step_image(simulation):
     # create the gradient image
     if simulation.output_gradient:
         # normalize the concentration values and multiple by 255 to create grayscale image
-        grad_image = simulation.fgf4_values[:, :, 0] * (255 / simulation.max_fgf4)
+        grad_image = simulation.fgf4_values[:, :, 0] * (255 / simulation.max_concentration)
         grad_image = grad_image.astype(np.uint8)
 
         # recolor the grayscale image into a colormap and resize to match the cell space array
@@ -128,6 +129,70 @@ def step_image(simulation):
     # combine the to images side by side if including gradient
     if simulation.output_gradient:
         image = np.concatenate((image, grad_image), axis=1)
+
+    # flip the image horizontally so origin is bottom left
+    image = cv2.flip(image, 0)
+
+    # save the image as a png
+    image_path = simulation.images_path + simulation.name + "_image_" + str(int(simulation.current_step)) + ".png"
+    cv2.imwrite(image_path, image)
+
+
+def alt_step_image(simulation):
+    # get the size of the array used for imaging in addition to the scale factor
+    pixels = simulation.image_quality
+    scale = pixels / simulation.size[0]
+    x_size = pixels
+    y_size = math.ceil(scale * simulation.size[1])
+
+    # normalize the concentration values and multiple by 255 to create grayscale image
+    grad_image = simulation.fgf4_values[:, :, 0] * (255 / simulation.max_concentration)
+    grad_image = grad_image.astype(np.uint8)
+
+    # recolor the grayscale image into a colormap and resize to match the cell space array
+    grad_image = cv2.applyColorMap(grad_image, cv2.COLORMAP_OCEAN)
+    grad_image = cv2.resize(grad_image, (y_size, x_size), interpolation=cv2.INTER_NEAREST)
+
+    # flip and rotate to turn go from (y, x) to (x, y)
+    grad_image = cv2.rotate(grad_image, cv2.ROTATE_90_COUNTERCLOCKWISE)
+    grad_image = cv2.flip(grad_image, 0)
+
+    # go through all of the cells
+    for i in range(simulation.number_cells):
+        x = math.ceil(simulation.cell_locations[i][0] * scale)  # the x-coordinate
+        y = math.ceil(simulation.cell_locations[i][1] * scale)  # the y-coordinate
+        point = (x, y)  # the x,y point
+        major = math.ceil(simulation.cell_radii[i] * scale)  # the major axis length
+        minor = math.ceil(simulation.cell_radii[i] * scale)  # the minor axis length
+        rotation = 0  # the rotation of the ellipse
+
+        grad_image = cv2.ellipse(grad_image, point, (major, minor), rotation, 0, 360, (255, 255, 255), 1)
+
+    # normalize the concentration values and multiple by 255 to create grayscale image
+    grad_alt_image = simulation.fgf4_alt[:, :, 0] * (255 / simulation.max_concentration)
+    grad_alt_image = grad_alt_image.astype(np.uint8)
+
+    # recolor the grayscale image into a colormap and resize to match the cell space array
+    grad_alt_image = cv2.applyColorMap(grad_alt_image, cv2.COLORMAP_OCEAN)
+    grad_alt_image = cv2.resize(grad_alt_image, (y_size, x_size), interpolation=cv2.INTER_NEAREST)
+
+    # flip and rotate to turn go from (y, x) to (x, y)
+    grad_alt_image = cv2.rotate(grad_alt_image, cv2.ROTATE_90_COUNTERCLOCKWISE)
+    grad_alt_image = cv2.flip(grad_alt_image, 0)
+
+    # go through all of the cells
+    for i in range(simulation.number_cells):
+        x = math.ceil(simulation.cell_locations[i][0] * scale)  # the x-coordinate
+        y = math.ceil(simulation.cell_locations[i][1] * scale)  # the y-coordinate
+        point = (x, y)  # the x,y point
+        major = math.ceil(simulation.cell_radii[i] * scale)  # the major axis length
+        minor = math.ceil(simulation.cell_radii[i] * scale)  # the minor axis length
+        rotation = 0  # the rotation of the ellipse
+
+        grad_alt_image = cv2.ellipse(grad_alt_image, point, (major, minor), rotation, 0, 360, (255, 255, 255), 1)
+
+    # combine the to images side by side if including gradient
+    image = np.concatenate((grad_image, grad_alt_image), axis=1)
 
     # flip the image horizontally so origin is bottom left
     image = cv2.flip(image, 0)

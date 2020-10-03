@@ -123,6 +123,7 @@ def cell_pathway(simulation):
             # get the amount to add, positive if adding, negative if removing
             amount = simulation.cell_fds[index][3]
             backend.update_concentrations(simulation, "fgf4_values_temp", index, amount, "nearest")
+            backend.update_concentrations(simulation, "fgf4_alt_temp", index, amount, "distance")
 
         # activate the following pathway based on if dox (after 24 hours) has been induced yet
         # if simulation.current_step > 48 and simulation.dox_value > simulation.cell_dox_value[index]:
@@ -133,7 +134,7 @@ def cell_pathway(simulation):
             # if FDS is boolean
             if simulation.field == 2:
                 # base thresholds on the maximum concentrations
-                if fgf4_value > simulation.max_fgf4 * 0.5:
+                if fgf4_value > simulation.max_concentration * 0.5:
                     fgf4_fds = 1    # FGF4 high
                 else:
                     fgf4_fds = 0    # FGF4 low
@@ -141,9 +142,9 @@ def cell_pathway(simulation):
             # otherwise assume ternary
             else:
                 # base thresholds on the maximum concentrations
-                if fgf4_value > simulation.max_fgf4 * 2/3:
+                if fgf4_value > simulation.max_concentration * 2/3:
                     fgf4_fds = 2    # FGF4 high
-                elif fgf4_value > simulation.max_fgf4 * 1/3:
+                elif fgf4_value > simulation.max_concentration * 1/3:
                     fgf4_fds = 1    # FGF4 medium
                 else:
                     fgf4_fds = 0    # FGF4 low
@@ -641,8 +642,6 @@ def jkr_neighbors(simulation):
         interactions with other cells returns this information
         as an array of edges
     """
-    start = time.perf_counter()
-
     # radius of search (meters) in which neighbors will have physical interactions, double the max cell radius
     jkr_distance = 2 * simulation.max_radius
 
@@ -663,9 +662,6 @@ def jkr_neighbors(simulation):
     # update the value of the max number of cells in a bin
     jkr_neighbors.max_cells = max_cells
 
-    end = time.perf_counter()
-    print("assign", end - start)
-
     # this will run once and if all edges are included in edge_holder, the loop will break. if not this will
     # run a second time with an updated value for number of predicted neighbors such that all edges are included
     while True:
@@ -677,8 +673,6 @@ def jkr_neighbors(simulation):
 
         # call the nvidia gpu version
         if simulation.parallel:
-            start = time.perf_counter()
-
             # turn the following into arrays that can be interpreted by the gpu
             locations_cuda = cuda.to_device(simulation.cell_locations)
             radii_cuda = cuda.to_device(simulation.cell_radii)
@@ -690,14 +684,9 @@ def jkr_neighbors(simulation):
             edge_count_cuda = cuda.to_device(edge_count)
             max_neighbors_cuda = cuda.to_device(jkr_neighbors.max_neighbors)
 
-            end = time.perf_counter()
-            print("send", end - start)
-
             # allocate threads and blocks for gpu memory
             threads_per_block = 72
             blocks_per_grid = math.ceil(simulation.number_cells / threads_per_block)
-
-            # start = time.perf_counter()
 
             # call the cuda kernel with given parameters
             backend.jkr_neighbors_gpu[blocks_per_grid, threads_per_block](locations_cuda, radii_cuda, bins_cuda,
@@ -705,18 +694,10 @@ def jkr_neighbors(simulation):
                                                                           edge_holder_cuda, if_nonzero_cuda,
                                                                           edge_count_cuda, max_neighbors_cuda)
 
-            end = time.perf_counter()
-            print("compute", end - start)
-
-            start = time.perf_counter()
-
             # return the arrays back from the gpu
             edge_holder = edge_holder_cuda.copy_to_host()
             if_nonzero = if_nonzero_cuda.copy_to_host()
             edge_count = edge_count_cuda.copy_to_host()
-
-            end = time.perf_counter()
-            print("back", end - start)
 
         # call the cpu version
         else:
@@ -734,8 +715,6 @@ def jkr_neighbors(simulation):
         else:
             jkr_neighbors.max_neighbors = max_neighbors * 2
 
-    start = time.perf_counter()
-
     # reduce the edges to only nonzero edges
     edge_holder = edge_holder[if_nonzero]
 
@@ -743,9 +722,6 @@ def jkr_neighbors(simulation):
     # for holding adhesive JKR bonds from step to step
     simulation.jkr_graph.add_edges(edge_holder)
     simulation.jkr_graph.simplify()
-
-    end = time.perf_counter()
-    print("graph", end - start)
 
 
 @backend.record_time
@@ -1100,7 +1076,7 @@ def setup_diffusion_bins(simulation):
         setup_diffusion_bins.max_points = 10
 
     # get the dimensions of the array representing the diffusion points
-    shape = simulation.fgf4_values.shape
+    shape = simulation.gradient_size
 
     # set up the locations of the diffusion points
     x, y, z = np.meshgrid(np.arange(shape[0]), np.arange(shape[1]), np.arange(shape[2]), indexing='ij')
@@ -1154,7 +1130,7 @@ def update_diffusion(simulation):
         simulation.__dict__[temp] /= update_diffusion.steps
 
         # get the dimensions of an array that will hold initial conditions
-        size = np.array(simulation.__dict__[gradient].shape) + 2 * np.ones(3, dtype=int)
+        size = np.array(simulation.gradient_size) + 2 * np.ones(3, dtype=int)
 
         # create arrays that will hold initial conditions
         gradient_base = np.zeros(size)
@@ -1167,10 +1143,10 @@ def update_diffusion(simulation):
         # return the gradient base after it has been updated by the finite difference method
         gradient_base = backend.update_diffusion_cpu(gradient_base, temp_base, update_diffusion.steps, simulation.dt,
                                                      simulation.spat_res2, simulation.diffuse,
-                                                     simulation.size, simulation.max_fgf4)
+                                                     simulation.size, simulation.max_concentration)
 
         # set max and min concentration values
-        gradient_base[gradient_base > simulation.max_fgf4] = simulation.max_fgf4
+        gradient_base[gradient_base > simulation.max_concentration] = simulation.max_concentration
         gradient_base[gradient_base < 0] = 0
 
         # update the gradient and set the temp back to zero

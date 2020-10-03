@@ -64,7 +64,7 @@ class Simulation:
         self.group = int(experimental[25][2:-3])
         self.guye_move = eval(experimental[28][2:-3])
         self.eunbi_move = eval(experimental[31][2:-3])
-        self.max_fgf4 = float(experimental[34][2:-3])
+        self.max_concentration = float(experimental[34][2:-3])
         self.fgf4_move = eval(experimental[37][2:-3])
         self.output_tda = eval(experimental[40][2:-3])
         self.dox_value = float(experimental[43][2:-3])
@@ -121,7 +121,7 @@ class Simulation:
 
             # the diffusion constant for the molecule gradients and the radius of search for diffusion points
             self.diffuse = 0.0000000000001
-            self.diffuse_radius = self.spat_res * 0.707106781187 * 2
+            self.diffuse_radius = self.spat_res * 0.707106781187
 
             # get the time step value for diffusion updates depending on whether 2D or 3D
             if self.size[2] == 0:
@@ -130,14 +130,13 @@ class Simulation:
                 self.dt = (self.spat_res2 ** 3) / (2 * self.diffuse * (3 * self.spat_res2))
 
             # calculate the size of the array holding the diffusion points
-            gradient_size = np.ceil(self.size / self.spat_res).astype(int) + np.ones(3, dtype=int)
+            self.gradient_size = np.ceil(self.size / self.spat_res).astype(int) + np.ones(3, dtype=int)
 
             # create a primary array for the diffusion points and one to add in a step-wise fashion
-            self.fgf4_values = np.zeros(gradient_size)
-            self.fgf4_values_temp = np.zeros(gradient_size)
-
-            self.fgf4_alt = np.zeros(gradient_size)
-            self.fgf4_alt_temp = np.zeros(gradient_size)
+            self.fgf4_values = np.zeros(self.gradient_size)
+            self.fgf4_values_temp = np.zeros(self.gradient_size)
+            self.fgf4_alt = np.zeros(self.gradient_size)
+            self.fgf4_alt_temp = np.zeros(self.gradient_size)
 
             # much like the cell arrays add any gradient names to list this so that a diffusion function can
             # act on them automatically, the temp is used to incrementally add concentration

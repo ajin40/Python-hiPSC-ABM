@@ -13,6 +13,72 @@ def update_concentrations(simulation, gradient_name, index, amount, mode):
     # get the gradient array from the simulation instance
     gradient = simulation.__dict__[gradient_name]
 
+    if mode == "nearest":
+        # find the nearest diffusion point indices
+        half_index_x = simulation.cell_locations[index][0] // (simulation.spat_res / 2)
+        half_index_y = simulation.cell_locations[index][1] // (simulation.spat_res / 2)
+        half_index_z = simulation.cell_locations[index][2] // (simulation.spat_res / 2)
+        index_x = math.ceil(half_index_x / 2)
+        index_y = math.ceil(half_index_y / 2)
+        index_z = math.ceil(half_index_z / 2)
+
+        # add the specified amount of concentration to the nearest diffusion point
+        gradient[index_x][index_y][index_z] += amount
+
+    elif mode == "distance":
+        gradient = update_concentrations_cpu(gradient, simulation.cell_locations[index], amount,
+                                             simulation.diffuse_radius, simulation.diffuse_bins_help,
+                                             simulation.diffuse_bins, simulation.diffuse_locations)
+
+        simulation.__dict__[gradient_name] = gradient
+
+    else:
+        print("Incorrect mode")
+
+
+# @jit(nopython=True)
+def update_concentrations_cpu(gradient, location, amount, diffuse_radius, diffuse_bins_help, diffuse_bins,
+                              diffuse_locations):
+
+    # offset bins by 2 to avoid missing points
+    block_location = location // diffuse_radius + np.array([2, 2, 2])
+    x, y, z = int(block_location[0]), int(block_location[1]), int(block_location[2])
+
+    max_points = 20
+    holder = np.zeros((max_points, 3), dtype=int)
+    distances = np.zeros(max_points)
+    count = 0
+
+    # loop over the bin the cell is in and the surrounding bins
+    for i in range(-1, 2):
+        for j in range(-1, 2):
+            for k in range(-1, 2):
+                # get the count of cells for the current bin
+                bin_count = int(diffuse_bins_help[x + i][y + j][z + k])
+
+                # go through the bin determining if a point is in the radius
+                for l in range(bin_count):
+                    # get the index of the current cell in question
+                    x_ = int(diffuse_bins[x + i][y + j][z + k][l][0])
+                    y_ = int(diffuse_bins[x + i][y + j][z + k][l][1])
+                    z_ = int(diffuse_bins[x + i][y + j][z + k][l][2])
+
+                    # check to see if that point is within the search radius
+                    mag = np.linalg.norm(diffuse_locations[x_][y_][z_] - location)
+                    if mag < diffuse_radius:
+                        holder[count] = np.array([x_, y_, z_], dtype=int)
+                        distances[count] = mag
+                        count += 1
+
+    summ = np.sum(distances)
+    for i in range(count):
+        x = holder[i][0]
+        y = holder[i][1]
+        z = holder[i][2]
+        gradient[x][y][z] += amount * distances[i] / summ
+
+    return gradient
+
 
 def get_concentration(simulation, gradient_name, index):
     """ get the concentration of a cell for specified
