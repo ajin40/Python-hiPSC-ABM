@@ -118,44 +118,42 @@ def cell_pathway(simulation):
         extracellular conditions
     """
     for index in range(simulation.number_cells):
-        # take the location of a cell and determine the nearest diffusion point by creating a zone around a
-        # diffusion point for any cells in that zone to base the fgf4 concentration off of
-        half_index_x = simulation.cell_locations[index][0] // (simulation.spat_res / 2)
-        half_index_y = simulation.cell_locations[index][1] // (simulation.spat_res / 2)
-        half_index_z = simulation.cell_locations[index][2] // (simulation.spat_res / 2)
-        index_x = math.ceil(half_index_x / 2)
-        index_y = math.ceil(half_index_y / 2)
-        index_z = math.ceil(half_index_z / 2)
-
-        # if the cell is NANOG high increase the FGF4 value by 1, diffusion method will address values above max
+        # add FGF4 to the gradient based on the cell's value of NANOG
         if simulation.cell_fds[index][3] > 0:
-            simulation.fgf4_values_temp[index_x][index_y][index_z] += simulation.cell_fds[index][3]
+            # get the amount to add, positive if adding, negative if removing
+            amount = simulation.cell_fds[index][3]
+            backend.update_concentrations(simulation, "fgf4_values_temp", index, amount, "nearest")
 
         # activate the following pathway based on if dox (after 24 hours) has been induced yet
         # if simulation.current_step > 48 and simulation.dox_value > simulation.cell_dox_value[index]:
         if simulation.current_step > 48:
-            # if the FGF4 amount for the location is greater than the threshold, set the fgf4_bool value to be 1,
-            # designating it as high
-            fgf4_value = simulation.fgf4_values[index_x][index_y][index_z]
-            if simulation.field == 2:
-                if fgf4_value > simulation.max_fgf4 * 0.5:
-                    fgf4_fds = 1
-                else:
-                    fgf4_fds = 0
+            # create a FGF4 value for the FDS based on the concentration of FGF4
+            fgf4_value = backend.get_concentration(simulation, "fgf4_values", index)
 
-            else:
-                if fgf4_value > simulation.max_fgf4 * 2/3:
-                    fgf4_fds = 2
-                elif fgf4_value > simulation.max_fgf4 * 1/3:
-                    fgf4_fds = 1
+            # if FDS is boolean
+            if simulation.field == 2:
+                # base thresholds on the maximum concentrations
+                if fgf4_value > simulation.max_fgf4 * 0.5:
+                    fgf4_fds = 1    # FGF4 high
                 else:
-                    fgf4_fds = 0
+                    fgf4_fds = 0    # FGF4 low
+
+            # otherwise assume ternary
+            else:
+                # base thresholds on the maximum concentrations
+                if fgf4_value > simulation.max_fgf4 * 2/3:
+                    fgf4_fds = 2    # FGF4 high
+                elif fgf4_value > simulation.max_fgf4 * 1/3:
+                    fgf4_fds = 1    # FGF4 medium
+                else:
+                    fgf4_fds = 0    # FGF4 low
 
             # temporarily hold the FGFR value
             temp_fgfr = simulation.cell_fds[index][0]
 
-            # only update the booleans when the counter matches the boolean update rate
+            # update the FDS every step or periodically based on the threshold
             if simulation.cell_fds_counter[index] % simulation.fds_thresh == 0:
+                # if the FDS is boolean
                 if simulation.field == 2:
                     # xn is equal to the value corresponding to its function
                     x1 = fgf4_fds
@@ -164,20 +162,21 @@ def cell_pathway(simulation):
                     x4 = simulation.cell_fds[index][2]
                     x5 = simulation.cell_fds[index][3]
 
-                    # evaluate the functions by turning them from strings to equations
+                    # update boolean values based on FDS functions
                     new_fgfr = (x1 * x4) % 2
                     new_erk = x2 % 2
                     new_gata6 = (1 + x5 + x5 * x4) % 2
                     new_nanog = ((x3 + 1) * (x4 + 1)) % 2
 
-                    # updates self.booleans with the new boolean values
+                    # update the boolean values of the cell
                     simulation.cell_fds[index] = np.array([new_fgfr, new_erk, new_gata6, new_nanog])
 
                     # if the temporary FGFR value is 0 and the new FGFR value is 1 decrease the amount of FGF4 by 1
                     # this simulates FGFR using FGF4
                     if temp_fgfr == 0 and new_fgfr == 1:
-                        simulation.fgf4_values_temp[index_x][index_y][index_z] -= 1
+                        backend.update_concentrations(simulation, "fgf4_values_temp", index, -1, "nearest")
 
+                # otherwise assume ternary
                 else:
                     # xn is equal to the value corresponding to its function
                     x1 = fgf4_fds
@@ -186,27 +185,29 @@ def cell_pathway(simulation):
                     x4 = simulation.cell_fds[index][2]
                     x5 = simulation.cell_fds[index][3]
 
-                    # evaluate the functions by turning them from strings to equations
+                    # update ternary values based on FDS functions
                     new_fgfr = (x1*x4*((2*x1 + 1)*(2*x4 + 1) + x1*x4)) % 3
                     new_erk = x2 % 3
                     new_gata6 = ((x4**2)*(x5 + 1) + (x5**2)*(x4 + 1) + 2*x5 + 1) % 3
                     new_nanog = (x5**2 + x5*(x5+1)*(x3*(2*x4**2 + 2*x3 + 1) + x4*(2*x3**2 + 2*x4 + 1)) +
                                  (2*x3**2 + 1)*(2*x4**2 + 1)) % 3
 
-                    # updates self.booleans with the new ternary values
+                    # update the ternary values of the cell
                     simulation.cell_fds[index] = np.array([new_fgfr, new_erk, new_gata6, new_nanog])
 
+                    # if FGFR is taken up by the cell subtract the corresponding amount
                     if temp_fgfr == 0 and new_fgfr == 1:
-                        simulation.fgf4_values_temp[index_x][index_y][index_z] -= 1
+                        backend.update_concentrations(simulation, "fgf4_values_temp", index, -1, "nearest")
 
                     elif temp_fgfr == 0 and new_fgfr == 2:
-                        simulation.fgf4_values_temp[index_x][index_y][index_z] -= 2
+                        backend.update_concentrations(simulation, "fgf4_values_temp", index, -2, "nearest")
 
             # increase the finite dynamical system counter
             simulation.cell_fds_counter[index] += 1
 
-            # if the cell is GATA6 high and pluripotent increase the differentiation counter by 0 or 1
+            # if the cell is GATA6 high and pluripotent
             if simulation.cell_fds[index][2] == simulation.field-1 and simulation.cell_states[index] == "Pluripotent":
+                # increase the differentiation counter by 0 or 1
                 simulation.cell_diff_counter[index] += r.randint(0, 1)
 
                 # if the differentiation counter is greater than the threshold, differentiate

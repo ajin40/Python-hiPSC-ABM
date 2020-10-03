@@ -6,6 +6,33 @@ from functools import wraps
 import time
 
 
+def update_concentrations(simulation, gradient_name, index, amount, mode):
+    """ adjust the concentration of the gradient based
+        on the amount and location of cell
+    """
+    # get the gradient array from the simulation instance
+    gradient = simulation.__dict__[gradient_name]
+
+
+def get_concentration(simulation, gradient_name, index):
+    """ get the concentration of a cell for specified
+        gradient based on the location
+    """
+    # get the gradient array from the simulation instance
+    gradient = simulation.__dict__[gradient_name]
+
+    # find the nearest diffusion point indices
+    half_index_x = simulation.cell_locations[index][0] // (simulation.spat_res / 2)
+    half_index_y = simulation.cell_locations[index][1] // (simulation.spat_res / 2)
+    half_index_z = simulation.cell_locations[index][2] // (simulation.spat_res / 2)
+    index_x = math.ceil(half_index_x / 2)
+    index_y = math.ceil(half_index_y / 2)
+    index_z = math.ceil(half_index_z / 2)
+
+    # return the value at the diffusion point
+    return gradient[index_x][index_y][index_z]
+
+
 def assign_bins(simulation, distance, max_cells):
     """ generalizes cell locations to a bin within a multi-
         dimensional array, used for a parallel fixed-radius

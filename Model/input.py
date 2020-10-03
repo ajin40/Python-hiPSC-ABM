@@ -136,9 +136,12 @@ class Simulation:
             self.fgf4_values = np.zeros(gradient_size)
             self.fgf4_values_temp = np.zeros(gradient_size)
 
+            self.fgf4_alt = np.zeros(gradient_size)
+            self.fgf4_alt_temp = np.zeros(gradient_size)
+
             # much like the cell arrays add any gradient names to list this so that a diffusion function can
             # act on them automatically, the temp is used to incrementally add concentration
-            self.extracellular_names = [["fgf4_values", "fgf4_values_temp"]]
+            self.extracellular_names = [["fgf4_values", "fgf4_values_temp"], ["fgf4_alt", "fgf4_alt_temp"]]
 
             # the time in seconds for an entire step and the incremental movement time
             self.step_dt = 1800
