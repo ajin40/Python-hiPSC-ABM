@@ -13,41 +13,47 @@ import output
 import functions
 
 
-# used to hold all values necessary to the simulation as it moves from one step to the next
+# used to hold all values necessary to the simulation based on the various modes
 class Simulation:
     def __init__(self, templates_path, name, path, mode, separator):
-        # read the following template files
+        self.name = name    # name of the simulation, used to name files
+        self.path = path    # path to the main simulation directory
+
+        # these directories fall under the main simulation directory
+        self.images_path = path + name + "_images" + separator    # path to image directory
+        self.values_path = path + name + "_values" + separator    # path to step csv directory
+        self.gradients_path = path + name + "_gradients" + separator    # path to gradient directory
+        self.tda_path = path + name + "_tda" + separator    # path to TDA directory
+
+        # ------------- general template file -------------------------
+        # open the .txt file and get a list of the lines
         with open(templates_path + "general.txt") as general_file:
             general = general_file.readlines()
 
-        with open(templates_path + "imaging.txt") as imaging_file:
-            imaging = imaging_file.readlines()
-
-        with open(templates_path + "experimental.txt") as experimental_file:
-            experimental = experimental_file.readlines()
-
-        # hold the name and the output paths of the simulation
-        self.name = name
-        self.path = path
-        self.images_path = path + name + "_images" + separator
-        self.values_path = path + name + "_values" + separator
-        self.gradients_path = path + name + "_gradients" + separator
-        self.tda_path = path + name + "_tda" + separator
-
-        # general template file
+        # create instance variables based on template parameters
         self.parallel = eval(general[4][2:-3])
         self.end_step = int(general[7][2:-3])
         self.number_cells = int(general[10][2:-3])
         self.size = np.array(eval(general[13][2:-3]))
 
-        # imaging template file
+        # ------------- imaging template file -------------------------
+        # open the .txt file and get a list of the lines
+        with open(templates_path + "imaging.txt") as imaging_file:
+            imaging = imaging_file.readlines()
+
+        # create instance variables based on template parameters
         self.output_images = eval(imaging[4][2:-3])
         self.image_quality = int(imaging[8][2:-3])
         self.fps = float(imaging[11][2:-3])
         self.color_mode = eval(imaging[15][2:-3])
         self.output_gradient = eval(imaging[18][2:-3])
 
-        # experimental template file
+        # ------------- experimental template file -------------------------
+        # open the .txt file and get a list of the lines
+        with open(templates_path + "experimental.txt") as experimental_file:
+            experimental = experimental_file.readlines()
+
+        # create instance variables based on template parameters
         self.pluri_div_thresh = int(experimental[4][2:-3])
         self.diff_div_thresh = int(experimental[7][2:-3])
         self.pluri_to_diff = int(experimental[10][2:-3])
@@ -64,9 +70,10 @@ class Simulation:
         self.dox_value = float(experimental[43][2:-3])
         self.field = int(experimental[46][2:-3])
 
-        # the following only need to be created if this is a normal simulation
+        # the following instance variables are only necessary for a new simulation. these include arrays for
+        # storing the cell values, graphs for cell neighbors, and miscellaneous values.
         if mode == 0:
-            # the step to begin at
+            # start the simulation at step 1
             self.beginning_step = 1
 
             # these arrays hold all values of the cells, each index corresponds to a cell.
@@ -114,7 +121,7 @@ class Simulation:
 
             # the diffusion constant for the molecule gradients and the radius of search for diffusion points
             self.diffuse = 0.0000000000001
-            self.diffuse_radius = self.spat_res * 0.707106781187 * 2    # 0.707106 is too small
+            self.diffuse_radius = self.spat_res * 0.707106781187 * 2
 
             # get the time step value for diffusion updates depending on whether 2D or 3D
             if self.size[2] == 0:
