@@ -119,7 +119,7 @@ def assign_bins(simulation, distance, max_cells):
         bins_help = np.zeros(bins_help_size, dtype=int)
         bins = np.empty(bins_size, dtype=int)
 
-        # general the cell locations to bin indices and offset by 2
+        # generalize the cell locations to bin indices and offset by 2 to prevent missing cells
         bin_locations = np.floor_divide(simulation.cell_locations, distance).astype(int)
         bin_locations += 2 * np.ones((simulation.number_cells, 3), dtype=int)
 
@@ -265,8 +265,8 @@ def check_neighbors_gpu(bin_locations, cell_locations, bins, bins_help, distance
 
 
 @jit(nopython=True, parallel=True)
-def jkr_neighbors_cpu(number_cells, cell_locations, cell_radii, bins, bins_help, distance, edge_holder, if_nonzero,
-                      edge_count, max_neighbors):
+def jkr_neighbors_cpu(number_cells, bin_locations, cell_locations, cell_radii, bins, bins_help, edge_holder,
+                      if_edge, edge_count, max_neighbors):
     """ this is the just-in-time compiled version of jkr_neighbors
         that runs in parallel on the cpu
     """
@@ -278,9 +278,8 @@ def jkr_neighbors_cpu(number_cells, cell_locations, cell_radii, bins, bins_help,
         # holds the total amount of edges for a given cell
         edge_counter = 0
 
-        # offset bins by 2 to avoid missing cells that fall outside the space
-        block_location = cell_locations[focus] // distance + np.array([2, 2, 2])
-        x, y, z = int(block_location[0]), int(block_location[1]), int(block_location[2])
+        # get the bin location of the cell
+        x, y, z = bin_locations[focus][0], bin_locations[focus][1], bin_locations[focus][2]
 
         # loop over the bin the cell is in and the surrounding bins
         for i in range(-1, 2):
@@ -310,7 +309,7 @@ def jkr_neighbors_cpu(number_cells, cell_locations, cell_radii, bins, bins_help,
                                 # update the edge array and identify that this edge is nonzero
                                 edge_holder[index][0] = focus
                                 edge_holder[index][1] = current
-                                if_nonzero[index] = 1
+                                if_edge[index] = 1
 
                                 # increase the count of edges for a cell and the index for the next edge
                             edge_counter += 1
@@ -319,11 +318,11 @@ def jkr_neighbors_cpu(number_cells, cell_locations, cell_radii, bins, bins_help,
         edge_count[focus] = edge_counter
 
     # return the updated edges and the array with the counts of neighbors per cell
-    return edge_holder, if_nonzero, edge_count
+    return edge_holder, if_edge, edge_count
 
 
 @cuda.jit
-def jkr_neighbors_gpu(cell_locations, radii, bins, bins_help, distance, edge_holder, if_nonzero, edge_count,
+def jkr_neighbors_gpu(bin_locations, cell_locations, radii, bins, bins_help, edge_holder, if_edge, edge_count,
                       max_neighbors):
     """ this is the cuda kernel for the jkr_neighbors function
         that runs on a NVIDIA gpu
@@ -339,10 +338,8 @@ def jkr_neighbors_gpu(cell_locations, radii, bins, bins_help, distance, edge_hol
         # holds the total amount of edges for a given cell
         edge_counter = 0
 
-        # offset bins by 2 to avoid missing cells that fall outside the space
-        x = int(cell_locations[focus][0] / distance[0]) + 2
-        y = int(cell_locations[focus][1] / distance[0]) + 2
-        z = int(cell_locations[focus][2] / distance[0]) + 2
+        # get the bin location of the cell
+        x, y, z = bin_locations[focus][0], bin_locations[focus][1], bin_locations[focus][2]
 
         # loop over the bin the cell is in and the surrounding bins
         for i in range(-1, 2):
@@ -372,7 +369,7 @@ def jkr_neighbors_gpu(cell_locations, radii, bins, bins_help, distance, edge_hol
                                 # update the edge array and identify that this edge is nonzero
                                 edge_holder[index][0] = focus
                                 edge_holder[index][1] = current
-                                if_nonzero[index] = 1
+                                if_edge[index] = 1
 
                                 # increase the count of edges for a cell and the index for the next edge
                             edge_counter += 1

@@ -31,8 +31,8 @@ def step_outputs(simulation):
         file relating to the simulation at a particular step
     """
     # information about the cells/environment at current step
-    # step_image(simulation)
-    alt_step_image(simulation)
+    step_image(simulation)
+    # alt_step_image(simulation)
     step_csv(simulation)
     step_gradients(simulation)
     step_tda(simulation)

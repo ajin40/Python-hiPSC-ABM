@@ -17,7 +17,7 @@ for simulation.current_step in range(simulation.beginning_step, simulation.end_s
 
     # updates cells by adjusting trackers for differentiation and division based on intracellular, intercellular,
     # and extracellular conditions. this is done through a series of methods
-    # functions.cell_death(simulation)
+    functions.cell_death(simulation)
     functions.cell_diff_surround(simulation)
     functions.cell_growth(simulation)
     functions.cell_division(simulation)

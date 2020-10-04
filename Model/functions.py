@@ -657,8 +657,8 @@ def jkr_neighbors(simulation):
         jkr_neighbors.max_cells = 5
 
     # calls the function that generates an array of bins that generalize the cell locations in addition to a
-    # helper array that assists the search method in counting cells in a particular bin
-    bins, bins_help, max_cells = backend.assign_bins(simulation, jkr_distance, jkr_neighbors.max_cells)
+    # creating a helper array that assists the search method in counting cells in a particular bin
+    bins, bins_help, bin_locations, max_cells = backend.assign_bins(simulation, jkr_distance, jkr_neighbors.max_cells)
 
     # update the value of the max number of cells in a bin
     jkr_neighbors.max_cells = max_cells
@@ -669,44 +669,43 @@ def jkr_neighbors(simulation):
         # create an array used to hold edges, an array to say where edges are, and an array to count the edges per cell
         length = simulation.number_cells * jkr_neighbors.max_neighbors
         edge_holder = np.zeros((length, 2), dtype=int)
-        if_nonzero = np.zeros(length, dtype=bool)
+        if_edge = np.zeros(length, dtype=bool)
         edge_count = np.zeros(simulation.number_cells, dtype=int)
 
         # call the nvidia gpu version
         if simulation.parallel:
             # turn the following into arrays that can be interpreted by the gpu
+            bin_locations_cuda = cuda.to_device(bin_locations)
             locations_cuda = cuda.to_device(simulation.cell_locations)
             radii_cuda = cuda.to_device(simulation.cell_radii)
             bins_cuda = cuda.to_device(bins)
             bins_help_cuda = cuda.to_device(bins_help)
-            jkr_distance_cuda = cuda.to_device(jkr_distance)
             edge_holder_cuda = cuda.to_device(edge_holder)
-            if_nonzero_cuda = cuda.to_device(if_nonzero)
+            if_edge_cuda = cuda.to_device(if_edge)
             edge_count_cuda = cuda.to_device(edge_count)
             max_neighbors_cuda = cuda.to_device(jkr_neighbors.max_neighbors)
 
-            # allocate threads and blocks for gpu memory
-            threads_per_block = 72
-            blocks_per_grid = math.ceil(simulation.number_cells / threads_per_block)
+            # allocate threads and blocks for gpu memory "threads per block" and "blocks per grid"
+            tpb = 72
+            bpg = math.ceil(simulation.number_cells / tpb)
 
             # call the cuda kernel with given parameters
-            backend.jkr_neighbors_gpu[blocks_per_grid, threads_per_block](locations_cuda, radii_cuda, bins_cuda,
-                                                                          bins_help_cuda, jkr_distance_cuda,
-                                                                          edge_holder_cuda, if_nonzero_cuda,
-                                                                          edge_count_cuda, max_neighbors_cuda)
+            backend.jkr_neighbors_gpu[bpg, tpb](bin_locations_cuda, locations_cuda, radii_cuda, bins_cuda,
+                                                bins_help_cuda, edge_holder_cuda, if_edge_cuda, edge_count_cuda,
+                                                max_neighbors_cuda)
 
             # return the arrays back from the gpu
             edge_holder = edge_holder_cuda.copy_to_host()
-            if_nonzero = if_nonzero_cuda.copy_to_host()
+            if_nonzero = if_edge_cuda.copy_to_host()
             edge_count = edge_count_cuda.copy_to_host()
 
-        # call the cpu version
+        # call the jit cpu version
         else:
-            edge_holder, if_nonzero, edge_count = backend.jkr_neighbors_cpu(simulation.number_cells,
-                                                                            simulation.cell_locations,
-                                                                            simulation.cell_radii, bins, bins_help,
-                                                                            jkr_distance, edge_holder, if_nonzero,
-                                                                            edge_count, jkr_neighbors.max_neighbors)
+            edge_holder, if_edge, edge_count = backend.jkr_neighbors_cpu(simulation.number_cells, bin_locations,
+                                                                         simulation.cell_locations,
+                                                                         simulation.cell_radii, bins, bins_help,
+                                                                         edge_holder, if_nonzero,
+                                                                         edge_count, jkr_neighbors.max_neighbors)
 
         # either break the loop if all neighbors were accounted for or revalue the maximum number of neighbors
         # based on the output of the function call and double it
@@ -717,7 +716,7 @@ def jkr_neighbors(simulation):
             jkr_neighbors.max_neighbors = max_neighbors * 2
 
     # reduce the edges to only nonzero edges
-    edge_holder = edge_holder[if_nonzero]
+    edge_holder = edge_holder[if_edge]
 
     # add the edges and simplify the graph as this is a running graph that is never cleared due to its use
     # for holding adhesive JKR bonds from step to step
@@ -755,14 +754,14 @@ def get_forces(simulation):
             youngs_cuda = cuda.to_device(youngs)
             adhesion_const_cuda = cuda.to_device(adhesion_const)
 
-            # allocate threads and blocks for gpu memory
-            threads_per_block = 72
-            blocks_per_grid = math.ceil(number_edges / threads_per_block)
+            # allocate threads and blocks for gpu memory "threads per block" and "blocks per grid"
+            tpb = 72
+            bpg = math.ceil(simulation.number_cells / tpb)
 
             # call the cuda kernel with given parameters
-            backend.get_forces_gpu[blocks_per_grid, threads_per_block](jkr_edges_cuda, delete_edges_cuda,
-                                                                       locations_cuda, radii_cuda, forces_cuda,
-                                                                       poisson_cuda, youngs_cuda, adhesion_const_cuda)
+            backend.get_forces_gpu[bpg, tpb](jkr_edges_cuda, delete_edges_cuda, locations_cuda, radii_cuda, forces_cuda,
+                                             poisson_cuda, youngs_cuda, adhesion_const_cuda)
+
             # return the new forces and the edges to be deleted
             forces = forces_cuda.copy_to_host()
             delete_edges = delete_edges_cuda.copy_to_host()
@@ -798,14 +797,14 @@ def apply_forces(simulation):
         size_cuda = cuda.to_device(simulation.size)
         move_dt_cuda = cuda.to_device(simulation.move_dt)
 
-        # allocate threads and blocks for gpu memory
-        threads_per_block = 72
-        blocks_per_grid = math.ceil(simulation.number_cells / threads_per_block)
+        # allocate threads and blocks for gpu memory "threads per block" and "blocks per grid"
+        tpb = 72
+        bpg = math.ceil(simulation.number_cells / tpb)
 
         # call the cuda kernel with given parameters
-        backend.apply_forces_gpu[blocks_per_grid, threads_per_block](jkr_forces_cuda, motility_forces_cuda,
-                                                                     locations_cuda, radii_cuda, viscosity_cuda,
-                                                                     size_cuda, move_dt_cuda)
+        backend.apply_forces_gpu[bpg, tpb](jkr_forces_cuda, motility_forces_cuda, locations_cuda, radii_cuda,
+                                           viscosity_cuda, size_cuda, move_dt_cuda)
+
         # return the new cell locations from the gpu
         new_locations = locations_cuda.copy_to_host()
 
@@ -836,7 +835,7 @@ def nearest(simulation):
 
     # calls the function that generates an array of bins that generalize the cell locations in addition to a
     # creating a helper array that assists the search method in counting cells in a particular bin
-    bins, bins_help, max_cells = backend.assign_bins(simulation, nearest_distance, nearest.max_cells)
+    bins, bins_help, bin_locations, max_cells = backend.assign_bins(simulation, nearest_distance, nearest.max_cells)
 
     # update the value of the max number of cells in a bin and double it
     nearest.max_cells = max_cells
@@ -860,15 +859,15 @@ def nearest(simulation):
         nearest_nanog_cuda = cuda.to_device(simulation.cell_nearest_nanog)
         nearest_diff_cuda = cuda.to_device(simulation.cell_nearest_diff)
 
-        # allocate threads and blocks for gpu memory
-        threads_per_block = 72
-        blocks_per_grid = math.ceil(simulation.number_cells / threads_per_block)
+        # allocate threads and blocks for gpu memory "threads per block" and "blocks per grid"
+        tpb = 72
+        bpg = math.ceil(simulation.number_cells / tpb)
 
         # call the cuda kernel with given parameters
-        backend.nearest_gpu[blocks_per_grid, threads_per_block](locations_cuda, bins_cuda, bins_help_cuda,
-                                                                distance_cuda, if_diff_cuda, gata6_high_cuda,
-                                                                nanog_high_cuda, nearest_gata6_cuda, nearest_nanog_cuda,
-                                                                nearest_diff_cuda)
+        backend.nearest_gpu[bpg, tpb](locations_cuda, bins_cuda, bins_help_cuda, distance_cuda, if_diff_cuda,
+                                      gata6_high_cuda, nanog_high_cuda, nearest_gata6_cuda, nearest_nanog_cuda,
+                                      nearest_diff_cuda)
+
         # return the arrays back from the gpu
         gata6 = nearest_gata6_cuda.copy_to_host()
         nanog = nearest_nanog_cuda.copy_to_host()
@@ -922,7 +921,8 @@ def nearest_cluster(simulation):
 
     # calls the function that generates an array of bins that generalize the cell locations in addition to a
     # creating a helper array that assists the search method in counting cells in a particular bin
-    bins, bins_help, max_cells = backend.assign_bins(simulation, nearest_distance, nearest_cluster.max_cells)
+    bins, bins_help, bin_locations, max_cells = backend.assign_bins(simulation, nearest_distance,
+                                                                    nearest_cluster.max_cells)
 
     # update the value of the max number of cells in a bin and double it
     nearest_cluster.max_cells = max_cells
@@ -941,14 +941,13 @@ def nearest_cluster(simulation):
         cell_nearest_cluster_cuda = cuda.to_device(simulation.cell_nearest_cluster)
         members_cuda = cuda.to_device(members)
 
-        # allocate threads and blocks for gpu memory
-        threads_per_block = 72
-        blocks_per_grid = math.ceil(simulation.number_cells / threads_per_block)
+        # allocate threads and blocks for gpu memory "threads per block" and "blocks per grid"
+        tpb = 72
+        bpg = math.ceil(simulation.number_cells / tpb)
 
         # call the cuda kernel with given parameters
-        backend.nearest_cluster_gpu[blocks_per_grid, threads_per_block](locations_cuda, bins_cuda, bins_help_cuda,
-                                                                        distance_cuda, if_nanog_cuda,
-                                                                        cell_nearest_cluster_cuda, members_cuda)
+        backend.nearest_cluster_gpu[bpg, tpb](locations_cuda, bins_cuda, bins_help_cuda, distance_cuda, if_nanog_cuda,
+                                              cell_nearest_cluster_cuda, members_cuda)
 
         # return the array back from the gpu
         nearest_cell = cell_nearest_cluster_cuda.copy_to_host()
@@ -981,14 +980,14 @@ def highest_fgf4(simulation):
         highest_fgf4_cuda = cuda.to_device(simulation.cell_highest_fgf4)
         fgf4_values_cuda = cuda.to_device(fgf4_values)
 
-        # allocate threads and blocks for gpu memory
-        threads_per_block = 72
-        blocks_per_grid = math.ceil(simulation.number_cells / threads_per_block)
+        # allocate threads and blocks for gpu memory "threads per block" and "blocks per grid"
+        tpb = 72
+        bpg = math.ceil(simulation.number_cells / tpb)
 
         # call the cuda kernel with given parameters
-        backend.highest_fgf4_gpu[blocks_per_grid, threads_per_block](locations_cuda, diffuse_bins_cuda,
-                                                                     diffuse_bins_help_cuda, diffuse_locations_cuda,
-                                                                     distance_cuda, highest_fgf4_cuda, fgf4_values_cuda)
+        backend.highest_fgf4_gpu[bpg, tpb](locations_cuda, diffuse_bins_cuda, diffuse_bins_help_cuda,
+                                           diffuse_locations_cuda, distance_cuda, highest_fgf4_cuda, fgf4_values_cuda)
+
         # return the array back from the gpu
         cell_highest_fgf4 = highest_fgf4_cuda.copy_to_host()
 
