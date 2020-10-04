@@ -148,8 +148,6 @@ class Simulation:
 
             # used to hold the run times of functions
             self.function_times = dict()
-            self.holder = 0
-
 
 def setup():
     """ controls which mode of the model is run and

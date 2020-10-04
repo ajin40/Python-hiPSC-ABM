@@ -547,64 +547,65 @@ def check_neighbors(simulation):
 
     # calls the function that generates an array of bins that generalize the cell locations in addition to a
     # creating a helper array that assists the search method in counting cells in a particular bin
-    bins, bins_help, max_cells = backend.assign_bins(simulation, neighbor_distance, check_neighbors.max_cells)
+    bins, bins_help, bin_locations, max_cells = backend.assign_bins(simulation, neighbor_distance,
+                                                                    check_neighbors.max_cells)
 
     # update the value of the max number of cells in a bin and double it
     check_neighbors.max_cells = max_cells
 
-    # this will run once and if all edges are included in edge_holder, the loop will break. if not, this will
-    # run a second time with an updated value for number of predicted neighbors such that all edges are included
+    # this will run once if all edges are included in edge_holder breaking the loop. if not, this will
+    # run a second time with an updated value for the number of predicted neighbors such that all edges are included
     while True:
-        # create an array used to hold edges, an array to say if nonzero, and an array to count the edges per cell
+        # create an array used to hold edges, an array to say if edge exists, and an array to count the edges per cell
         length = simulation.number_cells * check_neighbors.max_neighbors
         edge_holder = np.zeros((length, 2), dtype=int)
-        if_nonzero = np.zeros(length, dtype=bool)
+        if_edge = np.zeros(length, dtype=bool)
         edge_count = np.zeros(simulation.number_cells, dtype=int)
 
         # call the nvidia gpu version
         if simulation.parallel:
             # turn the following into arrays that can be interpreted by the gpu
-            locations_cuda = cuda.to_device(simulation.cell_locations)
+            bin_locations_cuda = cuda.to_device(bin_locations)
+            cell_locations_cuda = cuda.to_device(simulation.cell_locations)
             bins_cuda = cuda.to_device(bins)
             bins_help_cuda = cuda.to_device(bins_help)
             distance_cuda = cuda.to_device(neighbor_distance)
             edge_holder_cuda = cuda.to_device(edge_holder)
-            if_nonzero_cuda = cuda.to_device(if_nonzero)
+            if_edge_cuda = cuda.to_device(if_edge)
             edge_count_cuda = cuda.to_device(edge_count)
             max_neighbors_cuda = cuda.to_device(check_neighbors.max_neighbors)
 
-            # allocate threads and blocks for gpu memory
-            threads_per_block = 72
-            blocks_per_grid = math.ceil(simulation.number_cells / threads_per_block)
+            # allocate threads and blocks for gpu memory "threads per block" and "blocks per grid"
+            tpb = 72
+            bpg = math.ceil(simulation.number_cells / tpb)
 
             # call the cuda kernel with given parameters
-            backend.check_neighbors_gpu[blocks_per_grid, threads_per_block](locations_cuda, bins_cuda, bins_help_cuda,
-                                                                            distance_cuda, edge_holder_cuda,
-                                                                            if_nonzero_cuda, edge_count_cuda,
-                                                                            max_neighbors_cuda)
+            backend.check_neighbors_gpu[bpg, tpb](bin_locations_cuda, cell_locations_cuda, bins_cuda, bins_help_cuda,
+                                                  distance_cuda, edge_holder_cuda, if_edge_cuda, edge_count_cuda,
+                                                  max_neighbors_cuda)
+
             # return the arrays back from the gpu
             edge_holder = edge_holder_cuda.copy_to_host()
-            if_nonzero = if_nonzero_cuda.copy_to_host()
+            if_edge = if_edge_cuda.copy_to_host()
             edge_count = edge_count_cuda.copy_to_host()
 
-        # call the cpu version
+        # call the jit cpu version
         else:
-            edge_holder, if_nonzero, edge_count = backend.check_neighbors_cpu(simulation.number_cells,
-                                                                              simulation.cell_locations, bins,
-                                                                              bins_help, neighbor_distance, edge_holder,
-                                                                              if_nonzero, edge_count,
-                                                                              check_neighbors.max_neighbors)
+            edge_holder, if_edge, edge_count = backend.check_neighbors_cpu(simulation.number_cells, bin_locations,
+                                                                           simulation.cell_locations, bins, bins_help,
+                                                                           neighbor_distance, edge_holder, if_edge,
+                                                                           edge_count, check_neighbors.max_neighbors)
 
         # either break the loop if all neighbors were accounted for or revalue the maximum number of neighbors
-        # based on the output of the function call and double it
+        # based on the output of the function call and double it for future calls
         max_neighbors = np.amax(edge_count)
         if check_neighbors.max_neighbors >= max_neighbors:
             break
         else:
             check_neighbors.max_neighbors = max_neighbors * 2
 
-    # reduce the edges to only nonzero edges
-    edge_holder = edge_holder[if_nonzero]
+    # reduce the edges to only edges that actually exist
+    edge_holder = edge_holder[if_edge]
 
     # add the edges to the neighbor graph
     simulation.neighbor_graph.add_edges(edge_holder)

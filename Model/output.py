@@ -139,14 +139,6 @@ def step_image(simulation):
 
 
 def alt_step_image(simulation):
-    import copy
-    a = np.abs(copy.deepcopy(simulation.fgf4_values[:, :, 0]) - copy.deepcopy(simulation.fgf4_alt[:, :, 0]))
-    b = np.sum(a)
-    c = b/40401 / (np.mean(copy.deepcopy(simulation.fgf4_values[:, :, 0])/2 + copy.deepcopy(simulation.fgf4_alt[:, :, 0])/2))
-    print(c)
-    simulation.holder += c
-    print(simulation.holder)
-
     # get the size of the array used for imaging in addition to the scale factor
     pixels = simulation.image_quality
     scale = pixels / simulation.size[0]
