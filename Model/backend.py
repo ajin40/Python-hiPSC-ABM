@@ -70,12 +70,14 @@ def update_concentrations_cpu(gradient, location, amount, diffuse_radius, diffus
                         distances[count] = mag
                         count += 1
 
-    summ = np.sum(distances)
+    recip = np.reciprocal(distances[:count])
+    recip[np.argwhere(np.isnan(recip))] = 0
+    summ = np.sum(recip)
     for i in range(count):
         x = holder[i][0]
         y = holder[i][1]
         z = holder[i][2]
-        gradient[x][y][z] += amount * distances[i] / summ
+        gradient[x][y][z] += amount / (distances[i] * summ)
 
     return gradient
 

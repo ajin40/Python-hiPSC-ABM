@@ -139,6 +139,14 @@ def step_image(simulation):
 
 
 def alt_step_image(simulation):
+    import copy
+    a = np.abs(copy.deepcopy(simulation.fgf4_values[:, :, 0]) - copy.deepcopy(simulation.fgf4_alt[:, :, 0]))
+    b = np.sum(a)
+    c = b/40401 / (np.mean(copy.deepcopy(simulation.fgf4_values[:, :, 0])/2 + copy.deepcopy(simulation.fgf4_alt[:, :, 0])/2))
+    print(c)
+    simulation.holder += c
+    print(simulation.holder)
+
     # get the size of the array used for imaging in addition to the scale factor
     pixels = simulation.image_quality
     scale = pixels / simulation.size[0]
@@ -157,17 +165,6 @@ def alt_step_image(simulation):
     grad_image = cv2.rotate(grad_image, cv2.ROTATE_90_COUNTERCLOCKWISE)
     grad_image = cv2.flip(grad_image, 0)
 
-    # go through all of the cells
-    for i in range(simulation.number_cells):
-        x = math.ceil(simulation.cell_locations[i][0] * scale)  # the x-coordinate
-        y = math.ceil(simulation.cell_locations[i][1] * scale)  # the y-coordinate
-        point = (x, y)  # the x,y point
-        major = math.ceil(simulation.cell_radii[i] * scale)  # the major axis length
-        minor = math.ceil(simulation.cell_radii[i] * scale)  # the minor axis length
-        rotation = 0  # the rotation of the ellipse
-
-        grad_image = cv2.ellipse(grad_image, point, (major, minor), rotation, 0, 360, (255, 255, 255), 1)
-
     # normalize the concentration values and multiple by 255 to create grayscale image
     grad_alt_image = simulation.fgf4_alt[:, :, 0] * (255 / simulation.max_concentration)
     grad_alt_image = grad_alt_image.astype(np.uint8)
@@ -179,17 +176,6 @@ def alt_step_image(simulation):
     # flip and rotate to turn go from (y, x) to (x, y)
     grad_alt_image = cv2.rotate(grad_alt_image, cv2.ROTATE_90_COUNTERCLOCKWISE)
     grad_alt_image = cv2.flip(grad_alt_image, 0)
-
-    # go through all of the cells
-    for i in range(simulation.number_cells):
-        x = math.ceil(simulation.cell_locations[i][0] * scale)  # the x-coordinate
-        y = math.ceil(simulation.cell_locations[i][1] * scale)  # the y-coordinate
-        point = (x, y)  # the x,y point
-        major = math.ceil(simulation.cell_radii[i] * scale)  # the major axis length
-        minor = math.ceil(simulation.cell_radii[i] * scale)  # the minor axis length
-        rotation = 0  # the rotation of the ellipse
-
-        grad_alt_image = cv2.ellipse(grad_alt_image, point, (major, minor), rotation, 0, 360, (255, 255, 255), 1)
 
     # combine the to images side by side if including gradient
     image = np.concatenate((grad_image, grad_alt_image), axis=1)

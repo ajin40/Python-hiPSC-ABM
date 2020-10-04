@@ -32,7 +32,7 @@ Use Eunbi's method of motion based on the NetLogo model? Ex. True
 [ False ]
 
 What is the max value of FGF4 at a diffusion point? Ex. 80
-[ 5 ]
+[ 10 ]
 
 Use FGF4 concentrations for NANOG high movements? Ex. False
 [ False ]
