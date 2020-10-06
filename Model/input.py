@@ -94,7 +94,7 @@ class Simulation:
             self.cell_highest_fgf4 = np.empty((self.number_cells, 3))
             self.cell_nearest_cluster = np.empty(self.number_cells)
             self.cell_dox_value = np.empty(self.number_cells, dtype=float)
-            self.cell_rotation = np.empty((self.number_cells, 3), dtype=float)
+            self.cell_rotation = np.empty(self.number_cells, dtype=float)
 
             # the names of the cell arrays should be in this list as this will be used to delete and add cells
             # automatically without the need to update add/delete functions
@@ -117,31 +117,25 @@ class Simulation:
             self.diff_growth = (self.max_radius - self.min_radius) / self.diff_div_thresh
 
             # the spatial resolution of the space
-            self.spat_res = 0.00001
-            self.spat_res2 = self.spat_res ** 2
+            self.spat_res = 0.0001
 
             # the diffusion constant for the molecule gradients and the radius of search for diffusion points
-            self.diffuse = 0.00000000000001
-            self.diffuse_radius = self.spat_res * 0.707106781187 * 2
+            self.diffuse = 0.0000000000357
+            self.diffuse_radius = self.spat_res * 0.707106781187
 
-            # get the time step value for diffusion updates depending on whether 2D or 3D
-            if self.size[2] == 0:
-                self.dt = (self.spat_res2 ** 2) / (2 * self.diffuse * (2 * self.spat_res2))
-            else:
-                self.dt = (self.spat_res2 ** 3) / (2 * self.diffuse * (3 * self.spat_res2))
+            # the temporal resolution of the diffusion 60 seconds, which is considered stable for above parameters
+            self.diffuse_dt = 60
 
             # calculate the size of the array holding the diffusion points
             self.gradient_size = np.ceil(self.size / self.spat_res).astype(int) + np.ones(3, dtype=int)
 
             # create a primary array for the diffusion points and one to add in a step-wise fashion
             self.fgf4_values = np.zeros(self.gradient_size)
-            self.fgf4_values_temp = np.zeros(self.gradient_size)
             self.fgf4_alt = np.zeros(self.gradient_size)
-            self.fgf4_alt_temp = np.zeros(self.gradient_size)
 
             # much like the cell arrays add any gradient names to list this so that a diffusion function can
-            # act on them automatically, the temp is used to incrementally add concentration
-            self.extracellular_names = [["fgf4_values", "fgf4_values_temp"], ["fgf4_alt", "fgf4_alt_temp"]]
+            # act on them automatically
+            self.extracellular_names = ["fgf4_values", "fgf4_alt"]
 
             # the time in seconds for an entire step and the incremental movement time
             self.step_dt = 1800

@@ -1127,42 +1127,28 @@ def update_diffusion(simulation):
     """ goes through all extracellular gradients and
         approximates the diffusion of that molecule
     """
-    # if a static variable for holding step time hasn't been created, create one
-    if not hasattr(update_diffusion, "steps"):
-        # get the total amount of times the cells will be incrementally moved during the step
-        update_diffusion.steps = math.ceil(simulation.step_dt / simulation.dt)
+    # get the number of times diffusion is calculated
+    diffuse_steps = simulation.step_dt / simulation.diffuse_dt
 
     # go through all gradients and update the diffusion of each
-    for gradient, temp in simulation.extracellular_names:
-        # # divide the temporary gradient by the number of steps to simulate the incremental increase in concentration
-        # simulation.__dict__[temp] /= update_diffusion.steps
-        #
-        # # get the dimensions of an array that will hold initial conditions
-        # size = np.array(simulation.gradient_size) + 2 * np.ones(3, dtype=int)
-        #
-        # # create arrays that will hold initial conditions
-        # gradient_base = np.zeros(size)
-        # temp_base = np.zeros(size)
-        #
-        # # add the gradient array and the temp array to the middle of the base arrays
-        # gradient_base[1:-1, 1:-1, 1:-1] = simulation.__dict__[gradient]
-        # temp_base[1:-1, 1:-1, 1:-1] = simulation.__dict__[temp]
-        #
-        # # return the gradient base after it has been updated by the finite difference method
-        # gradient_base = backend.update_diffusion_cpu(gradient_base, temp_base, update_diffusion.steps, simulation.dt,
-        #                                              simulation.spat_res2, simulation.diffuse,
-        #                                              simulation.size, simulation.max_concentration)
-        #
-        # # set max and min concentration values
-        # gradient_base[gradient_base > simulation.max_concentration] = simulation.max_concentration
-        # gradient_base[gradient_base < 0] = 0
-        #
-        # # update the gradient and set the temp back to zero
-        # simulation.__dict__[gradient] = gradient_base[1:-1, 1:-1, 1:-1]
-        # simulation.__dict__[temp][:, :, :] = 0
+    for gradient in simulation.extracellular_names:
+        # get the dimensions of an array that will hold initial conditions
+        size = np.array(simulation.gradient_size) + 2 * np.ones(3, dtype=int)
 
-        simulation.__dict__[gradient] += simulation.__dict__[temp]
-        simulation.__dict__[temp][:, :, :] = 0
+        # create arrays that will hold initial conditions
+        gradient_base = np.zeros(size)
 
-        simulation.__dict__[gradient][simulation.__dict__[gradient] > simulation.max_concentration] = simulation.max_concentration
-        simulation.__dict__[gradient][simulation.__dict__[gradient] < 0] = 0
+        # add the gradient array to the middle of the base array
+        gradient_base[1:-1, 1:-1, 1:-1] = simulation.__dict__[gradient]
+
+        # return the gradient base after it has been updated by the finite difference method
+        gradient_base = backend.update_diffusion_cpu(gradient_base, diffuse_steps, simulation.diffuse_dt,
+                                                     simulation.spat_res2, simulation.diffuse,
+                                                     simulation.size, simulation.max_concentration)
+
+        # set max and min concentration values
+        gradient_base[gradient_base > simulation.max_concentration] = simulation.max_concentration
+        gradient_base[gradient_base < 0] = 0
+
+        # update the gradient
+        simulation.__dict__[gradient] = gradient_base[1:-1, 1:-1, 1:-1]

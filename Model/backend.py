@@ -706,20 +706,16 @@ def setup_diffuse_bins_cpu(diffuse_locations, diffuse_radius, diffuse_bins, diff
     return diffuse_bins, diffuse_bins_help
 
 
-# @jit(nopython=True)
-def update_diffusion_cpu(base, temp_base, time_steps, dt, spat_res, diffuse, size, max_fgf4):
+def update_diffusion_cpu(base, diffuse_steps, diffuse_dt, spat_res, diffuse, size, max_concentration):
     """ this is the just-in-time compiled version of
         update_diffusion that runs solely on the cpu
     """
     # finite difference to solve laplacian diffusion equation
     # 2D
     if size[2] == 0:
-        for i in range(time_steps):
-            # add the temporary gradient to the main gradient to slowly increment concentrations
-            base += temp_base
-
+        for _ in range(diffuse_steps):
             # set max and min concentration values
-            base[base > max_fgf4] = max_fgf4
+            base[base > max_concentration] = max_concentration
             base[base < 0] = 0
 
             # mirror the edges of the diffusion space to create initial conditions
@@ -729,18 +725,15 @@ def update_diffusion_cpu(base, temp_base, time_steps, dt, spat_res, diffuse, siz
             base[-1, :, 1:-1] = base[-2, :, 1:-1]
 
             # perform the first part of the calculation
-            y = (base[2:, 1:-1, 1:-1] - 2 * base[1:-1, 1:-1, 1:-1] + base[:-2, 1:-1, 1:-1]) / spat_res
-            x = (base[1:-1, 2:, 1:-1] - 2 * base[1:-1, 1:-1, 1:-1] + base[1:-1, :-2, 1:-1]) / spat_res
+            x = (base[2:, 1:-1, 1:-1] - 2 * base[1:-1, 1:-1, 1:-1] + base[:-2, 1:-1, 1:-1]) / spat_res
+            y = (base[1:-1, 2:, 1:-1] - 2 * base[1:-1, 1:-1, 1:-1] + base[1:-1, :-2, 1:-1]) / spat_res
 
             # update the gradient array
-            base[1:-1, 1:-1, 1:-1] = base[1:-1, 1:-1, 1:-1] + diffuse * dt * (y + x)
+            base[1:-1, 1:-1, 1:-1] = base[1:-1, 1:-1, 1:-1] + diffuse * diffuse_dt * (x + y)
 
     # 3D
     else:
-        for i in range(time_steps):
-            # add the temporary gradient to the main gradient to slowly increment concentrations
-            base += temp_base
-
+        for _ in range(diffuse_steps):
             # mirror the edges of the diffusion space to create initial conditions
             # y and x direction
             base[:, 0, 1:-1] = base[:, 1, 1:-1]
@@ -761,12 +754,12 @@ def update_diffusion_cpu(base, temp_base, time_steps, dt, spat_res, diffuse, siz
             base[1:-1, -1, :] = base[1:-1, -2, :]
 
             # perform the first part of the calculation
-            y = (base[2:, 1:-1, 1:-1] - 2 * base[1:-1, 1:-1, 1:-1] + base[:-2, 1:-1, 1:-1]) / spat_res
-            x = (base[1:-1, 2:, 1:-1] - 2 * base[1:-1, 1:-1, 1:-1] + base[1:-1, :-2, 1:-1]) / spat_res
+            x = (base[2:, 1:-1, 1:-1] - 2 * base[1:-1, 1:-1, 1:-1] + base[:-2, 1:-1, 1:-1]) / spat_res
+            y = (base[1:-1, 2:, 1:-1] - 2 * base[1:-1, 1:-1, 1:-1] + base[1:-1, :-2, 1:-1]) / spat_res
             z = (base[1:-1, 1:-1, 2:] - 2 * base[1:-1, 1:-1, 1:-1] + base[1:-1, 1:-1, :-2]) / spat_res
 
             # update the gradient array
-            base[1:-1, 1:-1, 1:-1] = base[1:-1, 1:-1, 1:-1] + diffuse * dt * (y + x + z)
+            base[1:-1, 1:-1, 1:-1] = base[1:-1, 1:-1, 1:-1] + diffuse * diffuse_dt * (x + y + z)
 
     # return the gradient back to the simulation
     return base
