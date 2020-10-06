@@ -146,7 +146,7 @@ def alt_step_image(simulation):
     y_size = math.ceil(scale * simulation.size[1])
 
     # normalize the concentration values and multiple by 255 to create grayscale image
-    grad_image = simulation.fgf4_values[:][:][0] * (255 / simulation.max_concentration)
+    grad_image = simulation.fgf4_values[:, :, 0] * (255 / simulation.max_concentration)
     grad_image = grad_image.astype(np.uint8)
 
     # recolor the grayscale image into a colormap and resize to match the cell space array
@@ -158,7 +158,7 @@ def alt_step_image(simulation):
     grad_image = cv2.flip(grad_image, 0)
 
     # normalize the concentration values and multiple by 255 to create grayscale image
-    grad_alt_image = simulation.fgf4_alt[:][:][0] * (255 / simulation.max_concentration)
+    grad_alt_image = simulation.fgf4_alt[:, :, 0] * (255 / simulation.max_concentration)
     grad_alt_image = grad_alt_image.astype(np.uint8)
 
     # recolor the grayscale image into a colormap and resize to match the cell space array
@@ -198,10 +198,10 @@ def step_csv(simulation):
                            'fds_counter'])
 
         # combine the multiple cell arrays into a single 2D list
-        cell_data = list(zip(simulation.cell_locations[:][0], simulation.cell_locations[:][1],
-                             simulation.cell_locations[:][2], simulation.cell_radii, simulation.cell_motion,
-                             simulation.cell_fds[:][0], simulation.cell_fds[:][1], simulation.cell_fds[:][2],
-                             simulation.cell_fds[:][3], simulation.cell_states, simulation.cell_diff_counter,
+        cell_data = list(zip(simulation.cell_locations[:, 0], simulation.cell_locations[:, 1],
+                             simulation.cell_locations[:, 2], simulation.cell_radii, simulation.cell_motion,
+                             simulation.cell_fds[:, 0], simulation.cell_fds[:, 1], simulation.cell_fds[:, 2],
+                             simulation.cell_fds[:, 3], simulation.cell_states, simulation.cell_diff_counter,
                              simulation.cell_div_counter, simulation.cell_death_counter,
                              simulation.cell_fds_counter))
 
@@ -216,7 +216,7 @@ def step_gradients(simulation):
         simulations.
     """
     # go through all gradient arrays, skipping the temporary array
-    for gradient, temp in simulation.extracellular_names:
+    for gradient in simulation.extracellular_names:
         # get the name for the file
         gradient_name = "_" + gradient + "_" + str(simulation.current_step)
 

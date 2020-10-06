@@ -122,8 +122,8 @@ def cell_pathway(simulation):
         if simulation.cell_fds[index][3] > 0:
             # get the amount to add, positive if adding, negative if removing
             amount = simulation.cell_fds[index][3]
-            backend.update_concentrations(simulation, "fgf4_values_temp", index, amount, "nearest")
-            backend.update_concentrations(simulation, "fgf4_alt_temp", index, amount, "distance")
+            backend.update_concentrations(simulation, "fgf4_values", index, amount, "nearest")
+            # backend.update_concentrations(simulation, "fgf4_alt", index, amount, "distance")
 
         # activate the following pathway based on if dox (after 24 hours) has been induced yet
         # if simulation.current_step > 48 and simulation.dox_value > simulation.cell_dox_value[index]:
@@ -181,7 +181,8 @@ def cell_pathway(simulation):
                 # if the amount of FGFR has increased, subtract that much FGF4 from the gradient
                 fgfr_change = new_fgfr - temp_fgfr
                 if fgfr_change > 0:
-                    backend.update_concentrations(simulation, "fgf4_values_temp", index, -1 * fgfr_change, "nearest")
+                    pass
+                    # backend.update_concentrations(simulation, "fgf4_values", index, -1 * fgfr_change, "nearest")
 
                 # update the FDS values of the cell
                 simulation.cell_fds[index] = np.array([new_fgfr, new_erk, new_gata6, new_nanog])
@@ -1128,7 +1129,8 @@ def update_diffusion(simulation):
         approximates the diffusion of that molecule
     """
     # get the number of times diffusion is calculated
-    diffuse_steps = simulation.step_dt / simulation.diffuse_dt
+    # diffuse_steps = int(simulation.step_dt / simulation.diffuse_dt)
+    diffuse_steps = 1
 
     # go through all gradients and update the diffusion of each
     for gradient_name in simulation.extracellular_names:
@@ -1141,12 +1143,11 @@ def update_diffusion(simulation):
 
         # call the backend function to do so
         gradient = backend.update_diffusion_cpu(gradient, diffuse_steps, simulation.diffuse_dt, simulation.spat_res2,
-                                                simulation.diffuse,
-                                                simulation.size)
+                                                simulation.diffuse, simulation.size)
 
         # set max and min concentration values
         gradient[gradient > simulation.max_concentration] = simulation.max_concentration
         gradient[gradient < 0] = 0
 
         # update the gradient
-        simulation.__dict__[gradient] = gradient
+        simulation.__dict__[gradient_name] = gradient

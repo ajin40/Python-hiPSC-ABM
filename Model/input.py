@@ -117,14 +117,15 @@ class Simulation:
             self.diff_growth = (self.max_radius - self.min_radius) / self.diff_div_thresh
 
             # the spatial resolution of the space
-            self.spat_res = 0.0001
+            self.spat_res = 0.00001
+            self.spat_res2 = self.spat_res ** 2
 
             # the diffusion constant for the molecule gradients and the radius of search for diffusion points
             self.diffuse = 0.0000000000357
             self.diffuse_radius = self.spat_res * 0.707106781187
 
             # the temporal resolution of the diffusion 60 seconds, which is considered stable for above parameters
-            self.diffuse_dt = 60
+            self.diffuse_dt = 0.7
 
             # calculate the size of the array holding the diffusion points
             self.gradient_size = np.ceil(self.size / self.spat_res).astype(int) + np.ones(3, dtype=int)
