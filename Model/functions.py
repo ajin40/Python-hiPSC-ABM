@@ -1131,24 +1131,22 @@ def update_diffusion(simulation):
     diffuse_steps = simulation.step_dt / simulation.diffuse_dt
 
     # go through all gradients and update the diffusion of each
-    for gradient in simulation.extracellular_names:
-        # get the dimensions of an array that will hold initial conditions
-        size = np.array(simulation.gradient_size) + 2 * np.ones(3, dtype=int)
-
-        # create arrays that will hold initial conditions
-        gradient_base = np.zeros(size)
-
-        # add the gradient array to the middle of the base array
-        gradient_base[1:-1, 1:-1, 1:-1] = simulation.__dict__[gradient]
-
-        # return the gradient base after it has been updated by the finite difference method
-        gradient_base = backend.update_diffusion_cpu(gradient_base, diffuse_steps, simulation.diffuse_dt,
-                                                     simulation.spat_res2, simulation.diffuse,
-                                                     simulation.size, simulation.max_concentration)
+    for gradient_name in simulation.extracellular_names:
+        # get the gradient array
+        gradient = simulation.__dict__[gradient_name]
 
         # set max and min concentration values
-        gradient_base[gradient_base > simulation.max_concentration] = simulation.max_concentration
-        gradient_base[gradient_base < 0] = 0
+        gradient[gradient > simulation.max_concentration] = simulation.max_concentration
+        gradient[gradient < 0] = 0
+
+        # call the backend function to do so
+        gradient = backend.update_diffusion_cpu(gradient, diffuse_steps, simulation.diffuse_dt, simulation.spat_res2,
+                                                simulation.diffuse,
+                                                simulation.size)
+
+        # set max and min concentration values
+        gradient[gradient > simulation.max_concentration] = simulation.max_concentration
+        gradient[gradient < 0] = 0
 
         # update the gradient
-        simulation.__dict__[gradient] = gradient_base[1:-1, 1:-1, 1:-1]
+        simulation.__dict__[gradient] = gradient

@@ -706,7 +706,7 @@ def setup_diffuse_bins_cpu(diffuse_locations, diffuse_radius, diffuse_bins, diff
     return diffuse_bins, diffuse_bins_help
 
 
-def update_diffusion_cpu(base, diffuse_steps, diffuse_dt, spat_res, diffuse, size, max_concentration):
+def update_diffusion_cpu(gradient, diffuse_steps, diffuse_dt, spat_res, diffuse, size):
     """ this is the just-in-time compiled version of
         update_diffusion that runs solely on the cpu
     """
@@ -714,44 +714,25 @@ def update_diffusion_cpu(base, diffuse_steps, diffuse_dt, spat_res, diffuse, siz
     # 2D
     if size[2] == 0:
         for _ in range(diffuse_steps):
-            # set max and min concentration values
-            base[base > max_concentration] = max_concentration
-            base[base < 0] = 0
+            # create an array with initial conditions equal to the edge
+            base = np.pad(gradient, 1, mode="edge")
 
             # mirror the edges of the diffusion space to create initial conditions
-            base[:, 0, 1:-1] = base[:, 1, 1:-1]
-            base[:, -1, 1:-1] = base[:, -2, 1:-1]
-            base[0, :, 1:-1] = base[1, :, 1:-1]
-            base[-1, :, 1:-1] = base[-2, :, 1:-1]
+            base[:, [0, -1], 1:-1] = base[:, [1, -2], 1:-1]
+            base[[0, -1], :, 1:-1] = base[[1, -2], :, 1:-1]
 
             # perform the first part of the calculation
             x = (base[2:, 1:-1, 1:-1] - 2 * base[1:-1, 1:-1, 1:-1] + base[:-2, 1:-1, 1:-1]) / spat_res
             y = (base[1:-1, 2:, 1:-1] - 2 * base[1:-1, 1:-1, 1:-1] + base[1:-1, :-2, 1:-1]) / spat_res
 
             # update the gradient array
-            base[1:-1, 1:-1, 1:-1] = base[1:-1, 1:-1, 1:-1] + diffuse * diffuse_dt * (x + y)
+            gradient = base[1:-1, 1:-1, 1:-1] + diffuse * diffuse_dt * (x + y)
 
     # 3D
     else:
         for _ in range(diffuse_steps):
-            # mirror the edges of the diffusion space to create initial conditions
-            # y and x direction
-            base[:, 0, 1:-1] = base[:, 1, 1:-1]
-            base[:, -1, 1:-1] = base[:, -2, 1:-1]
-            base[0, :, 1:-1] = base[1, :, 1:-1]
-            base[-1, :, 1:-1] = base[-2, :, 1:-1]
-
-            # y and z direction
-            base[:, 1:-1, 0] = base[:, 1:-1, 1]
-            base[:, 1:-1, -1] = base[:, 1:-1, -2]
-            base[0, 1:-1, :] = base[1, 1:-1, :]
-            base[-1, 1:-1, :] = base[-2, 1:-1, :]
-
-            # x and z direction
-            base[1:-1, :, 0] = base[1:-1, :, 1]
-            base[1:-1, :, -1] = base[1:-1, :, -2]
-            base[1:-1, 0, :] = base[1:-1, 1, :]
-            base[1:-1, -1, :] = base[1:-1, -2, :]
+            # create an array with initial conditions equal to the edge
+            base = np.pad(gradient, 1, mode="edge")
 
             # perform the first part of the calculation
             x = (base[2:, 1:-1, 1:-1] - 2 * base[1:-1, 1:-1, 1:-1] + base[:-2, 1:-1, 1:-1]) / spat_res
