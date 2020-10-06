@@ -298,7 +298,11 @@ def cell_motility(simulation):
                         z = int(simulation.cell_highest_fgf4[i][2])
                         vector = simulation.diffuse_locations[x][y][z] - simulation.cell_locations[i]
                         normal = backend.normal_vector(vector)
-                        simulation.cell_motility_force[i] += normal * motility_force
+
+                        if len(neighbors) < 2:
+                            simulation.cell_motility_force[i] += normal * motility_force
+                        else:
+                            simulation.cell_motility_force[i] += normal * motility_force * 0.1
 
                     else:
                         simulation.cell_motility_force[i] += backend.random_vector(simulation) * motility_force
@@ -1065,6 +1069,10 @@ def alt_highest_fgf4(simulation):
             simulation.cell_highest_fgf4[focus][2] = index[2]
 
 
+def chemotactic(simulation):
+    pass
+
+
 def setup_diffusion_bins(simulation):
     """ This function will put the diffusion points
         into corresponding bins that will be used to
@@ -1126,29 +1134,35 @@ def update_diffusion(simulation):
 
     # go through all gradients and update the diffusion of each
     for gradient, temp in simulation.extracellular_names:
-        # divide the temporary gradient by the number of steps to simulate the incremental increase in concentration
-        simulation.__dict__[temp] /= update_diffusion.steps
+        # # divide the temporary gradient by the number of steps to simulate the incremental increase in concentration
+        # simulation.__dict__[temp] /= update_diffusion.steps
+        #
+        # # get the dimensions of an array that will hold initial conditions
+        # size = np.array(simulation.gradient_size) + 2 * np.ones(3, dtype=int)
+        #
+        # # create arrays that will hold initial conditions
+        # gradient_base = np.zeros(size)
+        # temp_base = np.zeros(size)
+        #
+        # # add the gradient array and the temp array to the middle of the base arrays
+        # gradient_base[1:-1, 1:-1, 1:-1] = simulation.__dict__[gradient]
+        # temp_base[1:-1, 1:-1, 1:-1] = simulation.__dict__[temp]
+        #
+        # # return the gradient base after it has been updated by the finite difference method
+        # gradient_base = backend.update_diffusion_cpu(gradient_base, temp_base, update_diffusion.steps, simulation.dt,
+        #                                              simulation.spat_res2, simulation.diffuse,
+        #                                              simulation.size, simulation.max_concentration)
+        #
+        # # set max and min concentration values
+        # gradient_base[gradient_base > simulation.max_concentration] = simulation.max_concentration
+        # gradient_base[gradient_base < 0] = 0
+        #
+        # # update the gradient and set the temp back to zero
+        # simulation.__dict__[gradient] = gradient_base[1:-1, 1:-1, 1:-1]
+        # simulation.__dict__[temp][:, :, :] = 0
 
-        # get the dimensions of an array that will hold initial conditions
-        size = np.array(simulation.gradient_size) + 2 * np.ones(3, dtype=int)
-
-        # create arrays that will hold initial conditions
-        gradient_base = np.zeros(size)
-        temp_base = np.zeros(size)
-
-        # add the gradient array and the temp array to the middle of the base arrays
-        gradient_base[1:-1, 1:-1, 1:-1] = simulation.__dict__[gradient]
-        temp_base[1:-1, 1:-1, 1:-1] = simulation.__dict__[temp]
-
-        # return the gradient base after it has been updated by the finite difference method
-        gradient_base = backend.update_diffusion_cpu(gradient_base, temp_base, update_diffusion.steps, simulation.dt,
-                                                     simulation.spat_res2, simulation.diffuse,
-                                                     simulation.size, simulation.max_concentration)
-
-        # set max and min concentration values
-        gradient_base[gradient_base > simulation.max_concentration] = simulation.max_concentration
-        gradient_base[gradient_base < 0] = 0
-
-        # update the gradient and set the temp back to zero
-        simulation.__dict__[gradient] = gradient_base[1:-1, 1:-1, 1:-1]
+        simulation.__dict__[gradient] += simulation.__dict__[temp]
         simulation.__dict__[temp][:, :, :] = 0
+
+        simulation.__dict__[gradient][simulation.__dict__[gradient] > simulation.max_concentration] = simulation.max_concentration
+        simulation.__dict__[gradient][simulation.__dict__[gradient] < 0] = 0

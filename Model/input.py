@@ -94,6 +94,7 @@ class Simulation:
             self.cell_highest_fgf4 = np.empty((self.number_cells, 3))
             self.cell_nearest_cluster = np.empty(self.number_cells)
             self.cell_dox_value = np.empty(self.number_cells, dtype=float)
+            self.cell_rotation = np.empty((self.number_cells, 3), dtype=float)
 
             # the names of the cell arrays should be in this list as this will be used to delete and add cells
             # automatically without the need to update add/delete functions
@@ -101,7 +102,7 @@ class Simulation:
                                      "cell_diff_counter", "cell_div_counter", "cell_death_counter", "cell_fds_counter",
                                      "cell_motility_force", "cell_jkr_force", "cell_nearest_gata6",
                                      "cell_nearest_nanog", "cell_nearest_diff", "cell_highest_fgf4",
-                                     "cell_nearest_cluster", "cell_dox_value"]
+                                     "cell_nearest_cluster", "cell_dox_value", "cell_rotation"]
 
             # holds all indices of cells that will divide at a current step or be removed at that step
             self.cells_to_divide, self.cells_to_remove = np.array([], dtype=int), np.array([], dtype=int)
@@ -148,6 +149,7 @@ class Simulation:
 
             # used to hold the run times of functions
             self.function_times = dict()
+
 
 def setup():
     """ controls which mode of the model is run and
@@ -234,7 +236,7 @@ def setup():
 
         # go through all cell arrays giving initial parameters of the cells
         for i in range(simulation.number_cells):
-            n = simulation.field-1
+            n = simulation.field - 1
             div_counter = r.randint(0, simulation.pluri_div_thresh)
             simulation.cell_locations[i] = np.array([r.random() * simulation.size[0],
                                                      r.random() * simulation.size[1],

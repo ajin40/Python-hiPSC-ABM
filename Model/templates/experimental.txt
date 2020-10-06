@@ -35,7 +35,7 @@ What is the max value of FGF4 at a diffusion point? Ex. 80
 [ 10 ]
 
 Use FGF4 concentrations for NANOG high movements? Ex. False
-[ True ]
+[ False ]
 
 Output Topological Data Analysis csv files? Ex. True
 [ True ]

@@ -31,8 +31,8 @@ def step_outputs(simulation):
         file relating to the simulation at a particular step
     """
     # information about the cells/environment at current step
-    step_image(simulation)
-    # alt_step_image(simulation)
+    # step_image(simulation)
+    alt_step_image(simulation)
     step_csv(simulation)
     step_gradients(simulation)
     step_tda(simulation)
@@ -62,7 +62,7 @@ def step_image(simulation):
     # create the gradient image
     if simulation.output_gradient:
         # normalize the concentration values and multiple by 255 to create grayscale image
-        grad_image = simulation.fgf4_values[:, :, 0] * (255 / simulation.max_concentration)
+        grad_image = simulation.fgf4_values[:][:][0] * (255 / simulation.max_concentration)
         grad_image = grad_image.astype(np.uint8)
 
         # recolor the grayscale image into a colormap and resize to match the cell space array
@@ -146,7 +146,7 @@ def alt_step_image(simulation):
     y_size = math.ceil(scale * simulation.size[1])
 
     # normalize the concentration values and multiple by 255 to create grayscale image
-    grad_image = simulation.fgf4_values[:, :, 0] * (255 / simulation.max_concentration)
+    grad_image = simulation.fgf4_values[:][:][0] * (255 / simulation.max_concentration)
     grad_image = grad_image.astype(np.uint8)
 
     # recolor the grayscale image into a colormap and resize to match the cell space array
@@ -158,7 +158,7 @@ def alt_step_image(simulation):
     grad_image = cv2.flip(grad_image, 0)
 
     # normalize the concentration values and multiple by 255 to create grayscale image
-    grad_alt_image = simulation.fgf4_alt[:, :, 0] * (255 / simulation.max_concentration)
+    grad_alt_image = simulation.fgf4_alt[:][:][0] * (255 / simulation.max_concentration)
     grad_alt_image = grad_alt_image.astype(np.uint8)
 
     # recolor the grayscale image into a colormap and resize to match the cell space array
@@ -198,10 +198,10 @@ def step_csv(simulation):
                            'fds_counter'])
 
         # combine the multiple cell arrays into a single 2D list
-        cell_data = list(zip(simulation.cell_locations[:, 0], simulation.cell_locations[:, 1],
-                             simulation.cell_locations[:, 2], simulation.cell_radii, simulation.cell_motion,
-                             simulation.cell_fds[:, 0], simulation.cell_fds[:, 1], simulation.cell_fds[:, 2],
-                             simulation.cell_fds[:, 3], simulation.cell_states, simulation.cell_diff_counter,
+        cell_data = list(zip(simulation.cell_locations[:][0], simulation.cell_locations[:][1],
+                             simulation.cell_locations[:][2], simulation.cell_radii, simulation.cell_motion,
+                             simulation.cell_fds[:][0], simulation.cell_fds[:][1], simulation.cell_fds[:][2],
+                             simulation.cell_fds[:][3], simulation.cell_states, simulation.cell_diff_counter,
                              simulation.cell_div_counter, simulation.cell_death_counter,
                              simulation.cell_fds_counter))
 
@@ -254,7 +254,7 @@ def step_tda(simulation):
             cell_color[i] = color
 
         # combine the multiple cell arrays into a single 2D list
-        cell_data = list(zip(simulation.cell_locations[:, 0], simulation.cell_locations[:, 1], cell_color))
+        cell_data = list(zip(simulation.cell_locations[:][0], simulation.cell_locations[:][1], cell_color))
 
         # write the 2D list to the csv
         csv_file.writerows(cell_data)
@@ -323,10 +323,10 @@ def create_video(simulation):
             height, width, channels = frame.shape
 
             # get the video file path
-            video_path = simulation.path + simulation.name + '_video.avi'
+            video_path = simulation.path + simulation.name + '_video.mp4'
 
             # create the file object with parameters from simulation and above
-            video_object = cv2.VideoWriter(video_path, cv2.VideoWriter_fourcc("M", "J", "P", "G"), simulation.fps,
+            video_object = cv2.VideoWriter(video_path, cv2.VideoWriter_fourcc(*"mp4v"), simulation.fps,
                                            (width, height))
 
             # go through sorted image name list reading and writing each to the video object

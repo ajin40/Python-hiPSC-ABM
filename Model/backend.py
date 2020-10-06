@@ -163,7 +163,7 @@ def assign_bins_cpu(number_cells, cell_locations, bins, bins_help):
 
 @jit(nopython=True, parallel=True)
 def check_neighbors_cpu(number_cells, bin_locations, cell_locations, bins, bins_help, distance, edge_holder,
-                        if_nonzero, edge_count, max_neighbors):
+                        if_edge, edge_count, max_neighbors):
     """ this is the just-in-time compiled version of check_neighbors
         that runs in parallel on the cpu
     """
@@ -201,7 +201,7 @@ def check_neighbors_cpu(number_cells, bin_locations, cell_locations, bins, bins_
                                 # update the edge array and identify that this edge is nonzero
                                 edge_holder[index][0] = focus
                                 edge_holder[index][1] = current
-                                if_nonzero[index] = 1
+                                if_edge[index] = 1
 
                             # increase the count of edges for a cell and the index for the next edge
                             edge_counter += 1
@@ -210,7 +210,7 @@ def check_neighbors_cpu(number_cells, bin_locations, cell_locations, bins, bins_
         edge_count[focus] = edge_counter
 
     # return the updated edges and the array with the counts of neighbors per cell
-    return edge_holder, if_nonzero, edge_count
+    return edge_holder, if_edge, edge_count
 
 
 @cuda.jit
