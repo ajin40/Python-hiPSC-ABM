@@ -111,21 +111,21 @@ class Simulation:
             self.neighbor_graph, self.jkr_graph = igraph.Graph(self.number_cells), igraph.Graph(self.number_cells)
 
             # min and max radius lengths are used to calculate linear growth of the radius over time in 2D
-            self.max_radius = 0.000005
+            self.max_radius = 0.000005    # 5 um
             self.min_radius = self.max_radius / 2 ** 0.5
             self.pluri_growth = (self.max_radius - self.min_radius) / self.pluri_div_thresh
             self.diff_growth = (self.max_radius - self.min_radius) / self.diff_div_thresh
 
             # the spatial resolution of the space
-            self.spat_res = 0.00001
+            self.spat_res = 0.00001    # 10 um
             self.spat_res2 = self.spat_res ** 2
 
             # the diffusion constant for the molecule gradients and the radius of search for diffusion points
-            self.diffuse = 0.0000000000357
+            self.diffuse = 0.00000000005    # 50 mm^2/s
             self.diffuse_radius = self.spat_res * 0.707106781187
 
             # the temporal resolution of the diffusion 60 seconds, which is considered stable for above parameters
-            self.diffuse_dt = 0.7
+            self.diffuse_dt = 60
 
             # calculate the size of the array holding the diffusion points
             self.gradient_size = np.ceil(self.size / self.spat_res).astype(int) + np.ones(3, dtype=int)

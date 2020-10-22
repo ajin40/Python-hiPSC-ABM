@@ -1070,10 +1070,6 @@ def alt_highest_fgf4(simulation):
             simulation.cell_highest_fgf4[focus][2] = index[2]
 
 
-def chemotactic(simulation):
-    pass
-
-
 def setup_diffusion_bins(simulation):
     """ This function will put the diffusion points
         into corresponding bins that will be used to
@@ -1129,8 +1125,7 @@ def update_diffusion(simulation):
         approximates the diffusion of that molecule
     """
     # get the number of times diffusion is calculated
-    # diffuse_steps = int(simulation.step_dt / simulation.diffuse_dt)
-    diffuse_steps = 1
+    diffuse_steps = int(simulation.step_dt / simulation.diffuse_dt)
 
     # go through all gradients and update the diffusion of each
     for gradient_name in simulation.extracellular_names:
@@ -1141,8 +1136,11 @@ def update_diffusion(simulation):
         gradient[gradient > simulation.max_concentration] = simulation.max_concentration
         gradient[gradient < 0] = 0
 
+        # add edges for initial conditions
+        base = np.pad(gradient, 1, mode="constant", constant_values=0)
+
         # call the backend function to do so
-        gradient = backend.update_diffusion_cpu(gradient, diffuse_steps, simulation.diffuse_dt, simulation.spat_res2,
+        gradient = backend.update_diffusion_cpu(base, diffuse_steps, simulation.diffuse_dt, simulation.spat_res2,
                                                 simulation.diffuse, simulation.size)
 
         # set max and min concentration values
@@ -1151,3 +1149,5 @@ def update_diffusion(simulation):
 
         # update the gradient
         simulation.__dict__[gradient_name] = gradient
+
+
