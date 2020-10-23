@@ -71,10 +71,18 @@ class Simulation:
         self.field = int(experimental[46][2:-3])
 
         # the following instance variables are only necessary for a new simulation. these include arrays for
-        # storing the cell values, graphs for cell neighbors, and miscellaneous values.
+        # storing the cell values, graphs for cell neighbors, and other necessary values.
         if mode == 0:
             # start the simulation at step 1
             self.beginning_step = 1
+
+            # the names of the cell arrays should be in this list as this will be used to delete and add cells
+            # automatically
+            self.cell_array_names = ["cell_locations", "cell_radii", "cell_motion", "cell_fds", "cell_states",
+                                     "cell_diff_counter", "cell_div_counter", "cell_death_counter", "cell_fds_counter",
+                                     "cell_motility_force", "cell_jkr_force", "cell_nearest_gata6",
+                                     "cell_nearest_nanog", "cell_nearest_diff", "cell_highest_fgf4",
+                                     "cell_nearest_cluster", "cell_dox_value", "cell_rotation"]
 
             # these arrays hold all values of the cells, each index corresponds to a cell.
             self.cell_locations = np.empty((self.number_cells, 3), dtype=float)
@@ -96,19 +104,38 @@ class Simulation:
             self.cell_dox_value = np.empty(self.number_cells, dtype=float)
             self.cell_rotation = np.empty(self.number_cells, dtype=float)
 
-            # the names of the cell arrays should be in this list as this will be used to delete and add cells
-            # automatically without the need to update add/delete functions
-            self.cell_array_names = ["cell_locations", "cell_radii", "cell_motion", "cell_fds", "cell_states",
-                                     "cell_diff_counter", "cell_div_counter", "cell_death_counter", "cell_fds_counter",
-                                     "cell_motility_force", "cell_jkr_force", "cell_nearest_gata6",
-                                     "cell_nearest_nanog", "cell_nearest_diff", "cell_highest_fgf4",
-                                     "cell_nearest_cluster", "cell_dox_value", "cell_rotation"]
+            # go through all cell arrays giving initial parameters of the cells
+            for i in range(self.number_cells):
+                n = self.field - 1
+                div_counter = r.randint(0, self.pluri_div_thresh)
+                self.cell_locations[i] = np.array([r.random() * self.size[0],  r.random() * self.size[1],
+                                                   r.random() * self.size[2]])
+                self.cell_radii[i] = self.min_radius + self.pluri_growth * div_counter
+                self.cell_motion[i] = True
+                self.cell_fds[i] = np.array([r.randint(0, n), r.randint(0, n), 0, r.randint(1, n)])
+                self.cell_states[i] = "Pluripotent"
+                self.cell_diff_counter[i] = r.randint(0, self.pluri_to_diff)
+                self.cell_div_counter[i] = div_counter
+                self.cell_death_counter[i] = r.randint(0, self.death_thresh)
+                self.cell_fds_counter[i] = r.randint(0, self.fds_thresh)
+                self.cell_motility_force[i] = np.zeros(3, dtype=float)
+                self.cell_jkr_force[i] = np.zeros(3, dtype=float)
+                self.cell_nearest_gata6[i] = np.nan
+                self.cell_nearest_nanog[i] = np.nan
+                self.cell_nearest_diff[i] = np.nan
+                self.cell_highest_fgf4[i] = np.array([np.nan, np.nan, np.nan])
+                self.cell_nearest_cluster[i] = np.nan
+                self.cell_dox_value[i] = r.random()
 
             # holds all indices of cells that will divide at a current step or be removed at that step
             self.cells_to_divide, self.cells_to_remove = np.array([], dtype=int), np.array([], dtype=int)
 
+            # much like the cell arrays add any graphs to this list for automatic addition/removal
+            self.graph_names = ["neighbor_graph", "jkr_graph"]
+
             # create graphs used to all cells and their neighbors, initialize them with the number of cells
-            self.neighbor_graph, self.jkr_graph = igraph.Graph(self.number_cells), igraph.Graph(self.number_cells)
+            self.neighbor_graph = igraph.Graph(self.number_cells)
+            self.jkr_graph = igraph.Graph(self.number_cells)
 
             # min and max radius lengths are used to calculate linear growth of the radius over time in 2D
             self.max_radius = 0.000005    # 5 um
@@ -120,27 +147,23 @@ class Simulation:
             self.spat_res = 0.00001    # 10 um
             self.spat_res2 = self.spat_res ** 2
 
+            # the temporal resolution for the simulation
+            self.step_dt = 1800    # dt of each simulation step (1800 sec/30 min)
+            self.move_dt = 200    # dt for incremental movement (200 sec)
+            self.diffuse_dt = 0.5    # dt for stable diffusion model (1/2 sec)
+
             # the diffusion constant for the molecule gradients and the radius of search for diffusion points
-            self.diffuse = 0.00000000005    # 50 mm^2/s
+            self.diffuse = 0.00000000005    # 50 um^2/s
             self.diffuse_radius = self.spat_res * 0.707106781187
-
-            # the temporal resolution of the diffusion 60 seconds, which is considered stable for above parameters
-            self.diffuse_dt = 60
-
-            # calculate the size of the array holding the diffusion points
-            self.gradient_size = np.ceil(self.size / self.spat_res).astype(int) + np.ones(3, dtype=int)
-
-            # create a primary array for the diffusion points and one to add in a step-wise fashion
-            self.fgf4_values = np.zeros(self.gradient_size)
-            self.fgf4_alt = np.zeros(self.gradient_size)
 
             # much like the cell arrays add any gradient names to list this so that a diffusion function can
             # act on them automatically
             self.extracellular_names = ["fgf4_values", "fgf4_alt"]
 
-            # the time in seconds for an entire step and the incremental movement time
-            self.step_dt = 1800
-            self.move_dt = 200
+            # calculate the size of the array holding the diffusion points and create gradient objects
+            self.gradient_size = np.ceil(self.size / self.spat_res).astype(int) + np.ones(3, dtype=int)
+            self.fgf4_values = np.zeros(self.gradient_size)
+            self.fgf4_alt = np.zeros(self.gradient_size)
 
             # used to hold the run times of functions
             self.function_times = dict()
@@ -228,30 +251,6 @@ def setup():
         os.mkdir(new_template_direct)
         for template_name in os.listdir(templates_path):
             shutil.copy(templates_path + template_name, new_template_direct)
-
-        # go through all cell arrays giving initial parameters of the cells
-        for i in range(simulation.number_cells):
-            n = simulation.field - 1
-            div_counter = r.randint(0, simulation.pluri_div_thresh)
-            simulation.cell_locations[i] = np.array([r.random() * simulation.size[0],
-                                                     r.random() * simulation.size[1],
-                                                     r.random() * simulation.size[2]])
-            simulation.cell_radii[i] = simulation.min_radius + simulation.pluri_growth * div_counter
-            simulation.cell_motion[i] = True
-            simulation.cell_fds[i] = np.array([r.randint(0, n), r.randint(0, n), 0, r.randint(1, n)])
-            simulation.cell_states[i] = "Pluripotent"
-            simulation.cell_diff_counter[i] = r.randint(0, simulation.pluri_to_diff)
-            simulation.cell_div_counter[i] = div_counter
-            simulation.cell_death_counter[i] = r.randint(0, simulation.death_thresh)
-            simulation.cell_fds_counter[i] = r.randint(0, simulation.fds_thresh)
-            simulation.cell_motility_force[i] = np.zeros(3, dtype=float)
-            simulation.cell_jkr_force[i] = np.zeros(3, dtype=float)
-            simulation.cell_nearest_gata6[i] = np.nan
-            simulation.cell_nearest_nanog[i] = np.nan
-            simulation.cell_nearest_diff[i] = np.nan
-            simulation.cell_highest_fgf4[i] = np.array([np.nan, np.nan, np.nan])
-            simulation.cell_nearest_cluster[i] = np.nan
-            simulation.cell_dox_value[i] = r.random()
 
         # make a directories for outputting images, csvs, gradients, etc.
         output.initialize_outputs(simulation)

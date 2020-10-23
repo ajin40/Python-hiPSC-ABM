@@ -1,6 +1,6 @@
-opencv-python
-numpy
-python-igraph
-numba
 memory_profiler
 natsort
+numba
+numpy
+opencv-python
+python-igraph
