@@ -75,6 +75,12 @@ class Simulation:
             self.move_dt = 200  # dt for incremental movement (200 sec)
             self.diffuse_dt = 0.5  # dt for stable diffusion model (0.5 sec)
 
+            # min and max radius lengths are used to calculate linear growth of the radius over time in 2D
+            self.max_radius = 0.000005  # 5 um
+            self.min_radius = self.max_radius / 2 ** 0.5
+            self.pluri_growth = (self.max_radius - self.min_radius) / self.pluri_div_thresh
+            self.diff_growth = (self.max_radius - self.min_radius) / self.diff_div_thresh
+
             # place the names of the cell arrays in this list. the model will use to delete and add cells
             # automatically (order doesn't matter)
             self.cell_array_names = ["cell_locations", "cell_radii", "cell_motion", "cell_fds", "cell_states",
@@ -152,12 +158,6 @@ class Simulation:
             self.gradient_size = np.ceil(self.size / self.spat_res).astype(int) + np.ones(3, dtype=int)
             self.fgf4_values = np.zeros(self.gradient_size)
             self.fgf4_alt = np.zeros(self.gradient_size)
-
-            # min and max radius lengths are used to calculate linear growth of the radius over time in 2D
-            self.max_radius = 0.000005  # 5 um
-            self.min_radius = self.max_radius / 2 ** 0.5
-            self.pluri_growth = (self.max_radius - self.min_radius) / self.pluri_div_thresh
-            self.diff_growth = (self.max_radius - self.min_radius) / self.diff_div_thresh
 
             # used to hold the run times of functions
             self.function_times = dict()

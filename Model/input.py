@@ -8,45 +8,39 @@ import shutil
 import natsort
 
 import output
-import functions
 import parameters
 
 
 def setup():
-    """ controls which mode of the model is run and
-        sets up the model accordingly
+    """ reads files for the starting the model and then
+        determine which simulation mode to use
     """
     # keep track of the file separator to use
     if platform.system() == "Windows":
-        separator = "\\"  # windows
+        separator = "\\"  # Windows
     else:
-        separator = "/"  # not windows
+        separator = "/"  # not Windows
 
-    # open the path.txt file containing the absolute locations for the template file directory and output directory
+    # open the paths.txt file containing the locations of the template files
     with open('paths.txt', 'r') as file:
         lines = file.readlines()
 
-    # get the paths to the directory of template files and the output directory, exit() if paths don't exist
+    # get the path to the template file directory and make sure the model can use it
     templates_path = lines[7].strip()
-    if not os.path.isdir(templates_path):
-        print("Path: " + templates_path + " to templates directory does not exist. Please use absolute path.")
-        exit()
-    else:
-        # add separator to end if none is given
-        if templates_path[-1] != "\\" or templates_path[-1] != "/":
-            templates_path += separator
+    templates_path = check_path(templates_path, separator)
 
+    # get the path to the output directory and make sure the model can use it
     output_path = lines[13].strip()
-    if not os.path.isdir(output_path):
-        print("Path: " + output_path + " to output directory does not exist. Please use absolute path.")
-        exit()
-    else:
-        # add separator to end if none is given
-        if output_path[-1] != "\\" or output_path[-1] != "/":
-            output_path += separator
+    output_path = check_path(output_path, separator)
 
-    # if no command line attributes besides the file, run the mini gui
-    if len(sys.argv) == 1:
+    # hold the possible modes for the model, used to check that mode exists
+    possible_modes = [0, 1, 2, 3]
+
+    # get the number of commandline attributes, run.py is the first attribute so subtract one
+    num_attributes = len(sys.argv) - 1
+
+    # if no command line attributes besides "run.py", run the text-based GUI
+    if num_attributes == 0:
         # get the name of the simulation
         while True:
             name = input("What is the \"name\" of the simulation? Type \"help\" for more information: ")
@@ -66,58 +60,65 @@ def setup():
                 print("turn simulation csvs to images/video: 3\n")
             else:
                 try:
+                    # get the mode as an integer
                     mode = int(mode)
-                    break
+
+                    # make sure mode exists, break the loop if it does
+                    if mode in possible_modes:
+                        break
+                    else:
+                        print("Mode does not exist. See possible modes: " + str(possible_modes))
+
+                # if not an integer
                 except ValueError:
                     print("\"mode\" should be an integer")
 
     # if both the name and the mode are provided, turn the mode into a integer
-    elif len(sys.argv) == 3:
-        name, mode = sys.argv[1], int(sys.argv[2])
+    elif num_attributes == 2:
+        # get the name of the simulation
+        name = sys.argv[1]
 
-    # if anything else
+        # check to see if mode is an integer, raise exception if it is not
+        try:
+            mode = int(sys.argv[2])
+        except ValueError:
+            raise Exception("The second attribute should be an integer corresponding to the simulation mode")
+
+        # make sure mode exists, raise exception if it doesn't
+        if mode not in possible_modes:
+            raise Exception("Mode does not exist. See possible modes: " + str(possible_modes))
+
+    # if any other number of attributes raise error
     else:
-        print("See documentation for running a simulation via command line arguments. No arguments\n"
-              "will prompt for the name of the simulation and the mode in which it should be run.")
-        exit()
+        raise Exception("See documentation for running the model. No command-line attributes beyond \"run.py\" will "
+                        "run a text-based GUI and two command-line attributes (name) (mode) will avoid the GUI"
+                        "altogether.")
 
-    # check the name of the simulation and create a path to simulation output directory
+    # check the name of the simulation based on the mode
     name, output_path, path = check_name(name, output_path, separator, mode)
 
-    # run the model normally
+    # new simulation
     if mode == 0:
         # create instance of Simulation class
         simulation = parameters.Simulation(templates_path, name, path, mode, separator)
 
-        # create directory within the simulation output directory for template files and copy them there
-        new_template_direct = simulation.path + simulation.name + "_templates"
-        os.mkdir(new_template_direct)
-        for template_name in os.listdir(templates_path):
-            shutil.copy(templates_path + template_name, new_template_direct)
+        # copy model files and template parameters
+        shutil.copytree(os.getcwd(), path)
 
         # make a directories for outputting images, csvs, gradients, etc.
         output.initialize_outputs(simulation)
 
-        # places all of the diffusion points into bins so that the model can use a bin sorting method to when
-        # determining highest/lowest concentrations of the extracellular gradient(s) only needed when beginning
-        # a new simulation
-        functions.setup_diffusion_bins(simulation)
-
-    # continue a past simulation
+    # continuation of previous simulation
     elif mode == 1:
-        # get the new end step of the simulation
-        end_step = int(input("What is the final step of this continuation? "))
-
         # open the temporary pickled simulation and update the beginning step and the end step
         with open(path + name + "_temp.pkl", "rb") as temp_file:
             simulation = pickle.load(temp_file)
             simulation.beginning_step = simulation.current_step + 1
-            simulation.end_step = end_step
 
         # make sure the proper output directories exist
         output.initialize_outputs(simulation)
 
-    # images to video mode
+    # images to video
     elif mode == 2:
         # create instance of Simulation class used to get imaging information
         simulation = parameters.Simulation(templates_path, name, path, mode, separator)
@@ -128,7 +129,7 @@ def setup():
         # exits out as the conversion from images to video is done
         exit()
 
-    # turn a collection of csvs into images and a video
+    # CSVs to images/video
     elif mode == 3:
         # create simulation instance
         simulation = parameters.Simulation(templates_path, name, path, mode, separator)
@@ -179,12 +180,23 @@ def setup():
         # exits out as the conversion from .csv to images/video is done
         exit()
 
-    else:
-        print("Incorrect mode")
-        exit()
-
-    # return the modified simulation instance
+    # return the simulation based on the simulation mode
     return simulation
+
+
+def check_path(path, separator):
+    """ checks the path to make sure the directory
+        exists and adds the necessary separator
+    """
+    if not os.path.isdir(path):
+        # raise error if directory doesn't exist
+        raise Exception("Path: " + path + " to templates directory does not exist.")
+    else:
+        # if path doesn't end with separator, add one
+        if path[-1] != separator:
+            path += separator
+
+    return path
 
 
 def check_name(name, output_path, separator, mode):
