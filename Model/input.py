@@ -70,21 +70,31 @@ class Simulation:
         self.dox_value = float(experimental[43][2:-3])
         self.field = int(experimental[46][2:-3])
 
-        # the following instance variables are only necessary for a new simulation. these include arrays for
-        # storing the cell values, graphs for cell neighbors, and other necessary values.
+        # the following instance variables are only necessary for a new simulation. these include arrays for storing
+        # the cell values, graphs for cell neighbors, and other values that aren't included in the template files
         if mode == 0:
             # start the simulation at step 1
             self.beginning_step = 1
 
-            # the names of the cell arrays should be in this list as this will be used to delete and add cells
-            # automatically
+            # the spatial resolution of the space
+            self.spat_res = 0.00001  # 10 um
+            self.spat_res2 = self.spat_res ** 2
+
+            # the temporal resolution for the simulation
+            self.step_dt = 1800  # dt of each simulation step (1800 sec)
+            self.move_dt = 200  # dt for incremental movement (200 sec)
+            self.diffuse_dt = 0.5  # dt for stable diffusion model (0.5 sec)
+
+            # place the names of the cell arrays in this list. the model will use to delete and add cells
+            # automatically (order doesn't matter)
             self.cell_array_names = ["cell_locations", "cell_radii", "cell_motion", "cell_fds", "cell_states",
                                      "cell_diff_counter", "cell_div_counter", "cell_death_counter", "cell_fds_counter",
                                      "cell_motility_force", "cell_jkr_force", "cell_nearest_gata6",
                                      "cell_nearest_nanog", "cell_nearest_diff", "cell_highest_fgf4",
                                      "cell_nearest_cluster", "cell_dox_value", "cell_rotation"]
 
-            # these arrays hold all values of the cells, each index corresponds to a cell.
+            # these are the cell arrays used to hold all values of the cells. each index corresponds to a cell so
+            # parallelization is made easier. this is an alternative to individual cell objects
             self.cell_locations = np.empty((self.number_cells, 3), dtype=float)
             self.cell_radii = np.empty(self.number_cells, dtype=float)
             self.cell_motion = np.empty(self.number_cells, dtype=bool)
@@ -104,20 +114,21 @@ class Simulation:
             self.cell_dox_value = np.empty(self.number_cells, dtype=float)
             self.cell_rotation = np.empty(self.number_cells, dtype=float)
 
-            # go through all cell arrays giving initial parameters of the cells
+            # iterate through all cell arrays setting initial values
             for i in range(self.number_cells):
-                n = self.field - 1
-                div_counter = r.randint(0, self.pluri_div_thresh)
-                self.cell_locations[i] = np.array([r.random() * self.size[0],  r.random() * self.size[1],
-                                                   r.random() * self.size[2]])
+                n = self.field    # get the fds field
+                div_counter = r.randrange(0, self.pluri_div_thresh)    # get division counter for division/cell size
+
+                # apply initial value for each cell
+                self.cell_locations[i] = np.random.rand(3) * self.size
                 self.cell_radii[i] = self.min_radius + self.pluri_growth * div_counter
                 self.cell_motion[i] = True
-                self.cell_fds[i] = np.array([r.randint(0, n), r.randint(0, n), 0, r.randint(1, n)])
+                self.cell_fds[i] = np.array([r.randrange(0, n), r.randrange(0, n), 0,  r.randrange(1, n)])
                 self.cell_states[i] = "Pluripotent"
-                self.cell_diff_counter[i] = r.randint(0, self.pluri_to_diff)
+                self.cell_diff_counter[i] = r.randrange(0, self.pluri_to_diff)
                 self.cell_div_counter[i] = div_counter
-                self.cell_death_counter[i] = r.randint(0, self.death_thresh)
-                self.cell_fds_counter[i] = r.randint(0, self.fds_thresh)
+                self.cell_death_counter[i] = r.randrange(0, self.death_thresh)
+                self.cell_fds_counter[i] = r.randrange(0, self.fds_thresh)
                 self.cell_motility_force[i] = np.zeros(3, dtype=float)
                 self.cell_jkr_force[i] = np.zeros(3, dtype=float)
                 self.cell_nearest_gata6[i] = np.nan
@@ -126,9 +137,11 @@ class Simulation:
                 self.cell_highest_fgf4[i] = np.array([np.nan, np.nan, np.nan])
                 self.cell_nearest_cluster[i] = np.nan
                 self.cell_dox_value[i] = r.random()
+                self.cell_rotation[i] = r.random() * 360
 
-            # holds all indices of cells that will divide at a current step or be removed at that step
-            self.cells_to_divide, self.cells_to_remove = np.array([], dtype=int), np.array([], dtype=int)
+            # holds all indices of cells that will divide or be removed during each step
+            self.cells_to_divide = np.array([], dtype=int)
+            self.cells_to_remove = np.array([], dtype=int)
 
             # much like the cell arrays add any graphs to this list for automatic addition/removal
             self.graph_names = ["neighbor_graph", "jkr_graph"]
@@ -136,21 +149,6 @@ class Simulation:
             # create graphs used to all cells and their neighbors, initialize them with the number of cells
             self.neighbor_graph = igraph.Graph(self.number_cells)
             self.jkr_graph = igraph.Graph(self.number_cells)
-
-            # min and max radius lengths are used to calculate linear growth of the radius over time in 2D
-            self.max_radius = 0.000005    # 5 um
-            self.min_radius = self.max_radius / 2 ** 0.5
-            self.pluri_growth = (self.max_radius - self.min_radius) / self.pluri_div_thresh
-            self.diff_growth = (self.max_radius - self.min_radius) / self.diff_div_thresh
-
-            # the spatial resolution of the space
-            self.spat_res = 0.00001    # 10 um
-            self.spat_res2 = self.spat_res ** 2
-
-            # the temporal resolution for the simulation
-            self.step_dt = 1800    # dt of each simulation step (1800 sec/30 min)
-            self.move_dt = 200    # dt for incremental movement (200 sec)
-            self.diffuse_dt = 0.5    # dt for stable diffusion model (1/2 sec)
 
             # the diffusion constant for the molecule gradients and the radius of search for diffusion points
             self.diffuse = 0.00000000005    # 50 um^2/s
@@ -164,6 +162,12 @@ class Simulation:
             self.gradient_size = np.ceil(self.size / self.spat_res).astype(int) + np.ones(3, dtype=int)
             self.fgf4_values = np.zeros(self.gradient_size)
             self.fgf4_alt = np.zeros(self.gradient_size)
+
+            # min and max radius lengths are used to calculate linear growth of the radius over time in 2D
+            self.max_radius = 0.000005  # 5 um
+            self.min_radius = self.max_radius / 2 ** 0.5
+            self.pluri_growth = (self.max_radius - self.min_radius) / self.pluri_div_thresh
+            self.diff_growth = (self.max_radius - self.min_radius) / self.diff_div_thresh
 
             # used to hold the run times of functions
             self.function_times = dict()
