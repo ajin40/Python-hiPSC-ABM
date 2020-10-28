@@ -45,7 +45,7 @@ for simulation.current_step in range(simulation.beginning_step, simulation.end_s
 
     # locate the diffusion point (within a fixed radius) that has the highest FGF4 concentration. can be used to
     # represent chemotactic movement of cells
-    functions.highest_fgf4(simulation)
+    # functions.highest_fgf4(simulation)
     # functions.alt_highest_fgf4(simulation)
 
     # calculates the direction/magnitude of the movement of the cell depending on a variety of factors such as state,
@@ -60,6 +60,12 @@ for simulation.current_step in range(simulation.beginning_step, simulation.end_s
     # saves multiple forms of information about the simulation at the current step, including an image of the space,
     # csvs with values of the cells, a temporary pickle of the Simulation instance, and performance stats.
     output.step_outputs(simulation)
+
+    import numpy as np
+    np.savetxt("nearest_point_fgf4_step_48.csv", simulation.fgf4_values[:, :, 0], delimiter=",")
+    np.savetxt("distance_dependent_fgf4_step_48.csv", simulation.fgf4_alt[:, :, 0], delimiter=",")
+
+    print(simulation.fgf4_alt[:, :, 0])
 
 # ends the simulation by creating a video from all of the images created by the simulation
 output.create_video(simulation)

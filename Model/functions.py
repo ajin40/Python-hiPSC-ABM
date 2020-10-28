@@ -123,7 +123,7 @@ def cell_pathway(simulation):
             # get the amount to add, positive if adding, negative if removing
             amount = simulation.cell_fds[index][3]
             backend.update_concentrations(simulation, "fgf4_values", index, amount, "nearest")
-            # backend.update_concentrations(simulation, "fgf4_alt", index, amount, "distance")
+            backend.update_concentrations(simulation, "fgf4_alt", index, amount, "distance")
 
         # activate the following pathway based on if dox (after 24 hours) has been induced yet
         # if simulation.current_step > 48 and simulation.dox_value > simulation.cell_dox_value[index]:
@@ -1078,7 +1078,7 @@ def setup_diffusion_bins(simulation):
     # if a static variable has not been created to hold the maximum diffusion points in a bin, create one
     if not hasattr(setup_diffusion_bins, "max_points"):
         # begin with a low number of points that can be revalued if the max number of points exceeds this value
-        setup_diffusion_bins.max_points = 10
+        setup_diffusion_bins.max_points = 1
 
     # get the dimensions of the array representing the diffusion points
     shape = simulation.gradient_size
