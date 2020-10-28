@@ -67,5 +67,6 @@ for simulation.current_step in range(simulation.beginning_step, simulation.end_s
 
     print(simulation.fgf4_alt[:, :, 0])
 
+
 # ends the simulation by creating a video from all of the images created by the simulation
 output.create_video(simulation)
