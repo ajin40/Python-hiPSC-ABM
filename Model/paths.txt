@@ -5,11 +5,11 @@ Before you begin using the model, update the following paths
 What is the path to the directory of template files?
 Ex. C:\Model\templates
 -----------------------------------------------------------------------------------------------------------------------
-C:\Python37\Seed Project\Model\templates
+C:\Research\Code\Model\templates
 -----------------------------------------------------------------------------------------------------------------------
 
 Where should the model output the results of a simulation?
 Ex. C:\Outputs
 -----------------------------------------------------------------------------------------------------------------------
-C:\Outputs
+C:\Research\Outputs
 -----------------------------------------------------------------------------------------------------------------------

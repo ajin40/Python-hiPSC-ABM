@@ -314,7 +314,10 @@ def create_video(simulation):
         file_list = os.listdir(simulation.images_path)
 
         # continue if image directory has images in it
-        if len(file_list) > 0:
+        image_count = len(file_list)
+        if image_count > 0:
+            print("\nCreating video...")
+
             # sort the list naturally so "2, 20, 3, 31..." becomes "2, 3,...,20,...,31"
             file_list = natsort.natsorted(file_list)
 
@@ -330,12 +333,13 @@ def create_video(simulation):
                                            (width, height))
 
             # go through sorted image name list reading and writing each to the video object
-            for image_file in file_list:
-                image = cv2.imread(simulation.images_path + image_file)
+            for i in range(image_count):
+                image = cv2.imread(simulation.images_path + file_list[i])
                 video_object.write(image)
+                backend.progress_bar(i + 1, image_count)
 
             # close the video file
             video_object.release()
 
     # print end statement...super important. Don't remove or model won't run!
-    print("The simulation is finished. May the force be with you.")
+    print("\n\nThe simulation is finished. May the force be with you.")

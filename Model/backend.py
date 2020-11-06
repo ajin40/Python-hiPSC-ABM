@@ -4,6 +4,7 @@ import math
 import random as r
 from functools import wraps
 import time
+import sys
 
 
 def update_concentrations(simulation, gradient_name, index, amount, mode):
@@ -1026,3 +1027,22 @@ def record_time(function):
         simulation.function_times[function.__name__] += time.perf_counter()
 
     return wrap
+
+
+def progress_bar(progress, maximum):
+    ""
+
+    # length of the bar
+    length = 60
+
+    # calculate the bar string
+    fill = int(length * progress / maximum)
+    bar = '#' * fill + '.' * (length - fill)
+
+    # calculate the percent
+    percent = int(100 * progress / maximum)
+
+    # update the progress bar in the terminal
+    sys.stdout.write('\r[%s] %s%s' % (bar, percent, '%'))
+    # sys.stdout.flush()
+
