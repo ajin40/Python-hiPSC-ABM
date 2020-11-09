@@ -6,6 +6,7 @@ import sys
 import pickle
 import shutil
 import natsort
+import getopt
 
 import output
 import parameters
@@ -36,11 +37,27 @@ def setup():
     # hold the possible modes for the model, used to check that mode exists
     possible_modes = [0, 1, 2, 3]
 
-    # get the number of commandline attributes, run.py is the first attribute so subtract one
-    num_attributes = len(sys.argv) - 1
+    # get any command line options for the model
+    inputs, other_args = getopt.getopt(sys.argv[1:], "n:m:")
 
-    # if no command line attributes besides "run.py", run the text-based GUI
-    if num_attributes == 0:
+    # go through the inputs getting the options
+    for opt, arg in inputs:
+        # if the "-n" name option, set the variable name
+        if opt == "-n":
+            name = arg
+
+        # if the "-m" mode option, set the variable mode
+        elif opt == "-m":
+            mode = int(arg)
+
+        # if some other option
+        else:
+            print("Unknown option: ", opt)
+
+    # if the name variable has not been initialized, run the text-based GUI
+    try:
+        name
+    except NameError:
         # get the name of the simulation
         while True:
             name = input("What is the \"name\" of the simulation? Type \"help\" for more information: ")
@@ -49,6 +66,10 @@ def setup():
             else:
                 break
 
+    # if the mode variable has not been initialized, run the text-based GUI
+    try:
+        mode
+    except NameError:
         # get the mode of the simulation
         while True:
             mode = input("What is the \"mode\" of the simulation? Type \"help\" for more information: ")
@@ -72,27 +93,6 @@ def setup():
                 # if not an integer
                 except ValueError:
                     print("\"mode\" should be an integer")
-
-    # if both the name and the mode are provided, turn the mode into a integer
-    elif num_attributes == 2:
-        # get the name of the simulation
-        name = sys.argv[1]
-
-        # check to see if mode is an integer, raise exception if it is not
-        try:
-            mode = int(sys.argv[2])
-        except ValueError:
-            raise Exception("The second attribute should be an integer corresponding to the simulation mode")
-
-        # make sure mode exists, raise exception if it doesn't
-        if mode not in possible_modes:
-            raise Exception("Mode does not exist. See possible modes: " + str(possible_modes))
-
-    # if any other number of attributes raise error
-    else:
-        raise Exception("See documentation for running the model. No command-line attributes beyond \"run.py\" will "
-                        "run a text-based GUI and two command-line attributes (name) (mode) will avoid the GUI"
-                        "altogether.")
 
     # check the name of the simulation based on the mode
     name, output_path, path = check_name(name, output_path, separator, mode)
