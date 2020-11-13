@@ -35,7 +35,7 @@ def setup():
     output_path = check_path(output_path, separator)
 
     # hold the possible modes for the model, used to check that mode exists
-    possible_modes = [0, 1, 2, 3]
+    possible_modes = [0, 1, 2, 3, 4, 5]
 
     # get any command line options for the model
     inputs, other_args = getopt.getopt(sys.argv[1:], "n:m:")
@@ -180,6 +180,18 @@ def setup():
         # exits out as the conversion from .csv to images/video is done
         exit()
 
+    # zip a simulation directory
+    elif mode == 4:
+        print("Compressing: " + name)
+        shutil.make_archive(path[:-1], 'zip', path)
+        print("Done!")
+        exit()
+
+    # unzip a simulation directory
+    elif mode == 5:
+        print("Unpacking: " + name)
+        shutil.unpack_archive(path[:-1] + ".zip", output_path)
+
     # return the simulation based on the simulation mode
     return simulation
 
@@ -214,7 +226,7 @@ def check_name(name, output_path, separator, mode):
 
             # prompt to either rename or overwrite
             except OSError:
-                print("Simulation with identical name: " + name)
+                print("Simulation with identical name: " + '\033[31m' + name + '\033[0m')
                 user = input("Would you like to overwrite that simulation? (y/n): ")
                 if user == "n":
                     name = input("New name: ")
@@ -243,7 +255,7 @@ def check_name(name, output_path, separator, mode):
 
             # if not prompt to change name or end the simulation
             else:
-                print("No directory exists with name/path: " + output_path + name)
+                print("No directory exists with name/path: " + '\033[31m' + output_path + name + '\033[0m')
                 user = input("Would you like to continue? (y/n): ")
                 if user == "n":
                     exit()

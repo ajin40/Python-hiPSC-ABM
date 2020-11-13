@@ -21,11 +21,11 @@ for simulation.current_step in range(simulation.beginning_step, simulation.end_s
 
     # updates cells by adjusting trackers for differentiation and division based on intracellular, intercellular,
     # and extracellular conditions. this is done through a series of methods
-    # functions.cell_death(simulation)
-    # functions.cell_diff_surround(simulation)
-    # functions.cell_growth(simulation)
-    # functions.cell_division(simulation)
-    # functions.cell_pathway(simulation)
+    functions.cell_death(simulation)
+    functions.cell_diff_surround(simulation)
+    functions.cell_growth(simulation)
+    functions.cell_division(simulation)
+    functions.cell_pathway(simulation)
 
     # updates each of the extracellular gradients via the finite difference method after cells have interacted
     # with the gradient in cell_update().
@@ -33,7 +33,7 @@ for simulation.current_step in range(simulation.beginning_step, simulation.end_s
 
     # adds/removes cells to/from the simulation either all together or in desired groups of cells. if done in
     # groups, the handle_movement() function will be used to better represent asynchronous division and death.
-    # functions.update_queue(simulation)
+    functions.update_queue(simulation)
 
     # find the nearest NANOG high, GATA6 high, and differentiated cell within a fixed radius. this provides information
     # that can potentially be used for movement such as moving toward the nearest NANOG high cell
@@ -50,12 +50,12 @@ for simulation.current_step in range(simulation.beginning_step, simulation.end_s
 
     # calculates the direction/magnitude of the movement of the cell depending on a variety of factors such as state,
     # extracellular gradient, and presence of neighbors
-    # functions.cell_motility(simulation)
+    functions.cell_motility(simulation)
     # functions.alt_cell_motility(simulation)
 
     # moves the cells to a state of physical equilibrium between adhesive and repulsive forces acting on the cells,
     # while also applying active movement forces from the previous cell_motility() function.
-    # functions.handle_movement(simulation)
+    functions.handle_movement(simulation)
 
     # saves multiple forms of information about the simulation at the current step, including an image of the space,
     # csvs with values of the cells, a temporary pickle of the Simulation instance, and performance stats.

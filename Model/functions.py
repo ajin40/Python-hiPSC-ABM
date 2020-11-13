@@ -1149,5 +1149,3 @@ def update_diffusion(simulation):
 
         # update the gradient
         simulation.__dict__[gradient_name] = gradient
-
-
