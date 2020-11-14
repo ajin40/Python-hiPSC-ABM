@@ -14,34 +14,19 @@ simulation.cell_arrays(("locations", float, 3), ("radii", float), ("motion", boo
 
 # define the initial parameters for all cells. these can be overridden when defining specific cell types though this
 # is meant to reduce writing for cell types that only differ slightly from the base parameters.
-n = simulation.field
-simulation.initials("locations", lambda: r.random())
+simulation.initials("locations", lambda: np.random.rand(3) * simulation.size)
 simulation.initials("motion", lambda: True)
-simulation.initials("FGFR", lambda: r.randrange(0, n))
-simulation.initials("ERK", lambda: r.randrange(0, n))
-simulation.initials("GATA6", lambda: r.randrange(0, n))
-simulation.initials("NANOG", lambda: r.randrange(0, n))
+simulation.initials("FGFR", lambda: r.randrange(0, simulation.field))
+simulation.initials("ERK", lambda: r.randrange(0, simulation.field))
+simulation.initials("GATA6", lambda: r.randrange(0, simulation.field))
+simulation.initials("NANOG", lambda: r.randrange(0, simulation.field))
 simulation.initials("state", lambda: "Pluripotent")
-
-
-
+simulation.initials("death_counter", lambda: r.randrange(0, simulation.death_thresh))
+simulation.initials("diff_counter", lambda: r.randrange(0, simulation.pluri_to_diff))
+simulation.initials("div_counter", lambda: r.randrange(0, simulation.pluri_div_thresh))
+simulation.initials("fds_counter", lambda: r.randrange(0, simulation.fds_thresh))
 simulation.initials("motility_force", lambda: np.zeros(3, dtype=float))
 simulation.initials("jkr_force", lambda: np.zeros(3, dtype=float))
 simulation.initials("rotation", lambda: r.random() * 360)
 
-
-
-
-# # iterate through all cell arrays setting initial values
-# for i in range(self.number_cells):
-#     n = self.field    # get the fds field
-#     div_counter = r.randrange(0, self.pluri_div_thresh)    # get division counter for division/cell size
-#
-#     # apply initial value for each cell
-#     self.cell_locations[i] = np.random.rand(3) * self.size
-#     self.cell_radii[i] = self.min_radius + self.pluri_growth * div_counter
-#     self.cell_diff_counter[i] = r.randrange(0, self.pluri_to_diff)
-#     self.cell_div_counter[i] = div_counter
-#     self.cell_death_counter[i] = r.randrange(0, self.death_thresh)
-#     self.cell_fds_counter[i] = r.randrange(0, self.fds_thresh)
 

@@ -5,6 +5,12 @@ class Simulation:
     def __init__(self):
         self.number_cells = 4
         self.field = 3
+        self.size = np.array([1000, 1000, 0])
+        self.cell_array_names = []
+        self.death_thresh = 4
+        self.pluri_to_diff = 4
+        self.pluri_div_thresh = 4
+        self.fds_thresh = 4
 
     def cell_arrays(self, *args):
         """ creates the Simulation instance arrays that
@@ -12,6 +18,8 @@ class Simulation:
         """
         # go through all arguments passed
         for array_params in args:
+            self.cell_array_names.append(array_params[0])
+
             # get the length of the tuple
             length = len(array_params)
 
