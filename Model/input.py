@@ -100,7 +100,7 @@ def setup():
     # new simulation
     if mode == 0:
         # create instance of Simulation class
-        simulation = parameters.Simulation(templates_path, name, path, mode, separator)
+        simulation = parameters.Simulation(templates_path, name, path, separator)
 
         # copy model files and template parameters
         shutil.copytree(os.getcwd(), path + "Model_copy")
@@ -121,7 +121,7 @@ def setup():
     # images to video
     elif mode == 2:
         # create instance of Simulation class used to get imaging information
-        simulation = parameters.Simulation(templates_path, name, path, mode, separator)
+        simulation = parameters.Simulation(templates_path, name, path, separator)
 
         # get video using function from output.py
         output.create_video(simulation)
@@ -132,7 +132,7 @@ def setup():
     # CSVs to images/video
     elif mode == 3:
         # create simulation instance
-        simulation = parameters.Simulation(templates_path, name, path, mode, separator)
+        simulation = parameters.Simulation(templates_path, name, path, separator)
 
         # list the csv files in the values directory and sort them naturally
         csv_list = os.listdir(simulation.values_path)
