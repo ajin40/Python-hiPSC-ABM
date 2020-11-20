@@ -4,15 +4,18 @@ import input
 import output
 import functions
 
-# setup() will create an instance of the Simulation class that holds all relevant information of the model.
-# this is done by reading the template files that contain initial parameters of the model.
+# setup() will direct how the model is to be run based on the selected mode. If a new simulation is desired, setup()
+# will return an instance of the Simulation which holds all important information of the simulation as it runs.
 simulation = input.setup()
 
-# define any cell types with the name of type and the number of cells
-simulation.cell_types(("NANOG_high", 1000), ("GATA6_high", 0))
+# Define the names of any cell types. These names will be used to begin the model with a set number of cells that
+# correspond to the particular initial parameters for that cell type.
+simulation.cell_type("NANOG_high", 1000)
+simulation.cell_type("GATA6_high", 0)
 
-# define the cell arrays used to store values of the cell. each tuple corresponds to a cell array with the first index
-# being the reference name, the second being the data type, and the last can be providing for a 2D array
+# Define the cell arrays used to store values of the cell. Each tuple corresponds to a cell array that will be
+# generated. The first index of the tuple is the instance variable name for the Simulation class, the second being the
+# data type, and the last (if present) can be used to create a 2D array
 simulation.cell_arrays(("locations", float, 3), ("radii", float), ("motion", bool), ("FGFR", int), ("ERK", int),
                        ("GATA6", int), ("NANOG", int), ("state", "<U14"), ("diff_counter", int), ("div_counter", int),
                        ("death_counter", int), ("fds_counter", int), ("motility_force", float, 3),
@@ -20,25 +23,25 @@ simulation.cell_arrays(("locations", float, 3), ("radii", float), ("motion", boo
 
 # define the initial parameters for all cells. these can be overridden when defining specific cell types though this
 # is meant to reduce writing for cell types that only differ slightly from the base parameters.
-simulation.initials("all", "locations", lambda: np.random.rand(3) * simulation.size)
-simulation.initials("all", "radii", lambda: simulation.min_radius)
-simulation.initials("all", "motion", lambda: True)
-simulation.initials("all", "FGFR", lambda: r.randrange(0, simulation.field))
-simulation.initials("all", "ERK", lambda: r.randrange(0, simulation.field))
-simulation.initials("all", "GATA6", lambda: 0)
-simulation.initials("all", "NANOG", lambda: r.randrange(1, simulation.field))
-simulation.initials("all", "state", lambda: "Pluripotent")
-simulation.initials("all", "death_counter", lambda: r.randrange(0, simulation.death_thresh))
-simulation.initials("all", "diff_counter", lambda: r.randrange(0, simulation.pluri_to_diff))
-simulation.initials("all", "div_counter", lambda: r.randrange(0, simulation.pluri_div_thresh))
-simulation.initials("all", "fds_counter", lambda: r.randrange(0, simulation.fds_thresh))
-simulation.initials("all", "motility_force", lambda: np.zeros(3, dtype=float))
-simulation.initials("all", "jkr_force", lambda: np.zeros(3, dtype=float))
-simulation.initials("all", "rotation", lambda: r.random() * 360)
+simulation.initials("locations", lambda: np.random.rand(3) * simulation.size)
+simulation.initials("radii", lambda: simulation.min_radius)
+simulation.initials("motion", lambda: True)
+simulation.initials("FGFR", lambda: r.randrange(0, simulation.field))
+simulation.initials("ERK", lambda: r.randrange(0, simulation.field))
+simulation.initials("GATA6", lambda: 0)
+simulation.initials("NANOG", lambda: r.randrange(1, simulation.field))
+simulation.initials("state", lambda: "Pluripotent")
+simulation.initials("death_counter", lambda: r.randrange(0, simulation.death_thresh))
+simulation.initials("diff_counter", lambda: r.randrange(0, simulation.pluri_to_diff))
+simulation.initials("div_counter", lambda: r.randrange(0, simulation.pluri_div_thresh))
+simulation.initials("fds_counter", lambda: r.randrange(0, simulation.fds_thresh))
+simulation.initials("motility_force", lambda: np.zeros(3, dtype=float))
+simulation.initials("jkr_force", lambda: np.zeros(3, dtype=float))
+simulation.initials("rotation", lambda: r.random() * 360)
 
 # define the initial parameters for the GATA6 high cells
-simulation.initials("GATA6_high", "GATA6", lambda: r.randrange(0, simulation.field))
-simulation.initials("GATA6_high", "NANOG", lambda: 0)
+simulation.initials("GATA6", lambda: r.randrange(0, simulation.field), cell_type="GATA6_high")
+simulation.initials("NANOG", lambda: 0, cell_type="GATA6_high")
 
 
 # places all of the diffusion points into bins so that the model can use a bin sorting method to when determining

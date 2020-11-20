@@ -819,42 +819,43 @@ class Base:
     def __init__(self):
         self.number_cells = 0
         self.cell_array_names = list()
+        self.array_types = dict()
 
-    def cell_types(self, *args):
-        """ go through the cell types adding them to the
-            simulation
+    def cell_type(self, name, number):
+        """ creates a new cell type for setting initial parameters
+            and defines a slice in the cell arrays that corresponds
+            to this cell type
         """
-        self.holder = dict()
-        for cell_type in args:
-            begin = self.number_cells
-            self.number_cells += cell_type[1]
-            end = self.number_cells
-            self.holder[cell_type[0]] = (begin, end)
+        # determine the bounds of the slice and update the number of cells
+        begin = self.number_cells
+        end = self.number_cells = begin + number
+
+        # add slice to general dictionary for
+        self.array_types[name] = (begin, end)
 
     def cell_arrays(self, *args):
-        """ creates the Simulation instance arrays that
-            correspond to particular cell values
+        """ creates Simulation instance variables for the cell arrays
+            used to represent cell values
         """
-        # go through all arguments passed
+        # go through all array parameters provided
         for array_params in args:
+            # add the array name to a list for automatic addition/removal when cells divide and die
             self.cell_array_names.append(array_params[0])
 
-            # get the length of the tuple
+            # get the tuple length for the particular array parameters
             length = len(array_params)
 
-            # if the tuple passed is of length two, make a 1-dimensional array
+            # get the initial size of 1D array if the length is 2, but make a 2D array if a third index is provided
             if length == 2:
-                size = 0
+                size = self.number_cells
 
-            # if the tuple
             elif length == 3:
-                size = (0, array_params[2])
+                size = (self.number_cells, array_params[2])
 
-            # raise error if otherwise
             else:
-                raise Exception("tuples should have length 2 or 3")
+                raise Exception("Tuples for defining cell array parameters should have length 2 or 3.")
 
-            # create an instance variable for the cell array with the specified size and type
+            # create an instance variable of the Simulation class for the cell array with these parameters
             self.__dict__[array_params[0]] = np.empty(size, dtype=array_params[1])
 
     def initials(self, cell_type, array_name, func):
