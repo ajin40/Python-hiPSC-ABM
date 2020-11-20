@@ -19,6 +19,7 @@ simulation.cell_arrays(("locations", float, 3), ("radii", float), ("motion", boo
 # define the initial parameters for all cells. these can be overridden when defining specific cell types though this
 # is meant to reduce writing for cell types that only differ slightly from the base parameters.
 simulation.initials("all", "locations", lambda: np.random.rand(3) * simulation.size)
+simulation.initials("all", "radii", lambda: simulation.min_radius)
 simulation.initials("all", "motion", lambda: True)
 simulation.initials("all", "FGFR", lambda: r.randrange(0, simulation.field))
 simulation.initials("all", "ERK", lambda: r.randrange(0, simulation.field))

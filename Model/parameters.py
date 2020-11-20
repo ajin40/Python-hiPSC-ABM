@@ -1,4 +1,3 @@
-import random as r
 import numpy as np
 import igraph
 
@@ -81,60 +80,6 @@ class Simulation:
             self.pluri_growth = (self.max_radius - self.min_radius) / self.pluri_div_thresh
             self.diff_growth = (self.max_radius - self.min_radius) / self.diff_div_thresh
 
-            # place the names of the cell arrays in this list. the model will use to delete and add cells
-            # automatically (order doesn't matter)
-            self.cell_array_names = ["cell_locations", "cell_radii", "cell_motion", "cell_fds", "cell_states",
-                                     "cell_diff_counter", "cell_div_counter", "cell_death_counter", "cell_fds_counter",
-                                     "cell_motility_force", "cell_jkr_force", "cell_nearest_gata6",
-                                     "cell_nearest_nanog", "cell_nearest_diff", "cell_highest_fgf4",
-                                     "cell_nearest_cluster", "cell_dox_value", "cell_rotation"]
-
-            # these are the cell arrays used to hold all values of the cells. each index corresponds to a cell so
-            # parallelization is made easier. this is an alternative to individual cell objects
-            self.cell_locations = np.empty((self.number_cells, 3), dtype=float)
-            self.cell_radii = np.empty(self.number_cells, dtype=float)
-            self.cell_motion = np.empty(self.number_cells, dtype=bool)
-            self.cell_fds = np.empty((self.number_cells, 4), dtype=float)
-            self.cell_states = np.empty(self.number_cells, dtype='<U14')
-            self.cell_diff_counter = np.empty(self.number_cells, dtype=int)
-            self.cell_div_counter = np.empty(self.number_cells, dtype=int)
-            self.cell_death_counter = np.empty(self.number_cells, dtype=int)
-            self.cell_fds_counter = np.empty(self.number_cells, dtype=int)
-            self.cell_motility_force = np.empty((self.number_cells, 3), dtype=float)
-            self.cell_jkr_force = np.empty((self.number_cells, 3), dtype=float)
-            self.cell_nearest_gata6 = np.empty(self.number_cells)
-            self.cell_nearest_nanog = np.empty(self.number_cells)
-            self.cell_nearest_diff = np.empty(self.number_cells)
-            self.cell_highest_fgf4 = np.empty((self.number_cells, 3))
-            self.cell_nearest_cluster = np.empty(self.number_cells)
-            self.cell_dox_value = np.empty(self.number_cells, dtype=float)
-            self.cell_rotation = np.empty(self.number_cells, dtype=float)
-
-            # iterate through all cell arrays setting initial values
-            for i in range(self.number_cells):
-                n = self.field    # get the fds field
-                div_counter = r.randrange(0, self.pluri_div_thresh)    # get division counter for division/cell size
-
-                # apply initial value for each cell
-                self.cell_locations[i] = np.random.rand(3) * self.size
-                self.cell_radii[i] = self.min_radius + self.pluri_growth * div_counter
-                self.cell_motion[i] = True
-                self.cell_fds[i] = np.array([r.randrange(0, n), r.randrange(0, n), 0,  r.randrange(1, n)])
-                self.cell_states[i] = "Pluripotent"
-                self.cell_diff_counter[i] = r.randrange(0, self.pluri_to_diff)
-                self.cell_div_counter[i] = div_counter
-                self.cell_death_counter[i] = r.randrange(0, self.death_thresh)
-                self.cell_fds_counter[i] = r.randrange(0, self.fds_thresh)
-                self.cell_motility_force[i] = np.zeros(3, dtype=float)
-                self.cell_jkr_force[i] = np.zeros(3, dtype=float)
-                self.cell_nearest_gata6[i] = np.nan
-                self.cell_nearest_nanog[i] = np.nan
-                self.cell_nearest_diff[i] = np.nan
-                self.cell_highest_fgf4[i] = np.array([np.nan, np.nan, np.nan])
-                self.cell_nearest_cluster[i] = np.nan
-                self.cell_dox_value[i] = r.random()
-                self.cell_rotation[i] = r.random() * 360
-
             # holds all indices of cells that will divide or be removed during each step
             self.cells_to_divide = np.array([], dtype=int)
             self.cells_to_remove = np.array([], dtype=int)
@@ -161,3 +106,65 @@ class Simulation:
 
             # used to hold the run times of functions
             self.function_times = dict()
+
+    def cell_types(self, *args):
+        """ go through the cell types adding them to the
+            simulation
+        """
+        self.holder = dict()
+        self.number_cells = 0
+        for cell_type in args:
+            begin = self.number_cells
+            self.number_cells += cell_type[1]
+            end = self.number_cells
+            self.holder[cell_type[0]] = (begin, end)
+
+    def cell_arrays(self, *args):
+        """ creates the Simulation instance arrays that
+            correspond to particular cell values
+        """
+        # go through all arguments passed
+        for array_params in args:
+            self.cell_array_names.append(array_params[0])
+
+            # get the length of the tuple
+            length = len(array_params)
+
+            # if the tuple passed is of length two, make a 1-dimensional array
+            if length == 2:
+                size = 0
+
+            # if the tuple
+            elif length == 3:
+                size = (0, array_params[2])
+
+            # raise error if otherwise
+            else:
+                raise Exception("tuples should have length 2 or 3")
+
+            # create an instance variable for the cell array with the specified size and type
+            self.__dict__[array_params[0]] = np.empty(size, dtype=array_params[1])
+
+    def initials(self, cell_type, array_name, func):
+        """ given a lambda function for the initial values
+            of a cell array this updates that accordingly
+        """
+        if cell_type == "all":
+            # get the cell array
+            cell_array = self.__dict__[array_name]
+
+            shape = list(cell_array.shape)
+            shape[0] = self.number_cells
+            array_type = cell_array.dtype
+            empty_array = np.empty(shape, dtype=array_type)
+            self.__dict__[array_name] = np.concatenate((cell_array, empty_array))
+
+            for i in range(self.number_cells):
+                self.__dict__[array_name][i] = func()
+
+        else:
+            begin = self.holder[cell_type][0]
+            end = self.holder[cell_type][1]
+
+            for i in range(begin, end):
+                self.__dict__[array_name][i] = func()
