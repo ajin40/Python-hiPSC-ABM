@@ -106,6 +106,3 @@ class Simulation(Base):
         self.gradient_size = np.ceil(self.size / self.spat_res).astype(int) + np.ones(3, dtype=int)
         self.fgf4_values = np.zeros(self.gradient_size)
         self.fgf4_alt = np.zeros(self.gradient_size)
-
-        # used to hold the run times of functions
-        self.function_times = dict()

@@ -816,10 +816,15 @@ def progress_bar(progress, maximum):
 
 
 class Base:
+    """ to make the Simulation class a bit cleaner and less confusing
+        this class is a parent to the Simulation class to hid methods
+        that shouldn't need to be modified
+    """
     def __init__(self):
         self.number_cells = 0
         self.cell_array_names = list()
         self.array_types = dict()
+        self.function_times = dict()
 
     def cell_type(self, name, number):
         """ creates a new cell type for setting initial parameters
@@ -858,26 +863,22 @@ class Base:
             # create an instance variable of the Simulation class for the cell array with these parameters
             self.__dict__[array_params[0]] = np.empty(size, dtype=array_params[1])
 
-    def initials(self, cell_type, array_name, func):
+    def initials(self, array_name, func, cell_type=None):
         """ given a lambda function for the initial values
             of a cell array this updates that accordingly
         """
-        if cell_type == "all":
-            # get the cell array
-            cell_array = self.__dict__[array_name]
-
-            shape = list(cell_array.shape)
-            shape[0] = self.number_cells
-            array_type = cell_array.dtype
-            empty_array = np.empty(shape, dtype=array_type)
-            self.__dict__[array_name] = np.concatenate((cell_array, empty_array))
-
+        # if no cell type name provided
+        if cell_type is None:
+            # go through all cells and give this initial parameter
             for i in range(self.number_cells):
                 self.__dict__[array_name][i] = func()
 
+        # otherwise update the slice of the array based on the
         else:
-            begin = self.holder[cell_type][0]
-            end = self.holder[cell_type][1]
+            # get the beginning and end of the slice
+            begin = self.array_types[array_name][0]
+            end = self.array_types[array_name][1]
 
+            # update only this slice of the cell array
             for i in range(begin, end):
                 self.__dict__[array_name][i] = func()

@@ -73,13 +73,14 @@ def cell_growth(simulation):
     for index in range(simulation.number_cells):
         # increase the cell radius based on the state and whether or not it has reached the max size
         if simulation.cell_radii[index] < simulation.max_radius:
+            division_count = simulation.cell_div_counter
             # pluripotent growth
             if simulation.cell_states[index] == "Pluripotent":
-                simulation.cell_radii[index] += simulation.pluri_growth
+                simulation.cell_radii[index] = simulation.pluri_growth * division_count + simulation.min_radius
 
             # differentiated growth
             else:
-                simulation.cell_radii[index] += simulation.diff_growth
+                simulation.cell_radii[index] = simulation.diff_growth * division_count + simulation.min_radius
 
 
 @backend.record_time

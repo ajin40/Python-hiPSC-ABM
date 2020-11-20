@@ -21,8 +21,10 @@ simulation.cell_arrays(("locations", float, 3), ("radii", float), ("motion", boo
                        ("death_counter", int), ("fds_counter", int), ("motility_force", float, 3),
                        ("jkr_force", float, 3), ("rotation", float))
 
-# define the initial parameters for all cells. these can be overridden when defining specific cell types though this
-# is meant to reduce writing for cell types that only differ slightly from the base parameters.
+# Define the initial parameters for the cells using lambda expressions. The following lines have no "cell_type"
+# argument, which is used to designate that these are initial parameters for all cells; however, these can be overridden
+# when defining specific cell types. This is really meant to reduce overall writing for cell types that only differ
+# slightly from the base parameters.
 simulation.initials("locations", lambda: np.random.rand(3) * simulation.size)
 simulation.initials("radii", lambda: simulation.min_radius)
 simulation.initials("motion", lambda: True)
@@ -39,14 +41,13 @@ simulation.initials("motility_force", lambda: np.zeros(3, dtype=float))
 simulation.initials("jkr_force", lambda: np.zeros(3, dtype=float))
 simulation.initials("rotation", lambda: r.random() * 360)
 
-# define the initial parameters for the GATA6 high cells
+# These are the initial parameters for the "GATA6_high" cells, the cell_type argument is used to flag this
 simulation.initials("GATA6", lambda: r.randrange(0, simulation.field), cell_type="GATA6_high")
 simulation.initials("NANOG", lambda: 0, cell_type="GATA6_high")
 
-
 # places all of the diffusion points into bins so that the model can use a bin sorting method to when determining
 # highest/lowest concentrations of the extracellular gradient(s)
-functions.setup_diffusion_bins(simulation)
+# functions.setup_diffusion_bins(simulation)
 
 # this will loop over all steps defined in the general template file in addition to updating the current step
 # of the simulation. this is done to explicitly/easily show what happens at each step.
