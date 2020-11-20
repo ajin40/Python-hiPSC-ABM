@@ -2,11 +2,12 @@ import test_backend
 import random as r
 import numpy as np
 
+
 # create a Simulation instance used to store information of the simulation as it runs
 simulation = test_backend.Simulation()
 
 # define any cell types with the name of type and the number of cells
-simulation.cell_types(("NANOG_high", 10), ("GATA6_high", 2))
+simulation.cell_types(("NANOG_high", 1000), ("GATA6_high", 0))
 
 # define the cell arrays used to store values of the cell. each tuple corresponds to a cell array with the first index
 # being the reference name, the second being the data type, and the last can be providing for a 2D array
