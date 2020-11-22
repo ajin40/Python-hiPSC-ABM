@@ -17,9 +17,9 @@ simulation.cell_type("GATA6_high", simulation.num_gata6)
 # generated. The first index of the tuple is the instance variable name for the Simulation class, the second being the
 # data type, and the last (if present) can be used to create a 2D array
 simulation.cell_arrays(("locations", float, 3), ("radii", float), ("motion", bool), ("FGFR", int), ("ERK", int),
-                       ("GATA6", int), ("NANOG", int), ("state", "<U14"), ("diff_counter", int), ("div_counter", int),
-                       ("death_counter", int), ("fds_counter", int), ("motility_force", float, 3),
-                       ("jkr_force", float, 3), ("rotation", float))
+                       ("GATA6", int), ("NANOG", int), ("states", "<U14"), ("diff_counters", int), ("div_counters", int),
+                       ("death_counters", int), ("fds_counters", int), ("motility_forces", float, 3),
+                       ("jkr_forces", float, 3), ("rotations", float))
 
 # Define the initial parameters for the cells using lambda expressions. The following lines have no "cell_type"
 # argument, which is used to designate that these are initial parameters for all cells; however, these can be overridden
@@ -32,14 +32,14 @@ simulation.initials("FGFR", lambda: r.randrange(0, simulation.field))
 simulation.initials("ERK", lambda: r.randrange(0, simulation.field))
 simulation.initials("GATA6", lambda: 0)
 simulation.initials("NANOG", lambda: r.randrange(1, simulation.field))
-simulation.initials("state", lambda: "Pluripotent")
-simulation.initials("death_counter", lambda: r.randrange(0, simulation.death_thresh))
-simulation.initials("diff_counter", lambda: r.randrange(0, simulation.pluri_to_diff))
-simulation.initials("div_counter", lambda: r.randrange(0, simulation.pluri_div_thresh))
-simulation.initials("fds_counter", lambda: r.randrange(0, simulation.fds_thresh))
-simulation.initials("motility_force", lambda: np.zeros(3, dtype=float))
-simulation.initials("jkr_force", lambda: np.zeros(3, dtype=float))
-simulation.initials("rotation", lambda: r.random() * 360)
+simulation.initials("states", lambda: "Pluripotent")
+simulation.initials("death_counters", lambda: r.randrange(0, simulation.death_thresh))
+simulation.initials("diff_counters", lambda: r.randrange(0, simulation.pluri_to_diff))
+simulation.initials("div_counters", lambda: r.randrange(0, simulation.pluri_div_thresh))
+simulation.initials("fds_counters", lambda: r.randrange(0, simulation.fds_thresh))
+simulation.initials("motility_forces", lambda: np.zeros(3, dtype=float))
+simulation.initials("jkr_forces", lambda: np.zeros(3, dtype=float))
+simulation.initials("rotations", lambda: r.random() * 360)
 
 # These are the initial parameters for the "GATA6_high" cells, the cell_type argument is used to flag this
 simulation.initials("GATA6", lambda: r.randrange(0, simulation.field), cell_type="GATA6_high")

@@ -32,10 +32,10 @@ def step_outputs(simulation):
     """
     # information about the cells/environment at current step
     step_image(simulation)
-    # alt_step_image(simulation)
-    # step_csv(simulation)
-    # step_gradients(simulation)
-    # step_tda(simulation)
+    alt_step_image(simulation)
+    step_csv(simulation)
+    step_gradients(simulation)
+    step_tda(simulation)
 
     # a temporary pickled file of the simulation, used for continuing past simulations
     temporary(simulation)

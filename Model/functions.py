@@ -26,17 +26,17 @@ def cell_death(simulation):
     """
     for index in range(simulation.number_cells):
         # checks to see if cell is pluripotent
-        if simulation.cell_states[index] == "Pluripotent":
+        if simulation.states[index] == "Pluripotent":
             # gets the number of neighbors for a cell, increasing the death counter if not enough neighbors
             if len(simulation.neighbor_graph.neighbors(index)) < simulation.lonely_cell:
                 simulation.cell_death_counter[index] += 1
 
             # if not, reset the death counter back to zero
             else:
-                simulation.cell_death_counter[index] = 0
+                simulation.death_counters[index] = 0
 
             # removes cell if it meets the parameters
-            if simulation.cell_death_counter[index] >= simulation.death_thresh:
+            if simulation.death_counters[index] >= simulation.death_thresh:
                 simulation.cells_to_remove = np.append(simulation.cells_to_remove, index)
 
 
@@ -47,7 +47,7 @@ def cell_diff_surround(simulation):
     """
     for index in range(simulation.number_cells):
         # checks to see if cell is pluripotent and GATA6 low
-        if simulation.cell_states[index] == "Pluripotent" and simulation.cell_fds[index][2] < simulation.field-1:
+        if simulation.states[index] == "Pluripotent" and simulation.GATA6[index] < simulation.field - 1:
             # get the list of neighbors for the cell
             neighbors = simulation.neighbor_graph.neighbors(index)
 
@@ -55,13 +55,13 @@ def cell_diff_surround(simulation):
             num_diff_neighbors = 0
             for neighbor_index in neighbors:
                 # checks to see if current neighbor is differentiated and if so add to the counter
-                if simulation.cell_states[neighbor_index] == "Differentiated":
+                if simulation.states[neighbor_index] == "Differentiated":
                     num_diff_neighbors += 1
 
                 # if the number of differentiated meets the threshold, set the cell as gata6 high and nanog low
                 if num_diff_neighbors >= 6:
-                    simulation.cell_fds[index][2] = simulation.field-1
-                    simulation.cell_fds[index][3] = 0
+                    simulation.GATA6[index] = simulation.field - 1
+                    simulation.NANOG[index] = 0
                     break
 
 
@@ -72,15 +72,16 @@ def cell_growth(simulation):
     """
     for index in range(simulation.number_cells):
         # increase the cell radius based on the state and whether or not it has reached the max size
-        if simulation.cell_radii[index] < simulation.max_radius:
-            division_count = simulation.cell_div_counter
+        if simulation.radii[index] < simulation.max_radius:
+            division_count = simulation.div_counters
+
             # pluripotent growth
-            if simulation.cell_states[index] == "Pluripotent":
-                simulation.cell_radii[index] = simulation.pluri_growth * division_count + simulation.min_radius
+            if simulation.states[index] == "Pluripotent":
+                simulation.radii[index] = simulation.pluri_growth * division_count + simulation.min_radius
 
             # differentiated growth
             else:
-                simulation.cell_radii[index] = simulation.diff_growth * division_count + simulation.min_radius
+                simulation.radii[index] = simulation.diff_growth * division_count + simulation.min_radius
 
 
 @backend.record_time
@@ -90,9 +91,9 @@ def cell_division(simulation):
     """
     for index in range(simulation.number_cells):
         # pluripotent cell
-        if simulation.cell_states[index] == "Pluripotent":
+        if simulation.states[index] == "Pluripotent":
             # check the division counter against the threshold
-            if simulation.cell_div_counter[index] >= simulation.pluri_div_thresh:
+            if simulation.div_counters[index] >= simulation.pluri_div_thresh:
                 simulation.cells_to_divide = np.append(simulation.cells_to_divide, index)
 
             # if under, stochastically increase the division counter by either 0 or 1
@@ -102,14 +103,14 @@ def cell_division(simulation):
         # differentiated cell
         else:
             # check the division counter against the threshold
-            if simulation.cell_div_counter[index] >= simulation.diff_div_thresh:
+            if simulation.div_counters[index] >= simulation.diff_div_thresh:
                 # check for contact inhibition
                 if len(simulation.neighbor_graph.neighbors(index)) < 8:
                     simulation.cells_to_divide = np.append(simulation.cells_to_divide, index)
 
             # if under, stochastically increase the division counter by either 0 or 1
             else:
-                simulation.cell_div_counter[index] += r.randint(0, 1)
+                simulation.div_counters[index] += r.randint(0, 1)
 
 
 @backend.record_time
@@ -119,11 +120,11 @@ def cell_pathway(simulation):
     """
     for index in range(simulation.number_cells):
         # add FGF4 to the gradient based on the cell's value of NANOG
-        if simulation.cell_fds[index][3] > 0:
+        if simulation.NANOG[index] > 0:
             # get the amount to add, positive if adding, negative if removing
-            amount = simulation.cell_fds[index][3]
+            amount = simulation.NANOG[index]
             backend.update_concentrations(simulation, "fgf4_values", index, amount, "nearest")
-            backend.update_concentrations(simulation, "fgf4_alt", index, amount, "distance")
+            # backend.update_concentrations(simulation, "fgf4_alt", index, amount, "distance")
 
         # activate the following pathway based on if dox (after 24 hours) has been induced yet
         # if simulation.current_step > 48 and simulation.dox_value > simulation.cell_dox_value[index]:
@@ -150,16 +151,16 @@ def cell_pathway(simulation):
                     fgf4_fds = 0    # FGF4 low
 
             # temporarily hold the FGFR value
-            temp_fgfr = simulation.cell_fds[index][0]
+            temp_fgfr = simulation.FGFR[index]
 
             # if updating the FDS values this step
-            if simulation.cell_fds_counter[index] % simulation.fds_thresh == 0:
+            if simulation.fds_counters[index] % simulation.fds_thresh == 0:
                 # get the current FDS values of the cell
                 x1 = fgf4_fds
-                x2 = simulation.cell_fds[index][0]
-                x3 = simulation.cell_fds[index][1]
-                x4 = simulation.cell_fds[index][2]
-                x5 = simulation.cell_fds[index][3]
+                x2 = simulation.FGFR[index][0]
+                x3 = simulation.ERK[index][1]
+                x4 = simulation.GATA6[index][2]
+                x5 = simulation.NANOG[index][3]
 
                 # if the FDS is boolean
                 if simulation.field == 2:
@@ -181,30 +182,32 @@ def cell_pathway(simulation):
                 # if the amount of FGFR has increased, subtract that much FGF4 from the gradient
                 fgfr_change = new_fgfr - temp_fgfr
                 if fgfr_change > 0:
-                    pass
-                    # backend.update_concentrations(simulation, "fgf4_values", index, -1 * fgfr_change, "nearest")
+                    backend.update_concentrations(simulation, "fgf4_values", index, -1 * fgfr_change, "nearest")
 
                 # update the FDS values of the cell
-                simulation.cell_fds[index] = np.array([new_fgfr, new_erk, new_gata6, new_nanog])
+                simulation.FGFR[index] = new_fgfr
+                simulation.ERK[index] = new_erk
+                simulation.GATA6[index] = new_gata6
+                simulation.NANOG[index] = new_nanog
 
             # increase the finite dynamical system counter
-            simulation.cell_fds_counter[index] += 1
+            simulation.fds_counters[index] += 1
 
             # if the cell is GATA6 high and pluripotent
-            if simulation.cell_fds[index][2] == simulation.field-1 and simulation.cell_states[index] == "Pluripotent":
+            if simulation.GATA6[index] == simulation.field - 1 and simulation.states[index] == "Pluripotent":
                 # increase the differentiation counter by 0 or 1
-                simulation.cell_diff_counter[index] += r.randint(0, 1)
+                simulation.diff_counters[index] += r.randint(0, 1)
 
                 # if the differentiation counter is greater than the threshold, differentiate
-                if simulation.cell_diff_counter[index] >= simulation.pluri_to_diff:
+                if simulation.diff_counters[index] >= simulation.pluri_to_diff:
                     # change the state to differentiated
-                    simulation.cell_states[index] = "Differentiated"
+                    simulation.states[index] = "Differentiated"
 
                     # make sure NANOG is low or rather 0
-                    simulation.cell_fds[index][3] = 0
+                    simulation.NANOG[index] = 0
 
                     # allow the cell to actively move again
-                    simulation.cell_motion[index] = True
+                    simulation.motion[index] = True
 
 
 @backend.record_time
@@ -225,7 +228,7 @@ def cell_motility(simulation):
             # if not surrounded 6 or more cells, move away from surrounding nanog high cells
             if len(neighbors) < 6:
                 # set motion to True
-                simulation.cell_motion[i] = True
+                simulation.motion[i] = True
 
                 # create a vector to hold the sum of normal vectors between a cell and its neighbors
                 vector_holder = np.array([0.0, 0.0, 0.0])
@@ -234,9 +237,9 @@ def cell_motility(simulation):
                 count = 0
                 for j in range(len(neighbors)):
                     # if neighbor is nanog high, add vector to the cell to the holder
-                    if simulation.cell_fds[neighbors[j]][3] > simulation.cell_fds[neighbors[j]][2]:
+                    if simulation.NANOG[neighbors[j]] > simulation.GATA6[neighbors[j]]:
                         count += 1
-                        vector = simulation.cell_locations[neighbors[j]] - simulation.cell_locations[i]
+                        vector = simulation.locations[neighbors[j]] - simulation.locations[i]
                         vector_holder += vector
 
                 # if there is at least one nanog high cell move away from it
@@ -245,22 +248,22 @@ def cell_motility(simulation):
                     normal = backend.normal_vector(vector_holder)
 
                     # move in direction opposite to nanog high cells
-                    simulation.cell_motility_force[i] += motility_force * normal * -1
+                    simulation.motility_forces[i] += motility_force * normal * -1
 
                 # if no nanog high cells around, move randomly
                 else:
-                    simulation.cell_motility_force[i] += backend.random_vector(simulation) * motility_force
+                    simulation.motility_forces[i] += backend.random_vector(simulation) * motility_force
 
             # set the motion to False
             else:
-                simulation.cell_motion[i] = False
+                simulation.motion[i] = False
 
         # if the cell is gata6 high and nanog low
-        elif simulation.cell_fds[i][2] > simulation.cell_fds[i][3]:
+        elif simulation.GATA6[i] > simulation.NANOG[i]:
             # if not surrounded 6 or more cells
             if len(neighbors) < 6:
                 # set motion to True
-                simulation.cell_motion[i] = True
+                simulation.motion[i] = True
 
                 # continue if using Guye et al. movement and if there exists differentiated cells
                 if simulation.guye_move and not np.isnan(simulation.cell_nearest_diff[i]):
@@ -268,26 +271,26 @@ def cell_motility(simulation):
                     guye_neighbor = int(simulation.cell_nearest_diff[i])
 
                     # get the normal vector
-                    vector = simulation.cell_locations[guye_neighbor] - simulation.cell_locations[i]
+                    vector = simulation.locations[guye_neighbor] - simulation.locations[i]
                     normal = backend.normal_vector(vector)
 
                     # calculate the motility force
-                    simulation.cell_motility_force[i] += normal * motility_force
+                    simulation.motility_forces[i] += normal * motility_force
 
                 # if no Guye movement or no differentiated cells nearby, move randomly
                 else:
-                    simulation.cell_motility_force[i] += backend.random_vector(simulation) * motility_force
+                    simulation.motility_forces[i] += backend.random_vector(simulation) * motility_force
 
             # set the motion to False
             else:
-                simulation.cell_motion[i] = False
+                simulation.motion[i] = False
 
         # if the cell is nanog high and gata6 low
-        elif simulation.cell_fds[i][3] > simulation.cell_fds[i][2]:
+        elif simulation.NANOG[i] > simulation.GATA6[i]:
             # if not surrounded 6 or more cells
             if len(neighbors) < 6:
                 # set motion to True
-                simulation.cell_motion[i] = True
+                simulation.motion[i] = True
 
                 # move based on fgf4 concentrations
                 if simulation.fgf4_move:
@@ -297,61 +300,61 @@ def cell_motility(simulation):
                         x = int(simulation.cell_highest_fgf4[i][0])
                         y = int(simulation.cell_highest_fgf4[i][1])
                         z = int(simulation.cell_highest_fgf4[i][2])
-                        vector = simulation.diffuse_locations[x][y][z] - simulation.cell_locations[i]
+                        vector = simulation.diffuse_locations[x][y][z] - simulation.locations[i]
                         normal = backend.normal_vector(vector)
 
                         if len(neighbors) < 2:
-                            simulation.cell_motility_force[i] += normal * motility_force
+                            simulation.motility_forces[i] += normal * motility_force
                         else:
-                            simulation.cell_motility_force[i] += normal * motility_force * 0.1
+                            simulation.motility_forces[i] += normal * motility_force * 0.1
 
                     else:
-                        simulation.cell_motility_force[i] += backend.random_vector(simulation) * motility_force
+                        simulation.motility_forces[i] += backend.random_vector(simulation) * motility_force
 
                 # move based on Eunbi's model
                 elif simulation.eunbi_move:
                     # if there is a gata6 high cell nearby, move away from it
                     if not np.isnan(simulation.cell_nearest_gata6[i]):
                         nearest_index = int(simulation.cell_nearest_gata6[i])
-                        vector = simulation.cell_locations[nearest_index] - simulation.cell_locations[i]
+                        vector = simulation.locations[nearest_index] - simulation.locations[i]
                         normal = backend.normal_vector(vector)
-                        simulation.cell_motility_force[i] += normal * motility_force
+                        simulation.motility_forces[i] += normal * motility_force
 
                     # if there is a nanog high cell nearby, move to it
                     elif not np.isnan(simulation.cell_nearest_nanog[i]):
                         nearest_index = int(simulation.cell_nearest_nanog[i])
-                        vector = simulation.cell_locations[nearest_index] - simulation.cell_locations[i]
+                        vector = simulation.locations[nearest_index] - simulation.locations[i]
                         normal = backend.normal_vector(vector)
-                        simulation.cell_motility_force[i] += normal * motility_force
+                        simulation.motility_forces[i] += normal * motility_force
 
                     # if nothing else, move randomly
                     else:
-                        simulation.cell_motility_force[i] += backend.random_vector(simulation) * motility_force
+                        simulation.motility_forces[i] += backend.random_vector(simulation) * motility_force
 
                 # if no specific movement type, move randomly
                 else:
-                    simulation.cell_motility_force[i] += backend.random_vector(simulation) * motility_force
+                    simulation.motility_forces[i] += backend.random_vector(simulation) * motility_force
 
             # set the motion to False
             else:
-                simulation.cell_motion[i] = False
+                simulation.motion[i] = False
 
                 # cluster movement...not in use
                 # if not np.isnan(simulation.cell_cluster_nearest[i]):
                 #     pluri_index = int(simulation.cell_cluster_nearest[i])
-                #     vector = simulation.cell_locations[pluri_index] - simulation.cell_locations[i]
+                #     vector = simulation.locations[pluri_index] - simulation.locations[i]
                 #     normal = backend.normal_vector(vector)
-                #     simulation.cell_motility_force[i] += normal * motility_force * 0.05
+                #     simulation.motility_forces[i] += normal * motility_force * 0.05
 
         # if both gata6/nanog high or both low
         else:
             # if not surrounded 6 or more cells
             if len(neighbors) < 6:
-                simulation.cell_motility_force[i] += backend.random_vector(simulation) * motility_force
+                simulation.motility_forces[i] += backend.random_vector(simulation) * motility_force
 
             # set the motion to False
             else:
-                simulation.cell_motion[i] = False
+                simulation.motion[i] = False
 
 
 @backend.record_time
@@ -386,11 +389,11 @@ def update_queue(simulation):
 
         # move the cells to positions that are representative of the new locations of daughter cells
         division_position = backend.random_vector(simulation) * (simulation.max_radius - simulation.min_radius)
-        simulation.cell_locations[mother_index] += division_position
-        simulation.cell_locations[daughter_index] -= division_position
+        simulation.locations[mother_index] += division_position
+        simulation.locations[daughter_index] -= division_position
 
         # reduce both radii to minimum size and set the division counters to zero
-        simulation.cell_radii[mother_index] = simulation.cell_radii[daughter_index] = simulation.min_radius
+        simulation.radii[mother_index] = simulation.radii[daughter_index] = simulation.min_radius
         simulation.cell_div_counter[mother_index] = simulation.cell_div_counter[daughter_index] = 0
 
     # get the number of cells to be added
@@ -499,7 +502,7 @@ def check_neighbors(simulation):
         if simulation.parallel:
             # turn the following into arrays that can be interpreted by the gpu
             bin_locations_cuda = cuda.to_device(bin_locations)
-            cell_locations_cuda = cuda.to_device(simulation.cell_locations)
+            cell_locations_cuda = cuda.to_device(simulation.locations)
             bins_cuda = cuda.to_device(bins)
             bins_help_cuda = cuda.to_device(bins_help)
             distance_cuda = cuda.to_device(neighbor_distance)
@@ -525,7 +528,7 @@ def check_neighbors(simulation):
         # call the jit cpu version
         else:
             edge_holder, if_edge, edge_count = backend.check_neighbors_cpu(simulation.number_cells, bin_locations,
-                                                                           simulation.cell_locations, bins, bins_help,
+                                                                           simulation.locations, bins, bins_help,
                                                                            neighbor_distance, edge_holder, if_edge,
                                                                            edge_count, check_neighbors.max_neighbors)
 
@@ -567,7 +570,7 @@ def handle_movement(simulation):
         apply_forces(simulation)
 
     # reset motility forces back to zero vectors
-    simulation.cell_motility_force = np.zeros((simulation.number_cells, 3), dtype=float)
+    simulation.motility_forces = np.zeros((simulation.number_cells, 3), dtype=float)
 
 
 @backend.record_time
@@ -609,8 +612,8 @@ def jkr_neighbors(simulation):
         if simulation.parallel:
             # turn the following into arrays that can be interpreted by the gpu
             bin_locations_cuda = cuda.to_device(bin_locations)
-            locations_cuda = cuda.to_device(simulation.cell_locations)
-            radii_cuda = cuda.to_device(simulation.cell_radii)
+            locations_cuda = cuda.to_device(simulation.locations)
+            radii_cuda = cuda.to_device(simulation.radii)
             bins_cuda = cuda.to_device(bins)
             bins_help_cuda = cuda.to_device(bins_help)
             edge_holder_cuda = cuda.to_device(edge_holder)
@@ -635,8 +638,8 @@ def jkr_neighbors(simulation):
         # call the jit cpu version
         else:
             edge_holder, if_edge, edge_count = backend.jkr_neighbors_cpu(simulation.number_cells, bin_locations,
-                                                                         simulation.cell_locations,
-                                                                         simulation.cell_radii, bins, bins_help,
+                                                                         simulation.locations,
+                                                                         simulation.radii, bins, bins_help,
                                                                          edge_holder, if_nonzero,
                                                                          edge_count, jkr_neighbors.max_neighbors)
 
@@ -680,9 +683,9 @@ def get_forces(simulation):
             # turn the following into arrays that can be interpreted by the gpu
             jkr_edges_cuda = cuda.to_device(jkr_edges)
             delete_edges_cuda = cuda.to_device(delete_edges)
-            locations_cuda = cuda.to_device(simulation.cell_locations)
-            radii_cuda = cuda.to_device(simulation.cell_radii)
-            forces_cuda = cuda.to_device(simulation.cell_jkr_force)
+            locations_cuda = cuda.to_device(simulation.locations)
+            radii_cuda = cuda.to_device(simulation.radii)
+            forces_cuda = cuda.to_device(simulation.jkr_forces)
             poisson_cuda = cuda.to_device(poisson)
             youngs_cuda = cuda.to_device(youngs)
             adhesion_const_cuda = cuda.to_device(adhesion_const)
@@ -701,14 +704,14 @@ def get_forces(simulation):
 
         # call the cpu version
         else:
-            forces, delete_edges = backend.get_forces_cpu(jkr_edges, delete_edges, simulation.cell_locations,
-                                                          simulation.cell_radii, simulation.cell_jkr_force, poisson,
+            forces, delete_edges = backend.get_forces_cpu(jkr_edges, delete_edges, simulation.locations,
+                                                          simulation.radii, simulation.jkr_forces, poisson,
                                                           youngs, adhesion_const)
 
         # update the jkr edges to remove any edges that have be broken and update the cell jkr forces
         delete_edges_indices = np.arange(number_edges)[delete_edges]
         simulation.jkr_graph.delete_edges(delete_edges_indices)
-        simulation.cell_jkr_force = forces
+        simulation.jkr_forces = forces
 
 
 @backend.record_time
@@ -722,10 +725,10 @@ def apply_forces(simulation):
     # call the nvidia gpu version
     if simulation.parallel:
         # turn the following into arrays that can be interpreted by the gpu
-        jkr_forces_cuda = cuda.to_device(simulation.cell_jkr_force)
-        motility_forces_cuda = cuda.to_device(simulation.cell_motility_force)
-        locations_cuda = cuda.to_device(simulation.cell_locations)
-        radii_cuda = cuda.to_device(simulation.cell_radii)
+        jkr_forces_cuda = cuda.to_device(simulation.jkr_forces)
+        motility_forces_cuda = cuda.to_device(simulation.motility_forces)
+        locations_cuda = cuda.to_device(simulation.locations)
+        radii_cuda = cuda.to_device(simulation.radii)
         viscosity_cuda = cuda.to_device(viscosity)
         size_cuda = cuda.to_device(simulation.size)
         move_dt_cuda = cuda.to_device(simulation.move_dt)
@@ -743,14 +746,14 @@ def apply_forces(simulation):
 
     # call the cpu version
     else:
-        new_locations = backend.apply_forces_cpu(simulation.number_cells, simulation.cell_jkr_force,
-                                                 simulation.cell_motility_force, simulation.cell_locations,
-                                                 simulation.cell_radii, viscosity, simulation.size,
+        new_locations = backend.apply_forces_cpu(simulation.number_cells, simulation.jkr_forces,
+                                                 simulation.motility_forces, simulation.locations,
+                                                 simulation.radii, viscosity, simulation.size,
                                                  simulation.move_dt)
 
     # update the locations and reset the jkr forces back to zero
-    simulation.cell_locations = new_locations
-    simulation.cell_jkr_force = np.zeros((simulation.number_cells, 3), dtype=float)
+    simulation.locations = new_locations
+    simulation.jkr_forces = np.zeros((simulation.number_cells, 3), dtype=float)
 
 
 @backend.record_time
@@ -764,7 +767,7 @@ def highest_fgf4(simulation):
         fgf4_values = np.ascontiguousarray(simulation.fgf4_values)
 
         # turn the following into arrays that can be interpreted by the gpu
-        locations_cuda = cuda.to_device(simulation.cell_locations)
+        locations_cuda = cuda.to_device(simulation.locations)
         diffuse_bins_cuda = cuda.to_device(simulation.diffuse_bins)
         diffuse_bins_help_cuda = cuda.to_device(simulation.diffuse_bins_help)
         diffuse_locations_cuda = cuda.to_device(simulation.diffuse_locations)
@@ -785,7 +788,7 @@ def highest_fgf4(simulation):
 
     # call the cpu version
     else:
-        cell_highest_fgf4 = backend.highest_fgf4_cpu(simulation.number_cells, simulation.cell_locations,
+        cell_highest_fgf4 = backend.highest_fgf4_cpu(simulation.number_cells, simulation.locations,
                                                      simulation.diffuse_bins, simulation.diffuse_bins_help,
                                                      simulation.diffuse_locations, simulation.diffuse_radius,
                                                      simulation.cell_highest_fgf4, simulation.fgf4_values)
