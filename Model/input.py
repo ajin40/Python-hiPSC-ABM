@@ -35,7 +35,7 @@ def setup():
     output_path = check_path(output_path, separator)
 
     # hold the possible modes for the model, used to check that mode exists
-    possible_modes = [0, 1, 2, 3, 4, 5]
+    possible_modes = [0, 1, 2, 3, 4]
 
     # get any command line options for the model
     inputs, other_args = getopt.getopt(sys.argv[1:], "n:m:")
@@ -186,11 +186,6 @@ def setup():
         shutil.make_archive(path[:-1], 'zip', path)
         print("Done!")
         exit()
-
-    # unzip a simulation directory
-    elif mode == 5:
-        print("Unpacking: " + name)
-        shutil.unpack_archive(path[:-1] + ".zip", output_path)
 
     # return the simulation based on the simulation mode
     return simulation

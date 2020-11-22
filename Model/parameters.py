@@ -5,13 +5,14 @@ from backend import Base
 
 # used to hold all values necessary to the simulation based on the various modes
 class Simulation(Base):
-    def __init__(self, templates_path, name, path, separator, *args, **kwargs):
-        super().__init__(*args, **kwargs)
+    def __init__(self, templates_path, name, path, separator):
+        # inherit all attributes from the Base class
+        super().__init__()
 
-        self.name = name    # name of the simulation, used to name files
-        self.path = path    # path to the main simulation directory
+        self.name = name    # name of the simulation, used to name output files
+        self.path = path    # path to the output directory specific to this simulation
 
-        # these directories fall under the main simulation directory
+        # these directories fall under the simulation directory
         self.images_path = path + name + "_images" + separator    # path to image directory
         self.values_path = path + name + "_values" + separator    # path to step csv directory
         self.gradients_path = path + name + "_gradients" + separator    # path to gradient directory
@@ -25,8 +26,9 @@ class Simulation(Base):
         # create instance variables based on template parameters
         self.parallel = eval(general[4][2:-3])
         self.end_step = int(general[7][2:-3])
-        self.number_cells = int(general[10][2:-3])
-        self.size = np.array(eval(general[13][2:-3]))
+        self.num_nanog = int(general[10][2:-3])
+        self.num_gata6 = int(general[13][2:-3])
+        self.size = np.array(eval(general[16][2:-3]))
 
         # ------------- imaging template file -------------------------
         # open the .txt file and get a list of the lines
@@ -62,10 +64,7 @@ class Simulation(Base):
         self.dox_value = float(experimental[43][2:-3])
         self.field = int(experimental[46][2:-3])
 
-        # the following instance variables are only necessary for a new simulation. these include arrays for storing
-        # the cell values, graphs for cell neighbors, and other values that aren't included in the template files
-
-        # start the simulation at step 1
+        # start the simulation at step 1 can be overwritten if continuation mode
         self.beginning_step = 1
 
         # the spatial resolution of the space
@@ -87,10 +86,11 @@ class Simulation(Base):
         self.cells_to_divide = np.array([], dtype=int)
         self.cells_to_remove = np.array([], dtype=int)
 
-        # much like the cell arrays add any graphs to this list for automatic addition/removal
+        # add any graphs to this list for automatic addition/removal
         self.graph_names = ["neighbor_graph", "jkr_graph"]
 
-        # create graphs used to all cells and their neighbors, initialize them with the number of cells
+        # create graphs used to all cells and their neighbors, initialize them with the number of cells which is an
+        # attribute that comes from the Base class
         self.neighbor_graph = igraph.Graph(self.number_cells)
         self.jkr_graph = igraph.Graph(self.number_cells)
 
@@ -98,7 +98,7 @@ class Simulation(Base):
         self.diffuse = 0.00000000005    # 50 um^2/s
         self.diffuse_radius = self.spat_res * 0.707106781187
 
-        # much like the cell arrays add any gradient names to list this so that a diffusion function can
+        # much like the graphs add any gradient names to list this so that the diffusion function can
         # act on them automatically
         self.extracellular_names = ["fgf4_values", "fgf4_alt"]
 
