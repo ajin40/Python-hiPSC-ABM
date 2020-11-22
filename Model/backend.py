@@ -96,9 +96,9 @@ def get_concentration(simulation, gradient_name, index):
     gradient = simulation.__dict__[gradient_name]
 
     # find the nearest diffusion point indices
-    half_index_x = simulation.cell_locations[index][0] // (simulation.spat_res / 2)
-    half_index_y = simulation.cell_locations[index][1] // (simulation.spat_res / 2)
-    half_index_z = simulation.cell_locations[index][2] // (simulation.spat_res / 2)
+    half_index_x = simulation.locations[index][0] // (simulation.spat_res / 2)
+    half_index_y = simulation.locations[index][1] // (simulation.spat_res / 2)
+    half_index_z = simulation.locations[index][2] // (simulation.spat_res / 2)
     index_x = math.ceil(half_index_x / 2)
     index_y = math.ceil(half_index_y / 2)
     index_z = math.ceil(half_index_z / 2)
@@ -126,7 +126,7 @@ def assign_bins(simulation, distance, max_cells):
         bins = np.empty(bins_size, dtype=int)
 
         # generalize the cell locations to bin indices and offset by 2 to prevent missing cells
-        bin_locations = np.floor_divide(simulation.cell_locations, distance).astype(int)
+        bin_locations = np.floor_divide(simulation.locations, distance).astype(int)
         bin_locations += 2 * np.ones((simulation.number_cells, 3), dtype=int)
 
         # use jit function to speed up assignment
@@ -876,8 +876,8 @@ class Base:
         # otherwise update the slice of the array based on the
         else:
             # get the beginning and end of the slice
-            begin = self.array_types[array_name][0]
-            end = self.array_types[array_name][1]
+            begin = self.array_types[cell_type][0]
+            end = self.array_types[cell_type][1]
 
             # update only this slice of the cell array
             for i in range(begin, end):

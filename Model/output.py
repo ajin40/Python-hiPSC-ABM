@@ -75,43 +75,43 @@ def step_image(simulation):
 
     # go through all of the cells
     for i in range(simulation.number_cells):
-        x = math.ceil(simulation.cell_locations[i][0] * scale)    # the x-coordinate
-        y = math.ceil(simulation.cell_locations[i][1] * scale)    # the y-coordinate
+        x = math.ceil(simulation.locations[i][0] * scale)    # the x-coordinate
+        y = math.ceil(simulation.locations[i][1] * scale)    # the y-coordinate
         point = (x, y)    # the x,y point
-        major = math.ceil(simulation.cell_radii[i] * scale)    # the major axis length
-        minor = math.ceil(simulation.cell_radii[i] * scale)    # the minor axis length
+        major = math.ceil(simulation.radii[i] * scale)    # the major axis length
+        minor = math.ceil(simulation.radii[i] * scale)    # the minor axis length
         rotation = 0    # the rotation of the ellipse
 
         # color the cells according to the mode
         if simulation.color_mode:
             # if the cell is differentiated, color red
-            if simulation.cell_states[i] == "Differentiated":
+            if simulation.states[i] == "Differentiated":
                 color = (0, 0, 230)
 
             # if the cell is gata6 high and nanog low, color white
-            elif simulation.cell_fds[i][2] > simulation.cell_fds[i][3]:
+            elif simulation.GATA6[i] > simulation.NANOG[i]:
                 color = (255, 255, 255)
 
             # if anything else, color green
             else:
                 color = (32, 252, 22)
 
-        # False yields coloring based on the finite dynamical system
+        # False yields coloring based on the finite dynamical system, boolean coloring scheme
         else:
             # if the cell is differentiated, color red
-            if simulation.cell_states[i] == "Differentiated":
+            if simulation.states[i] == "Differentiated":
                 color = (0, 0, 230)
 
             # if the cell is both gata6 high and nanog high, color yellow
-            elif simulation.cell_fds[i][2] * simulation.cell_fds[i][3] % 2:
+            elif simulation.GATA6[i] * simulation.NANOG[i] % 2:
                 color = (30, 255, 255)
 
             # if the cell is both gata6 low and nanog low, color blue
-            elif (simulation.cell_fds[i][2] + 1) * (simulation.cell_fds[i][3] + 1) % 2:
+            elif (simulation.GATA6[i] + 1) * (simulation.NANOG[i] + 1) % 2:
                 color = (255, 50, 50)
 
             # if the cell is gata6 high and nanog low, color white
-            elif simulation.cell_fds[i][2] * (simulation.cell_fds[i][3] + 1) % 2:
+            elif simulation.GATA6[i] * (simulation.NANOG[i] + 1) % 2:
                 color = (255, 255, 255)
 
             # if anything else, color green
@@ -198,12 +198,12 @@ def step_csv(simulation):
                            'fds_counter'])
 
         # combine the multiple cell arrays into a single 2D list
-        cell_data = list(zip(simulation.cell_locations[:, 0], simulation.cell_locations[:, 1],
-                             simulation.cell_locations[:, 2], simulation.cell_radii, simulation.cell_motion,
-                             simulation.cell_fds[:, 0], simulation.cell_fds[:, 1], simulation.cell_fds[:, 2],
-                             simulation.cell_fds[:, 3], simulation.cell_states, simulation.cell_diff_counter,
-                             simulation.cell_div_counter, simulation.cell_death_counter,
-                             simulation.cell_fds_counter))
+        cell_data = list(zip(simulation.locations[:, 0], simulation.locations[:, 1],
+                             simulation.locations[:, 2], simulation.radii, simulation.motion,
+                             simulation.FGFR, simulation.ERK, simulation.NANOG,
+                             simulation.GATA6, simulation.states, simulation.diff_counters,
+                             simulation.div_counters, simulation.death_counters,
+                             simulation.fds_counters))
 
         # write the 2D list to the csv
         csv_file.writerows(cell_data)
@@ -241,11 +241,11 @@ def step_tda(simulation):
 
         # go through all cells giving the corresponding color
         for i in range(simulation.number_cells):
-            if simulation.cell_states[i] == "Differentiated":
+            if simulation.states[i] == "Differentiated":
                 color = "red"
-            elif simulation.cell_fds[i][2] and not simulation.cell_fds[i][3]:
+            elif simulation.GATA6[i] and not simulation.NANOG[i]:
                 color = "white"
-            elif not simulation.cell_fds[i][2] and simulation.cell_fds[i][3]:
+            elif not simulation.GATA6[i] and simulation.NANOG[i]:
                 color = "green"
             else:
                 color = "other"
@@ -254,7 +254,7 @@ def step_tda(simulation):
             cell_color[i] = color
 
         # combine the multiple cell arrays into a single 2D list
-        cell_data = list(zip(simulation.cell_locations[:][0], simulation.cell_locations[:][1], cell_color))
+        cell_data = list(zip(simulation.locations[:, 0], simulation.locations[:, 1], cell_color))
 
         # write the 2D list to the csv
         csv_file.writerows(cell_data)
