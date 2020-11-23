@@ -61,6 +61,9 @@ class Simulation:
         self.dox_value = float(experimental[43][2:-3])
         self.field = int(experimental[46][2:-3])
 
+        # start with initially zero cells and add to this number via the instance methods
+        self.number_cells = 0
+
         # start the simulation at step 1 can be overwritten if continuation mode
         self.beginning_step = 1
 

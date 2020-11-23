@@ -543,7 +543,6 @@ def check_neighbors(simulation):
     # reduce the edges to only edges that actually exist
     edge_holder = edge_holder[if_edge]
 
-    print(edge_holder)
     # add the edges to the neighbor graph
     simulation.neighbor_graph.add_edges(edge_holder)
 

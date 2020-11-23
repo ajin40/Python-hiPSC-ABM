@@ -216,7 +216,7 @@ def step_gradients(simulation):
         simulations.
     """
     # go through all gradient arrays, skipping the temporary array
-    for gradient in simulation.extracellular_names:
+    for gradient in simulation.gradient_names:
         # get the name for the file
         gradient_name = "_" + gradient + "_" + str(simulation.current_step)
 
