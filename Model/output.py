@@ -12,16 +12,26 @@ import backend
 
 
 def initialize_outputs(simulation):
-    """ Sets up the simulation data csv and makes directories
-        for images, values, and the gradients
+    """ Sets up the directories and paths for the
+        following outputs
     """
-    # make directories for the following given initial parameters and if directories already exist
+    # path to images directory
+    simulation.images_path = simulation.path + simulation.name + "_images" + simulation.separator
     if not os.path.isdir(simulation.images_path) and simulation.output_images:
         os.mkdir(simulation.images_path)
+
+    # path to cell values directory
+    simulation.values_path = simulation.path + simulation.name + "_values" + simulation.separator
     if not os.path.isdir(simulation.values_path):
         os.mkdir(simulation.values_path)
+
+    # path to gradients directory
+    simulation.gradients_path = simulation.path + simulation.name + "_gradients" + simulation.separator
     if not os.path.isdir(simulation.gradients_path):
         os.mkdir(simulation.gradients_path)
+
+    # path to TDA directory
+    simulation.tda_path = simulation.path + simulation.name + "_tda" + simulation.separator
     if not os.path.isdir(simulation.tda_path) and simulation.output_tda:
         os.mkdir(simulation.tda_path)
 
@@ -32,7 +42,6 @@ def step_outputs(simulation):
     """
     # information about the cells/environment at current step
     step_image(simulation)
-    # alt_step_image(simulation)
     step_csv(simulation)
     step_gradients(simulation)
     step_tda(simulation)
@@ -40,7 +49,7 @@ def step_outputs(simulation):
     # a temporary pickled file of the simulation, used for continuing past simulations
     temporary(simulation)
 
-    # number of cells, memory, step time, and individual function times
+    # number of cells, memory, step time, and individual methods times
     simulation_data(simulation)
 
 
@@ -131,48 +140,6 @@ def step_image(simulation):
         image = np.concatenate((image, grad_image), axis=1)
 
     # flip the image so that origin goes from top, left to bottom, left
-    image = cv2.flip(image, 0)
-
-    # save the image as a png
-    image_path = simulation.images_path + simulation.name + "_image_" + str(int(simulation.current_step)) + ".png"
-    cv2.imwrite(image_path, image)
-
-
-def alt_step_image(simulation):
-    # get the size of the array used for imaging in addition to the scale factor
-    pixels = simulation.image_quality
-    scale = pixels / simulation.size[0]
-    x_size = pixels
-    y_size = math.ceil(scale * simulation.size[1])
-
-    # normalize the concentration values and multiple by 255 to create grayscale image
-    grad_image = simulation.fgf4_values[:, :, 0] * (255 / simulation.max_concentration)
-    grad_image = grad_image.astype(np.uint8)
-
-    # recolor the grayscale image into a colormap and resize to match the cell space array
-    grad_image = cv2.applyColorMap(grad_image, cv2.COLORMAP_OCEAN)
-    grad_image = cv2.resize(grad_image, (y_size, x_size), interpolation=cv2.INTER_NEAREST)
-
-    # flip and rotate to turn go from (y, x) to (x, y)
-    grad_image = cv2.rotate(grad_image, cv2.ROTATE_90_COUNTERCLOCKWISE)
-    grad_image = cv2.flip(grad_image, 0)
-
-    # normalize the concentration values and multiple by 255 to create grayscale image
-    grad_alt_image = simulation.fgf4_alt[:, :, 0] * (255 / simulation.max_concentration)
-    grad_alt_image = grad_alt_image.astype(np.uint8)
-
-    # recolor the grayscale image into a colormap and resize to match the cell space array
-    grad_alt_image = cv2.applyColorMap(grad_alt_image, cv2.COLORMAP_OCEAN)
-    grad_alt_image = cv2.resize(grad_alt_image, (y_size, x_size), interpolation=cv2.INTER_NEAREST)
-
-    # flip and rotate to turn go from (y, x) to (x, y)
-    grad_alt_image = cv2.rotate(grad_alt_image, cv2.ROTATE_90_COUNTERCLOCKWISE)
-    grad_alt_image = cv2.flip(grad_alt_image, 0)
-
-    # combine the to images side by side if including gradient
-    image = np.concatenate((grad_image, grad_alt_image), axis=1)
-
-    # flip the image horizontally so origin is bottom left
     image = cv2.flip(image, 0)
 
     # save the image as a png

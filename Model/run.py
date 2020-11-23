@@ -5,6 +5,11 @@ import output
 import backend
 import functions
 
+# This file is used to provide control over how each simulation is run. You can create arrays used to hold values of
+# cells and define initial parameters for these cells based on particular described cell types. After doing so,
+# methods that act on these arrays, among other things, can be called at each step under the for-loop. Most of these
+# methods fall under the functions.py file, and additional methods can always be included in that file.
+
 # setup() will direct how the model is to be run based on the selected mode. If a new simulation is desired, setup()
 # will return an instance of the Simulation which holds all important information of the simulation as it runs.
 simulation = input.setup()

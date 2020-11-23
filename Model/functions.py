@@ -1,5 +1,4 @@
 import numpy as np
-import time
 from numba import cuda
 import math
 import random as r

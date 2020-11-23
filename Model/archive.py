@@ -2,6 +2,7 @@ import numpy as np
 import copy
 from numba import jit, cuda, prange
 import math
+import cv2
 
 import backend
 
@@ -522,3 +523,45 @@ def alt_highest_fgf4(simulation):
 # np.savetxt("distance_dependent_fgf4_step_48.csv", simulation.fgf4_alt[:, :, 0], delimiter=",")
 #
 # print(simulation.fgf4_alt[:, :, 0])
+
+
+def alt_step_image(simulation):
+    # get the size of the array used for imaging in addition to the scale factor
+    pixels = simulation.image_quality
+    scale = pixels / simulation.size[0]
+    x_size = pixels
+    y_size = math.ceil(scale * simulation.size[1])
+
+    # normalize the concentration values and multiple by 255 to create grayscale image
+    grad_image = simulation.fgf4_values[:, :, 0] * (255 / simulation.max_concentration)
+    grad_image = grad_image.astype(np.uint8)
+
+    # recolor the grayscale image into a colormap and resize to match the cell space array
+    grad_image = cv2.applyColorMap(grad_image, cv2.COLORMAP_OCEAN)
+    grad_image = cv2.resize(grad_image, (y_size, x_size), interpolation=cv2.INTER_NEAREST)
+
+    # flip and rotate to turn go from (y, x) to (x, y)
+    grad_image = cv2.rotate(grad_image, cv2.ROTATE_90_COUNTERCLOCKWISE)
+    grad_image = cv2.flip(grad_image, 0)
+
+    # normalize the concentration values and multiple by 255 to create grayscale image
+    grad_alt_image = simulation.fgf4_alt[:, :, 0] * (255 / simulation.max_concentration)
+    grad_alt_image = grad_alt_image.astype(np.uint8)
+
+    # recolor the grayscale image into a colormap and resize to match the cell space array
+    grad_alt_image = cv2.applyColorMap(grad_alt_image, cv2.COLORMAP_OCEAN)
+    grad_alt_image = cv2.resize(grad_alt_image, (y_size, x_size), interpolation=cv2.INTER_NEAREST)
+
+    # flip and rotate to turn go from (y, x) to (x, y)
+    grad_alt_image = cv2.rotate(grad_alt_image, cv2.ROTATE_90_COUNTERCLOCKWISE)
+    grad_alt_image = cv2.flip(grad_alt_image, 0)
+
+    # combine the to images side by side if including gradient
+    image = np.concatenate((grad_image, grad_alt_image), axis=1)
+
+    # flip the image horizontally so origin is bottom left
+    image = cv2.flip(image, 0)
+
+    # save the image as a png
+    image_path = simulation.images_path + simulation.name + "_image_" + str(int(simulation.current_step)) + ".png"
+    cv2.imwrite(image_path, image)

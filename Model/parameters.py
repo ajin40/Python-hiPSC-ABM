@@ -8,12 +8,7 @@ class Simulation:
 
         self.name = name    # name of the simulation, used to name output files
         self.path = path    # path to the output directory specific to this simulation
-
-        # these directories fall under the simulation directory
-        self.images_path = path + name + "_images" + separator    # path to image directory
-        self.values_path = path + name + "_values" + separator    # path to step csv directory
-        self.gradients_path = path + name + "_gradients" + separator    # path to gradient directory
-        self.tda_path = path + name + "_tda" + separator    # path to TDA directory
+        self.separator = separator     # file/directory separator
 
         # ------------- general template file -------------------------
         # open the .txt file and get a list of the lines
