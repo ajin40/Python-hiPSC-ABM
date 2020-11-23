@@ -856,7 +856,7 @@ def update_diffusion(simulation):
     diffuse_steps = int(simulation.step_dt / simulation.diffuse_dt)
 
     # go through all gradients and update the diffusion of each
-    for gradient_name in simulation.extracellular_names:
+    for gradient_name in simulation.gradient_names:
         # get the gradient array
         gradient = simulation.__dict__[gradient_name]
 

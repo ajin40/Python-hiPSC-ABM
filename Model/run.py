@@ -17,9 +17,9 @@ simulation.cell_type("GATA6_high", simulation.num_gata6)
 # generated. The first index of the tuple is the instance variable name for the Simulation class, the second being the
 # data type, and the last (if present) can be used to create a 2D array
 simulation.cell_arrays(("locations", float, 3), ("radii", float), ("motion", bool), ("FGFR", int), ("ERK", int),
-                       ("GATA6", int), ("NANOG", int), ("states", "<U14"), ("diff_counters", int), ("div_counters", int),
-                       ("death_counters", int), ("fds_counters", int), ("motility_forces", float, 3),
-                       ("jkr_forces", float, 3), ("rotations", float))
+                       ("GATA6", int), ("NANOG", int), ("states", "<U14"), ("diff_counters", int),
+                       ("div_counters", int), ("death_counters", int), ("fds_counters", int),
+                       ("motility_forces", float, 3), ("jkr_forces", float, 3), ("rotations", float))
 
 # Define the initial parameters for the cells using lambda expressions. The following lines have no "cell_type"
 # argument, which is used to designate that these are initial parameters for all cells; however, these can be overridden
@@ -44,6 +44,14 @@ simulation.initials("rotations", lambda: r.random() * 360)
 # These are the initial parameters for the "GATA6_high" cells, the cell_type argument is used to flag this
 simulation.initials("GATA6", lambda: r.randrange(0, simulation.field), cell_type="GATA6_high")
 simulation.initials("NANOG", lambda: 0, cell_type="GATA6_high")
+
+# Define any graphs used in the simulation as follows.
+simulation.create_graph("neighbor_graph")
+simulation.create_graph("jkr_graph")
+
+# Define any gradients used in the simulation as follows.
+simulation.create_gradient("fgf4_values")
+simulation.create_gradient("fgf4_alt")
 
 # Places all of the diffusion points into bins so that the model can use a bin sorting method when determining
 # cell motility based on diffusion point locations. (not in use)

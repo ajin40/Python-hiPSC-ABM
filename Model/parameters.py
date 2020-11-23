@@ -1,13 +1,10 @@
 import numpy as np
 import igraph
-from backend import Base
 
 
 # used to hold all values necessary to the simulation based on the various modes
-class Simulation(Base):
+class Simulation:
     def __init__(self, templates_path, name, path, separator):
-        # inherit all attributes from the Base class
-        super().__init__()
 
         self.name = name    # name of the simulation, used to name output files
         self.path = path    # path to the output directory specific to this simulation
@@ -86,23 +83,89 @@ class Simulation(Base):
         self.cells_to_divide = np.array([], dtype=int)
         self.cells_to_remove = np.array([], dtype=int)
 
-        # add any graphs to this list for automatic addition/removal
-        self.graph_names = ["neighbor_graph", "jkr_graph"]
-
-        # create graphs used to all cells and their neighbors, initialize them with the number of cells which is an
-        # attribute that comes from the Base class
-        self.neighbor_graph = igraph.Graph()
-        self.jkr_graph = igraph.Graph()
-
         # the diffusion constant for the molecule gradients and the radius of search for diffusion points
         self.diffuse = 0.00000000005    # 50 um^2/s
         self.diffuse_radius = self.spat_res * 0.707106781187
 
-        # much like the graphs add any gradient names to list this so that the diffusion function can
-        # act on them automatically
-        self.extracellular_names = ["fgf4_values", "fgf4_alt"]
-
         # calculate the size of the array holding the diffusion points and create gradient objects
         self.gradient_size = np.ceil(self.size / self.spat_res).astype(int) + np.ones(3, dtype=int)
-        self.fgf4_values = np.zeros(self.gradient_size)
-        self.fgf4_alt = np.zeros(self.gradient_size)
+
+        ########################################################################################################
+        ########################################################################################################
+        # the following instance variables and methods are used for user-friendliness in setting up a simulation
+
+        # hold the names of the cell arrays, the cell types, and important method runtimes
+        self.cell_array_names = list()
+        self.graph_names = list()
+        self.gradient_names = list()
+        self.array_types = dict()
+        self.function_times = dict()
+
+    def cell_type(self, name, number):
+        """ creates a new cell type for setting initial parameters
+            and defines a slice in the cell arrays that corresponds
+            to this cell type
+        """
+        # determine the bounds of the slice and update the number of cells
+        begin = self.number_cells
+        end = self.number_cells = begin + number
+
+        # add slice to general dictionary for
+        self.array_types[name] = (begin, end)
+
+    def cell_arrays(self, *args):
+        """ creates Simulation instance variables for the cell arrays
+            used to represent cell values
+        """
+        # go through all array parameters provided
+        for array_params in args:
+            # add the array name to a list for automatic addition/removal when cells divide and die
+            self.cell_array_names.append(array_params[0])
+
+            # get the tuple length for the particular array parameters
+            length = len(array_params)
+
+            # get the initial size of 1D array if the length is 2, but make a 2D array if a third index is provided
+            if length == 2:
+                size = self.number_cells
+
+            elif length == 3:
+                size = (self.number_cells, array_params[2])
+
+            else:
+                raise Exception("Tuples for defining cell array parameters should have length 2 or 3.")
+
+            # create an instance variable of the Simulation class for the cell array with these parameters
+            self.__dict__[array_params[0]] = np.empty(size, dtype=array_params[1])
+
+    def initials(self, array_name, func, cell_type=None):
+        """ given a lambda function for the initial values
+            of a cell array this updates that accordingly
+        """
+        # if no cell type name provided
+        if cell_type is None:
+            # go through all cells and give this initial parameter
+            for i in range(self.number_cells):
+                self.__dict__[array_name][i] = func()
+
+        # otherwise update the slice of the array based on the
+        else:
+            # get the beginning and end of the slice
+            begin = self.array_types[cell_type][0]
+            end = self.array_types[cell_type][1]
+
+            # update only this slice of the cell array
+            for i in range(begin, end):
+                self.__dict__[array_name][i] = func()
+
+    def create_graph(self, graph_name):
+        """ Creates graph based on the provided name
+        """
+        self.graph_names.append(graph_name)
+        self.__dict__[graph_name] = igraph.Graph(self.number_cells)
+
+    def create_gradient(self, gradient_name):
+        """ Creates gradient based on the provided name
+        """
+        self.gradient_names.append(gradient_name)
+        self.__dict__[gradient_name] = np.zeros(self.gradient_size)
