@@ -29,7 +29,7 @@ def cell_death(simulation):
         if simulation.states[index] == "Pluripotent":
             # gets the number of neighbors for a cell, increasing the death counter if not enough neighbors
             if len(simulation.neighbor_graph.neighbors(index)) < simulation.lonely_cell:
-                simulation.cell_death_counter[index] += 1
+                simulation.death_counters[index] += 1
 
             # if not, reset the death counter back to zero
             else:
@@ -73,7 +73,7 @@ def cell_growth(simulation):
     for index in range(simulation.number_cells):
         # increase the cell radius based on the state and whether or not it has reached the max size
         if simulation.radii[index] < simulation.max_radius:
-            division_count = simulation.div_counters
+            division_count = simulation.div_counters[index]
 
             # pluripotent growth
             if simulation.states[index] == "Pluripotent":
@@ -98,7 +98,7 @@ def cell_division(simulation):
 
             # if under, stochastically increase the division counter by either 0 or 1
             else:
-                simulation.cell_div_counter[index] += r.randint(0, 1)
+                simulation.div_counters[index] += r.randint(0, 1)
 
         # differentiated cell
         else:
@@ -224,7 +224,7 @@ def cell_motility(simulation):
         neighbors = simulation.neighbor_graph.neighbors(i)
 
         # if the cell state is differentiated and moving
-        if simulation.cell_states[i] == "Differentiated":
+        if simulation.states[i] == "Differentiated":
             # if not surrounded 6 or more cells, move away from surrounding nanog high cells
             if len(neighbors) < 6:
                 # set motion to True
@@ -394,7 +394,7 @@ def update_queue(simulation):
 
         # reduce both radii to minimum size and set the division counters to zero
         simulation.radii[mother_index] = simulation.radii[daughter_index] = simulation.min_radius
-        simulation.cell_div_counter[mother_index] = simulation.cell_div_counter[daughter_index] = 0
+        simulation.div_counters[mother_index] = simulation.div_counters[daughter_index] = 0
 
     # get the number of cells to be added
     remaining = len(simulation.cells_to_divide)

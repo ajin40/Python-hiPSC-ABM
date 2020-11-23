@@ -91,8 +91,8 @@ class Simulation(Base):
 
         # create graphs used to all cells and their neighbors, initialize them with the number of cells which is an
         # attribute that comes from the Base class
-        self.neighbor_graph = igraph.Graph(self.number_cells)
-        self.jkr_graph = igraph.Graph(self.number_cells)
+        self.neighbor_graph = igraph.Graph()
+        self.jkr_graph = igraph.Graph()
 
         # the diffusion constant for the molecule gradients and the radius of search for diffusion points
         self.diffuse = 0.00000000005    # 50 um^2/s

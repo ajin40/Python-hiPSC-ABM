@@ -21,7 +21,6 @@ simulation.cell_arrays(("locations", float, 3), ("radii", float), ("motion", boo
                        ("death_counters", int), ("fds_counters", int), ("motility_forces", float, 3),
                        ("jkr_forces", float, 3), ("rotations", float))
 
-
 # Define the initial parameters for the cells using lambda expressions. The following lines have no "cell_type"
 # argument, which is used to designate that these are initial parameters for all cells; however, these can be overridden
 # when defining specific cell types. This is really meant to reduce overall writing for cell types that only differ

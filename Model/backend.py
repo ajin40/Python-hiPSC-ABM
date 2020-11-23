@@ -16,9 +16,9 @@ def update_concentrations(simulation, gradient_name, index, amount, mode):
 
     if mode == "nearest":
         # find the nearest diffusion point indices
-        half_index_x = simulation.cell_locations[index][0] // (simulation.spat_res / 2)
-        half_index_y = simulation.cell_locations[index][1] // (simulation.spat_res / 2)
-        half_index_z = simulation.cell_locations[index][2] // (simulation.spat_res / 2)
+        half_index_x = simulation.locations[index][0] // (simulation.spat_res / 2)
+        half_index_y = simulation.locations[index][1] // (simulation.spat_res / 2)
+        half_index_z = simulation.locations[index][2] // (simulation.spat_res / 2)
         index_x = math.ceil(half_index_x / 2)
         index_y = math.ceil(half_index_y / 2)
         index_z = math.ceil(half_index_z / 2)
@@ -27,7 +27,7 @@ def update_concentrations(simulation, gradient_name, index, amount, mode):
         gradient[index_x][index_y][index_z] += amount
 
     elif mode == "distance":
-        gradient = update_concentrations_cpu(gradient, simulation.cell_locations[index], amount,
+        gradient = update_concentrations_cpu(gradient, simulation.locations[index], amount,
                                              simulation.diffuse_radius, simulation.diffuse_bins_help,
                                              simulation.diffuse_bins, simulation.diffuse_locations)
 
@@ -837,6 +837,9 @@ class Base:
 
         # add slice to general dictionary for
         self.array_types[name] = (begin, end)
+
+        for graph_name in self.graph_names:
+            self.__dict__[graph_name].add_vertices(number)
 
     def cell_arrays(self, *args):
         """ creates Simulation instance variables for the cell arrays
