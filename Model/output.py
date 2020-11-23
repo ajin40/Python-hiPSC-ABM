@@ -32,7 +32,7 @@ def step_outputs(simulation):
     """
     # information about the cells/environment at current step
     step_image(simulation)
-    alt_step_image(simulation)
+    # alt_step_image(simulation)
     step_csv(simulation)
     step_gradients(simulation)
     step_tda(simulation)
@@ -69,7 +69,7 @@ def step_image(simulation):
         grad_image = cv2.applyColorMap(grad_image, cv2.COLORMAP_OCEAN)
         grad_image = cv2.resize(grad_image, (y_size, x_size), interpolation=cv2.INTER_NEAREST)
 
-        # flip and rotate to turn go from (y, x) to (x, y)
+        # flip and rotate to turn go from (y, x) to (x, y) so that origin is top, left to match cell image
         grad_image = cv2.rotate(grad_image, cv2.ROTATE_90_COUNTERCLOCKWISE)
         grad_image = cv2.flip(grad_image, 0)
 
@@ -130,7 +130,7 @@ def step_image(simulation):
     if simulation.output_gradient:
         image = np.concatenate((image, grad_image), axis=1)
 
-    # flip the image horizontally so origin is bottom left
+    # flip the image so that origin goes from top, left to bottom, left
     image = cv2.flip(image, 0)
 
     # save the image as a png

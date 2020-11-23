@@ -2,6 +2,7 @@ import numpy as np
 import random as r
 import input
 import output
+import backend
 import functions
 
 # setup() will direct how the model is to be run based on the selected mode. If a new simulation is desired, setup()
@@ -52,7 +53,7 @@ simulation.initials("NANOG", lambda: 0, cell_type="GATA6_high")
 # Add any functions under the loop that will be called during each step of the simulation.
 for simulation.current_step in range(simulation.beginning_step, simulation.end_step + 1):
     # Prints the current step, number of cells, and records model run time.
-    functions.info(simulation)
+    backend.info(simulation)
 
     # Find the neighbors of each cell that are within a fixed radius and stores this info in a graph.
     functions.check_neighbors(simulation)

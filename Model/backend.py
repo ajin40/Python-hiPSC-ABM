@@ -7,6 +7,18 @@ import time
 import sys
 
 
+def info(simulation):
+    """ records the beginning of the step in real time and
+        prints the current step/number of cells
+    """
+    # records when the step begins, used for measuring efficiency
+    simulation.step_start = time.perf_counter()
+
+    # prints the current step number and the number of cells
+    print("Step: " + str(simulation.current_step))
+    print("Number of cells: " + str(simulation.number_cells))
+
+
 def update_concentrations(simulation, gradient_name, index, amount, mode):
     """ adjust the concentration of the gradient based
         on the amount and location of cell
@@ -587,7 +599,7 @@ def setup_diffuse_bins_cpu(diffuse_locations, diffuse_radius, diffuse_bins, diff
     return diffuse_bins, diffuse_bins_help
 
 
-# @jit(nopython=True)
+@jit(nopython=True)
 def update_diffusion_cpu(base, diffuse_steps, diffuse_dt, spat_res2, diffuse, size):
     """ this is the just-in-time compiled version of
         update_diffusion that runs solely on the cpu
