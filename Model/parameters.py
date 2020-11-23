@@ -86,12 +86,25 @@ class Simulation:
         self.cells_to_divide = np.array([], dtype=int)
         self.cells_to_remove = np.array([], dtype=int)
 
+        # the neighbor graph holds all nearby cells within a fixed radius, where the JKR graph is used for
+        # storing adhesive bonds between cells
+        self.neighbor_graph = igraph.Graph()
+        self.jkr_graph = igraph.Graph()
+
+        # add the names of the graphs below for automatic cell addition and removal
+        self.graph_names = ["neighbor_graph", "jkr_graph"]
+
         # the diffusion constant for the molecule gradients and the radius of search for diffusion points
         self.diffuse = 0.00000000005    # 50 um^2/s
         self.diffuse_radius = self.spat_res * 0.707106781187
 
-        # calculate the size of the array holding the diffusion points and create gradient objects
+        # calculate the size of the array for the diffusion points and create gradient arrays
         self.gradient_size = np.ceil(self.size / self.spat_res).astype(int) + np.ones(3, dtype=int)
+        self.fgf4_values = np.zeros(self.gradient_size)
+        self.fgf4_alt = np.zeros(self.gradient_size)
+
+        # add the names of the gradients below for automatic diffusion updating
+        self.gradient_names = ["fgf4_values", "fgf4_alt"]
 
         ########################################################################################################
         ########################################################################################################
@@ -99,8 +112,6 @@ class Simulation:
 
         # hold the names of the cell arrays, the cell types, and important method runtimes
         self.cell_array_names = list()
-        self.graph_names = list()
-        self.gradient_names = list()
         self.array_types = dict()
         self.function_times = dict()
 
@@ -112,6 +123,10 @@ class Simulation:
         # determine the bounds of the slice and update the number of cells
         begin = self.number_cells
         end = self.number_cells = begin + number
+
+        # add the cells to the graphs
+        for graph in self.graph_names:
+            self.__dict__[graph].add_vertices(number)
 
         # add slice to general dictionary for
         self.array_types[name] = (begin, end)
@@ -160,15 +175,3 @@ class Simulation:
             # update only this slice of the cell array
             for i in range(begin, end):
                 self.__dict__[array_name][i] = func()
-
-    def create_graph(self, graph_name):
-        """ Creates graph based on the provided name
-        """
-        self.graph_names.append(graph_name)
-        self.__dict__[graph_name] = igraph.Graph(self.number_cells)
-
-    def create_gradient(self, gradient_name):
-        """ Creates gradient based on the provided name
-        """
-        self.gradient_names.append(gradient_name)
-        self.__dict__[gradient_name] = np.zeros(self.gradient_size)

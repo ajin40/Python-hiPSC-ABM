@@ -45,14 +45,6 @@ simulation.initials("rotations", lambda: r.random() * 360)
 simulation.initials("GATA6", lambda: r.randrange(0, simulation.field), cell_type="GATA6_high")
 simulation.initials("NANOG", lambda: 0, cell_type="GATA6_high")
 
-# Define any graphs used in the simulation as follows.
-simulation.create_graph("neighbor_graph")
-simulation.create_graph("jkr_graph")
-
-# Define any gradients used in the simulation as follows.
-simulation.create_gradient("fgf4_values")
-simulation.create_gradient("fgf4_alt")
-
 # Places all of the diffusion points into bins so that the model can use a bin sorting method when determining
 # cell motility based on diffusion point locations. (not in use)
 # functions.setup_diffusion_bins(simulation)
