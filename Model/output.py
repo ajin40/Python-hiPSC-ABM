@@ -12,8 +12,8 @@ import backend
 
 
 def initialize_outputs(simulation):
-    """ Sets up the directories and paths for the
-        following outputs
+    """ Sets up the directories and paths for all outputs
+        of the model as it runs
     """
     # path to images directory
     simulation.images_path = simulation.path + simulation.name + "_images" + simulation.separator
@@ -42,7 +42,7 @@ def step_outputs(simulation):
     """
     # information about the cells/environment at current step
     step_image(simulation)
-    step_csv(simulation)
+    step_values(simulation)
     step_gradients(simulation)
     step_tda(simulation)
 
@@ -71,7 +71,7 @@ def step_image(simulation):
     # create the gradient image
     if simulation.output_gradient:
         # normalize the concentration values and multiple by 255 to create grayscale image
-        grad_image = simulation.fgf4_values[:][:][0] * (255 / simulation.max_concentration)
+        grad_image = simulation.fgf4_values[:, :, 0] * (255 / simulation.max_concentration)
         grad_image = grad_image.astype(np.uint8)
 
         # recolor the grayscale image into a colormap and resize to match the cell space array
@@ -83,51 +83,51 @@ def step_image(simulation):
         grad_image = cv2.flip(grad_image, 0)
 
     # go through all of the cells
-    for i in range(simulation.number_cells):
-        x = math.ceil(simulation.locations[i][0] * scale)    # the x-coordinate
-        y = math.ceil(simulation.locations[i][1] * scale)    # the y-coordinate
-        point = (x, y)    # the x,y point
-        major = math.ceil(simulation.radii[i] * scale)    # the major axis length
-        minor = math.ceil(simulation.radii[i] * scale)    # the minor axis length
-        rotation = 0    # the rotation of the ellipse
+    for index in range(simulation.number_cells):
+        x = math.ceil(simulation.locations[index][0] * scale)    # the x-coordinate
+        y = math.ceil(simulation.locations[index][1] * scale)    # the y-coordinate
+        point = (x, y)                                           # the x,y point
+        major = math.ceil(simulation.radii[index] * scale)       # the major axis length
+        minor = math.ceil(simulation.radii[index] * scale)       # the minor axis length
+        rotation = 0                                             # the rotation of the ellipse (zero for now)
 
         # color the cells according to the mode
         if simulation.color_mode:
             # if the cell is differentiated, color red
-            if simulation.states[i] == "Differentiated":
+            if simulation.states[index] == "Differentiated":
                 color = (0, 0, 230)
 
             # if the cell is gata6 high and nanog low, color white
-            elif simulation.GATA6[i] > simulation.NANOG[i]:
+            elif simulation.GATA6[index] > simulation.NANOG[index]:
                 color = (255, 255, 255)
 
             # if anything else, color green
             else:
                 color = (32, 252, 22)
 
-        # False yields coloring based on the finite dynamical system, boolean coloring scheme
+        # False yields coloring based on the finite dynamical system
         else:
             # if the cell is differentiated, color red
-            if simulation.states[i] == "Differentiated":
+            if simulation.states[index] == "Differentiated":
                 color = (0, 0, 230)
 
+            # if the cell is gata6 high and nanog low, color white
+            elif simulation.GATA6[index] > simulation.NANOG[index]:
+                color = (255, 255, 255)
+
             # if the cell is both gata6 high and nanog high, color yellow
-            elif simulation.GATA6[i] * simulation.NANOG[i] % 2:
+            elif simulation.GATA6[index] == simulation.NANOG[index] == simulation.field - 1:
                 color = (30, 255, 255)
 
             # if the cell is both gata6 low and nanog low, color blue
-            elif (simulation.GATA6[i] + 1) * (simulation.NANOG[i] + 1) % 2:
+            elif simulation.GATA6[index] == simulation.NANOG[index]:
                 color = (255, 50, 50)
-
-            # if the cell is gata6 high and nanog low, color white
-            elif simulation.GATA6[i] * (simulation.NANOG[i] + 1) % 2:
-                color = (255, 255, 255)
 
             # if anything else, color green
             else:
                 color = (32, 252, 22)
 
-        # draw the cell and a outline
+        # draw the cell and a black outline for overlapping cells
         image = cv2.ellipse(image, point, (major, minor), rotation, 0, 360, color, -1)
         image = cv2.ellipse(image, point, (major, minor), rotation, 0, 360, (0, 0, 0), 1)
 
@@ -142,133 +142,133 @@ def step_image(simulation):
     # flip the image so that origin goes from top, left to bottom, left
     image = cv2.flip(image, 0)
 
-    # save the image as a png
+    # save the image as a PNG
     image_path = simulation.images_path + simulation.name + "_image_" + str(int(simulation.current_step)) + ".png"
     cv2.imwrite(image_path, image)
 
 
 @backend.record_time
-def step_csv(simulation):
-    """ Outputs a .csv file containing information about
+def step_values(simulation):
+    """ Outputs a CSV file containing information about
         all cells with each row corresponding to a cell
     """
     # get file path
     file_path = simulation.values_path + simulation.name + "_values_" + str(int(simulation.current_step)) + ".csv"
 
-    # open the file and create csv object
+    # open the file
     with open(file_path, "w", newline="") as new_file:
+        # create CSV object
         csv_file = csv.writer(new_file)
 
-        # create a header as the first row of the csv
+        # create a header as the first row of the CSV
         csv_file.writerow(['x_location', 'y_location', 'z_location', 'radius', 'motion', 'FGFR', 'ERK', 'GATA6',
                            'NANOG', 'state', 'differentiation_counter', 'division_counter', 'death_counter',
                            'fds_counter'])
 
         # combine the multiple cell arrays into a single 2D list
-        cell_data = list(zip(simulation.locations[:, 0], simulation.locations[:, 1],
-                             simulation.locations[:, 2], simulation.radii, simulation.motion,
-                             simulation.FGFR, simulation.ERK, simulation.NANOG,
-                             simulation.GATA6, simulation.states, simulation.diff_counters,
-                             simulation.div_counters, simulation.death_counters,
-                             simulation.fds_counters))
+        cell_data = list(zip(simulation.locations[:, 0], simulation.locations[:, 1], simulation.locations[:, 2],
+                             simulation.radii, simulation.motion, simulation.FGFR, simulation.ERK, simulation.GATA6,
+                             simulation.NANOG, simulation.states, simulation.diff_counters, simulation.div_counters,
+                             simulation.death_counters, simulation.fds_counters))
 
-        # write the 2D list to the csv
+        # write the 2D list to the CSV
         csv_file.writerows(cell_data)
 
 
 @backend.record_time
 def step_gradients(simulation):
-    """ Saves the gradient arrays as .npy files for use in
-        later imaging and/or continuation of previous
-        simulations.
+    """ Saves the gradient arrays as .npy files for
+        potential later analysis
     """
-    # go through all gradient arrays, skipping the temporary array
-    for gradient in simulation.gradient_names:
+    # go through all gradient arrays
+    for gradient_name in simulation.gradient_names:
         # get the name for the file
-        gradient_name = "_" + gradient + "_" + str(simulation.current_step)
+        new_name = "_" + gradient_name + "_" + str(simulation.current_step)
 
-        # save the gradient with numpy
-        np.save(simulation.gradients_path + simulation.name + gradient_name + ".npy", simulation.__dict__[gradient])
+        # save the gradient via numpy compression
+        np.save(simulation.gradients_path + simulation.name + new_name + ".npy", simulation.__dict__[gradient_name])
 
 
 @backend.record_time
 def step_tda(simulation):
-    """ Output a csv similar to the step_csv though this
+    """ Output a CSV similar to the step_csv though this
         contains no header and only key cell info
     """
     # get file path
     file_path = simulation.tda_path + simulation.name + "_tda_" + str(int(simulation.current_step)) + ".csv"
 
-    # open the file and create csv object
+    # open the file
     with open(file_path, "w", newline="") as new_file:
+        # create CSV object
         csv_file = csv.writer(new_file)
 
-        # create an array to write cell colors to
-        cell_color = np.empty(simulation.number_cells, dtype="<U14")
+        # create a temporary array to write cell colors to
+        cell_colors = np.empty(simulation.number_cells, dtype="<U14")
 
         # go through all cells giving the corresponding color
         for i in range(simulation.number_cells):
             if simulation.states[i] == "Differentiated":
                 color = "red"
-            elif simulation.GATA6[i] and not simulation.NANOG[i]:
+            elif simulation.GATA6[i] > simulation.NANOG[i]:
                 color = "white"
-            elif not simulation.GATA6[i] and simulation.NANOG[i]:
+            elif not simulation.GATA6[i] < simulation.NANOG[i]:
                 color = "green"
             else:
                 color = "other"
 
             # update color
-            cell_color[i] = color
+            cell_colors[i] = color
 
         # combine the multiple cell arrays into a single 2D list
-        cell_data = list(zip(simulation.locations[:, 0], simulation.locations[:, 1], cell_color))
+        cell_data = list(zip(simulation.locations[:, 0], simulation.locations[:, 1], cell_colors))
 
-        # write the 2D list to the csv
+        # write the 2D list to the CSV
         csv_file.writerows(cell_data)
 
 
 @backend.record_time
 def temporary(simulation):
     """ Pickle a copy of the simulation class that can be used
-        to continue a past simulation without losing information.
+        to continue a past simulation without losing information
     """
     # open the file and get the object
     with open(simulation.path + simulation.name + '_temp.pkl', 'wb') as file:
-        # use the highest protocol "-1" for pickling the instance
+        # use the highest protocol: -1 for pickling the instance
         pickle.dump(simulation, file, -1)
 
 
 def simulation_data(simulation):
-    """ Creates/adds a new line to the running csv for data amount
+    """ Creates/adds a new line to the running CSV for data about
         the simulation such as memory, step time, number of cells,
-        and run time of functions.
+        and run time of functions
     """
-    # get path to data csv
+    # get path to data CSV
     data_path = simulation.path + simulation.name + "_data.csv"
 
-    # open the file and create csv object
+    # open the file
     with open(data_path, "a", newline="") as file_object:
+        # create CSV object
         csv_object = csv.writer(file_object)
 
         # create header if this is the beginning of a new simulation
         if simulation.current_step == 1:
-            # add/remove custom elements of the header
-            custom_header = ["Step Number", "Number Cells", "Step Time", "Memory (MB)"]
+            # header names
+            header = ["Step Number", "Number Cells", "Step Time", "Memory (MB)"]
 
             # header with all the names of the functions with the "record_time" decorator
             functions_header = list(simulation.function_times.keys())
 
-            # add the headers together and write the row to the csv
-            csv_object.writerow(custom_header + functions_header)
+            # merge the headers together and write the row to the CSV
+            csv_object.writerow(header + functions_header)
 
-        # calculate the total step time and get the memory
+        # calculate the total step time and get the current memory used by the model
         step_time = time.perf_counter() - simulation.step_start
         memory = memory_profiler.memory_usage()[0]
 
         # write the row with the corresponding values
-        custom = [simulation.current_step, simulation.number_cells, step_time, memory]
+        columns = [simulation.current_step, simulation.number_cells, step_time, memory]
         functions = list(simulation.function_times.values())
-        csv_object.writerow(custom + functions)
+        csv_object.writerow(columns + functions)
 
 
 def create_video(simulation):
@@ -296,10 +296,9 @@ def create_video(simulation):
             video_path = simulation.path + simulation.name + '_video.mp4'
 
             # create the file object with parameters from simulation and above
-            video_object = cv2.VideoWriter(video_path, cv2.VideoWriter_fourcc(*"mp4v"), simulation.fps,
-                                           (width, height))
+            video_object = cv2.VideoWriter(video_path, cv2.VideoWriter_fourcc(*"mp4v"), simulation.fps, (width, height))
 
-            # go through sorted image name list reading and writing each to the video object
+            # go through sorted image name list, reading and writing each to the video object
             for i in range(image_count):
                 image = cv2.imread(simulation.images_path + file_list[i])
                 video_object.write(image)

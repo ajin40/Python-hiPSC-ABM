@@ -5,11 +5,6 @@ import output
 import backend
 import functions
 
-# This file is used to provide control over how each simulation is run. You can create arrays used to hold values of
-# cells and define initial parameters for these cells based on particular described cell types. After doing so,
-# methods that act on these arrays, among other things, can be called at each step under the for-loop. Most of these
-# methods fall under the functions.py file, and additional methods can always be included in that file.
-
 # setup() will direct how the model is to be run based on the selected mode. If a new simulation is desired, setup()
 # will return an instance of the Simulation which holds all important information of the simulation as it runs.
 simulation = input.setup()
@@ -51,10 +46,6 @@ simulation.initials("rotations", lambda: r.random() * 360)
 simulation.initials("GATA6", lambda: r.randrange(0, simulation.field), cell_type="GATA6_high")
 simulation.initials("NANOG", lambda: 0, cell_type="GATA6_high")
 
-# Places all of the diffusion points into bins so that the model can use a bin sorting method when determining
-# cell motility based on diffusion point locations. (not in use)
-# functions.setup_diffusion_bins(simulation)
-
 # Add any functions under the loop that will be called during each step of the simulation.
 for simulation.current_step in range(simulation.beginning_step, simulation.end_step + 1):
     # Prints the current step, number of cells, and records model run time.
@@ -79,16 +70,8 @@ for simulation.current_step in range(simulation.beginning_step, simulation.end_s
     functions.update_queue(simulation)
 
     # Find the nearest NANOG high, GATA6 high, and differentiated cells within a fixed radius. this provides
-    # information that can potentially be used for approximating cell motility. (not in use)
-    # functions.nearest(simulation)
-
-    # Find the nearest pluripotent cell within a fixed radius that is not part of the same component of the underlying
-    # graph of all pluripotent cells. Used to represent the movement of pluripotent clusters. (not in use)
-    # functions.nearest_cluster(simulation)
-
-    # Locate the diffusion point (within a fixed radius) that has the highest FGF4 concentration. Can be used to
-    # approximate the chemotactic movement of cells. (not in use)
-    # functions.highest_fgf4(simulation)
+    # information that can potentially be used for approximating cell motility.
+    functions.nearest(simulation)
 
     # Calculates the direction/magnitude of the movement of the cell depending on a variety of factors such as state,
     # extracellular gradient, and presence of neighbors.

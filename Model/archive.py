@@ -272,6 +272,10 @@ def nearest_gpu(cell_locations, bins, bins_help, distance, if_diff, gata6_high, 
         nearest_diff[focus] = nearest_diff_index
 
 
+# Find the nearest pluripotent cell within a fixed radius that is not part of the same component of the underlying
+# graph of all pluripotent cells. Used to represent the movement of pluripotent clusters. (not in use)
+# functions.nearest_cluster(simulation)
+
 @backend.record_time
 def nearest_cluster(simulation):
     """ find the nearest nanog high cells outside the cluster
@@ -565,3 +569,11 @@ def alt_step_image(simulation):
     # save the image as a png
     image_path = simulation.images_path + simulation.name + "_image_" + str(int(simulation.current_step)) + ".png"
     cv2.imwrite(image_path, image)
+
+# Locate the diffusion point (within a fixed radius) that has the highest FGF4 concentration. Can be used to
+# approximate the chemotactic movement of cells. (not in use)
+# functions.highest_fgf4(simulation)
+
+# Places all of the diffusion points into bins so that the model can use a bin sorting method when determining
+# cell motility based on diffusion point locations. (not in use)
+# functions.setup_diffusion_bins(simulation)
