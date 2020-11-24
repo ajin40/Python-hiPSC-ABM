@@ -212,16 +212,16 @@ def cell_motility(simulation):
     motility_force = 0.000000002
 
     # loop over all of the cells
-    for i in range(simulation.number_cells):
+    for index in range(simulation.number_cells):
         # get the neighbors of the cell
-        neighbors = simulation.neighbor_graph.neighbors(i)
+        neighbors = simulation.neighbor_graph.neighbors(index)
 
-        # if the cell state is differentiated and moving
-        if simulation.states[i] == "Differentiated":
+        # if the cell state is differentiated
+        if simulation.states[index] == "Differentiated":
             # if not surrounded 6 or more cells, move away from surrounding nanog high cells
             if len(neighbors) < 6:
                 # set motion to True
-                simulation.motion[i] = True
+                simulation.motion[index] = True
 
                 # create a vector to hold the sum of normal vectors between a cell and its neighbors
                 vector_holder = np.array([0.0, 0.0, 0.0])
@@ -232,7 +232,7 @@ def cell_motility(simulation):
                     # if neighbor is nanog high, add vector to the cell to the holder
                     if simulation.NANOG[neighbors[j]] > simulation.GATA6[neighbors[j]]:
                         count += 1
-                        vector = simulation.locations[neighbors[j]] - simulation.locations[i]
+                        vector = simulation.locations[neighbors[j]] - simulation.locations[index]
                         vector_holder += vector
 
                 # if there is at least one nanog high cell move away from it
@@ -241,113 +241,87 @@ def cell_motility(simulation):
                     normal = backend.normal_vector(vector_holder)
 
                     # move in direction opposite to nanog high cells
-                    simulation.motility_forces[i] += motility_force * normal * -1
+                    simulation.motility_forces[index] += motility_force * normal * -1
 
                 # if no nanog high cells around, move randomly
                 else:
-                    simulation.motility_forces[i] += backend.random_vector(simulation) * motility_force
+                    simulation.motility_forces[index] += backend.random_vector(simulation) * motility_force
 
             # set the motion to False
             else:
-                simulation.motion[i] = False
+                simulation.motion[index] = False
 
         # if the cell is gata6 high and nanog low
-        elif simulation.GATA6[i] > simulation.NANOG[i]:
+        elif simulation.GATA6[index] > simulation.NANOG[index]:
             # if not surrounded 6 or more cells
             if len(neighbors) < 6:
                 # set motion to True
-                simulation.motion[i] = True
+                simulation.motion[index] = True
 
                 # continue if using Guye et al. movement and if there exists differentiated cells
-                if simulation.guye_move and not np.isnan(simulation.cell_nearest_diff[i]):
-                    # get the differentiated neighbors
-                    guye_neighbor = int(simulation.cell_nearest_diff[i])
+                if simulation.guye_move and simulation.nearest_diff[index] != -1:
+                    # get the differentiated neighbor
+                    guye_neighbor = simulation.cell_nearest_diff[index]
 
                     # get the normal vector
-                    vector = simulation.locations[guye_neighbor] - simulation.locations[i]
+                    vector = simulation.locations[guye_neighbor] - simulation.locations[index]
                     normal = backend.normal_vector(vector)
 
                     # calculate the motility force
-                    simulation.motility_forces[i] += normal * motility_force
+                    simulation.motility_forces[index] += normal * motility_force
 
                 # if no Guye movement or no differentiated cells nearby, move randomly
                 else:
-                    simulation.motility_forces[i] += backend.random_vector(simulation) * motility_force
+                    simulation.motility_forces[index] += backend.random_vector(simulation) * motility_force
 
             # set the motion to False
             else:
-                simulation.motion[i] = False
+                simulation.motion[index] = False
 
         # if the cell is nanog high and gata6 low
-        elif simulation.NANOG[i] > simulation.GATA6[i]:
+        elif simulation.NANOG[index] > simulation.GATA6[index]:
             # if not surrounded 6 or more cells
             if len(neighbors) < 6:
                 # set motion to True
-                simulation.motion[i] = True
+                simulation.motion[index] = True
 
-                # move based on fgf4 concentrations
-                if simulation.fgf4_move:
-                    # makes sure not the numpy nan type, proceed if actual value
-                    if (np.isnan(simulation.cell_highest_fgf4[i]) == np.zeros(3, dtype=bool)).all():
-                        # get the location of the diffusion point and move toward it
-                        x = int(simulation.cell_highest_fgf4[i][0])
-                        y = int(simulation.cell_highest_fgf4[i][1])
-                        z = int(simulation.cell_highest_fgf4[i][2])
-                        vector = simulation.diffuse_locations[x][y][z] - simulation.locations[i]
-                        normal = backend.normal_vector(vector)
-
-                        if len(neighbors) < 2:
-                            simulation.motility_forces[i] += normal * motility_force
-                        else:
-                            simulation.motility_forces[i] += normal * motility_force * 0.1
-
-                    else:
-                        simulation.motility_forces[i] += backend.random_vector(simulation) * motility_force
-
-                # move based on Eunbi's model
-                elif simulation.eunbi_move:
+                # move based on Eunbi's rules
+                if simulation.eunbi_move:
                     # if there is a gata6 high cell nearby, move away from it
-                    if not np.isnan(simulation.cell_nearest_gata6[i]):
-                        nearest_index = int(simulation.cell_nearest_gata6[i])
-                        vector = simulation.locations[nearest_index] - simulation.locations[i]
+                    if simulation.nearest_gata6[index] != -1:
+                        nearest_index = simulation.nearest_gata6[index]
+                        vector = simulation.locations[nearest_index] - simulation.locations[index]
                         normal = backend.normal_vector(vector)
-                        simulation.motility_forces[i] += normal * motility_force
+                        simulation.motility_forces[index] += normal * motility_force
 
                     # if there is a nanog high cell nearby, move to it
-                    elif not np.isnan(simulation.cell_nearest_nanog[i]):
-                        nearest_index = int(simulation.cell_nearest_nanog[i])
-                        vector = simulation.locations[nearest_index] - simulation.locations[i]
+                    elif simulation.nearest_nanog[index] != -1:
+                        nearest_index = simulation.nearest_nanog[index]
+                        vector = simulation.locations[nearest_index] - simulation.locations[index]
                         normal = backend.normal_vector(vector)
-                        simulation.motility_forces[i] += normal * motility_force
+                        simulation.motility_forces[index] += normal * motility_force
 
                     # if nothing else, move randomly
                     else:
-                        simulation.motility_forces[i] += backend.random_vector(simulation) * motility_force
+                        simulation.motility_forces[index] += backend.random_vector(simulation) * motility_force
 
                 # if no specific movement type, move randomly
                 else:
-                    simulation.motility_forces[i] += backend.random_vector(simulation) * motility_force
+                    simulation.motility_forces[index] += backend.random_vector(simulation) * motility_force
 
             # set the motion to False
             else:
-                simulation.motion[i] = False
-
-                # cluster movement...not in use
-                # if not np.isnan(simulation.cell_cluster_nearest[i]):
-                #     pluri_index = int(simulation.cell_cluster_nearest[i])
-                #     vector = simulation.locations[pluri_index] - simulation.locations[i]
-                #     normal = backend.normal_vector(vector)
-                #     simulation.motility_forces[i] += normal * motility_force * 0.05
+                simulation.motion[index] = False
 
         # if both gata6/nanog high or both low
         else:
             # if not surrounded 6 or more cells
             if len(neighbors) < 6:
-                simulation.motility_forces[i] += backend.random_vector(simulation) * motility_force
+                simulation.motility_forces[index] += backend.random_vector(simulation) * motility_force
 
             # set the motion to False
             else:
-                simulation.motion[i] = False
+                simulation.motion[index] = False
 
 
 @backend.record_time
@@ -374,8 +348,8 @@ def alt_cell_motility(simulation):
             else:
                 if simulation.cell_states[i] == "Differentiated":
                     # if there is a nanog high cell nearby, move away from it
-                    if not np.isnan(simulation.cell_nearest_nanog[i]):
-                        nearest_index = int(simulation.cell_nearest_nanog[i])
+                    if simulation.cell_nearest_nanog[i] != -1:
+                        nearest_index = simulation.cell_nearest_nanog[i]
                         vector = simulation.cell_locations[nearest_index] - simulation.cell_locations[i]
                         normal = backend.normal_vector(vector)
                         simulation.cell_motility_force[i] += normal * motility_force * -1
@@ -387,8 +361,8 @@ def alt_cell_motility(simulation):
                 # if the cell is gata6 high and nanog low
                 elif simulation.cell_fds[i][2] > simulation.cell_fds[i][3]:
                     # if there is a differentiated cell nearby, move toward it
-                    if not np.isnan(simulation.cell_nearest_diff[i]):
-                        nearest_index = int(simulation.cell_nearest_diff[i])
+                    if simulation.cell_nearest_diff[i] != -1:
+                        nearest_index = simulation.cell_nearest_diff[i]
                         vector = simulation.cell_locations[nearest_index] - simulation.cell_locations[i]
                         normal = backend.normal_vector(vector)
                         simulation.cell_motility_force[i] += normal * motility_force
@@ -400,16 +374,16 @@ def alt_cell_motility(simulation):
                 # if the cell is nanog high and gata6 low
                 elif simulation.cell_fds[i][3] > simulation.cell_fds[i][2]:
                     # if there is a nanog high cell nearby, move toward it
-                    if not np.isnan(simulation.cell_nearest_nanog[i]):
-                        nearest_index = int(simulation.cell_nearest_nanog[i])
+                    if simulation.cell_nearest_nanog[i] != -1:
+                        nearest_index = simulation.cell_nearest_nanog[i]
                         vector = simulation.cell_locations[nearest_index] - simulation.cell_locations[i]
                         normal = backend.normal_vector(vector)
                         simulation.cell_motility_force[i] += normal * motility_force * 0.8
                         simulation.cell_motility_force[i] += backend.random_vector(simulation) * motility_force * 0.2
 
                     # if there is a gata6 high cell nearby, move away from it
-                    elif not np.isnan(simulation.cell_nearest_gata6[i]):
-                        nearest_index = int(simulation.cell_nearest_gata6[i])
+                    elif simulation.cell_nearest_gata6[i] != -1:
+                        nearest_index = simulation.cell_nearest_gata6[i]
                         vector = simulation.cell_locations[nearest_index] - simulation.cell_locations[i]
                         normal = backend.normal_vector(vector)
                         simulation.cell_motility_force[i] += normal * motility_force * -1
@@ -665,23 +639,21 @@ def nearest(simulation):
     nearest.max_cells = max_cells
 
     # turn the following arrays into True/False
-    if_diff = simulation.cell_states == "Differentiated"
-    gata6_high = simulation.cell_fds[:, 2] == 1
-    nanog_high = simulation.cell_fds[:, 3] == 1
+    if_diff = simulation.states == "Differentiated"
 
     # call the nvidia gpu version
     if simulation.parallel:
         # turn the following into arrays that can be interpreted by the gpu
-        locations_cuda = cuda.to_device(simulation.cell_locations)
+        locations_cuda = cuda.to_device(simulation.locations)
         bins_cuda = cuda.to_device(bins)
         bins_help_cuda = cuda.to_device(bins_help)
         distance_cuda = cuda.to_device(nearest_distance)
         if_diff_cuda = cuda.to_device(if_diff)
-        gata6_high_cuda = cuda.to_device(gata6_high)
-        nanog_high_cuda = cuda.to_device(nanog_high)
-        nearest_gata6_cuda = cuda.to_device(simulation.cell_nearest_gata6)
-        nearest_nanog_cuda = cuda.to_device(simulation.cell_nearest_nanog)
-        nearest_diff_cuda = cuda.to_device(simulation.cell_nearest_diff)
+        gata6_cuda = cuda.to_device(simulation.GATA6)
+        nanog_cuda = cuda.to_device(simulation.NANOG)
+        nearest_gata6_cuda = cuda.to_device(simulation.nearest_gata6)
+        nearest_nanog_cuda = cuda.to_device(simulation.nearest_nanog)
+        nearest_diff_cuda = cuda.to_device(simulation.nearest_diff)
 
         # allocate threads and blocks for gpu memory "threads per block" and "blocks per grid"
         tpb = 72
@@ -689,10 +661,9 @@ def nearest(simulation):
 
         # call the cuda kernel with given parameters
         backend.nearest_gpu[bpg, tpb](locations_cuda, bins_cuda, bins_help_cuda, distance_cuda, if_diff_cuda,
-                                      gata6_high_cuda, nanog_high_cuda, nearest_gata6_cuda, nearest_nanog_cuda,
-                                      nearest_diff_cuda)
+                                      gata6_cuda, nanog_cuda, nearest_gata6_cuda, nearest_nanog_cuda, nearest_diff_cuda)
 
-        # return the arrays back from the gpu
+        # return the new nearest arrays back from the gpu
         gata6 = nearest_gata6_cuda.copy_to_host()
         nanog = nearest_nanog_cuda.copy_to_host()
         diff = nearest_diff_cuda.copy_to_host()
@@ -700,14 +671,14 @@ def nearest(simulation):
     # call the cpu version
     else:
         gata6, nanog, diff = backend.nearest_cpu(simulation.number_cells, simulation.cell_locations, bins, bins_help,
-                                                 nearest_distance, if_diff, gata6_high, nanog_high,
-                                                 simulation.cell_nearest_gata6, simulation.cell_nearest_nanog,
-                                                 simulation.cell_nearest_diff)
+                                                 nearest_distance, if_diff, simulation.GATA6, simulation.NANOG,
+                                                 simulation.nearest_gata6, simulation.nearest_nanog,
+                                                 simulation.nearest_diff)
 
     # revalue the array holding the indices of nearest cells of given type
-    simulation.cell_nearest_gata6 = gata6
-    simulation.cell_nearest_nanog = nanog
-    simulation.cell_nearest_diff = diff
+    simulation.nearest_gata6 = gata6
+    simulation.nearest_nanog = nanog
+    simulation.nearest_diff = diff
 
 
 @backend.record_time

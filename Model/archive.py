@@ -9,130 +9,6 @@ import backend
 
 # This is an archive of methods that aren't currently being used
 
-@jit(nopython=True, parallel=True)
-def nearest_cpu(number_cells, cell_locations, bins, bins_help, distance, if_diff, gata6_high, nanog_high, nearest_gata6,
-                nearest_nanog, nearest_diff):
-    """ this is the just-in-time compiled version of nearest
-        that runs in parallel on the cpu
-    """
-    # loops over all cells, with the current cell index being the focus
-    for focus in prange(number_cells):
-        # offset bins by 2 to avoid missing cells that fall outside the space
-        block_location = cell_locations[focus] // distance + np.array([2, 2, 2])
-        x, y, z = int(block_location[0]), int(block_location[1]), int(block_location[2])
-
-        # initialize these variables with essentially nothing values and the distance as an initial comparison
-        nearest_gata6_index, nearest_nanog_index, nearest_diff_index = np.nan, np.nan, np.nan
-        nearest_gata6_dist, nearest_nanog_dist, nearest_diff_dist = distance * 2, distance * 2, distance * 2
-
-        # loop over the bin the cell is in and the surrounding bin
-        for i in range(-1, 2):
-            for j in range(-1, 2):
-                for k in range(-1, 2):
-                    # get the count of cells for the current bin
-                    bin_count = bins_help[x + i][y + j][z + k]
-
-                    # go through that bin
-                    for l in range(bin_count):
-                        # get the index of the current cell in question
-                        current = bins[x + i][y + j][z + k][l]
-
-                        # check to see if that cell is within the search radius and not the same cell
-                        mag = np.linalg.norm(cell_locations[current] - cell_locations[focus])
-                        if mag <= distance and focus != current:
-                            # update the nearest differentiated cell first
-                            if if_diff[current]:
-                                # if it's closer than the last cell, update the nearest magnitude and index
-                                if mag < nearest_diff_dist:
-                                    nearest_diff_index = current
-                                    nearest_diff_dist = mag
-
-                            # update the nearest gata6 high cell making sure not nanog high
-                            elif gata6_high[current]:
-                                if not nanog_high[current]:
-                                    # if it's closer than the last cell, update the nearest magnitude and index
-                                    if mag < nearest_gata6_dist:
-                                        nearest_gata6_index = current
-                                        nearest_gata6_dist = mag
-
-                            # update the nearest nanog high cell
-                            elif nanog_high[current]:
-                                # if it's closer than the last cell, update the nearest magnitude and index
-                                if mag < nearest_nanog_dist:
-                                    nearest_nanog_index = current
-                                    nearest_nanog_dist = mag
-
-        # update the nearest cell of desired type
-        nearest_gata6[focus] = nearest_gata6_index
-        nearest_nanog[focus] = nearest_nanog_index
-        nearest_diff[focus] = nearest_diff_index
-
-    # return the updated edges
-    return nearest_gata6, nearest_nanog, nearest_diff
-
-
-@cuda.jit
-def nearest_gpu(cell_locations, bins, bins_help, distance, if_diff, gata6_high, nanog_high, nearest_gata6,
-                nearest_nanog, nearest_diff):
-    """ this is the cuda kernel for the nearest function
-        that runs on a NVIDIA gpu
-    """
-    # get the index in the array
-    focus = cuda.grid(1)
-
-    # checks to see that position is in the array
-    if focus < cell_locations.shape[0]:
-        # offset bins by 2 to avoid missing cells that fall outside the space
-        x = int(cell_locations[focus][0] / distance[0]) + 2
-        y = int(cell_locations[focus][1] / distance[0]) + 2
-        z = int(cell_locations[focus][2] / distance[0]) + 2
-
-        # initialize these variables with essentially nothing values and the distance as an initial comparison
-        nearest_gata6_index, nearest_nanog_index, nearest_diff_index = np.nan, np.nan, np.nan
-        nearest_gata6_dist, nearest_nanog_dist, nearest_diff_dist = distance[0] * 2, distance[0] * 2, distance[0] * 2
-
-        # loop over the bin the cell is in and the surrounding bins
-        for i in range(-1, 2):
-            for j in range(-1, 2):
-                for k in range(-1, 2):
-                    # get the count of cells for the current bin
-                    bin_count = bins_help[x + i][y + j][z + k]
-
-                    # go through that bin determining if a cell is a neighbor
-                    for l in range(bin_count):
-                        # get the index of the current cell in question
-                        current = bins[x + i][y + j][z + k][l]
-
-                        # check to see if that cell is within the search radius and not the same cell
-                        mag = magnitude(cell_locations[focus], cell_locations[current])
-                        if mag <= distance[0] and focus != current:
-                            # update the nearest differentiated cell first
-                            if if_diff[current]:
-                                # if it's closer than the last cell, update the nearest magnitude and index
-                                if mag < nearest_diff_dist:
-                                    nearest_diff_index = current
-                                    nearest_diff_dist = mag
-
-                            # update the nearest gata6 high cell making sure not nanog high
-                            elif gata6_high[current]:
-                                if not nanog_high[current]:
-                                    # if it's closer than the last cell, update the nearest magnitude and index
-                                    if mag < nearest_gata6_dist:
-                                        nearest_gata6_index = current
-                                        nearest_gata6_dist = mag
-
-                            # update the nearest nanog high cell
-                            elif nanog_high[current]:
-                                # if it's closer than the last cell, update the nearest magnitude and index
-                                if mag < nearest_nanog_dist:
-                                    nearest_nanog_index = current
-                                    nearest_nanog_dist = mag
-
-        # update the nearest cell of certain types
-        nearest_gata6[focus] = nearest_gata6_index
-        nearest_nanog[focus] = nearest_nanog_index
-        nearest_diff[focus] = nearest_diff_index
-
 
 # Find the nearest pluripotent cell within a fixed radius that is not part of the same component of the underlying
 # graph of all pluripotent cells. Used to represent the movement of pluripotent clusters. (not in use)
@@ -529,3 +405,23 @@ def setup_diffusion_bins(simulation):
     # update the diffuse bins for the simulation instance
     simulation.diffuse_bins = diffuse_bins
     simulation.diffuse_bins_help = diffuse_bins_help
+
+
+# # move based on fgf4 concentrations
+# if simulation.fgf4_move:
+#     # makes sure not the numpy nan type, proceed if actual value
+#     if (np.isnan(simulation.cell_highest_fgf4[index]) == np.zeros(3, dtype=bool)).all():
+#         # get the location of the diffusion point and move toward it
+#         x = int(simulation.cell_highest_fgf4[index][0])
+#         y = int(simulation.cell_highest_fgf4[index][1])
+#         z = int(simulation.cell_highest_fgf4[index][2])
+#         vector = simulation.diffuse_locations[x][y][z] - simulation.locations[index]
+#         normal = backend.normal_vector(vector)
+#
+#         if len(neighbors) < 2:
+#             simulation.motility_forces[index] += normal * motility_force
+#         else:
+#             simulation.motility_forces[index] += normal * motility_force * 0.1
+#
+#     else:
+#         simulation.motility_forces[index] += backend.random_vector(simulation) * motility_force

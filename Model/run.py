@@ -21,7 +21,7 @@ simulation.cell_arrays(("locations", float, 3), ("radii", float), ("motion", boo
                        ("GATA6", int), ("NANOG", int), ("states", "<U14"), ("diff_counters", int),
                        ("div_counters", int), ("death_counters", int), ("fds_counters", int),
                        ("motility_forces", float, 3), ("jkr_forces", float, 3), ("rotations", float),
-                       ("nearest_NANOG", int), ("nearest_GATA6", int), ("nearest_diff", int))
+                       ("nearest_nanog", int), ("nearest_gata6", int), ("nearest_diff", int))
 
 # Define the initial parameters for the cells using lambda expressions. The following lines have no "cell_type"
 # argument, which is used to designate that these are initial parameters for all cells; however, these can be overridden
@@ -64,7 +64,7 @@ for simulation.current_step in range(simulation.beginning_step, simulation.end_s
     functions.cell_pathway(simulation)
 
     # Simulates the diffusion for each of the extracellular gradients via the forward time centered space method.
-    functions.update_diffusion(simulation)
+    # functions.update_diffusion(simulation)
 
     # Adds/removes cells to/from the simulation either all together or in desired groups of cells. If done in
     # groups, the handle_movement() function will be used to better represent asynchronous division and death.

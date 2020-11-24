@@ -26,10 +26,10 @@ How many cells are added/removed to the simulation at once, per time step? Type 
 [ 0 ]
 
 Use the Guye movement method? Where GATA6 high cells with move toward differentiated cells. Ex. True
-[ False ]
+[ True ]
 
 Use Eunbi's method of motion based on the NetLogo model? Ex. True
-[ False ]
+[ True ]
 
 What is the max value of FGF4 at a diffusion point? Ex. 80
 [ 200 ]
