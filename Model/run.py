@@ -20,7 +20,8 @@ simulation.cell_type("GATA6_high", simulation.num_gata6)
 simulation.cell_arrays(("locations", float, 3), ("radii", float), ("motion", bool), ("FGFR", int), ("ERK", int),
                        ("GATA6", int), ("NANOG", int), ("states", "<U14"), ("diff_counters", int),
                        ("div_counters", int), ("death_counters", int), ("fds_counters", int),
-                       ("motility_forces", float, 3), ("jkr_forces", float, 3), ("rotations", float))
+                       ("motility_forces", float, 3), ("jkr_forces", float, 3), ("rotations", float),
+                       ("nearest_NANOG", int), ("nearest_GATA6", int), ("nearest_diff", int))
 
 # Define the initial parameters for the cells using lambda expressions. The following lines have no "cell_type"
 # argument, which is used to designate that these are initial parameters for all cells; however, these can be overridden
@@ -69,8 +70,8 @@ for simulation.current_step in range(simulation.beginning_step, simulation.end_s
     # groups, the handle_movement() function will be used to better represent asynchronous division and death.
     functions.update_queue(simulation)
 
-    # Find the nearest NANOG high, GATA6 high, and differentiated cells within a fixed radius. this provides
-    # information that can potentially be used for approximating cell motility.
+    # Find the nearest NANOG high, GATA6 high, and differentiated cells within a fixed radius. This provides
+    # information that can be used for approximating cell motility.
     functions.nearest(simulation)
 
     # Calculates the direction/magnitude of the movement of the cell depending on a variety of factors such as state,

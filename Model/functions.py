@@ -8,12 +8,13 @@ import backend
 
 @backend.record_time
 def cell_death(simulation):
-    """ marks the cell for removal if it meets
+    """ Marks the cell for removal if it meets
         the criteria for cell death
     """
     for index in range(simulation.number_cells):
         # checks to see if cell is pluripotent
         if simulation.states[index] == "Pluripotent":
+
             # gets the number of neighbors for a cell, increasing the death counter if not enough neighbors
             if len(simulation.neighbor_graph.neighbors(index)) < simulation.lonely_cell:
                 simulation.death_counters[index] += 1
@@ -22,19 +23,20 @@ def cell_death(simulation):
             else:
                 simulation.death_counters[index] = 0
 
-            # removes cell if it meets the parameters
+            # add cell to removal array if it meets the parameters
             if simulation.death_counters[index] >= simulation.death_thresh:
                 simulation.cells_to_remove = np.append(simulation.cells_to_remove, index)
 
 
 @backend.record_time
 def cell_diff_surround(simulation):
-    """ simulates differentiated cells inducing the
+    """ Simulates differentiated cells inducing the
         differentiation of a pluripotent cell
     """
     for index in range(simulation.number_cells):
-        # checks to see if cell is pluripotent and GATA6 low
+        # checks to see if cell is pluripotent and GATA6 low/medium
         if simulation.states[index] == "Pluripotent" and simulation.GATA6[index] < simulation.field - 1:
+
             # get the list of neighbors for the cell
             neighbors = simulation.neighbor_graph.neighbors(index)
 
@@ -54,8 +56,8 @@ def cell_diff_surround(simulation):
 
 @backend.record_time
 def cell_growth(simulation):
-    """ simulates the growth of a cell currently linear,
-        radial growth
+    """ Simulates the growth of a cell currently linear,
+        radius-based growth
     """
     for index in range(simulation.number_cells):
         # increase the cell radius based on the state and whether or not it has reached the max size
@@ -73,13 +75,14 @@ def cell_growth(simulation):
 
 @backend.record_time
 def cell_division(simulation):
-    """ increases the counter to division and if the
+    """ Increases the counter to division and if the
         cell meets criteria marks it for division
     """
     for index in range(simulation.number_cells):
         # pluripotent cell
         if simulation.states[index] == "Pluripotent":
-            # check the division counter against the threshold
+
+            # check the division counter against the threshold, add to array if dividing
             if simulation.div_counters[index] >= simulation.pluri_div_thresh:
                 simulation.cells_to_divide = np.append(simulation.cells_to_divide, index)
 
@@ -89,10 +92,11 @@ def cell_division(simulation):
 
         # differentiated cell
         else:
-            # check the division counter against the threshold
+            # check the division counter against the threshold, add to array if dividing
             if simulation.div_counters[index] >= simulation.diff_div_thresh:
+
                 # check for contact inhibition
-                if len(simulation.neighbor_graph.neighbors(index)) < 8:
+                if len(simulation.neighbor_graph.neighbors(index)) < 6:
                     simulation.cells_to_divide = np.append(simulation.cells_to_divide, index)
 
             # if under, stochastically increase the division counter by either 0 or 1
@@ -102,21 +106,22 @@ def cell_division(simulation):
 
 @backend.record_time
 def cell_pathway(simulation):
-    """ updates finite dynamical system variables and
+    """ Updates finite dynamical system variables and
         extracellular conditions
     """
     for index in range(simulation.number_cells):
         # add FGF4 to the gradient based on the cell's value of NANOG
         if simulation.NANOG[index] > 0:
+
             # get the amount to add, positive if adding, negative if removing
             amount = simulation.NANOG[index]
             backend.update_concentrations(simulation, "fgf4_values", index, amount, "nearest")
             # backend.update_concentrations(simulation, "fgf4_alt", index, amount, "distance")
 
         # activate the following pathway based on if dox (after 24 hours) has been induced yet
-        # if simulation.current_step > 48 and simulation.dox_value > simulation.cell_dox_value[index]:
         if simulation.current_step > 48:
-            # create a FGF4 value for the FDS based on the concentration of FGF4
+
+            # get a FGF4 value for the FDS based on the concentration of FGF4
             fgf4_value = backend.get_concentration(simulation, "fgf4_values", index)
 
             # if FDS is boolean
@@ -127,7 +132,7 @@ def cell_pathway(simulation):
                 else:
                     fgf4_fds = 0    # FGF4 low
 
-            # otherwise assume ternary
+            # otherwise assume ternary for now
             else:
                 # base thresholds on the maximum concentrations
                 if fgf4_value > simulation.max_concentration * 2/3:
@@ -182,15 +187,16 @@ def cell_pathway(simulation):
 
             # if the cell is GATA6 high and pluripotent
             if simulation.GATA6[index] == simulation.field - 1 and simulation.states[index] == "Pluripotent":
+
                 # increase the differentiation counter by 0 or 1
                 simulation.diff_counters[index] += r.randint(0, 1)
 
-                # if the differentiation counter is greater than the threshold, differentiate
+                # if the differentiation counter is greater than or equal to the threshold, differentiate
                 if simulation.diff_counters[index] >= simulation.pluri_to_diff:
                     # change the state to differentiated
                     simulation.states[index] = "Differentiated"
 
-                    # make sure NANOG is low or rather 0
+                    # make sure NANOG is low
                     simulation.NANOG[index] = 0
 
                     # allow the cell to actively move again
@@ -345,6 +351,198 @@ def cell_motility(simulation):
 
 
 @backend.record_time
+def alt_cell_motility(simulation):
+    """ gives the cells a motive force depending on
+        set rules for the cell types expect these rules
+        are very similar to NetLogo
+    """
+    # this is the motility force of the cells
+    motility_force = 0.000000002
+
+    # loop over all of the cells
+    for i in range(simulation.number_cells):
+        # see if the cell is moving or not
+        if simulation.cell_motion[i]:
+            # get the neighbors of the cell if the cell is actively moving
+            neighbors = simulation.neighbor_graph.neighbors(i)
+
+            # if cell is surrounded by other cells, inhibit the motion
+            if len(neighbors) >= 6:
+                simulation.cell_motion[i] = False
+
+            # if not, calculate the active movement for the step
+            else:
+                if simulation.cell_states[i] == "Differentiated":
+                    # if there is a nanog high cell nearby, move away from it
+                    if not np.isnan(simulation.cell_nearest_nanog[i]):
+                        nearest_index = int(simulation.cell_nearest_nanog[i])
+                        vector = simulation.cell_locations[nearest_index] - simulation.cell_locations[i]
+                        normal = backend.normal_vector(vector)
+                        simulation.cell_motility_force[i] += normal * motility_force * -1
+
+                    # if no nearby nanog high cells, move randomly
+                    else:
+                        simulation.cell_motility_force[i] += backend.random_vector(simulation) * motility_force
+
+                # if the cell is gata6 high and nanog low
+                elif simulation.cell_fds[i][2] > simulation.cell_fds[i][3]:
+                    # if there is a differentiated cell nearby, move toward it
+                    if not np.isnan(simulation.cell_nearest_diff[i]):
+                        nearest_index = int(simulation.cell_nearest_diff[i])
+                        vector = simulation.cell_locations[nearest_index] - simulation.cell_locations[i]
+                        normal = backend.normal_vector(vector)
+                        simulation.cell_motility_force[i] += normal * motility_force
+
+                    # if no nearby differentiated cells, move randomly
+                    else:
+                        simulation.cell_motility_force[i] += backend.random_vector(simulation) * motility_force
+
+                # if the cell is nanog high and gata6 low
+                elif simulation.cell_fds[i][3] > simulation.cell_fds[i][2]:
+                    # if there is a nanog high cell nearby, move toward it
+                    if not np.isnan(simulation.cell_nearest_nanog[i]):
+                        nearest_index = int(simulation.cell_nearest_nanog[i])
+                        vector = simulation.cell_locations[nearest_index] - simulation.cell_locations[i]
+                        normal = backend.normal_vector(vector)
+                        simulation.cell_motility_force[i] += normal * motility_force * 0.8
+                        simulation.cell_motility_force[i] += backend.random_vector(simulation) * motility_force * 0.2
+
+                    # if there is a gata6 high cell nearby, move away from it
+                    elif not np.isnan(simulation.cell_nearest_gata6[i]):
+                        nearest_index = int(simulation.cell_nearest_gata6[i])
+                        vector = simulation.cell_locations[nearest_index] - simulation.cell_locations[i]
+                        normal = backend.normal_vector(vector)
+                        simulation.cell_motility_force[i] += normal * motility_force * -1
+
+                    else:
+                        simulation.cell_motility_force[i] += backend.random_vector(simulation) * motility_force
+
+                # if both gata6/nanog high or both low, move randomly
+                else:
+                    simulation.cell_motility_force[i] += backend.random_vector(simulation) * motility_force
+
+
+@backend.record_time
+def check_neighbors(simulation):
+    """ for all cells, determines which cells fall within a fixed
+        radius to denote a neighbor then stores this information
+        in a graph (uses a bin/bucket sorting method)
+    """
+    # radius of search (meters) in which all cells within are classified as neighbors
+    neighbor_distance = 0.00001
+
+    # if a static variable has not been created to hold the maximum number of neighbors, create one
+    if not hasattr(check_neighbors, "max_neighbors"):
+        # begin with a low number of neighbors that can be revalued if the max number of neighbors exceeds this value
+        check_neighbors.max_neighbors = 5
+
+    # if a static variable has not been created to hold the maximum number of cells in a bin, create one
+    if not hasattr(check_neighbors, "max_cells"):
+        # begin with a low number of cells that can be revalued if the max number of cells exceeds this value
+        check_neighbors.max_cells = 5
+
+    # clear all of the edges in the neighbor graph
+    simulation.neighbor_graph.delete_edges(None)
+
+    # calls the function that generates an array of bins that generalize the cell locations in addition to a
+    # creating a helper array that assists the search method in counting cells in a particular bin
+    bins, bins_help, bin_locations, max_cells = backend.assign_bins(simulation, neighbor_distance,
+                                                                    check_neighbors.max_cells)
+
+    # update the value of the max number of cells in a bin and double it
+    check_neighbors.max_cells = max_cells
+
+    # this will run once if all edges are included in edge_holder breaking the loop. if not, this will
+    # run a second time with an updated value for the number of predicted neighbors such that all edges are included
+    while True:
+        # create an array used to hold edges, an array to say if edge exists, and an array to count the edges per cell
+        length = simulation.number_cells * check_neighbors.max_neighbors
+        edge_holder = np.zeros((length, 2), dtype=int)
+        if_edge = np.zeros(length, dtype=bool)
+        edge_count = np.zeros(simulation.number_cells, dtype=int)
+
+        # call the nvidia gpu version
+        if simulation.parallel:
+            # turn the following into arrays that can be interpreted by the gpu
+            bin_locations_cuda = cuda.to_device(bin_locations)
+            cell_locations_cuda = cuda.to_device(simulation.locations)
+            bins_cuda = cuda.to_device(bins)
+            bins_help_cuda = cuda.to_device(bins_help)
+            distance_cuda = cuda.to_device(neighbor_distance)
+            edge_holder_cuda = cuda.to_device(edge_holder)
+            if_edge_cuda = cuda.to_device(if_edge)
+            edge_count_cuda = cuda.to_device(edge_count)
+            max_neighbors_cuda = cuda.to_device(check_neighbors.max_neighbors)
+
+            # allocate threads and blocks for gpu memory "threads per block" and "blocks per grid"
+            tpb = 72
+            bpg = math.ceil(simulation.number_cells / tpb)
+
+            # call the cuda kernel with given parameters
+            backend.check_neighbors_gpu[bpg, tpb](bin_locations_cuda, cell_locations_cuda, bins_cuda, bins_help_cuda,
+                                                  distance_cuda, edge_holder_cuda, if_edge_cuda, edge_count_cuda,
+                                                  max_neighbors_cuda)
+
+            # return the arrays back from the gpu
+            edge_holder = edge_holder_cuda.copy_to_host()
+            if_edge = if_edge_cuda.copy_to_host()
+            edge_count = edge_count_cuda.copy_to_host()
+
+        # call the jit cpu version
+        else:
+            edge_holder, if_edge, edge_count = backend.check_neighbors_cpu(simulation.number_cells, bin_locations,
+                                                                           simulation.locations, bins, bins_help,
+                                                                           neighbor_distance, edge_holder, if_edge,
+                                                                           edge_count, check_neighbors.max_neighbors)
+
+        # either break the loop if all neighbors were accounted for or revalue the maximum number of neighbors
+        # based on the output of the function call and double it for future calls
+        max_neighbors = np.amax(edge_count)
+        if check_neighbors.max_neighbors >= max_neighbors:
+            break
+        else:
+            check_neighbors.max_neighbors = max_neighbors * 2
+
+    # reduce the edges to only edges that actually exist
+    edge_holder = edge_holder[if_edge]
+
+    # add the edges to the neighbor graph
+    simulation.neighbor_graph.add_edges(edge_holder)
+
+
+@backend.record_time
+def update_diffusion(simulation):
+    """ goes through all extracellular gradients and
+        approximates the diffusion of that molecule
+    """
+    # get the number of times diffusion is calculated
+    diffuse_steps = int(simulation.step_dt / simulation.diffuse_dt)
+
+    # go through all gradients and update the diffusion of each
+    for gradient_name in simulation.gradient_names:
+        # get the gradient array
+        gradient = simulation.__dict__[gradient_name]
+
+        # set max and min concentration values
+        gradient[gradient > simulation.max_concentration] = simulation.max_concentration
+        gradient[gradient < 0] = 0
+
+        # add edges for initial conditions
+        base = np.pad(gradient, 1, mode="constant", constant_values=0)
+
+        # call the backend function to do so
+        gradient = backend.update_diffusion_cpu(base, diffuse_steps, simulation.diffuse_dt, simulation.spat_res2,
+                                                simulation.diffuse, simulation.size)
+
+        # set max and min concentration values
+        gradient[gradient > simulation.max_concentration] = simulation.max_concentration
+        gradient[gradient < 0] = 0
+
+        # update the gradient
+        simulation.__dict__[gradient_name] = gradient
+
+
+@backend.record_time
 def update_queue(simulation):
     """ add and removes cells to and from the simulation
         either all at once or in "groups"
@@ -447,91 +645,69 @@ def update_queue(simulation):
 
 
 @backend.record_time
-def check_neighbors(simulation):
-    """ for all cells, determines which cells fall within a fixed
-        radius to denote a neighbor then stores this information
-        in a graph (uses a bin/bucket sorting method)
+def nearest(simulation):
+    """ looks at cells within a given radius a determines
+        the closest cells of certain types
     """
-    # radius of search (meters) in which all cells within are classified as neighbors
-    neighbor_distance = 0.00001
-
-    # if a static variable has not been created to hold the maximum number of neighbors, create one
-    if not hasattr(check_neighbors, "max_neighbors"):
-        # begin with a low number of neighbors that can be revalued if the max number of neighbors exceeds this value
-        check_neighbors.max_neighbors = 5
+    # radius of search for nearest cells
+    nearest_distance = 0.000015
 
     # if a static variable has not been created to hold the maximum number of cells in a bin, create one
-    if not hasattr(check_neighbors, "max_cells"):
+    if not hasattr(nearest, "max_cells"):
         # begin with a low number of cells that can be revalued if the max number of cells exceeds this value
-        check_neighbors.max_cells = 5
-
-    # clear all of the edges in the neighbor graph
-    simulation.neighbor_graph.delete_edges(None)
+        nearest.max_cells = 5
 
     # calls the function that generates an array of bins that generalize the cell locations in addition to a
     # creating a helper array that assists the search method in counting cells in a particular bin
-    bins, bins_help, bin_locations, max_cells = backend.assign_bins(simulation, neighbor_distance,
-                                                                    check_neighbors.max_cells)
+    bins, bins_help, bin_locations, max_cells = backend.assign_bins(simulation, nearest_distance, nearest.max_cells)
 
     # update the value of the max number of cells in a bin and double it
-    check_neighbors.max_cells = max_cells
+    nearest.max_cells = max_cells
 
-    # this will run once if all edges are included in edge_holder breaking the loop. if not, this will
-    # run a second time with an updated value for the number of predicted neighbors such that all edges are included
-    while True:
-        # create an array used to hold edges, an array to say if edge exists, and an array to count the edges per cell
-        length = simulation.number_cells * check_neighbors.max_neighbors
-        edge_holder = np.zeros((length, 2), dtype=int)
-        if_edge = np.zeros(length, dtype=bool)
-        edge_count = np.zeros(simulation.number_cells, dtype=int)
+    # turn the following arrays into True/False
+    if_diff = simulation.cell_states == "Differentiated"
+    gata6_high = simulation.cell_fds[:, 2] == 1
+    nanog_high = simulation.cell_fds[:, 3] == 1
 
-        # call the nvidia gpu version
-        if simulation.parallel:
-            # turn the following into arrays that can be interpreted by the gpu
-            bin_locations_cuda = cuda.to_device(bin_locations)
-            cell_locations_cuda = cuda.to_device(simulation.locations)
-            bins_cuda = cuda.to_device(bins)
-            bins_help_cuda = cuda.to_device(bins_help)
-            distance_cuda = cuda.to_device(neighbor_distance)
-            edge_holder_cuda = cuda.to_device(edge_holder)
-            if_edge_cuda = cuda.to_device(if_edge)
-            edge_count_cuda = cuda.to_device(edge_count)
-            max_neighbors_cuda = cuda.to_device(check_neighbors.max_neighbors)
+    # call the nvidia gpu version
+    if simulation.parallel:
+        # turn the following into arrays that can be interpreted by the gpu
+        locations_cuda = cuda.to_device(simulation.cell_locations)
+        bins_cuda = cuda.to_device(bins)
+        bins_help_cuda = cuda.to_device(bins_help)
+        distance_cuda = cuda.to_device(nearest_distance)
+        if_diff_cuda = cuda.to_device(if_diff)
+        gata6_high_cuda = cuda.to_device(gata6_high)
+        nanog_high_cuda = cuda.to_device(nanog_high)
+        nearest_gata6_cuda = cuda.to_device(simulation.cell_nearest_gata6)
+        nearest_nanog_cuda = cuda.to_device(simulation.cell_nearest_nanog)
+        nearest_diff_cuda = cuda.to_device(simulation.cell_nearest_diff)
 
-            # allocate threads and blocks for gpu memory "threads per block" and "blocks per grid"
-            tpb = 72
-            bpg = math.ceil(simulation.number_cells / tpb)
+        # allocate threads and blocks for gpu memory "threads per block" and "blocks per grid"
+        tpb = 72
+        bpg = math.ceil(simulation.number_cells / tpb)
 
-            # call the cuda kernel with given parameters
-            backend.check_neighbors_gpu[bpg, tpb](bin_locations_cuda, cell_locations_cuda, bins_cuda, bins_help_cuda,
-                                                  distance_cuda, edge_holder_cuda, if_edge_cuda, edge_count_cuda,
-                                                  max_neighbors_cuda)
+        # call the cuda kernel with given parameters
+        backend.nearest_gpu[bpg, tpb](locations_cuda, bins_cuda, bins_help_cuda, distance_cuda, if_diff_cuda,
+                                      gata6_high_cuda, nanog_high_cuda, nearest_gata6_cuda, nearest_nanog_cuda,
+                                      nearest_diff_cuda)
 
-            # return the arrays back from the gpu
-            edge_holder = edge_holder_cuda.copy_to_host()
-            if_edge = if_edge_cuda.copy_to_host()
-            edge_count = edge_count_cuda.copy_to_host()
+        # return the arrays back from the gpu
+        gata6 = nearest_gata6_cuda.copy_to_host()
+        nanog = nearest_nanog_cuda.copy_to_host()
+        diff = nearest_diff_cuda.copy_to_host()
 
-        # call the jit cpu version
-        else:
-            edge_holder, if_edge, edge_count = backend.check_neighbors_cpu(simulation.number_cells, bin_locations,
-                                                                           simulation.locations, bins, bins_help,
-                                                                           neighbor_distance, edge_holder, if_edge,
-                                                                           edge_count, check_neighbors.max_neighbors)
+    # call the cpu version
+    else:
+        gata6, nanog, diff = backend.nearest_cpu(simulation.number_cells, simulation.cell_locations, bins, bins_help,
+                                                 nearest_distance, if_diff, gata6_high, nanog_high,
+                                                 simulation.cell_nearest_gata6, simulation.cell_nearest_nanog,
+                                                 simulation.cell_nearest_diff)
 
-        # either break the loop if all neighbors were accounted for or revalue the maximum number of neighbors
-        # based on the output of the function call and double it for future calls
-        max_neighbors = np.amax(edge_count)
-        if check_neighbors.max_neighbors >= max_neighbors:
-            break
-        else:
-            check_neighbors.max_neighbors = max_neighbors * 2
-
-    # reduce the edges to only edges that actually exist
-    edge_holder = edge_holder[if_edge]
-
-    # add the edges to the neighbor graph
-    simulation.neighbor_graph.add_edges(edge_holder)
+    # revalue the array holding the indices of nearest cells of given type
+    simulation.cell_nearest_gata6 = gata6
+    simulation.cell_nearest_nanog = nanog
+    simulation.cell_nearest_diff = diff
 
 
 @backend.record_time
@@ -741,125 +917,3 @@ def apply_forces(simulation):
     # update the locations and reset the jkr forces back to zero
     simulation.locations = new_locations
     simulation.jkr_forces = np.zeros((simulation.number_cells, 3), dtype=float)
-
-
-@backend.record_time
-def highest_fgf4(simulation):
-    """ Search for the highest concentration of
-        fgf4 within a fixed radius
-    """
-    # call the nvidia gpu version
-    if simulation.parallel:
-        # make sure the gradient array is contiguous
-        fgf4_values = np.ascontiguousarray(simulation.fgf4_values)
-
-        # turn the following into arrays that can be interpreted by the gpu
-        locations_cuda = cuda.to_device(simulation.locations)
-        diffuse_bins_cuda = cuda.to_device(simulation.diffuse_bins)
-        diffuse_bins_help_cuda = cuda.to_device(simulation.diffuse_bins_help)
-        diffuse_locations_cuda = cuda.to_device(simulation.diffuse_locations)
-        distance_cuda = cuda.to_device(simulation.diffuse_radius)
-        highest_fgf4_cuda = cuda.to_device(simulation.cell_highest_fgf4)
-        fgf4_values_cuda = cuda.to_device(fgf4_values)
-
-        # allocate threads and blocks for gpu memory "threads per block" and "blocks per grid"
-        tpb = 72
-        bpg = math.ceil(simulation.number_cells / tpb)
-
-        # call the cuda kernel with given parameters
-        backend.highest_fgf4_gpu[bpg, tpb](locations_cuda, diffuse_bins_cuda, diffuse_bins_help_cuda,
-                                           diffuse_locations_cuda, distance_cuda, highest_fgf4_cuda, fgf4_values_cuda)
-
-        # return the array back from the gpu
-        cell_highest_fgf4 = highest_fgf4_cuda.copy_to_host()
-
-    # call the cpu version
-    else:
-        cell_highest_fgf4 = backend.highest_fgf4_cpu(simulation.number_cells, simulation.locations,
-                                                     simulation.diffuse_bins, simulation.diffuse_bins_help,
-                                                     simulation.diffuse_locations, simulation.diffuse_radius,
-                                                     simulation.cell_highest_fgf4, simulation.fgf4_values)
-
-    # revalue the array holding the indices of diffusion points of highest fgf4
-    simulation.cell_highest_fgf4 = cell_highest_fgf4
-
-
-def setup_diffusion_bins(simulation):
-    """ This function will put the diffusion points
-        into corresponding bins that will be used to
-        find values of diffusion within a radius
-    """
-    # if a static variable has not been created to hold the maximum diffusion points in a bin, create one
-    if not hasattr(setup_diffusion_bins, "max_points"):
-        # begin with a low number of points that can be revalued if the max number of points exceeds this value
-        setup_diffusion_bins.max_points = 1
-
-    # get the dimensions of the array representing the diffusion points
-    shape = simulation.gradient_size
-
-    # set up the locations of the diffusion points
-    x, y, z = np.meshgrid(np.arange(shape[0]), np.arange(shape[1]), np.arange(shape[2]), indexing='ij')
-    x, y, z = x * simulation.spat_res, y * simulation.spat_res, z * simulation.spat_res
-    simulation.diffuse_locations = np.stack((x, y, z), axis=3)
-
-    # if there is enough space for all points that should be in a bin, break out of the loop. if there isn't
-    # enough space update the amount of needed space and re-put the points in bins. this will run once if the prediction
-    # of points is correct, twice if it isn't the first time
-    while True:
-        # calculate the size of the array used to represent the bins and the bins helper array, include extra bins
-        # for points that may fall outside of the space
-        bins_help_size = np.ceil(simulation.size / simulation.diffuse_radius).astype(int) + np.array([5, 5, 5])
-        bins_size = np.append(bins_help_size, [setup_diffusion_bins.max_points, 3])
-
-        # create the arrays for "bins" and "bins_help"
-        diffuse_bins = np.empty(bins_size, dtype=int)
-        diffuse_bins_help = np.zeros(bins_help_size, dtype=int)
-
-        # assign the points to bins via the jit function
-        diffuse_bins, diffuse_bins_help = backend.setup_diffuse_bins_cpu(simulation.diffuse_locations,
-                                                                         simulation.diffuse_radius, diffuse_bins,
-                                                                         diffuse_bins_help)
-
-        # either break the loop if all points were accounted for or revalue the maximum number of points based on
-        # the output of the function call. this will only be changed at most once
-        max_points = np.amax(diffuse_bins_help)
-        if setup_diffusion_bins.max_points >= max_points:
-            break
-        else:
-            setup_diffusion_bins.max_points = max_points
-
-    # update the diffuse bins for the simulation instance
-    simulation.diffuse_bins = diffuse_bins
-    simulation.diffuse_bins_help = diffuse_bins_help
-
-
-@backend.record_time
-def update_diffusion(simulation):
-    """ goes through all extracellular gradients and
-        approximates the diffusion of that molecule
-    """
-    # get the number of times diffusion is calculated
-    diffuse_steps = int(simulation.step_dt / simulation.diffuse_dt)
-
-    # go through all gradients and update the diffusion of each
-    for gradient_name in simulation.gradient_names:
-        # get the gradient array
-        gradient = simulation.__dict__[gradient_name]
-
-        # set max and min concentration values
-        gradient[gradient > simulation.max_concentration] = simulation.max_concentration
-        gradient[gradient < 0] = 0
-
-        # add edges for initial conditions
-        base = np.pad(gradient, 1, mode="constant", constant_values=0)
-
-        # call the backend function to do so
-        gradient = backend.update_diffusion_cpu(base, diffuse_steps, simulation.diffuse_dt, simulation.spat_res2,
-                                                simulation.diffuse, simulation.size)
-
-        # set max and min concentration values
-        gradient[gradient > simulation.max_concentration] = simulation.max_concentration
-        gradient[gradient < 0] = 0
-
-        # update the gradient
-        simulation.__dict__[gradient_name] = gradient
