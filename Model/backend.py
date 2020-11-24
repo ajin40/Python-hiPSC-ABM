@@ -8,24 +8,44 @@ import sys
 
 
 def info(simulation):
-    """ records the beginning of the step in real time and
+    """ Records the beginning of the step in real time and
         prints the current step/number of cells
     """
     # records when the step begins, used for measuring efficiency
-    simulation.step_start = time.perf_counter()
+    simulation.step_start = time.perf_counter()    # time.perf_counter() is more accurate than time.time()
 
     # prints the current step number and the number of cells
     print("Step: " + str(simulation.current_step))
     print("Number of cells: " + str(simulation.number_cells))
 
 
-def update_concentrations(simulation, gradient_name, index, amount, mode):
-    """ adjust the concentration of the gradient based
-        on the amount and location of cell
+def get_concentration(simulation, gradient_name, index):
+    """ Get the concentration of a cell for specified
+        gradient based on nearest diffusion point.
     """
     # get the gradient array from the simulation instance
     gradient = simulation.__dict__[gradient_name]
 
+    # find the nearest diffusion point indices
+    half_index_x = simulation.locations[index][0] // (simulation.spat_res / 2)
+    half_index_y = simulation.locations[index][1] // (simulation.spat_res / 2)
+    half_index_z = simulation.locations[index][2] // (simulation.spat_res / 2)
+    index_x = math.ceil(half_index_x / 2)
+    index_y = math.ceil(half_index_y / 2)
+    index_z = math.ceil(half_index_z / 2)
+
+    # return the value at the diffusion point
+    return gradient[index_x][index_y][index_z]
+
+
+def update_concentrations(simulation, gradient_name, index, amount, mode):
+    """ Adjust the concentration of the gradient based on
+        the amount, location of cell, and method.
+    """
+    # get the gradient array from the simulation instance
+    gradient = simulation.__dict__[gradient_name]
+
+    # use the nearest method similar to the get_concentration()
     if mode == "nearest":
         # find the nearest diffusion point indices
         half_index_x = simulation.locations[index][0] // (simulation.spat_res / 2)
@@ -38,21 +58,27 @@ def update_concentrations(simulation, gradient_name, index, amount, mode):
         # add the specified amount of concentration to the nearest diffusion point
         gradient[index_x][index_y][index_z] += amount
 
+    # use the distance dependent method for adding concentrations
     elif mode == "distance":
-        gradient = update_concentrations_cpu(gradient, simulation.locations[index], amount,
-                                             simulation.diffuse_radius, simulation.diffuse_bins_help,
-                                             simulation.diffuse_bins, simulation.diffuse_locations)
-
+        # call a just-in-time function for this
+        gradient = update_concentrations_cpu(gradient, simulation.locations[index], amount, simulation.diffuse_radius,
+                                             simulation.diffuse_bins_help, simulation.diffuse_bins,
+                                             simulation.diffuse_locations)
+        # update the gradient
         simulation.__dict__[gradient_name] = gradient
 
+    # if some other mode
     else:
-        print("Incorrect mode")
+        print("Incorrect mode for updating concentrations")
 
 
-# @jit(nopython=True)
+@jit(nopython=True)
 def update_concentrations_cpu(gradient, location, amount, diffuse_radius, diffuse_bins_help, diffuse_bins,
                               diffuse_locations):
-
+    """ Looks at up to four of the nearest diffusion points
+        and adds concentration based on the distance to each
+        point.
+    """
     # offset bins by 2 to avoid missing points
     block_location = location // diffuse_radius + np.array([2, 2, 2])
     x, y, z = int(block_location[0]), int(block_location[1]), int(block_location[2])
@@ -100,29 +126,10 @@ def update_concentrations_cpu(gradient, location, amount, diffuse_radius, diffus
     return gradient
 
 
-def get_concentration(simulation, gradient_name, index):
-    """ get the concentration of a cell for specified
-        gradient based on the location
-    """
-    # get the gradient array from the simulation instance
-    gradient = simulation.__dict__[gradient_name]
-
-    # find the nearest diffusion point indices
-    half_index_x = simulation.locations[index][0] // (simulation.spat_res / 2)
-    half_index_y = simulation.locations[index][1] // (simulation.spat_res / 2)
-    half_index_z = simulation.locations[index][2] // (simulation.spat_res / 2)
-    index_x = math.ceil(half_index_x / 2)
-    index_y = math.ceil(half_index_y / 2)
-    index_z = math.ceil(half_index_z / 2)
-
-    # return the value at the diffusion point
-    return gradient[index_x][index_y][index_z]
-
-
 def assign_bins(simulation, distance, max_cells):
-    """ generalizes cell locations to a bin within a multi-
+    """ Generalizes cell locations to a bin within a multi-
         dimensional array, used for a parallel fixed-radius
-        neighbor search
+        neighbor search.
     """
     # if there is enough space for all cells that should be in a bin, break out of the loop. if there isn't
     # enough space update the amount of needed space and re-put the cells in bins. this will run once if the prediction
@@ -158,8 +165,7 @@ def assign_bins(simulation, distance, max_cells):
 
 @jit(nopython=True)
 def assign_bins_cpu(number_cells, cell_locations, bins, bins_help):
-    """ this is the just-in-time compiled version of assign_bins
-        that runs solely on the cpu
+    """ This is the just-in-time compiled helper for assign_bins()
     """
     # go through all cells
     for i in range(number_cells):
@@ -179,63 +185,11 @@ def assign_bins_cpu(number_cells, cell_locations, bins, bins_help):
     return bins, bins_help
 
 
-@jit(nopython=True, parallel=True)
-def check_neighbors_cpu(number_cells, bin_locations, cell_locations, bins, bins_help, distance, edge_holder,
-                        if_edge, edge_count, max_neighbors):
-    """ this is the just-in-time compiled version of check_neighbors
-        that runs in parallel on the cpu
-    """
-    # loops over all cells, with the current cell index being the focus
-    for focus in prange(number_cells):
-        # get the starting index for writing to the edge holder array
-        start = focus * max_neighbors
-
-        # holds the total amount of edges for a given cell
-        edge_counter = 0
-
-        # get the bin location of the cell
-        x, y, z = bin_locations[focus][0], bin_locations[focus][1], bin_locations[focus][2]
-
-        # loop over the bin the cell is in and the surrounding bins
-        for i in range(-1, 2):
-            for j in range(-1, 2):
-                for k in range(-1, 2):
-                    # get the count of cells for the current bin
-                    bin_count = bins_help[x + i][y + j][z + k]
-
-                    # go through that bin determining if a cell is a neighbor
-                    for l in range(bin_count):
-                        # get the index of the current cell in question
-                        current = bins[x + i][y + j][z + k][l]
-
-                        # check to see if that cell is within the search radius and not the same cell
-                        vector = cell_locations[current] - cell_locations[focus]
-                        if np.linalg.norm(vector) <= distance and focus < current:
-                            # if within the bounds of the array, add the edge
-                            if edge_counter < max_neighbors:
-                                # get the index to place the edge
-                                index = start + edge_counter
-
-                                # update the edge array and identify that this edge is nonzero
-                                edge_holder[index][0] = focus
-                                edge_holder[index][1] = current
-                                if_edge[index] = 1
-
-                            # increase the count of edges for a cell and the index for the next edge
-                            edge_counter += 1
-
-        # update the array with number of edges for the cell
-        edge_count[focus] = edge_counter
-
-    # return the updated edges and the array with the counts of neighbors per cell
-    return edge_holder, if_edge, edge_count
-
-
 @cuda.jit
-def check_neighbors_gpu(bin_locations, cell_locations, bins, bins_help, distance, edge_holder, if_edge, edge_count,
+def check_neighbors_gpu(bin_locations, locations, bins, bins_help, distance, edge_holder, if_edge, edge_count,
                         max_neighbors):
-    """ this is the cuda kernel for the check_neighbors function
-        that runs on a NVIDIA gpu
+    """ This is the cuda kernel for the check_neighbors() function
+        that performs the actual calculation.
     """
     # get the index in the array
     focus = cuda.grid(1)
@@ -264,7 +218,7 @@ def check_neighbors_gpu(bin_locations, cell_locations, bins, bins_help, distance
                         current = bins[x + i][y + j][z + k][l]
 
                         # check to see if that cell is within the search radius and not the same cell
-                        if magnitude(cell_locations[focus], cell_locations[current]) <= distance[0] and focus < current:
+                        if magnitude(locations[focus], locations[current]) <= distance[0] and focus < current:
                             # if within the bounds of the array, add the edge
                             if edge_counter < max_neighbors[0]:
                                 # get the index to place the edge
@@ -275,11 +229,88 @@ def check_neighbors_gpu(bin_locations, cell_locations, bins, bins_help, distance
                                 edge_holder[index][1] = current
                                 if_edge[index] = 1
 
-                                # increase the count of edges for a cell and the index for the next edge
+                            # increase the count of edges for a cell and the index for the next edge
                             edge_counter += 1
 
         # update the array with number of edges for the cell
         edge_count[focus] = edge_counter
+
+
+@jit(nopython=True, parallel=True)
+def check_neighbors_cpu(number_cells, bin_locations, locations, bins, bins_help, distance, edge_holder, if_edge,
+                        edge_count, max_neighbors):
+    """ This is the just-in-time compiled helper of check_neighbors()
+        that performs the actual calculations.
+    """
+    # loops over all cells, with the current cell index being the focus
+    for focus in prange(number_cells):
+        # get the starting index for writing to the edge holder array
+        start = focus * max_neighbors
+
+        # holds the total amount of edges for a given cell
+        edge_counter = 0
+
+        # get the bin location of the cell
+        x, y, z = bin_locations[focus][0], bin_locations[focus][1], bin_locations[focus][2]
+
+        # loop over the bin the cell is in and the surrounding bins
+        for i in range(-1, 2):
+            for j in range(-1, 2):
+                for k in range(-1, 2):
+                    # get the count of cells for the current bin
+                    bin_count = bins_help[x + i][y + j][z + k]
+
+                    # go through that bin determining if a cell is a neighbor
+                    for l in range(bin_count):
+                        # get the index of the current cell in question
+                        current = bins[x + i][y + j][z + k][l]
+
+                        # check to see if that cell is within the search radius and not the same cell
+                        vector = locations[current] - locations[focus]
+                        if np.linalg.norm(vector) <= distance and focus < current:
+                            # if within the bounds of the array, add the edge
+                            if edge_counter < max_neighbors:
+                                # get the index to place the edge
+                                index = start + edge_counter
+
+                                # update the edge array and identify that this edge is nonzero
+                                edge_holder[index][0] = focus
+                                edge_holder[index][1] = current
+                                if_edge[index] = 1
+
+                            # increase the count of edges for a cell and the index for the next edge
+                            edge_counter += 1
+
+        # update the array with number of edges for the cell
+        edge_count[focus] = edge_counter
+
+    # return the updated edges and the array with the counts of neighbors per cell
+    return edge_holder, if_edge, edge_count
+
+
+@jit(nopython=True)
+def update_diffusion_cpu(base, diffuse_steps, diffuse_dt, spat_res2, diffuse):
+    """ This is the just-in-time compiled helper of
+        update_diffusion() that performs the diffusion
+        calculation.
+    """
+    # finite difference to solve laplacian diffusion equation currently 2D
+    for _ in range(diffuse_steps):
+        # set the initial conditions
+        base[:, 0, 1:-1] = base[:, 1, 1:-1]
+        base[:, -1, 1:-1] = base[:, -2, 1:-1]
+        base[0, :, 1:-1] = base[1, :, 1:-1]
+        base[-1, :, 1:-1] = base[-2, :, 1:-1]
+
+        # perform the first part of the calculation
+        x = (base[2:, 1:-1, 1:-1] - 2 * base[1:-1, 1:-1, 1:-1] + base[:-2, 1:-1, 1:-1]) / spat_res2
+        y = (base[1:-1, 2:, 1:-1] - 2 * base[1:-1, 1:-1, 1:-1] + base[1:-1, :-2, 1:-1]) / spat_res2
+
+        # update the gradient array
+        base[1:-1, 1:-1, 1:-1] = base[1:-1, 1:-1, 1:-1] + diffuse * diffuse_dt * (x + y)
+
+    # return the gradient back to the simulation
+    return base[1:-1, 1:-1, 1:-1]
 
 
 @jit(nopython=True, parallel=True)
@@ -597,51 +628,6 @@ def setup_diffuse_bins_cpu(diffuse_locations, diffuse_radius, diffuse_bins, diff
 
     # return the arrays now filled with points
     return diffuse_bins, diffuse_bins_help
-
-
-@jit(nopython=True)
-def update_diffusion_cpu(base, diffuse_steps, diffuse_dt, spat_res2, diffuse, size):
-    """ this is the just-in-time compiled version of
-        update_diffusion that runs solely on the cpu
-    """
-    # finite difference to solve laplacian diffusion equation
-    # 2D
-    if size[2] == 0:
-        for _ in range(diffuse_steps):
-            # set the initial conditions
-            base[:, 0, 1:-1] = base[:, 1, 1:-1]
-            base[:, -1, 1:-1] = base[:, -2, 1:-1]
-            base[0, :, 1:-1] = base[1, :, 1:-1]
-            base[-1, :, 1:-1] = base[-2, :, 1:-1]
-
-            # perform the first part of the calculation
-            x = (base[2:, 1:-1, 1:-1] - 2 * base[1:-1, 1:-1, 1:-1] + base[:-2, 1:-1, 1:-1]) / spat_res2
-            y = (base[1:-1, 2:, 1:-1] - 2 * base[1:-1, 1:-1, 1:-1] + base[1:-1, :-2, 1:-1]) / spat_res2
-
-            # update the gradient array
-            base[1:-1, 1:-1, 1:-1] = base[1:-1, 1:-1, 1:-1] + diffuse * diffuse_dt * (x + y)
-
-    # 3D
-    else:
-        for _ in range(diffuse_steps):
-            # set the initial conditions
-            # base[:, [0, -1], 1:-1] = base[:, [1, -2], 1:-1]
-            # base[[0, -1], :, 1:-1] = base[[1, -2], :, 1:-1]
-            # base[:, 1:-1, [0, -1]] = base[:, 1:-1, [1, -2]]
-            # base[[0, -1], 1:-1, :] = base[[1, -2], 1:-1, :]
-            # base[1:-1, :, [0, -1]] = base[1:-1, :, [1, -2]]
-            # base[1:-1, [0, -1], :] = base[1:-1, [1, -2], :]
-
-            # perform the first part of the calculation
-            x = (base[2:, 1:-1, 1:-1] - 2 * base[1:-1, 1:-1, 1:-1] + base[:-2, 1:-1, 1:-1]) / spat_res2
-            y = (base[1:-1, 2:, 1:-1] - 2 * base[1:-1, 1:-1, 1:-1] + base[1:-1, :-2, 1:-1]) / spat_res2
-            z = (base[1:-1, 1:-1, 2:] - 2 * base[1:-1, 1:-1, 1:-1] + base[1:-1, 1:-1, :-2]) / spat_res2
-
-            # update the gradient array
-            base[1:-1, 1:-1, 1:-1] = base[1:-1, 1:-1, 1:-1] + diffuse * diffuse_dt * (x + y + z)
-
-    # return the gradient back to the simulation
-    return base[1:-1, 1:-1, 1:-1]
 
 
 @jit(nopython=True, parallel=True)

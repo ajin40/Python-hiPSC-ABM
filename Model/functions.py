@@ -442,7 +442,7 @@ def check_neighbors(simulation):
         if simulation.parallel:
             # turn the following into arrays that can be interpreted by the gpu
             bin_locations_cuda = cuda.to_device(bin_locations)
-            cell_locations_cuda = cuda.to_device(simulation.locations)
+            locations_cuda = cuda.to_device(simulation.locations)
             bins_cuda = cuda.to_device(bins)
             bins_help_cuda = cuda.to_device(bins_help)
             distance_cuda = cuda.to_device(neighbor_distance)
@@ -456,7 +456,7 @@ def check_neighbors(simulation):
             bpg = math.ceil(simulation.number_cells / tpb)
 
             # call the cuda kernel with given parameters
-            backend.check_neighbors_gpu[bpg, tpb](bin_locations_cuda, cell_locations_cuda, bins_cuda, bins_help_cuda,
+            backend.check_neighbors_gpu[bpg, tpb](bin_locations_cuda, locations_cuda, bins_cuda, bins_help_cuda,
                                                   distance_cuda, edge_holder_cuda, if_edge_cuda, edge_count_cuda,
                                                   max_neighbors_cuda)
 
