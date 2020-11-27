@@ -2,13 +2,13 @@ import numpy as np
 import igraph
 
 
-# used to hold all values necessary to the simulation based on the various modes
 class Simulation:
+    """ This object holds all of the important information about the simulation as it
+        runs. The template files are read to get parameters that often change.
+    """
     def __init__(self, templates_path, name, path, separator):
 
-        self.name = name    # name of the simulation, used to name output files
-        self.path = path    # path to the output directory specific to this simulation
-        self.separator = separator     # file/directory separator
+        # read the template files and create instance variables based on their values
 
         # ------------- general template file -------------------------
         # open the .txt file and get a list of the lines
@@ -56,15 +56,7 @@ class Simulation:
         self.dox_value = float(experimental[43][2:-3])
         self.field = int(experimental[46][2:-3])
 
-        # start with initially zero cells and add to this number via the instance methods
-        self.number_cells = 0
-
-        # start the simulation at step 1 can be overwritten if continuation mode
-        self.beginning_step = 1
-
-        # the spatial resolution of the space
-        self.spat_res = 0.00001  # 10 um
-        self.spat_res2 = self.spat_res ** 2
+        # define any other instance variables that are not part of the template files
 
         # the temporal resolution for the simulation
         self.step_dt = 1800  # dt of each simulation step (1800 sec)
@@ -77,10 +69,6 @@ class Simulation:
         self.pluri_growth = (self.max_radius - self.min_radius) / self.pluri_div_thresh
         self.diff_growth = (self.max_radius - self.min_radius) / self.diff_div_thresh
 
-        # holds all indices of cells that will divide or be removed during each step
-        self.cells_to_divide = np.array([], dtype=int)
-        self.cells_to_remove = np.array([], dtype=int)
-
         # the neighbor graph holds all nearby cells within a fixed radius, where the JKR graph is used for
         # storing adhesive bonds between cells
         self.neighbor_graph = igraph.Graph()
@@ -90,6 +78,9 @@ class Simulation:
         self.graph_names = ["neighbor_graph", "jkr_graph"]
 
         # the diffusion constant for the molecule gradients and the radius of search for diffusion points
+        # the spatial resolution of the space
+        self.spat_res = 0.00001  # 10 um
+        self.spat_res2 = self.spat_res ** 2
         self.diffuse = 0.00000000005    # 50 um^2/s
         self.diffuse_radius = self.spat_res * 0.707106781187
 
@@ -103,12 +94,30 @@ class Simulation:
 
         ########################################################################################################
         ########################################################################################################
-        # the following instance variables and methods are used for user-friendliness in setting up a simulation
+        ########################################################################################################
+        ########################################################################################################
+        ########################################################################################################
+        ########################################################################################################
 
-        # hold the names of the cell arrays, the cell types, and important method runtimes
-        self.cell_array_names = list()
-        self.array_types = dict()
-        self.function_times = dict()
+        # these instance variables are rarely changed and serve to keep the model running
+
+        # hold the name of the simulation, the path to the simulation directory, and the path separator
+        self.name = name
+        self.path = path
+        self.separator = separator
+
+        # hold the number of cells and the step to begin at (can be altered by various modes)
+        self.number_cells = 0
+        self.beginning_step = 1
+
+        # arrays to store the cells set to divide or die
+        self.cells_to_divide = np.array([], dtype=int)
+        self.cells_to_remove = np.array([], dtype=int)
+
+        # various other holders
+        self.cell_array_names = list()    # stores the names of the cell arrays
+        self.cell_types = dict()          # holds the names of the cell types defined in run.py
+        self.function_times = dict()      # store the runtimes of the various methods as the model runs
 
     def cell_type(self, name, number):
         """ creates a new cell type for setting initial parameters
@@ -124,7 +133,7 @@ class Simulation:
             self.__dict__[graph].add_vertices(number)
 
         # add slice to general dictionary for
-        self.array_types[name] = (begin, end)
+        self.cell_types[name] = (begin, end)
 
     def cell_arrays(self, *args):
         """ creates Simulation instance variables for the cell arrays
@@ -164,8 +173,8 @@ class Simulation:
         # otherwise update the slice of the array based on the
         else:
             # get the beginning and end of the slice
-            begin = self.array_types[cell_type][0]
-            end = self.array_types[cell_type][1]
+            begin = self.cell_types[cell_type][0]
+            end = self.cell_types[cell_type][1]
 
             # update only this slice of the cell array
             for i in range(begin, end):

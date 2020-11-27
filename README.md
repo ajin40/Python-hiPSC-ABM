@@ -41,7 +41,7 @@ Different simulation modes:
 - 4 -> Zip a past simulation
 
 
-The name and mode can be passed at the command line...without the parentheses.
+The name and mode can be passed at the command line by using options...without the parentheses.
 ```
 $ python run.py -n (name) -m (mode)
 ```
