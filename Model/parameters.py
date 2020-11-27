@@ -106,6 +106,15 @@ class Simulation:
         self.path = path
         self.separator = separator
 
+        # create the following paths used for outputting files to simulation directory
+        self.images_path = self.path + self.name + "_images" + self.separator
+        self.values_path = self.path + self.name + "_values" + self.separator
+        self.gradients_path = self.path + self.name + "_gradients" + self.separator
+        self.tda_path = self.path + self.name + "_tda" + self.separator
+
+        # add the variable names for paths for automatic creation of corresponding directory
+        self.output_names = ['images_path', 'values_path', 'gradients_path', 'tda_path']
+
         # hold the number of cells and the step to begin at (can be altered by various modes)
         self.number_cells = 0
         self.beginning_step = 1

@@ -12,33 +12,22 @@ import backend
 
 
 def initialize_outputs(simulation):
-    """ Sets up the directories and paths for all outputs
-        of the model as it runs
+    """ Make directories for all outputs specified in
+        simulation class.
     """
-    # path to images directory
-    simulation.images_path = simulation.path + simulation.name + "_images" + simulation.separator
-    if not os.path.isdir(simulation.images_path) and simulation.output_images:
-        os.mkdir(simulation.images_path)
+    # go through all path names
+    for output_name in simulation.output_names:
+        # get path
+        path = simulation.__dict__[output_name]
 
-    # path to cell values directory
-    simulation.values_path = simulation.path + simulation.name + "_values" + simulation.separator
-    if not os.path.isdir(simulation.values_path):
-        os.mkdir(simulation.values_path)
-
-    # path to gradients directory
-    simulation.gradients_path = simulation.path + simulation.name + "_gradients" + simulation.separator
-    if not os.path.isdir(simulation.gradients_path):
-        os.mkdir(simulation.gradients_path)
-
-    # path to TDA directory
-    simulation.tda_path = simulation.path + simulation.name + "_tda" + simulation.separator
-    if not os.path.isdir(simulation.tda_path) and simulation.output_tda:
-        os.mkdir(simulation.tda_path)
+        # only make path if it doesn't exist
+        if not os.path.isdir(path):
+            os.mkdir(path)
 
 
 def step_outputs(simulation):
     """ Calls multiple functions that each output some sort of
-        file relating to the simulation at a particular step
+        file relating to the simulation at a particular step.
     """
     # information about the cells/environment at current step
     step_image(simulation)

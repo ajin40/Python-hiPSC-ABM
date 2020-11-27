@@ -103,7 +103,7 @@ def setup():
         simulation = parameters.Simulation(templates_path, name, path, separator)
 
         # copy model files and template parameters
-        shutil.copytree(os.getcwd(), path + "Model_copy")
+        shutil.copytree(os.getcwd(), path + name + "_copy")
 
         # make a directories for outputting images, csvs, gradients, etc.
         output.initialize_outputs(simulation)
