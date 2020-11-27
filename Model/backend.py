@@ -4,7 +4,6 @@ import math
 import random as r
 from functools import wraps
 import time
-import sys
 
 
 def info(simulation):
@@ -855,8 +854,8 @@ def nearest_gpu(cell_locations, bins, bins_help, distance, if_diff, cell_gata6, 
 
 @cuda.jit(device=True)
 def magnitude(location_one, location_two):
-    """ this is the cuda kernel device function that is used
-        to calculate the magnitude between two points
+    """ This is the cuda kernel device function that is used
+        to calculate the magnitude between two points.
     """
     # hold the value as the function runs
     count = 0
@@ -870,7 +869,7 @@ def magnitude(location_one, location_two):
 
 
 def normal_vector(vector):
-    """ returns the normalized vector
+    """ Returns the normalized vector.
     """
     mag = np.linalg.norm(vector)
     if mag == 0:
@@ -880,8 +879,8 @@ def normal_vector(vector):
 
 
 def random_vector(simulation):
-    """ computes a random point on a unit sphere centered at the origin
-        Returns - point [x,y,z]
+    """ Computes a random vector on a unit sphere centered
+        at the origin.
     """
     # a random angle on the cell
     theta = r.random() * 2 * math.pi
@@ -902,7 +901,8 @@ def random_vector(simulation):
 
 
 def record_time(function):
-    """ a decorator used to time individual functions
+    """ A decorator used to time individual methods
+        which is outputted to a CSV each step.
     """
     @wraps(function)
     def wrap(simulation):
@@ -919,9 +919,9 @@ def record_time(function):
 
 
 def progress_bar(progress, maximum):
-    ""
-
-    # length of the bar
+    """ Creates a progress bar.
+    """
+    # length of the bar in characters
     length = 60
 
     # calculate the bar string
@@ -932,5 +932,4 @@ def progress_bar(progress, maximum):
     percent = int(100 * progress / maximum)
 
     # update the progress bar in the terminal
-    sys.stdout.write('\r[%s] %s%s' % (bar, percent, '%'))
-    # sys.stdout.flush()
+    print('\r[%s] %s%s' % (bar, percent, '%'), end="")

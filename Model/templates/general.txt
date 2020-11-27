@@ -5,10 +5,10 @@ Do you want the model to use a discrete NVIDIA gpu to accelerate some computatio
 [ True ]
 
 What will the final step number be? Use for when you are beginning a new simulation or continuing an existing. Ex. 192
-[ 10 ]
+[ 5 ]
 
 How many NANOG high cells to begin the simulation? Ex. 1000
-[ 10000 ]
+[ 1000 ]
 
 How many GATA6 high cells to begin the simulation? Ex. 1000
 [ 0 ]

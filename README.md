@@ -19,7 +19,7 @@ Download the model either through GitHub or with the following command.
 ```
 $ git clone https://github.com/JackToppen/Python-hiPSC-CBM.git
 ```
-Requires Python 3.6 or later. All necessary modules are Python packages, so use pip to download them.
+Requires Python 3.6-3.8. All necessary modules are Python packages, so use pip to download them.
 ```
 $ pip install -r requirements.txt
 ```
@@ -38,10 +38,12 @@ Different simulation modes:
 - 1 -> Continue a past simulation
 - 2 -> Turn past simulation images to video
 - 3 -> CSVs to images/video
+- 4 -> Zip a past simulation
+
 
 The name and mode can be passed at the command line...without the parentheses.
 ```
-$ python run.py (name) (mode)
+$ python run.py -n (name) -m (mode)
 ```
 
 ##
