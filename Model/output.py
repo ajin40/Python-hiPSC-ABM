@@ -139,7 +139,7 @@ def step_image(simulation):
 @backend.record_time
 def step_values(simulation):
     """ Outputs a CSV file containing information about
-        all cells with each row corresponding to a cell
+        from all cell arrays
     """
     # get file path
     file_path = simulation.values_path + simulation.name + "_values_" + str(int(simulation.current_step)) + ".csv"
@@ -149,16 +149,33 @@ def step_values(simulation):
         # create CSV object
         csv_file = csv.writer(new_file)
 
-        # create a header as the first row of the CSV
-        csv_file.writerow(['x_location', 'y_location', 'z_location', 'radius', 'motion', 'FGFR', 'ERK', 'GATA6',
-                           'NANOG', 'state', 'differentiation_counter', 'division_counter', 'death_counter',
-                           'fds_counter'])
+        # creat lists for the header and the data of the CSV
+        header = list()
+        data = list()
 
-        # combine the multiple cell arrays into a single 2D list
-        cell_data = list(zip(simulation.locations[:, 0], simulation.locations[:, 1], simulation.locations[:, 2],
-                             simulation.radii, simulation.motion, simulation.FGFR, simulation.ERK, simulation.GATA6,
-                             simulation.NANOG, simulation.states, simulation.diff_counters, simulation.div_counters,
-                             simulation.death_counters, simulation.fds_counters))
+        # go through each of the cell arrays
+        for array_name in simulation.cell_array_names:
+            # get the cell array
+            cell_array = simulation.__dict__[array_name]
+
+            # if the array is one dimensional
+            if cell_array.ndim == 1:
+                header.append(array_name)  # add the array name to the header
+                cell_array = np.reshape(cell_array, (-1, 1))  # resize array from 1D to 2D
+                data.append(cell_array)  # add the array to the data holder
+
+            # if the array is not one dimensional
+            else:
+                # add multiple headers for each slice of the 2D array
+                for i in range(cell_array.shape[1]):
+                    header.append(array_name + "[" + str(i) + "]")
+                data.append(cell_array)  # add the array to the data holder
+
+        # create a header as the first row of the CSV
+        csv_file.writerow(header)
+
+        # stack the arrays to create rows for the CSV file
+        cell_data = np.hstack(data)
 
         # write the 2D list to the CSV
         csv_file.writerows(cell_data)
