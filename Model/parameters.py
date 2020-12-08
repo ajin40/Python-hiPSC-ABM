@@ -111,9 +111,10 @@ class Simulation:
         self.values_path = self.path + self.name + "_values" + self.separator
         self.gradients_path = self.path + self.name + "_gradients" + self.separator
         self.tda_path = self.path + self.name + "_tda" + self.separator
+        self.pickle_path = self.path + self.name + "_pickles" + self.separator
 
         # add the variable names for paths for automatic creation of corresponding directory
-        self.output_names = ['images_path', 'values_path', 'gradients_path', 'tda_path']
+        self.output_names = ['images_path', 'values_path', 'gradients_path', 'tda_path', 'pickle_path']
 
         # hold the number of cells and the step to begin at (can be altered by various modes)
         self.number_cells = 0
