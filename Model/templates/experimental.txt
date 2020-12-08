@@ -1,29 +1,11 @@
 -----------------------------------------------------------------------------------------------------------------------
 Experimental
 -----------------------------------------------------------------------------------------------------------------------
-Number of steps required for a pluripotent cell to divide. Each step is currently equivalent to 30 minutes. Ex. 36
-[ 36 ]
-
-Number of steps required for a differentiated cell to divide. Ex. 24
-[ 72 ]
-
-Number of steps required for a pluripotent cell to differentiate. Ex. 36
-[ 72 ]
-
-How many consecutive steps can a pluripotent cell go without neighbors before dying? Ex. 36
-[ 144 ]
-
-How often are the finite dynamical system values for each cell updated? Ex. 10
-[ 1 ]
-
-What is the threshold for designating high FGF4 at a diffusion point. Ex. 20
-[ 20 ]
-
-Threshold of cells to denote a cell as lonely or not. If lower than this value, increase death counter. Ex. 1
-[ 3 ]
-
 How many cells are added/removed to the simulation at once, per time step? Type 0 if all at once. Ex. 5
 [ 0 ]
+
+Threshold of cells to denote a cell as lonely or not. If lower than this value, increase death counter. Ex. 3
+[ 3 ]
 
 Use the Guye movement method? Where GATA6 high cells with move toward differentiated cells. Ex. True
 [ True ]
@@ -31,18 +13,6 @@ Use the Guye movement method? Where GATA6 high cells with move toward differenti
 Use Eunbi's method of motion based on the NetLogo model? Ex. True
 [ True ]
 
-What is the max value of FGF4 at a diffusion point? Ex. 80
-[ 200 ]
-
 Use FGF4 concentrations for NANOG high movements? Ex. False
 [ False ]
-
-Output Topological Data Analysis csv files? Ex. True
-[ True ]
-
-Percent of cells (as a decimal) that will receive sufficient dox to activate GATA6 pathway
-[ 1.00 ]
-
-Field for the finite dynamical system. 2: binary, 3: ternary. Ex. 2
-[ 3 ]
 ------------------------------------------------------------------------------------------------------------------------

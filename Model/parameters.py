@@ -43,28 +43,28 @@ class Simulation:
             experimental = experimental_file.readlines()
 
         # create instance variables based on template parameters
-        self.pluri_div_thresh = int(experimental[4][2:-3])
-        self.diff_div_thresh = int(experimental[7][2:-3])
-        self.pluri_to_diff = int(experimental[10][2:-3])
-        self.death_thresh = int(experimental[13][2:-3])
-        self.fds_thresh = int(experimental[16][2:-3])
-        self.fgf4_thresh = int(experimental[19][2:-3])
-        self.lonely_cell = int(experimental[22][2:-3])
-        self.group = int(experimental[25][2:-3])
-        self.guye_move = eval(experimental[28][2:-3])
-        self.eunbi_move = eval(experimental[31][2:-3])
-        self.max_concentration = float(experimental[34][2:-3])
-        self.fgf4_move = eval(experimental[37][2:-3])
-        self.output_tda = eval(experimental[40][2:-3])
-        self.dox_value = float(experimental[43][2:-3])
-        self.field = int(experimental[46][2:-3])
+        self.group = int(experimental[4][2:-3])
+        self.lonely_cell = int(experimental[7][2:-3])
+        self.guye_move = eval(experimental[10][2:-3])
+        self.eunbi_move = eval(experimental[13][2:-3])
+        self.fgf4_move = eval(experimental[16][2:-3])
+        # ------------------------------------------------------------------
 
         # define any other instance variables that are not part of the template files
-
         # the temporal resolution for the simulation
         self.step_dt = 1800  # dt of each simulation step (1800 sec)
         self.move_dt = 200  # dt for incremental movement (200 sec)
         self.diffuse_dt = 0.5  # dt for stable diffusion model (0.5 sec)
+
+        # the field for the finite dynamical system
+        self.field = 3
+
+        # the rates (in steps) of division, differentiation, death, and finite dynamical system updating
+        self.pluri_div_thresh = 36
+        self.diff_div_thresh = 72
+        self.pluri_to_diff = 144
+        self.death_thresh = 144
+        self.fds_thresh = 1
 
         # min and max radius lengths are used to calculate linear growth of the radius over time in 2D
         self.max_radius = 0.000005  # 5 um
@@ -80,12 +80,13 @@ class Simulation:
         # add the names of the graphs below for automatic cell addition and removal
         self.graph_names = ["neighbor_graph", "jkr_graph"]
 
-        # the diffusion constant for the molecule gradients and the radius of search for diffusion points
-        # the spatial resolution of the space
+        # the spatial resolution of the space, the diffusion constant for the molecule gradients, the radius of
+        # search for diffusion points, and the max concentration at a diffusion point
         self.spat_res = 0.00001  # 10 um
         self.spat_res2 = self.spat_res ** 2
         self.diffuse = 0.00000000005    # 50 um^2/s
         self.diffuse_radius = self.spat_res * 0.707106781187
+        self.max_concentration = 200
 
         # calculate the size of the array for the diffusion points and create gradient arrays
         self.gradient_size = np.ceil(self.size / self.spat_res).astype(int) + np.ones(3, dtype=int)

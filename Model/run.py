@@ -49,6 +49,7 @@ if simulation.mode == 0:
     simulation.initials("GATA6", lambda: r.randrange(0, simulation.field), cell_type="GATA6_high")
     simulation.initials("NANOG", lambda: 0, cell_type="GATA6_high")
 
+
 # Add any functions under the loop that will be called during each step of the simulation.
 for simulation.current_step in range(simulation.beginning_step, simulation.end_step + 1):
     # Prints the current step, number of cells, and records model run time.
