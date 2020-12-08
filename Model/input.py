@@ -19,14 +19,14 @@ def setup():
 
     # get the path to the template file directory which is used to provide some initial simulation parameters
     templates_path = lines[7].strip()
-    templates_path = check_path(templates_path, separator)    # and make sure the model can use the path
+    templates_path = check_path(templates_path, separator)  # and make sure the model can use the path
 
     # get the path to the output directory which is where the simulation directory is outputted to
     output_path = lines[13].strip()
-    output_path = check_path(output_path, separator)    # and make sure the model can use the path
+    output_path = check_path(output_path, separator)  # and make sure the model can use the path
 
     # get any command line options for the model, "n:m:" allows for the -n and -m options
-    options, args = getopt.getopt(sys.argv[1:], "n:m:")    # first argument is "python" so avoid that
+    options, args = getopt.getopt(sys.argv[1:], "n:m:")  # first argument is "python" so avoid that
 
     # go through the inputs getting the options
     for option, value in options:
@@ -36,7 +36,7 @@ def setup():
 
         # if the "-m" mode option, set the variable mode
         elif option == "-m":
-            mode = int(value)    # turn from string to int
+            mode = int(value)  # turn from string to int
 
         # if some other option
         else:
@@ -46,52 +46,21 @@ def setup():
     try:
         name
     except NameError:
-        # run loop until broken
-        while True:
-            name = input("What is the \"name\" of the simulation? Type \"help\" for more information: ")
-            if name == "help":
-                print("Type the name of the simulation without quotes and not as a path.\n")
-            else:
-                break
-
-    # hold the possible modes for the model, used to check that mode exists
-    possible_modes = [0, 1, 2, 3]
+        name = get_name()
 
     # if the mode variable has not been initialized, run the text-based GUI to get it
     try:
         mode
     except NameError:
-        # run loop until broken
-        while True:
-            mode = input("What is the \"mode\" of the simulation? Type \"help\" for more information: ")
-            if mode == "help":
-                print("\nHere are the following modes:")
-                print("new simulation: 0")
-                print("continuation of past simulation: 1")
-                print("turn simulation images to video: 2")
-                print("turn simulation into zip: 3\n")
-            else:
-                try:
-                    # get the mode as an integer
-                    mode = int(mode)
+        mode = get_mode()
 
-                    # make sure mode exists, break the loop if it does
-                    if mode in possible_modes:
-                        break
-                    else:
-                        print("Mode does not exist. See possible modes: " + str(possible_modes))
-
-                # if not an integer
-                except ValueError:
-                    print("\"mode\" should be an integer")
-
-    # check the name of the simulation based on the mode
+    # check the name of the simulation based on the mode and return a path to the simulation directory
     name, path = check_name(name, output_path, separator, mode)
 
-    # create paths object with holds any important paths
+    # create a paths object that holds any important paths
     paths = output.Paths(name, path, templates_path, separator)
 
-    # new simulation
+    # -------------- new simulation ---------------------------
     if mode == 0:
         # create instance of Simulation class
         simulation = parameters.Simulation(paths, name, mode)
@@ -99,7 +68,7 @@ def setup():
         # copy model files and template parameters
         shutil.copytree(os.getcwd(), path + name + "_copy")
 
-    # continuation of previous simulation
+    # -------------- continuation of previous simulation ---------------------------
     elif mode == 1:
         # get the new end step of the simulation
         end_step = int(input("What is the final step of this continued simulation? "))
@@ -111,7 +80,7 @@ def setup():
             simulation.end_step = end_step
             simulation.mode = mode
 
-    # images to video
+    # -------------- images to video ---------------------------
     elif mode == 2:
         # create instance of Simulation class used to get imaging information
         simulation = parameters.Simulation(paths, name, mode)
@@ -122,10 +91,15 @@ def setup():
         # exits out as the conversion from images to video is done
         exit()
 
-    # zip a simulation directory
+    # -------------- zip a simulation directory --------------
     elif mode == 3:
         print("Compressing: " + name)
-        shutil.make_archive(path[:-1], 'zip', path)
+
+        # remove separator of the path to the simulation directory
+        simulation_path = path[:-1]
+
+        # zip a copy of the directory and save it to the same simulation directory
+        shutil.make_archive(simulation_path, 'zip', path)
         print("Done!")
         exit()
 
@@ -198,7 +172,7 @@ def check_name(name, output_path, separator, mode):
                     exit()
                 elif user == "y":
                     print(output_path)
-                    user = input("Is the above path correct? (y/n): ")
+                    user = input("Is the above path to the output directory correct? (y/n): ")
                     if user == "n":
                         output_path = input("Type correct path:")
                     print(name)
@@ -210,3 +184,59 @@ def check_name(name, output_path, separator, mode):
 
     # return the updated name, directory, and path
     return name, output_path + name + separator
+
+
+def get_name():
+    """ This is the text-based GUI to get the
+        name of the simulation.
+    """
+    # run loop until broken
+    while True:
+        # prompt for the name
+        name = input("What is the \"name\" of the simulation? Type \"help\" for more information: ")
+
+        # keep running if "help" input
+        if name == "help":
+            print("Type the name of the simulation without quotes and not as a path.\n")
+        else:
+            break
+
+    return name
+
+
+def get_mode():
+    """ This is the text-based GUI to get the
+        mode of the simulation.
+    """
+
+    # hold the possible modes for the model, used to check that mode exists
+    possible_modes = [0, 1, 2, 3]
+
+    # run loop until broken
+    while True:
+        # prompt for the mode
+        mode = input("What is the \"mode\" of the simulation? Type \"help\" for more information: ")
+
+        # keep running if "help" input
+        if mode == "help":
+            print("\nHere are the following modes:")
+            print("new simulation: 0")
+            print("continuation of past simulation: 1")
+            print("turn simulation images to video: 2")
+            print("turn simulation into zip: 3\n")
+        else:
+            try:
+                # get the mode as an integer
+                mode = int(mode)
+
+                # make sure mode exists, break the loop if it does
+                if mode in possible_modes:
+                    break
+                else:
+                    print("Mode does not exist. See possible modes: " + str(possible_modes))
+
+            # if not an integer
+            except ValueError:
+                print("\"mode\" should be an integer")
+
+    return mode

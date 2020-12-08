@@ -15,7 +15,7 @@ class Paths:
     """ This object contains the paths to the multiple output
         directories.
     """
-    def __init__(self, name, main, templates, separator):
+    def __init__(self, name, main, templates, output_separator):
         self.main = main    # the main directory of the simulation
         self.templates = templates    # the directory to the template .txt files
         self.images = main + name + "_images" + separator    # the images output directory
