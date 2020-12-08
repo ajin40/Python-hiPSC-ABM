@@ -4,10 +4,6 @@ Outputs
 Do you want the cell array values outputted to a CSV at each step? Ex. True
 [ False ]
 
-Do you the simulation object pickled at each step? This is very useful for continuing past simulations and compressing
-the outputs for later analysis, but these files can be large. Ex. True
-[ False ]
-
 Do you want topological data analysis (TDA) files produced at each step? These files are CSVs with the 2D locations
 of cells with basic color labeling. Ex. True
 [ False ]
@@ -23,7 +19,7 @@ What is the image width in pixels? Currently imaging is supported for a 2D space
 a bird's eye view of the space. Image slicing/3D images to come... Ex. 2000
 [ 4000 ]
 
-How many frames per second of the output video that collects all step images? Ex. 1.0
+How many frames per second of the output video that collects all step images? Ex. 6
 [ 6 ]
 
 What mode of coloring for step images? True for coloring based on whether a cell pluripotent or differentiated, False

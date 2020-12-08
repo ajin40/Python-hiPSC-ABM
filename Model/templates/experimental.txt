@@ -38,7 +38,7 @@ Use FGF4 concentrations for NANOG high movements? Ex. False
 [ False ]
 
 Output Topological Data Analysis csv files? Ex. True
-[ False ]
+[ True ]
 
 Percent of cells (as a decimal) that will receive sufficient dox to activate GATA6 pathway
 [ 1.00 ]

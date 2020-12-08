@@ -9,43 +9,45 @@ import functions
 # will return an instance of the Simulation which holds all important information of the simulation as it runs.
 simulation = input.setup()
 
-# Define the names of any cell types. These names will be used to begin the model with a set number of cells that
-# correspond to the particular initial parameters for that cell type.
-simulation.cell_type("NANOG_high", simulation.num_nanog)
-simulation.cell_type("GATA6_high", simulation.num_gata6)
+# Only define initial parameters if this is a new simulation
+if simulation.new_simulation:
+    # Define the names of any cell types. These names will be used to begin the model with a set number of cells that
+    # correspond to the particular initial parameters for that cell type.
+    simulation.cell_type("NANOG_high", simulation.num_nanog)
+    simulation.cell_type("GATA6_high", simulation.num_gata6)
 
-# Define the cell arrays used to store values of the cell. Each tuple corresponds to a cell array that will be
-# generated. The first index of the tuple is the instance variable name for the Simulation class, the second being the
-# data type, and the last (if present) can be used to create a 2D array
-simulation.cell_arrays(("locations", float, 3), ("radii", float), ("motion", bool), ("FGFR", int), ("ERK", int),
-                       ("GATA6", int), ("NANOG", int), ("states", "<U14"), ("diff_counters", int),
-                       ("div_counters", int), ("death_counters", int), ("fds_counters", int),
-                       ("motility_forces", float, 3), ("jkr_forces", float, 3), ("rotations", float),
-                       ("nearest_nanog", int), ("nearest_gata6", int), ("nearest_diff", int))
+    # Define the cell arrays used to store values of the cell. Each tuple corresponds to a cell array that will be
+    # generated. The first index of the tuple is the instance variable name for the Simulation class, the second being
+    # the data type, and the last (if present) can be used to create a 2D array
+    simulation.cell_arrays(("locations", float, 3), ("radii", float), ("motion", bool), ("FGFR", int), ("ERK", int),
+                           ("GATA6", int), ("NANOG", int), ("states", "<U14"), ("diff_counters", int),
+                           ("div_counters", int), ("death_counters", int), ("fds_counters", int),
+                           ("motility_forces", float, 3), ("jkr_forces", float, 3), ("rotations", float),
+                           ("nearest_nanog", int), ("nearest_gata6", int), ("nearest_diff", int))
 
-# Define the initial parameters for the cells using lambda expressions. The following lines have no "cell_type"
-# argument, which is used to designate that these are initial parameters for all cells; however, these can be overridden
-# when defining specific cell types. This is really meant to reduce overall writing for cell types that only differ
-# slightly from the base parameters.
-simulation.initials("locations", lambda: np.random.rand(3) * simulation.size)
-simulation.initials("radii", lambda: simulation.min_radius)
-simulation.initials("motion", lambda: True)
-simulation.initials("FGFR", lambda: r.randrange(0, simulation.field))
-simulation.initials("ERK", lambda: r.randrange(0, simulation.field))
-simulation.initials("GATA6", lambda: 0)
-simulation.initials("NANOG", lambda: r.randrange(1, simulation.field))
-simulation.initials("states", lambda: "Pluripotent")
-simulation.initials("death_counters", lambda: r.randrange(0, simulation.death_thresh))
-simulation.initials("diff_counters", lambda: r.randrange(0, simulation.pluri_to_diff))
-simulation.initials("div_counters", lambda: r.randrange(0, simulation.pluri_div_thresh))
-simulation.initials("fds_counters", lambda: r.randrange(0, simulation.fds_thresh))
-simulation.initials("motility_forces", lambda: np.zeros(3, dtype=float))
-simulation.initials("jkr_forces", lambda: np.zeros(3, dtype=float))
-simulation.initials("rotations", lambda: r.random() * 360)
+    # Define the initial parameters for the cells using lambda expressions. The following lines have no "cell_type"
+    # argument, which is used to designate that these are initial parameters for all cells; however, these can be
+    # overridden when defining specific cell types. This is really meant to reduce overall writing for cell types that
+    # only differ slightly from the base parameters.
+    simulation.initials("locations", lambda: np.random.rand(3) * simulation.size)
+    simulation.initials("radii", lambda: simulation.min_radius)
+    simulation.initials("motion", lambda: True)
+    simulation.initials("FGFR", lambda: r.randrange(0, simulation.field))
+    simulation.initials("ERK", lambda: r.randrange(0, simulation.field))
+    simulation.initials("GATA6", lambda: 0)
+    simulation.initials("NANOG", lambda: r.randrange(1, simulation.field))
+    simulation.initials("states", lambda: "Pluripotent")
+    simulation.initials("death_counters", lambda: r.randrange(0, simulation.death_thresh))
+    simulation.initials("diff_counters", lambda: r.randrange(0, simulation.pluri_to_diff))
+    simulation.initials("div_counters", lambda: r.randrange(0, simulation.pluri_div_thresh))
+    simulation.initials("fds_counters", lambda: r.randrange(0, simulation.fds_thresh))
+    simulation.initials("motility_forces", lambda: np.zeros(3, dtype=float))
+    simulation.initials("jkr_forces", lambda: np.zeros(3, dtype=float))
+    simulation.initials("rotations", lambda: r.random() * 360)
 
-# These are the initial parameters for the "GATA6_high" cells, the cell_type argument is used to flag this
-simulation.initials("GATA6", lambda: r.randrange(0, simulation.field), cell_type="GATA6_high")
-simulation.initials("NANOG", lambda: 0, cell_type="GATA6_high")
+    # These are the initial parameters for the "GATA6_high" cells, the cell_type argument is used to flag this
+    simulation.initials("GATA6", lambda: r.randrange(0, simulation.field), cell_type="GATA6_high")
+    simulation.initials("NANOG", lambda: 0, cell_type="GATA6_high")
 
 # Add any functions under the loop that will be called during each step of the simulation.
 for simulation.current_step in range(simulation.beginning_step, simulation.end_step + 1):

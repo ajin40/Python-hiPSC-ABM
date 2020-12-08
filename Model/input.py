@@ -1,11 +1,8 @@
-import numpy as np
-import csv
 import os
 import platform
 import sys
 import pickle
 import shutil
-import natsort
 import getopt
 
 import output
@@ -107,10 +104,11 @@ def setup():
 
     # continuation of previous simulation
     elif mode == 1:
-        # open the temporary pickled simulation and update the beginning step and the end step
-        with open(path + name + "_temp.pkl", "rb") as temp_file:
+        # open the last pickled simulation and update the beginning step
+        with open(path + name + "_temp" + ".pkl", "rb") as temp_file:
             simulation = pickle.load(temp_file)
             simulation.beginning_step = simulation.current_step + 1
+            simulation.end_step = 15
 
     # images to video
     elif mode == 2:
@@ -121,57 +119,6 @@ def setup():
         output.create_video(simulation)
 
         # exits out as the conversion from images to video is done
-        exit()
-
-    # CSVs to images/video
-    elif mode == 3:
-        # create simulation instance
-        simulation = parameters.Simulation(templates_path, name, path, separator)
-
-        # list the csv files in the values directory and sort them naturally
-        csv_list = os.listdir(simulation.values_path)
-        csv_list = natsort.natsorted(csv_list)
-
-        # list the gradient files in the values directory and sort them naturally
-        gradients_list = os.listdir(simulation.gradients_path)
-        gradients_list = natsort.natsorted(gradients_list)
-
-        # make sure the proper output directories for imaging exist
-        # output.initialize_outputs(simulation)
-
-        # loop over all csvs defined in the template file
-        for i in range(len(csv_list)):
-            # updates the instance variables as they aren't updated by anything else
-            simulation.current_step = i + 1
-
-            # get the fgf4 values based on the saved numpy array
-            simulation.fgf4_values = np.load(simulation.gradients_path + gradients_list[i])
-
-            # opens the csv and create a list of the rows
-            with open(simulation.values_path + csv_list[i], newline="") as file:
-                # skip the first row as this is a header
-                csv_rows = list(csv.reader(file))[1:]
-
-            # updates the number of cells and adds that amount of vertices to the graphs
-            simulation.number_cells = len(csv_rows)
-
-            # turn all of the rows into a matrix
-            cell_data = np.column_stack(csv_rows)
-
-            # each row of the matrix will correspond to a cell value holder. the 2D arrays must be handled differently
-            simulation.cell_locations = cell_data[0:3, :].transpose().astype(float)
-            simulation.cell_radii = cell_data[3].astype(float)
-            simulation.cell_motion = cell_data[4] == "True"
-            simulation.cell_fds = cell_data[5:9, :].transpose().astype(float).astype(int)
-            simulation.cell_states = cell_data[9].astype(str)
-
-            # create image of simulation space
-            output.step_image(simulation)
-
-        # get a video of the images
-        output.create_video(simulation)
-
-        # exits out as the conversion from .csv to images/video is done
         exit()
 
     # zip a simulation directory

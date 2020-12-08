@@ -29,14 +29,13 @@ class Simulation:
 
         # create instance variables based on template parameters
         self.output_values = eval(outputs[4][2:-3])
-        self.output_pickles = eval(outputs[8][2:-3])
-        self.output_tda = eval(outputs[12][2:-3])
-        self.output_gradients = eval(outputs[16][2:-3])
-        self.output_images = eval(outputs[19][2:-3])
-        self.image_quality = int(outputs[23][2:-3])
-        self.fps = float(outputs[26][2:-3])
-        self.color_mode = eval(outputs[30][2:-3])
-        self.output_fgf4_image = eval(outputs[33][2:-3])
+        self.output_tda = eval(outputs[8][2:-3])
+        self.output_gradients = eval(outputs[12][2:-3])
+        self.output_images = eval(outputs[15][2:-3])
+        self.image_quality = int(outputs[19][2:-3])
+        self.fps = float(outputs[22][2:-3])
+        self.color_mode = eval(outputs[26][2:-3])
+        self.output_fgf4_image = eval(outputs[29][2:-3])
 
         # ------------- experimental template file -------------------------
         # open the .txt file and get a list of the lines
@@ -115,7 +114,6 @@ class Simulation:
         self.values_path = self.path + self.name + "_values" + self.separator
         self.gradients_path = self.path + self.name + "_gradients" + self.separator
         self.tda_path = self.path + self.name + "_tda" + self.separator
-        self.pickles_path = self.path + self.name + "_pickles" + self.separator
 
         # hold the number of cells and the step to begin at (can be altered by various modes)
         self.number_cells = 0

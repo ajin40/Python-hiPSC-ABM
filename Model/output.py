@@ -20,7 +20,9 @@ def step_outputs(simulation):
     step_values(simulation)
     step_gradients(simulation)
     step_tda(simulation)
-    step_pickle(simulation)
+
+    # create a temporary pickle of the simulation instance
+    temporary(simulation)
 
     # number of cells, memory, step time, and individual methods times
     simulation_data(simulation)
@@ -241,23 +243,17 @@ def step_tda(simulation):
 
 
 @backend.record_time
-def step_pickle(simulation):
+def temporary(simulation):
     """ Pickle a copy of the simulation class that can be used
         to continue a past simulation without losing information
     """
-    # only continue if outputting simulation object pickles
-    if simulation.output_pickles:
-        # make sure directory exists
-        if not os.path.isdir(simulation.pickles_path):
-            os.mkdir(simulation.pickles_path)
+    # get file path
+    file_path = simulation.path + simulation.name + "_temp" + ".pkl"
 
-        # get file path
-        file_path = simulation.pickles_path + simulation.name + "_pickle_" + str(int(simulation.current_step)) + ".pkl"
-
-        # open the file and get the object
-        with open(file_path, 'wb') as file:
-            # use the highest protocol: -1 for pickling the instance
-            pickle.dump(simulation, file, -1)
+    # open the file and get the object
+    with open(file_path, 'wb') as temp_file:
+        # use the highest protocol: -1 for pickling the instance
+        pickle.dump(simulation, temp_file, -1)
 
 
 def simulation_data(simulation):
