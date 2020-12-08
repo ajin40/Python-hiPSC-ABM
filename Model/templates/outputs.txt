@@ -1,6 +1,21 @@
 -----------------------------------------------------------------------------------------------------------------------
-Imaging
+Outputs
 -----------------------------------------------------------------------------------------------------------------------
+Do you want the cell array values outputted to a CSV at each step? Ex. True
+[ False ]
+
+Do you the simulation object pickled at each step? This is very useful for continuing past simulations and compressing
+the outputs for later analysis, but these files can be large. Ex. True
+[ False ]
+
+Do you want topological data analysis (TDA) files produced at each step? These files are CSVs with the 2D locations
+of cells with basic color labeling. Ex. True
+[ False ]
+
+Do you want the extracellular gradients pickled at each step? These can be re-opened via the numpy library for future
+analysis. Ex. True
+[ False ]
+
 Do you want an image produced at each step and a video at the end of the simulation? Ex. True
 [ True ]
 

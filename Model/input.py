@@ -105,18 +105,12 @@ def setup():
         # copy model files and template parameters
         shutil.copytree(os.getcwd(), path + name + "_copy")
 
-        # make a directories for outputting images, csvs, gradients, etc.
-        output.initialize_outputs(simulation)
-
     # continuation of previous simulation
     elif mode == 1:
         # open the temporary pickled simulation and update the beginning step and the end step
         with open(path + name + "_temp.pkl", "rb") as temp_file:
             simulation = pickle.load(temp_file)
             simulation.beginning_step = simulation.current_step + 1
-
-        # make sure the proper output directories exist
-        output.initialize_outputs(simulation)
 
     # images to video
     elif mode == 2:
@@ -143,7 +137,7 @@ def setup():
         gradients_list = natsort.natsorted(gradients_list)
 
         # make sure the proper output directories for imaging exist
-        output.initialize_outputs(simulation)
+        # output.initialize_outputs(simulation)
 
         # loop over all csvs defined in the template file
         for i in range(len(csv_list)):
