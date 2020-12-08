@@ -16,7 +16,6 @@ class Paths:
         directories.
     """
     def __init__(self, name, main, templates, separator):
-        self.name = name    # the name of the simulation
         self.main = main    # the main directory of the simulation
         self.templates = templates    # the directory to the template .txt files
         self.images = main + name + "_images" + separator    # the images output directory
@@ -51,8 +50,8 @@ def step_image(simulation):
     # only continue if outputting images
     if simulation.output_images:
         # make sure directory exists
-        if not os.path.isdir(simulation.images_path):
-            os.mkdir(simulation.images_path)
+        if not os.path.isdir(simulation.paths.images):
+            os.mkdir(simulation.paths.images)
 
         # get the size of the array used for imaging in addition to the scale factor
         pixels = simulation.image_quality
@@ -138,7 +137,7 @@ def step_image(simulation):
         image = cv2.flip(image, 0)
 
         # save the image as a PNG
-        image_path = simulation.images_path + simulation.name + "_image_" + str(int(simulation.current_step)) + ".png"
+        image_path = simulation.paths.images + simulation.name + "_image_" + str(int(simulation.current_step)) + ".png"
         cv2.imwrite(image_path, image)
 
 
@@ -150,11 +149,11 @@ def step_values(simulation):
     # only continue if outputting cell values
     if simulation.output_values:
         # make sure directory exists
-        if not os.path.isdir(simulation.values_path):
-            os.mkdir(simulation.values_path)
+        if not os.path.isdir(simulation.paths.values):
+            os.mkdir(simulation.paths.values)
 
         # get file path
-        file_path = simulation.values_path + simulation.name + "_values_" + str(int(simulation.current_step)) + ".csv"
+        file_path = simulation.paths.values + simulation.name + "_values_" + str(int(simulation.current_step)) + ".csv"
 
         # open the file
         with open(file_path, "w", newline="") as new_file:
@@ -207,10 +206,10 @@ def step_gradients(simulation):
         # go through all gradient arrays
         for gradient_name in simulation.gradient_names:
             # get the name for the file
-            new_name = "_" + gradient_name + "_" + str(simulation.current_step)
+            name = "_" + gradient_name + "_" + str(simulation.current_step)
 
             # save the gradient via numpy compression
-            np.save(simulation.gradients_path + simulation.name + new_name + ".npy", simulation.__dict__[gradient_name])
+            np.save(simulation.paths.gradients + simulation.name + name + ".npy", simulation.__dict__[gradient_name])
 
 
 @backend.record_time
@@ -221,11 +220,11 @@ def step_tda(simulation):
     # only continue if outputting TDA files
     if simulation.output_tda:
         # make sure directory exists
-        if not os.path.isdir(simulation.tda_path):
-            os.mkdir(simulation.tda_path)
+        if not os.path.isdir(simulation.paths.tda):
+            os.mkdir(simulation.paths.tda)
 
         # get file path
-        file_path = simulation.tda_path + simulation.name + "_tda_" + str(int(simulation.current_step)) + ".csv"
+        file_path = simulation.paths.tda + simulation.name + "_tda_" + str(int(simulation.current_step)) + ".csv"
 
         # open the file
         with open(file_path, "w", newline="") as new_file:
@@ -262,7 +261,7 @@ def temporary(simulation):
         to continue a past simulation without losing information
     """
     # get file path
-    file_path = simulation.path + simulation.name + "_temp" + ".pkl"
+    file_path = simulation.paths.main + simulation.name + "_temp" + ".pkl"
 
     # open the file and get the object
     with open(file_path, 'wb') as temp_file:
@@ -276,7 +275,7 @@ def simulation_data(simulation):
         and run time of functions
     """
     # get path to data CSV
-    data_path = simulation.path + simulation.name + "_data.csv"
+    data_path = simulation.paths.main + simulation.name + "_data.csv"
 
     # open the file
     with open(data_path, "a", newline="") as file_object:
@@ -309,9 +308,9 @@ def create_video(simulation):
         them to a new video file.
     """
     # continue if there is an image directory
-    if os.path.isdir(simulation.images_path):
+    if os.path.isdir(simulation.paths.images):
         # get all of the images in the directory
-        file_list = os.listdir(simulation.images_path)
+        file_list = os.listdir(simulation.paths.images)
 
         # continue if image directory has images in it
         image_count = len(file_list)
@@ -322,18 +321,18 @@ def create_video(simulation):
             file_list = natsort.natsorted(file_list)
 
             # sample the first image to get the shape of the images
-            frame = cv2.imread(simulation.images_path + file_list[0])
+            frame = cv2.imread(simulation.paths.images + file_list[0])
             height, width, channels = frame.shape
 
             # get the video file path
-            video_path = simulation.path + simulation.name + '_video.mp4'
+            video_path = simulation.paths.main + simulation.name + '_video.mp4'
 
             # create the file object with parameters from simulation and above
             video_object = cv2.VideoWriter(video_path, cv2.VideoWriter_fourcc(*"mp4v"), simulation.fps, (width, height))
 
             # go through sorted image name list, reading and writing each to the video object
             for i in range(image_count):
-                image = cv2.imread(simulation.images_path + file_list[i])
+                image = cv2.imread(simulation.paths.images + file_list[i])
                 video_object.write(image)
                 backend.progress_bar(i + 1, image_count)
 

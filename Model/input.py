@@ -17,39 +17,36 @@ def setup():
     with open('paths.txt', 'r') as file:
         lines = file.readlines()
 
-    # get the path to the template file directory and make sure the model can use it
+    # get the path to the template file directory which is used to provide some initial simulation parameters
     templates_path = lines[7].strip()
-    templates_path = check_path(templates_path, separator)
+    templates_path = check_path(templates_path, separator)    # and make sure the model can use the path
 
-    # get the path to the output directory and make sure the model can use it
+    # get the path to the output directory which is where the simulation directory is outputted to
     output_path = lines[13].strip()
-    output_path = check_path(output_path, separator)
+    output_path = check_path(output_path, separator)    # and make sure the model can use the path
 
-    # hold the possible modes for the model, used to check that mode exists
-    possible_modes = [0, 1, 2, 3]
-
-    # get any command line options for the model
-    inputs, other_args = getopt.getopt(sys.argv[1:], "n:m:")
+    # get any command line options for the model, "n:m:" allows for the -n and -m options
+    options, args = getopt.getopt(sys.argv[1:], "n:m:")    # first argument is "python" so avoid that
 
     # go through the inputs getting the options
-    for opt, arg in inputs:
+    for option, value in options:
         # if the "-n" name option, set the variable name
-        if opt == "-n":
-            name = arg
+        if option == "-n":
+            name = value
 
         # if the "-m" mode option, set the variable mode
-        elif opt == "-m":
-            mode = int(arg)
+        elif option == "-m":
+            mode = int(value)    # turn from string to int
 
         # if some other option
         else:
-            print("Unknown option: ", opt)
+            print("Unknown option: ", option)
 
-    # if the name variable has not been initialized, run the text-based GUI
+    # if the name variable has not been initialized, run the text-based GUI to get it
     try:
         name
     except NameError:
-        # get the name of the simulation
+        # run loop until broken
         while True:
             name = input("What is the \"name\" of the simulation? Type \"help\" for more information: ")
             if name == "help":
@@ -57,11 +54,14 @@ def setup():
             else:
                 break
 
-    # if the mode variable has not been initialized, run the text-based GUI
+    # hold the possible modes for the model, used to check that mode exists
+    possible_modes = [0, 1, 2, 3]
+
+    # if the mode variable has not been initialized, run the text-based GUI to get it
     try:
         mode
     except NameError:
-        # get the mode of the simulation
+        # run loop until broken
         while True:
             mode = input("What is the \"mode\" of the simulation? Type \"help\" for more information: ")
             if mode == "help":
@@ -86,12 +86,15 @@ def setup():
                     print("\"mode\" should be an integer")
 
     # check the name of the simulation based on the mode
-    name, output_path, path = check_name(name, output_path, separator, mode)
+    name, path = check_name(name, output_path, separator, mode)
+
+    # create paths object with holds any important paths
+    paths = output.Paths(name, path, templates_path, separator)
 
     # new simulation
     if mode == 0:
         # create instance of Simulation class
-        simulation = parameters.Simulation(templates_path, name, path, separator, mode)
+        simulation = parameters.Simulation(paths, name, mode)
 
         # copy model files and template parameters
         shutil.copytree(os.getcwd(), path + name + "_copy")
@@ -111,7 +114,7 @@ def setup():
     # images to video
     elif mode == 2:
         # create instance of Simulation class used to get imaging information
-        simulation = parameters.Simulation(templates_path, name, path, separator, mode)
+        simulation = parameters.Simulation(paths, name, mode)
 
         # get video using function from output.py
         output.create_video(simulation)
@@ -206,4 +209,4 @@ def check_name(name, output_path, separator, mode):
                     pass
 
     # return the updated name, directory, and path
-    return name, output_path, output_path + name + separator
+    return name, output_path + name + separator
