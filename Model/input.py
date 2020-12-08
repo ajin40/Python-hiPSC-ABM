@@ -107,85 +107,6 @@ def setup():
     return simulation
 
 
-def check_path(path, separator):
-    """ checks the path to make sure the directory
-        exists and adds the necessary separator
-    """
-    if not os.path.isdir(path):
-        # raise error if directory doesn't exist
-        raise Exception("Path: " + path + " to templates directory does not exist.")
-    else:
-        # if path doesn't end with separator, add one
-        if path[-1] != separator:
-            path += separator
-
-    return path
-
-
-def check_name(name, output_path, separator, mode):
-    """ renames the file if another simulation has the same name
-        or checks to make sure such a simulation exists
-    """
-    # for a new simulation
-    if mode == 0:
-        # keeps the loop running until one condition is met
-        while True:
-            # if the path does not already exist, make that directory and break out of the loop
-            try:
-                os.mkdir(output_path + name)
-                break
-
-            # prompt to either rename or overwrite
-            except OSError:
-                print("Simulation with identical name: " + '\033[31m' + name + '\033[0m')
-                user = input("Would you like to overwrite that simulation? (y/n): ")
-                if user == "n":
-                    name = input("New name: ")
-                elif user == "y":
-                    # clear current directory to prevent another possible future errors
-                    files = os.listdir(output_path + name)
-                    for file in files:
-                        path = output_path + name + separator + file
-                        # remove file
-                        if os.path.isfile(path):
-                            os.remove(path)
-                        # remove directory
-                        else:
-                            shutil.rmtree(path)
-                    break
-                else:
-                    print("Either type ""y"" or ""n""")
-
-    # this will look for an existing directory for modes other than 0
-    else:
-        # keeps the loop running until one condition is met
-        while True:
-            # see if the directory exists
-            if os.path.isdir(output_path + name):
-                break
-
-            # if not prompt to change name or end the simulation
-            else:
-                print("No directory exists with name/path: " + '\033[31m' + output_path + name + '\033[0m')
-                user = input("Would you like to continue? (y/n): ")
-                if user == "n":
-                    exit()
-                elif user == "y":
-                    print(output_path)
-                    user = input("Is the above path to the output directory correct? (y/n): ")
-                    if user == "n":
-                        output_path = input("Type correct path:")
-                    print(name)
-                    user = input("Is the above name correct? (y/n): ")
-                    if user == "n":
-                        name = input("Type correct name:")
-                else:
-                    pass
-
-    # return the updated name, directory, and path
-    return name, output_path + name + separator
-
-
 def get_name():
     """ This is the text-based GUI to get the
         name of the simulation.
@@ -208,7 +129,6 @@ def get_mode():
     """ This is the text-based GUI to get the
         mode of the simulation.
     """
-
     # hold the possible modes for the model, used to check that mode exists
     possible_modes = [0, 1, 2, 3]
 
@@ -240,3 +160,87 @@ def get_mode():
                 print("\"mode\" should be an integer")
 
     return mode
+
+
+def check_path(path, separator):
+    """ checks the path to make sure the directory
+        exists and adds the necessary separator
+    """
+    if not os.path.isdir(path):
+        # raise error if directory doesn't exist
+        raise Exception("Path: " + path + " to templates directory does not exist.")
+    else:
+        # if path doesn't end with separator, add one
+        if path[-1] != separator:
+            path += separator
+
+    return path
+
+
+def check_name(name, output_path, separator, mode):
+    """ renames the file if another simulation has the same name
+        or checks to make sure such a simulation exists
+    """
+    # keeps the loop running
+    while True:
+        if mode == 0:
+            # try to make a new simulation directory
+            try:
+                os.mkdir(output_path + name)
+                break
+
+            # if simulation directory with same name already exists
+            except OSError:
+                print("Simulation with identical name: " + '\033[31m' + name + '\033[0m')
+
+                # get user input for overwriting previous simulation
+                user = input("Would you like to overwrite that simulation? (y/n): ")
+
+                # if no overwrite, get new simulation name
+                if user == "n":
+                    name = input("New name: ")
+
+                # overwrite by deleting all files in previous directory
+                elif user == "y":
+                    # clear current directory to prevent another possible future errors
+                    files = os.listdir(output_path + name)
+                    for file in files:
+                        # path to each file
+                        path = output_path + name + separator + file
+
+                        # remove file
+                        if os.path.isfile(path):
+                            os.remove(path)
+
+                        # remove directory
+                        else:
+                            shutil.rmtree(path)
+                    break
+                else:
+                    print("Either type ""y"" or ""n""")
+
+        else:
+            # see if the directory exists
+            if os.path.isdir(output_path + name):
+                break
+
+            # if not prompt to change name or end the simulation
+            else:
+                print("No directory exists with name/path: " + '\033[31m' + output_path + name + '\033[0m')
+                user = input("Would you like to continue? (y/n): ")
+                if user == "n":
+                    exit()
+                elif user == "y":
+                    print(output_path)
+                    user = input("Is the above path to the output directory correct? (y/n): ")
+                    if user == "n":
+                        output_path = input("Type correct path:")
+                    print(name)
+                    user = input("Is the above name correct? (y/n): ")
+                    if user == "n":
+                        name = input("Type correct name:")
+                else:
+                    pass
+
+    # return the updated name, directory, and path
+    return name, output_path + name + separator
