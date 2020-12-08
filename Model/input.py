@@ -1,5 +1,4 @@
 import os
-import platform
 import sys
 import pickle
 import shutil
@@ -13,13 +12,8 @@ def setup():
     """ reads files for the starting the model and then
         determine which simulation mode to use
     """
-    # keep track of the file separator to use
-    if platform.system() == "Windows":
-        separator = "\\"  # Windows
-    else:
-        separator = "/"  # not Windows
-
-    # open the paths.txt file containing the locations of the template files
+    # get the path separator for the OS and open the paths.txt file containing the locations of the template files
+    separator = os.path.sep
     with open('paths.txt', 'r') as file:
         lines = file.readlines()
 

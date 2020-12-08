@@ -22,8 +22,8 @@ if simulation.mode == 0:
     simulation.cell_arrays(("locations", float, 3), ("radii", float), ("motion", bool), ("FGFR", int), ("ERK", int),
                            ("GATA6", int), ("NANOG", int), ("states", "<U14"), ("diff_counters", int),
                            ("div_counters", int), ("death_counters", int), ("fds_counters", int),
-                           ("motility_forces", float, 3), ("jkr_forces", float, 3), ("rotations", float),
-                           ("nearest_nanog", int), ("nearest_gata6", int), ("nearest_diff", int))
+                           ("motility_forces", float, 3), ("jkr_forces", float, 3), ("nearest_nanog", int),
+                           ("nearest_gata6", int), ("nearest_diff", int))
 
     # Define the initial parameters for the cells using lambda expressions. The following lines have no "cell_type"
     # argument, which is used to designate that these are initial parameters for all cells; however, these can be
@@ -43,7 +43,6 @@ if simulation.mode == 0:
     simulation.initials("fds_counters", lambda: r.randrange(0, simulation.fds_thresh))
     simulation.initials("motility_forces", lambda: np.zeros(3, dtype=float))
     simulation.initials("jkr_forces", lambda: np.zeros(3, dtype=float))
-    simulation.initials("rotations", lambda: r.random() * 360)
 
     # These are the initial parameters for the "GATA6_high" cells, the cell_type argument is used to flag this
     simulation.initials("GATA6", lambda: r.randrange(0, simulation.field), cell_type="GATA6_high")

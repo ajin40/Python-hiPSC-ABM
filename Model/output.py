@@ -11,6 +11,20 @@ import math
 import backend
 
 
+class Paths:
+    """ This object contains the paths to the multiple output
+        directories.
+    """
+    def __init__(self, name, main, templates, separator):
+        self.name = name    # the name of the simulation
+        self.main = main    # the main directory of the simulation
+        self.templates = templates    # the directory to the template .txt files
+        self.images = main + name + "_images" + separator    # the images output directory
+        self.values = main + name + "_values" + separator    # the cell array values output directory
+        self.gradients = main + name + "_gradients" + separator    # the gradients output directory
+        self.tda = main + name + "_tda" + separator    # the topological data analysis output directory
+
+
 def step_outputs(simulation):
     """ Calls multiple functions that each output some sort of
         file relating to the simulation at a particular step.

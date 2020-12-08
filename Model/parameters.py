@@ -6,13 +6,13 @@ class Simulation:
     """ This object holds all of the important information about the simulation as it
         runs. The template files are read to get parameters that often change.
     """
-    def __init__(self, templates_path, name, path, separator, mode):
+    def __init__(self, paths, mode):
 
         # read the template files and create instance variables based on their values
 
         # ------------- general template file -------------------------
         # open the .txt file and get a list of the lines
-        with open(templates_path + "general.txt") as general_file:
+        with open(paths.templates + "general.txt") as general_file:
             general = general_file.readlines()
 
         # create instance variables based on template parameters
@@ -24,7 +24,7 @@ class Simulation:
 
         # ------------- outputs template file -------------------------
         # open the .txt file and get a list of the lines
-        with open(templates_path + "outputs.txt") as outputs_file:
+        with open(paths.templates + "outputs.txt") as outputs_file:
             outputs = outputs_file.readlines()
 
         # create instance variables based on template parameters
@@ -39,7 +39,7 @@ class Simulation:
 
         # ------------- experimental template file -------------------------
         # open the .txt file and get a list of the lines
-        with open(templates_path + "experimental.txt") as experimental_file:
+        with open(paths.templates + "experimental.txt") as experimental_file:
             experimental = experimental_file.readlines()
 
         # create instance variables based on template parameters
@@ -105,17 +105,9 @@ class Simulation:
 
         # these instance variables are rarely changed and serve to keep the model running
 
-        # hold the name of the simulation, the path to the simulation directory, and the path separator
-        self.name = name
-        self.path = path
-        self.separator = separator
+        # hold the mode of the simulation and the paths object
         self.mode = mode
-
-        # create the following paths used for outputting files to simulation directory
-        self.images_path = self.path + self.name + "_images" + self.separator
-        self.values_path = self.path + self.name + "_values" + self.separator
-        self.gradients_path = self.path + self.name + "_gradients" + self.separator
-        self.tda_path = self.path + self.name + "_tda" + self.separator
+        self.paths = paths
 
         # hold the number of cells and the step to begin at (can be altered by various modes)
         self.number_cells = 0
