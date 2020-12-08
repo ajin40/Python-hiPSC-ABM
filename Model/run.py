@@ -10,7 +10,7 @@ import functions
 simulation = input.setup()
 
 # Only define initial parameters if this is a new simulation
-if simulation.new_simulation:
+if simulation.mode == 0:
     # Define the names of any cell types. These names will be used to begin the model with a set number of cells that
     # correspond to the particular initial parameters for that cell type.
     simulation.cell_type("NANOG_high", simulation.num_nanog)

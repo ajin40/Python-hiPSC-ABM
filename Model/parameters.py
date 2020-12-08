@@ -6,7 +6,7 @@ class Simulation:
     """ This object holds all of the important information about the simulation as it
         runs. The template files are read to get parameters that often change.
     """
-    def __init__(self, templates_path, name, path, separator):
+    def __init__(self, templates_path, name, path, separator, mode):
 
         # read the template files and create instance variables based on their values
 
@@ -108,6 +108,7 @@ class Simulation:
         self.name = name
         self.path = path
         self.separator = separator
+        self.mode = mode
 
         # create the following paths used for outputting files to simulation directory
         self.images_path = self.path + self.name + "_images" + self.separator

@@ -32,7 +32,7 @@ def setup():
     output_path = check_path(output_path, separator)
 
     # hold the possible modes for the model, used to check that mode exists
-    possible_modes = [0, 1, 2, 3, 4]
+    possible_modes = [0, 1, 2, 3]
 
     # get any command line options for the model
     inputs, other_args = getopt.getopt(sys.argv[1:], "n:m:")
@@ -75,7 +75,7 @@ def setup():
                 print("new simulation: 0")
                 print("continuation of past simulation: 1")
                 print("turn simulation images to video: 2")
-                print("turn simulation csvs to images/video: 3\n")
+                print("turn simulation into zip: 3\n")
             else:
                 try:
                     # get the mode as an integer
@@ -97,23 +97,27 @@ def setup():
     # new simulation
     if mode == 0:
         # create instance of Simulation class
-        simulation = parameters.Simulation(templates_path, name, path, separator)
+        simulation = parameters.Simulation(templates_path, name, path, separator, mode)
 
         # copy model files and template parameters
         shutil.copytree(os.getcwd(), path + name + "_copy")
 
     # continuation of previous simulation
     elif mode == 1:
+        # get the new end step of the simulation
+        end_step = int(input("What is the final step of this continued simulation? "))
+
         # open the last pickled simulation and update the beginning step
         with open(path + name + "_temp" + ".pkl", "rb") as temp_file:
             simulation = pickle.load(temp_file)
             simulation.beginning_step = simulation.current_step + 1
-            simulation.end_step = 15
+            simulation.end_step = end_step
+            simulation.mode = mode
 
     # images to video
     elif mode == 2:
         # create instance of Simulation class used to get imaging information
-        simulation = parameters.Simulation(templates_path, name, path, separator)
+        simulation = parameters.Simulation(templates_path, name, path, separator, mode)
 
         # get video using function from output.py
         output.create_video(simulation)
@@ -122,7 +126,7 @@ def setup():
         exit()
 
     # zip a simulation directory
-    elif mode == 4:
+    elif mode == 3:
         print("Compressing: " + name)
         shutil.make_archive(path[:-1], 'zip', path)
         print("Done!")
