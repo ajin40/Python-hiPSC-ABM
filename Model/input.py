@@ -86,8 +86,54 @@ def setup():
                 except ValueError:
                     print("\"mode\" should be an integer")
 
-    # check the name of the simulation based on the mode and return a path to the simulation directory
-    name, path = check_name(name, output_path, separator, mode)
+    # check the name for the simulation based on the mode
+    while True:
+        # if a new simulation
+        if mode == 0:
+            # see if the directory exists
+            if os.path.isdir(output_path + name):
+                # get user input for overwriting previous simulation
+                print("Simulation with identical name: " + name)
+                user = input("Would you like to overwrite that simulation? (y/n): ")
+
+                # if no overwrite, get new simulation name
+                if user == "n":
+                    name = input("New name: ")
+
+                # overwrite by deleting all files/folders in previous directory
+                elif user == "y":
+                    # clear current directory to prevent another possible future errors
+                    files = os.listdir(output_path + name)
+                    for file in files:
+                        # path to each file/folder
+                        path = output_path + name + separator + file
+
+                        # delete the file/folder
+                        if os.path.isfile(path):
+                            os.remove(path)
+                        else:
+                            shutil.rmtree(path)
+                    break
+                else:
+                    # inputs should either be "y" or "n"
+                    print("Either type ""y"" or ""n""")
+            else:
+                # if does not exist, make directory
+                os.mkdir(output_path + name)
+                break
+
+        # mode other than new simulation
+        else:
+            # if the directory exists, break loop
+            if os.path.isdir(output_path + name):
+                break
+
+            else:
+                print("No directory exists with name/path: " + output_path + name)
+                name = input("Please type the correct name of the simulation: ")
+
+    # create path to simulation directory
+    path = output_path + name + separator
 
     # create a paths object that holds any important paths
     paths = output.Paths(name, path, templates_path, separator)
@@ -105,16 +151,17 @@ def setup():
         # get the new end step of the simulation
         end_step = int(input("What is the final step of this continued simulation? "))
 
-        # open the last pickled simulation and update the beginning step
+        # open the last pickled simulation
         with open(path + name + "_temp" + ".pkl", "rb") as temp_file:
-            simulation = pickle.load(temp_file)
-            simulation.beginning_step = simulation.current_step + 1
-            simulation.end_step = end_step
-            simulation.mode = mode
+            simulation = pickle.load(temp_file)    # load previous simulation object
+            simulation.beginning_step = simulation.current_step + 1    # start one step later
+            simulation.end_step = end_step    # update end step
+            simulation.mode = mode    # prevents the initialization of cell arrays and such
+            simulation.paths = paths    # update the paths for the case of continuing in different location
 
     # -------------- images to video ---------------------------
     elif mode == 2:
-        # create instance of Simulation class used to get imaging information
+        # create instance of Simulation class used to get imaging and path information
         simulation = parameters.Simulation(paths, name, mode)
 
         # get video using function from output.py
@@ -137,72 +184,3 @@ def setup():
 
     # return the simulation based on the simulation mode
     return simulation
-
-
-def check_name(name, output_path, separator, mode):
-    """ renames the file if another simulation has the same name
-        or checks to make sure such a simulation exists
-    """
-    # keeps the loop running
-    while True:
-        if mode == 0:
-            # try to make a new simulation directory
-            try:
-                os.mkdir(output_path + name)
-                break
-
-            # if simulation directory with same name already exists
-            except OSError:
-                print("Simulation with identical name: " + '\033[31m' + name + '\033[0m')
-
-                # get user input for overwriting previous simulation
-                user = input("Would you like to overwrite that simulation? (y/n): ")
-
-                # if no overwrite, get new simulation name
-                if user == "n":
-                    name = input("New name: ")
-
-                # overwrite by deleting all files in previous directory
-                elif user == "y":
-                    # clear current directory to prevent another possible future errors
-                    files = os.listdir(output_path + name)
-                    for file in files:
-                        # path to each file
-                        path = output_path + name + separator + file
-
-                        # remove file
-                        if os.path.isfile(path):
-                            os.remove(path)
-
-                        # remove directory
-                        else:
-                            shutil.rmtree(path)
-                    break
-                else:
-                    print("Either type ""y"" or ""n""")
-
-        else:
-            # see if the directory exists
-            if os.path.isdir(output_path + name):
-                break
-
-            # if not prompt to change name or end the simulation
-            else:
-                print("No directory exists with name/path: " + output_path + name)
-                user = input("Would you like to continue? (y/n): ")
-                if user == "n":
-                    exit()
-                elif user == "y":
-                    print(output_path)
-                    user = input("Is the above path to the output directory correct? (y/n): ")
-                    if user == "n":
-                        output_path = input("Type correct path:")
-                    print(name)
-                    user = input("Is the above name correct? (y/n): ")
-                    if user == "n":
-                        name = input("Type correct name:")
-                else:
-                    pass
-
-    # return the updated name, directory, and path
-    return name, output_path + name + separator
