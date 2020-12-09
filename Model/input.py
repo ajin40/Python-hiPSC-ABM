@@ -9,8 +9,8 @@ import parameters
 
 
 def setup():
-    """ reads files for the starting the model and then
-        determine which simulation mode to use
+    """ Takes parameters from files, the command line,
+        and/or a text-based GUI to start the model.
     """
     # get the path separator for the OS and open the paths.txt file containing the locations of the template files
     separator = os.path.sep
@@ -18,14 +18,20 @@ def setup():
         lines = file.readlines()
 
     # get the path to the template file directory which is used to provide some initial simulation parameters
-    templates_path = lines[7].strip()
-    templates_path = check_path(templates_path, separator)  # and make sure the model can use the path
+    templates_path = os.path.abspath("templates") + separator
 
-    # get the path to the output directory which is where the simulation directory is outputted to
-    output_path = lines[13].strip()
-    output_path = check_path(output_path, separator)  # and make sure the model can use the path
+    # get the path to the output directory where each simulation directory is created and make sure the
+    # output directory path exists and has separator at the end
+    output_path = lines[7].strip()
+    if not os.path.isdir(output_path):
+        # raise error if directory doesn't exist
+        raise Exception("Path: " + output_path + " to templates directory does not exist.")
+    else:
+        # if path doesn't end with separator, add one
+        if output_path[-1] != separator:
+            output_path += separator
 
-    # get any command line options for the model, "n:m:" allows for the -n and -m options
+    # get any command-line options for the model, "n:m:" allows for the -n and -m options
     options, args = getopt.getopt(sys.argv[1:], "n:m:")  # first argument is "python" so avoid that
 
     # go through the inputs getting the options
@@ -38,21 +44,47 @@ def setup():
         elif option == "-m":
             mode = int(value)  # turn from string to int
 
-        # if some other option
+        # if some other option, raise error
         else:
-            print("Unknown option: ", option)
+            raise Exception("Unknown command-line option: " + option)
 
-    # if the name variable has not been initialized, run the text-based GUI to get it
-    try:
-        name
-    except NameError:
-        name = get_name()
+    # if the name variable has not been initialized by the command-line, run the text-based GUI to get it
+    if 'name' not in locals():
+        while True:
+            # prompt for the name
+            name = input("What is the \"name\" of the simulation? Type \"help\" for more information: ")
 
-    # if the mode variable has not been initialized, run the text-based GUI to get it
-    try:
-        mode
-    except NameError:
-        mode = get_mode()
+            # keep running if "help" is typed
+            if name == "help":
+                print("Type the name of the simulation (not a path)\n")
+            else:
+                break
+
+    # hold the possible modes for the model, used to check that a particular mode exists
+    possible_modes = [0, 1, 2, 3]
+
+    # if the mode variable has not been initialized by the command-line, run the text-based GUI to get it
+    if 'mode' not in locals() or mode not in possible_modes:
+        while True:
+            # prompt for the mode
+            mode = input("What is the \"mode\" of the simulation? Type \"help\" for more information: ")
+
+            # keep running if "help" is typed
+            if mode == "help":
+                print("\nHere are the following modes:\n0: New simulation\n1: Continuation of past simulation\n"
+                      "2: Turn simulation images to video\n3: Zip previous simulation\n")
+            else:
+                try:
+                    # get the mode as an integer make sure mode exists, break the loop if it does
+                    mode = int(mode)
+                    if mode in possible_modes:
+                        break
+                    else:
+                        print("Mode does not exist. See possible modes: " + str(possible_modes))
+
+                # if not an integer
+                except ValueError:
+                    print("\"mode\" should be an integer")
 
     # check the name of the simulation based on the mode and return a path to the simulation directory
     name, path = check_name(name, output_path, separator, mode)
@@ -107,76 +139,6 @@ def setup():
     return simulation
 
 
-def get_name():
-    """ This is the text-based GUI to get the
-        name of the simulation.
-    """
-    # run loop until broken
-    while True:
-        # prompt for the name
-        name = input("What is the \"name\" of the simulation? Type \"help\" for more information: ")
-
-        # keep running if "help" input
-        if name == "help":
-            print("Type the name of the simulation without quotes and not as a path.\n")
-        else:
-            break
-
-    return name
-
-
-def get_mode():
-    """ This is the text-based GUI to get the
-        mode of the simulation.
-    """
-    # hold the possible modes for the model, used to check that mode exists
-    possible_modes = [0, 1, 2, 3]
-
-    # run loop until broken
-    while True:
-        # prompt for the mode
-        mode = input("What is the \"mode\" of the simulation? Type \"help\" for more information: ")
-
-        # keep running if "help" input
-        if mode == "help":
-            print("\nHere are the following modes:")
-            print("new simulation: 0")
-            print("continuation of past simulation: 1")
-            print("turn simulation images to video: 2")
-            print("turn simulation into zip: 3\n")
-        else:
-            try:
-                # get the mode as an integer
-                mode = int(mode)
-
-                # make sure mode exists, break the loop if it does
-                if mode in possible_modes:
-                    break
-                else:
-                    print("Mode does not exist. See possible modes: " + str(possible_modes))
-
-            # if not an integer
-            except ValueError:
-                print("\"mode\" should be an integer")
-
-    return mode
-
-
-def check_path(path, separator):
-    """ checks the path to make sure the directory
-        exists and adds the necessary separator
-    """
-    if not os.path.isdir(path):
-        # raise error if directory doesn't exist
-        raise Exception("Path: " + path + " to templates directory does not exist.")
-    else:
-        # if path doesn't end with separator, add one
-        if path[-1] != separator:
-            path += separator
-
-    return path
-
-
 def check_name(name, output_path, separator, mode):
     """ renames the file if another simulation has the same name
         or checks to make sure such a simulation exists
@@ -226,7 +188,7 @@ def check_name(name, output_path, separator, mode):
 
             # if not prompt to change name or end the simulation
             else:
-                print("No directory exists with name/path: " + '\033[31m' + output_path + name + '\033[0m')
+                print("No directory exists with name/path: " + output_path + name)
                 user = input("Would you like to continue? (y/n): ")
                 if user == "n":
                     exit()
