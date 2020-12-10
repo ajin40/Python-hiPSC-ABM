@@ -13,11 +13,16 @@ import backend
 
 class Paths:
     """ This object contains the paths to the multiple output
-        directories.
+        directories for the simulation.
     """
     def __init__(self, name, main, templates, separator):
-        self.main = main    # the main directory of the simulation
-        self.templates = templates    # the directory to the template .txt files
+        # the main directory of the simulation output
+        self.main = main
+
+        # the directory to the template .txt file
+        self.templates = templates
+
+        # these directories are sub-directories under the main simulation directory
         self.images = main + name + "_images" + separator    # the images output directory
         self.values = main + name + "_values" + separator    # the cell array values output directory
         self.gradients = main + name + "_gradients" + separator    # the gradients output directory
@@ -34,7 +39,7 @@ def step_outputs(simulation):
     step_gradients(simulation)
     step_tda(simulation)
 
-    # create a temporary pickle of the simulation instance
+    # create a temporary pickle of the Simulation object
     temporary(simulation)
 
     # number of cells, memory, step time, and individual methods times
@@ -45,7 +50,7 @@ def step_outputs(simulation):
 def step_image(simulation):
     """ Creates an image representation of the space in which
         the cells reside including the extracellular gradient.
-        Uses BGR instead of RGB.
+        Note OpenCV uses BGR instead of RGB.
     """
     # only continue if outputting images
     if simulation.output_images:
@@ -53,7 +58,7 @@ def step_image(simulation):
         if not os.path.isdir(simulation.paths.images):
             os.mkdir(simulation.paths.images)
 
-        # get the size of the array used for imaging in addition to the scale factor
+        # get the size of the array used for imaging in addition to the scaling factor
         pixels = simulation.image_quality
         scale = pixels/simulation.size[0]
         x_size = pixels
@@ -72,7 +77,7 @@ def step_image(simulation):
             grad_image = cv2.applyColorMap(grad_image, cv2.COLORMAP_OCEAN)
             grad_image = cv2.resize(grad_image, (y_size, x_size), interpolation=cv2.INTER_NEAREST)
 
-            # flip and rotate to turn go from (y, x) to (x, y) so that origin is top, left to match cell image
+            # flip and rotate to turn go from (y, x) to (x, y) so that origin is top, left to match OpenCV locations
             grad_image = cv2.rotate(grad_image, cv2.ROTATE_90_COUNTERCLOCKWISE)
             grad_image = cv2.flip(grad_image, 0)
 
@@ -80,7 +85,7 @@ def step_image(simulation):
         for index in range(simulation.number_cells):
             x = math.ceil(simulation.locations[index][0] * scale)    # the x-coordinate
             y = math.ceil(simulation.locations[index][1] * scale)    # the y-coordinate
-            point = (x, y)                                           # the x,y point
+            point = (x, y)                                           # the x, y point
             major = math.ceil(simulation.radii[index] * scale)       # the major axis length
             minor = math.ceil(simulation.radii[index] * scale)       # the minor axis length
             rotation = 0                                             # the rotation of the ellipse (zero for now)
@@ -114,14 +119,14 @@ def step_image(simulation):
                     color = (30, 255, 255)
 
                 # if the cell is both gata6 low and nanog low, color blue
-                elif simulation.GATA6[index] == simulation.NANOG[index]:
+                elif simulation.GATA6[index] == simulation.NANOG[index] == 0:
                     color = (255, 50, 50)
 
                 # if anything else, color green
                 else:
                     color = (32, 252, 22)
 
-            # draw the cell and a black outline for overlapping cells
+            # draw the cell and a black outline to distinguish overlapping cells
             image = cv2.ellipse(image, point, (major, minor), rotation, 0, 360, color, -1)
             image = cv2.ellipse(image, point, (major, minor), rotation, 0, 360, (0, 0, 0), 1)
 
@@ -129,7 +134,7 @@ def step_image(simulation):
             if simulation.output_fgf4_image:
                 grad_image = cv2.ellipse(grad_image, point, (major, minor), rotation, 0, 360, (255, 255, 255), 1)
 
-        # combine the to images side by side if including gradient
+        # combine the to images side by side if including gradient, gradient will be on the right
         if simulation.output_fgf4_image:
             image = np.concatenate((image, grad_image), axis=1)
 
@@ -171,16 +176,16 @@ def step_values(simulation):
 
                 # if the array is one dimensional
                 if cell_array.ndim == 1:
-                    header.append(array_name)  # add the array name to the header
+                    header.append(array_name)    # add the array name to the header
                     cell_array = np.reshape(cell_array, (-1, 1))  # resize array from 1D to 2D
-                    data.append(cell_array)  # add the array to the data holder
+                    data.append(cell_array)    # add the array to the data holder
 
                 # if the array is not one dimensional
                 else:
                     # add multiple headers for each slice of the 2D array
                     for i in range(cell_array.shape[1]):
                         header.append(array_name + "[" + str(i) + "]")
-                    data.append(cell_array)  # add the array to the data holder
+                    data.append(cell_array)    # add the array to the data holder
 
             # create a header as the first row of the CSV
             csv_file.writerow(header)
@@ -195,7 +200,7 @@ def step_values(simulation):
 @backend.record_time
 def step_gradients(simulation):
     """ Saves the gradient arrays as .npy files for
-        potential later analysis
+        potential later analysis with python
     """
     # only continue if outputting gradient pickles
     if simulation.output_gradients:
@@ -299,8 +304,8 @@ def simulation_data(simulation):
 
         # write the row with the corresponding values
         columns = [simulation.current_step, simulation.number_cells, step_time, memory]
-        functions = list(simulation.function_times.values())
-        csv_object.writerow(columns + functions)
+        function_times = list(simulation.function_times.values())
+        csv_object.writerow(columns + function_times)
 
 
 def create_video(simulation):
