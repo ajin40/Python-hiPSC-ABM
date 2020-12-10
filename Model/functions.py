@@ -149,10 +149,10 @@ def cell_pathway(simulation):
             if simulation.fds_counters[index] % simulation.fds_thresh == 0:
                 # get the current FDS values of the cell
                 x1 = fgf4_fds
-                x2 = simulation.FGFR[index][0]
-                x3 = simulation.ERK[index][1]
-                x4 = simulation.GATA6[index][2]
-                x5 = simulation.NANOG[index][3]
+                x2 = simulation.FGFR[index]
+                x3 = simulation.ERK[index]
+                x4 = simulation.GATA6[index]
+                x5 = simulation.NANOG[index]
 
                 # if the FDS is boolean
                 if simulation.field == 2:

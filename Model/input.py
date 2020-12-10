@@ -124,7 +124,9 @@ def setup():
 
         # extract simulation zip mode
         elif mode == 4:
-            if os.path.isfile(output_path + name + ".zip"):
+            if os.path.isdir(output_path + name):
+                raise Exception(name + " already exists in " + output_path)
+            elif os.path.isfile(output_path + name + ".zip"):
                 break
             else:
                 raise Exception(name + ".zip does not exist in " + output_path)
@@ -137,18 +139,20 @@ def setup():
 
             else:
                 print("No directory exists with name/path: " + output_path + name)
-                name = input("Please type the correct name of the simulation: ")
+                name = input("Please type the correct name of the simulation or type \"exit\" to exit: ")
+                if name == "exit":
+                    exit()
 
     # create path to simulation directory
-    path = output_path + name + separator
+    sim_path = output_path + name + separator
 
     # create a paths object that holds any important paths
-    paths = output.Paths(name, path, templates_path, separator)
+    paths = output.Paths(name, sim_path, templates_path, separator)
 
     # -------------- new simulation ---------------------------
     if mode == 0:
         # copy model files and template parameters
-        shutil.copytree(os.getcwd(), path + name + "_copy")
+        shutil.copytree(os.getcwd(), sim_path + name + "_copy")
 
         # create Simulation object
         simulation = parameters.Simulation(paths, name, mode)
@@ -159,7 +163,7 @@ def setup():
         end_step = int(input("What is the final step of this continued simulation? "))
 
         # load previous simulation object
-        with open(path + name + "_temp" + ".pkl", "rb") as temp_file:
+        with open(sim_path + name + "_temp" + ".pkl", "rb") as temp_file:
             simulation = pickle.load(temp_file)
 
         # update the following parameters of the previous simulation
@@ -182,7 +186,7 @@ def setup():
         print("Compressing: " + name)
 
         # remove the separator of the path to the simulation directory
-        simulation_path = path[:-1]
+        simulation_path = sim_path[:-1]
 
         # zip a copy of the directory and save it to the same simulation directory
         shutil.make_archive(simulation_path, 'zip', root_dir=output_path, base_dir=str(name))
@@ -194,7 +198,7 @@ def setup():
         print("Extracting: " + name)
 
         # remove the separator of the path and add .zip
-        simulation_zip = path[:-1] + ".zip"
+        simulation_zip = sim_path[:-1] + ".zip"
 
         # unpack the directory into the output directory
         shutil.unpack_archive(simulation_zip, output_path)
