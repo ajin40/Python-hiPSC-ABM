@@ -61,7 +61,7 @@ def setup():
                 break
 
     # hold the possible modes for the model, used to check that a particular mode exists
-    possible_modes = [0, 1, 2, 3]
+    possible_modes = [0, 1, 2, 3, 4]
 
     # if the mode variable has not been initialized by the command-line, run the text-based GUI to get it
     if 'mode' not in locals() or mode not in possible_modes:
@@ -122,6 +122,13 @@ def setup():
                 os.mkdir(output_path + name)
                 break
 
+        # extract simulation zip mode
+        elif mode == 4:
+            if os.path.isfile(output_path + name + ".zip"):
+                break
+            else:
+                raise Exception(name + ".zip does not exist in " + output_path)
+
         # mode other than new simulation
         else:
             # if the directory exists, break loop
@@ -140,45 +147,57 @@ def setup():
 
     # -------------- new simulation ---------------------------
     if mode == 0:
-        # create instance of Simulation class
-        simulation = parameters.Simulation(paths, name, mode)
-
         # copy model files and template parameters
         shutil.copytree(os.getcwd(), path + name + "_copy")
+
+        # create Simulation object
+        simulation = parameters.Simulation(paths, name, mode)
 
     # -------------- continuation of previous simulation ---------------------------
     elif mode == 1:
         # get the new end step of the simulation
         end_step = int(input("What is the final step of this continued simulation? "))
 
-        # open the last pickled simulation
+        # load previous simulation object
         with open(path + name + "_temp" + ".pkl", "rb") as temp_file:
-            simulation = pickle.load(temp_file)    # load previous simulation object
-            simulation.beginning_step = simulation.current_step + 1    # start one step later
-            simulation.end_step = end_step    # update end step
-            simulation.mode = mode    # prevents the initialization of cell arrays and such
-            simulation.paths = paths    # update the paths for the case of continuing in different location
+            simulation = pickle.load(temp_file)
+
+        # update the following parameters of the previous simulation
+        simulation.beginning_step = simulation.current_step + 1    # start one step later
+        simulation.end_step = end_step                             # update end step
+        simulation.mode = mode            # prevents the initialization of cell arrays and such
+        simulation.paths = paths          # update the paths for the case of continuing in different location
 
     # -------------- images to video ---------------------------
     elif mode == 2:
         # create instance of Simulation class used to get imaging and path information
         simulation = parameters.Simulation(paths, name, mode)
 
-        # get video using function from output.py
+        # make the video and exit
         output.create_video(simulation)
-
-        # exits out as the conversion from images to video is done
         exit()
 
     # -------------- zip a simulation directory --------------
     elif mode == 3:
         print("Compressing: " + name)
 
-        # remove separator of the path to the simulation directory
+        # remove the separator of the path to the simulation directory
         simulation_path = path[:-1]
 
         # zip a copy of the directory and save it to the same simulation directory
-        shutil.make_archive(simulation_path, 'zip', path)
+        shutil.make_archive(simulation_path, 'zip', root_dir=output_path, base_dir=str(name))
+        print("Done!")
+        exit()
+
+    # -------------- extract a simulation directory zip --------------
+    elif mode == 4:
+        print("Extracting: " + name)
+
+        # remove the separator of the path and add .zip
+        simulation_zip = path[:-1] + ".zip"
+
+        # unpack the directory into the output directory
+        shutil.unpack_archive(simulation_zip, output_path)
         print("Done!")
         exit()
 

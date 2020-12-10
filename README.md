@@ -34,11 +34,11 @@ The following command will start a text-based GUI to get the name of the simulat
 $ python run.py
 ```
 Different simulation modes:
-- 0 -> New simulation
-- 1 -> Continue a past simulation
-- 2 -> Turn past simulation images to video
-- 3 -> CSVs to images/video
-- 4 -> Zip a past simulation
+- 0: New simulation
+- 1: Continue a past simulation
+- 2: Turn previous simulation images to video
+- 3: Zip a previous simulation
+- 4: Extract previous simulation zip
 
 
 The name and mode can be passed at the command line by using options...without the parentheses.
