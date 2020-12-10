@@ -4,7 +4,7 @@ import igraph
 
 class Simulation:
     """ This object holds all of the important information about the simulation as it
-        runs. The template files are read to get parameters that often change.
+        runs. The template files are used to update parameters that often change.
     """
     def __init__(self, paths, name, mode):
         # read the template files and create instance variables based on their values
@@ -50,6 +50,7 @@ class Simulation:
         # ------------------------------------------------------------------
 
         # define any other instance variables that are not part of the template files
+
         # the temporal resolution for the simulation
         self.step_dt = 1800  # dt of each simulation step (1800 sec)
         self.move_dt = 200  # dt for incremental movement (200 sec)
@@ -66,12 +67,12 @@ class Simulation:
         self.fds_thresh = 1
 
         # min and max radius lengths are used to calculate linear growth of the radius over time in 2D
-        self.max_radius = 0.000005  # 5 um
+        self.max_radius = 0.000005    # 5 um
         self.min_radius = self.max_radius / 2 ** 0.5
         self.pluri_growth = (self.max_radius - self.min_radius) / self.pluri_div_thresh
         self.diff_growth = (self.max_radius - self.min_radius) / self.diff_div_thresh
 
-        # the neighbor graph holds all nearby cells within a fixed radius, where the JKR graph is used for
+        # the neighbor graph holds all nearby cells within a fixed radius, and the JKR graph is used for
         # storing adhesive bonds between cells
         self.neighbor_graph = igraph.Graph()
         self.jkr_graph = igraph.Graph()
@@ -84,8 +85,8 @@ class Simulation:
         self.spat_res = 0.00001  # 10 um
         self.spat_res2 = self.spat_res ** 2
         self.diffuse = 0.00000000005    # 50 um^2/s
-        self.diffuse_radius = self.spat_res * 0.707106781187
-        self.max_concentration = 200
+        self.diffuse_radius = self.spat_res * 0.707106781187    # not being used currently
+        self.max_concentration = 200    # very arbitrary
 
         # calculate the size of the array for the diffusion points and create gradient arrays
         self.gradient_size = np.ceil(self.size / self.spat_res).astype(int) + np.ones(3, dtype=int)
@@ -104,7 +105,7 @@ class Simulation:
 
         # these instance variables are rarely changed and serve to keep the model running
 
-        # hold the name and mode of the simulation and the paths object
+        # hold the name and mode of the simulation and the Paths object
         self.name = name
         self.mode = mode
         self.paths = paths
@@ -123,49 +124,47 @@ class Simulation:
         self.function_times = dict()      # store the runtimes of the various methods as the model runs
 
     def cell_type(self, name, number):
-        """ creates a new cell type for setting initial parameters
-            and defines a slice in the cell arrays that corresponds
-            to this cell type
+        """ Creates a new cell type for setting initial parameters
+            and defines a section in the cell arrays that corresponds
+            to this cell type.
         """
-        # determine the bounds of the slice and update the number of cells
+        # determine the bounds of the section and update the number of cells
         begin = self.number_cells
         end = self.number_cells = begin + number
 
-        # add the cells to the graphs
+        # add that many cells to each of the graphs
         for graph in self.graph_names:
             self.__dict__[graph].add_vertices(number)
 
-        # add slice to general dictionary for
+        # define the bounds of the section for the cell type name
         self.cell_types[name] = (begin, end)
 
     def cell_arrays(self, *args):
-        """ creates Simulation instance variables for the cell arrays
-            used to represent cell values
+        """ Creates Simulation instance variables for each cell array
+            which are used to hold cell values.
         """
-        # go through all array parameters provided
+        # go through all tuples passed
         for array_params in args:
-            # add the array name to a list for automatic addition/removal when cells divide and die
+            # add the array name to a list for automatic addition/removal when cells divide/die
             self.cell_array_names.append(array_params[0])
 
-            # get the tuple length for the particular array parameters
+            # get the tuple length to designate if this is a 1D or 2D array
             length = len(array_params)
 
             # get the initial size of 1D array if the length is 2, but make a 2D array if a third index is provided
             if length == 2:
                 size = self.number_cells
-
             elif length == 3:
                 size = (self.number_cells, array_params[2])
-
             else:
                 raise Exception("Tuples for defining cell array parameters should have length 2 or 3.")
 
-            # create an instance variable of the Simulation class for the cell array with these parameters
+            # create an instance variable of the Simulation object for the cell array with these parameters
             self.__dict__[array_params[0]] = np.empty(size, dtype=array_params[1])
 
     def initials(self, array_name, func, cell_type=None):
-        """ given a lambda function for the initial values
-            of a cell array this updates that accordingly
+        """ Given a lambda function for the initial values
+            of a cell array, update the arrays accordingly.
         """
         # if no cell type name provided
         if cell_type is None:
@@ -173,7 +172,7 @@ class Simulation:
             for i in range(self.number_cells):
                 self.__dict__[array_name][i] = func()
 
-        # otherwise update the slice of the array based on the
+        # otherwise update the section of the array based on the cell type
         else:
             # get the beginning and end of the slice
             begin = self.cell_types[cell_type][0]
