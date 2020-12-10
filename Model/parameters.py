@@ -7,7 +7,6 @@ class Simulation:
         runs. The template files are read to get parameters that often change.
     """
     def __init__(self, paths, name, mode):
-
         # read the template files and create instance variables based on their values
 
         # ------------- general template file -------------------------

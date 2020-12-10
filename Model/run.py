@@ -5,30 +5,30 @@ import output
 import backend
 import functions
 
-# setup() will direct how the model is to be run based on the selected mode. If a new simulation is desired, setup()
-# will return an instance of the Simulation which holds all important information of the simulation as it runs.
+# setup() will direct how the model is run based on inputted parameters. If a new simulation is desired, setup()
+# will return an instance of the Simulation object which holds all important information of the simulation as it runs.
 simulation = input.setup()
 
-# Only define initial parameters if this is a new simulation
+# For continuing a previous simulation (mode 1), bypass the initialization of cell array values
 if simulation.mode == 0:
-    # Define the names of any cell types. These names will be used to begin the model with a set number of cells that
-    # correspond to the particular initial parameters for that cell type.
+    # Define the number of cells for each cell type. These names will be used to initialize the model with specific
+    # numbers of cell types that may differ in certain initial parameters.
     simulation.cell_type("NANOG_high", simulation.num_nanog)
     simulation.cell_type("GATA6_high", simulation.num_gata6)
 
     # Define the cell arrays used to store values of the cell. Each tuple corresponds to a cell array that will be
-    # generated. The first index of the tuple is the instance variable name for the Simulation class, the second being
-    # the data type, and the last (if present) can be used to create a 2D array
+    # generated. The first index of the tuple is the instance variable name for the Simulation object, the second being
+    # the data type, and the last (if present) can be used to create a 2D array.
     simulation.cell_arrays(("locations", float, 3), ("radii", float), ("motion", bool), ("FGFR", int), ("ERK", int),
                            ("GATA6", int), ("NANOG", int), ("states", "<U14"), ("diff_counters", int),
                            ("div_counters", int), ("death_counters", int), ("fds_counters", int),
                            ("motility_forces", float, 3), ("jkr_forces", float, 3), ("nearest_nanog", int),
                            ("nearest_gata6", int), ("nearest_diff", int))
 
-    # Define the initial parameters for the cells using lambda expressions. The following lines have no "cell_type"
-    # argument, which is used to designate that these are initial parameters for all cells; however, these can be
-    # overridden when defining specific cell types. This is really meant to reduce overall writing for cell types that
-    # only differ slightly from the base parameters.
+    # Define the initial parameters for the cell arrays using lambda expressions. The following lines have no
+    # "cell_type" argument, which is used to designate that these are initial parameters for all cells; however,
+    # these can be overridden when defining specific cell types. This is meant to reduce overall writing for
+    # cell types that only differ slightly from the base parameters.
     simulation.initials("locations", lambda: np.random.rand(3) * simulation.size)
     simulation.initials("radii", lambda: simulation.min_radius)
     simulation.initials("motion", lambda: True)
@@ -44,21 +44,21 @@ if simulation.mode == 0:
     simulation.initials("motility_forces", lambda: np.zeros(3, dtype=float))
     simulation.initials("jkr_forces", lambda: np.zeros(3, dtype=float))
 
-    # These are the initial parameters for the "GATA6_high" cells, the cell_type argument is used to flag this
+    # These are the initial parameters for "GATA6_high" cells, the "cell_type" argument is used to indicate this
     simulation.initials("GATA6", lambda: r.randrange(0, simulation.field), cell_type="GATA6_high")
     simulation.initials("NANOG", lambda: 0, cell_type="GATA6_high")
 
 
 # Add any functions under the loop that will be called during each step of the simulation.
 for simulation.current_step in range(simulation.beginning_step, simulation.end_step + 1):
-    # Prints the current step, number of cells, and records model run time.
+    # Prints the current step, number of cells, and records model run time for the step
     backend.info(simulation)
 
-    # Find the neighbors of each cell that are within a fixed radius and stores this info in a graph.
+    # Finds the neighbors of each cell that are within a fixed radius and store this info in a graph.
     functions.check_neighbors(simulation)
 
-    # Updates cells by adjusting trackers for differentiation and division based on intracellular, intercellular,
-    # and extracellular conditions through a series of methods.
+    # Updates cells by adjusting trackers for differentiation, division, growth, etc. based on intracellular,
+    # intercellular, and extracellular conditions through a series of separate methods.
     functions.cell_death(simulation)
     functions.cell_diff_surround(simulation)
     functions.cell_growth(simulation)
@@ -72,20 +72,20 @@ for simulation.current_step in range(simulation.beginning_step, simulation.end_s
     # groups, the handle_movement() function will be used to better represent asynchronous division and death.
     functions.update_queue(simulation)
 
-    # Find the nearest NANOG high, GATA6 high, and differentiated cells within a fixed radius. This provides
+    # Finds the nearest NANOG high, GATA6 high, and differentiated cells within a fixed radius. This provides
     # information that can be used for approximating cell motility.
     functions.nearest(simulation)
 
-    # Calculates the direction/magnitude of the movement of the cell depending on a variety of factors such as state,
-    # extracellular gradient, and presence of neighbors.
+    # Calculates the direction/magnitude of a cell's movement depending on a variety of factors such as state
+    # and presence of neighbors.
     functions.cell_motility(simulation)
 
     # Attempts to move the cells to a state of physical equilibrium between adhesive and repulsive forces acting on
-    # the cells, while also applying active motility forces from the previous cell_motility() function.
+    # the cells, while applying active motility forces from the previous cell_motility() function.
     functions.handle_movement(simulation)
 
     # Saves multiple forms of information about the simulation at the current step, including an image of the space,
-    # CSVs with values of the cells, a temporary pickle of the Simulation instance, and performance stats.
+    # CSVs with values of the cells, a temporary pickle of the Simulation object, and performance stats.
     output.step_outputs(simulation)
 
 # Ends the simulation by creating a video from all of the step images
