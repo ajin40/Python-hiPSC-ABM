@@ -78,7 +78,7 @@ for simulation.current_step in range(simulation.beginning_step, simulation.end_s
 
     # Calculates the direction/magnitude of a cell's movement depending on a variety of factors such as state
     # and presence of neighbors.
-    functions.cell_motility(simulation)
+    # functions.cell_motility(simulation)
 
     # Attempts to move the cells to a state of physical equilibrium between adhesive and repulsive forces acting on
     # the cells, while applying active motility forces from the previous cell_motility() function.
@@ -87,9 +87,6 @@ for simulation.current_step in range(simulation.beginning_step, simulation.end_s
     # Saves multiple forms of information about the simulation at the current step, including an image of the space,
     # CSVs with values of the cells, a temporary pickle of the Simulation object, and performance stats.
     output.step_outputs(simulation)
-
-    print(simulation.fgf4_values)
-    print(simulation.fgf4_alt)
 
 # Ends the simulation by creating a video from all of the step images
 output.create_video(simulation)

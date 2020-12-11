@@ -59,85 +59,39 @@ def adjust_morphogens(simulation, gradient_name, index, amount, mode):
 
         # get the four nearest points to the cell in 2D
         diffusion_points = np.array([[x, y, 0], [x+1, y, 0], [x, y+1, 0], [x+1, y+1, 0]], dtype=int)
-        distances = np.zeros(4, dtype=float)
-        nonzero = np.zeros(4, dtype=bool)
+        distances = -1 * np.ones(4, dtype=float)
 
-        # go through each point determining if the point is less than the radius
+        # hold the sum of the reciprocals of the distances
+        total = 0
+
+        # get the gradient size and go through each point determining if the point is less than the radius
+        gradient_size = simulation.gradient_size
         for i in range(4):
-            mag = np.linalg.norm(simulation.locations[index] - diffusion_points[i])
-            if mag <= simulation.max_radius:
-                # save the distance and if the distance is nonzero
-                distances[i] += mag
-                if mag != 0:
-                    nonzero[i] = 1
-
-        # add the reciprocals of the distances
-        recip = np.reciprocal(distances[nonzero])
-        total = np.sum(recip)
+            # check that he calculated diffusion point exists
+            if diffusion_points[i][0] < gradient_size[0] and diffusion_points[i][1] < gradient_size[1]:
+                # if they do, calculate magnitude of the distance to each one
+                mag = np.linalg.norm(simulation.locations[index] - diffusion_points[i] * simulation.spat_res)
+                if mag <= simulation.max_radius:
+                    # save the distance and if the distance is nonzero
+                    distances[i] = mag
+                    if mag != 0:
+                        total += 1/mag
 
         # add a proportional amount to each diffusion point that falls within the cell radius
         for i in range(4):
-            if nonzero[i]:
-                x, y, z = diffusion_points[i][0], diffusion_points[i][1], diffusion_points[i][2]
+            x, y, z = diffusion_points[i][0], diffusion_points[i][1], 0
+            # if on top of diffusion point add all
+            if distances[i] == 0:
+                gradient[x][y][z] += amount
+            # if in radius add proportional amount
+            elif distances[i] != -1:
                 gradient[x][y][z] += amount / (distances[i] * total)
+            else:
+                pass
 
     # if some other mode
     else:
         raise Exception("Unknown mode for adjust_morphogens() method")
-
-
-@jit(nopython=True)
-def update_concentrations_cpu(gradient, location, amount, diffuse_radius, diffuse_bins_help, diffuse_bins,
-                              diffuse_locations):
-    """ Looks at up to four of the nearest diffusion points
-        and adds concentration based on the distance to each
-        point.
-    """
-    # offset bins by 2 to avoid missing points
-    block_location = location // diffuse_radius + np.array([2, 2, 2])
-    x, y, z = int(block_location[0]), int(block_location[1]), int(block_location[2])
-
-    max_points = 20
-    holder = np.zeros((max_points, 3), dtype=int)
-    distances = np.zeros(max_points)
-    count = 0
-
-    # loop over the bin the cell is in and the surrounding bins
-    for i in range(-1, 2):
-        for j in range(-1, 2):
-            for k in range(-1, 2):
-                # get the count of cells for the current bin
-                bin_count = int(diffuse_bins_help[x + i][y + j][z + k])
-
-                # go through the bin determining if a point is in the radius
-                for l in range(bin_count):
-                    # get the index of the current cell in question
-                    x_ = int(diffuse_bins[x + i][y + j][z + k][l][0])
-                    y_ = int(diffuse_bins[x + i][y + j][z + k][l][1])
-                    z_ = int(diffuse_bins[x + i][y + j][z + k][l][2])
-
-                    # check to see if that point is within the search radius
-                    mag = np.linalg.norm(diffuse_locations[x_][y_][z_] - location)
-                    if mag < diffuse_radius:
-                        holder[count] = np.array([x_, y_, z_], dtype=int)
-                        distances[count] = mag
-                        count += 1
-
-    recip = np.empty(len(distances))
-
-    for i in range(len(distances)):
-        if distances[i] != 0:
-            recip[i] = 1/distances[i]
-
-    summ = np.sum(recip)
-    for i in range(count):
-        x = holder[i][0]
-        y = holder[i][1]
-        z = holder[i][2]
-        if distances[i] != 0 and summ != 0:
-            gradient[x][y][z] += amount / (distances[i] * summ)
-
-    return gradient
 
 
 def assign_bins(simulation, distance, max_cells):

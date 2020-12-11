@@ -81,7 +81,7 @@ class Simulation:
 
         # the spatial resolution of the space, the diffusion constant for the molecule gradients, the radius of
         # search for diffusion points, and the max concentration at a diffusion point
-        self.spat_res = 0.00001  # 10 um
+        self.spat_res = 0.000007071
         self.spat_res2 = self.spat_res ** 2
         self.diffuse = 0.00000000005    # 50 um^2/s
         self.diffuse_radius = self.spat_res * 0.707106781187    # not being used currently
