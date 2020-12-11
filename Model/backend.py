@@ -91,7 +91,7 @@ def adjust_morphogens(simulation, gradient_name, index, amount, mode):
 
     # if some other mode
     else:
-        raise Exception("Unknown mode for adjust_morphogens() method")
+        raise Exception("Unknown mode for the adjust_morphogens() method")
 
 
 def assign_bins(simulation, distance, max_cells):
@@ -154,8 +154,8 @@ def assign_bins_cpu(number_cells, cell_locations, bins, bins_help):
 
 
 @cuda.jit
-def check_neighbors_gpu(bin_locations, locations, bins, bins_help, distance, edge_holder, if_edge, edge_count,
-                        max_neighbors):
+def get_neighbors_gpu(bin_locations, locations, bins, bins_help, distance, edge_holder, if_edge, edge_count,
+                      max_neighbors):
     """ This is the cuda kernel for the check_neighbors() function
         that performs the actual calculation.
     """
@@ -205,8 +205,8 @@ def check_neighbors_gpu(bin_locations, locations, bins, bins_help, distance, edg
 
 
 @jit(nopython=True, parallel=True)
-def check_neighbors_cpu(number_cells, bin_locations, locations, bins, bins_help, distance, edge_holder, if_edge,
-                        edge_count, max_neighbors):
+def get_neighbors_cpu(number_cells, bin_locations, locations, bins, bins_help, distance, edge_holder, if_edge,
+                      edge_count, max_neighbors):
     """ This is the just-in-time compiled helper of check_neighbors()
         that performs the actual calculations.
     """
@@ -573,16 +573,15 @@ def apply_forces_gpu(cell_jkr_force, cell_motility_force, cell_locations, cell_r
 
 
 @jit(nopython=True, parallel=True)
-def nearest_cpu(number_cells, cell_locations, bins, bins_help, distance, if_diff, cell_gata6, cell_nanog, nearest_gata6,
-                nearest_nanog, nearest_diff):
+def nearest_cpu(number_cells, bin_locations, cell_locations, bins, bins_help, distance, if_diff, cell_gata6, cell_nanog,
+                nearest_gata6, nearest_nanog, nearest_diff):
     """ this is the just-in-time compiled version of nearest
         that runs in parallel on the cpu
     """
     # loops over all cells, with the current cell index being the focus
     for focus in prange(number_cells):
-        # offset bins by 2 to avoid missing cells that fall outside the space
-        block_location = cell_locations[focus] // distance + np.array([2, 2, 2])
-        x, y, z = int(block_location[0]), int(block_location[1]), int(block_location[2])
+        # get the bin location of the cell
+        x, y, z = bin_locations[focus][0], bin_locations[focus][1], bin_locations[focus][2]
 
         # initialize these variables with essentially nothing values and the distance as an initial comparison
         nearest_gata6_index, nearest_nanog_index, nearest_diff_index = -1, -1, -1
@@ -634,8 +633,8 @@ def nearest_cpu(number_cells, cell_locations, bins, bins_help, distance, if_diff
 
 
 @cuda.jit
-def nearest_gpu(cell_locations, bins, bins_help, distance, if_diff, cell_gata6, cell_nanog, nearest_gata6,
-                nearest_nanog, nearest_diff):
+def nearest_gpu(bin_locations, cell_locations, bins, bins_help, distance, if_diff, cell_gata6, cell_nanog,
+                nearest_gata6, nearest_nanog, nearest_diff):
     """ This is the cuda kernel for the nearest function
         that runs on a NVIDIA gpu
     """
@@ -644,10 +643,8 @@ def nearest_gpu(cell_locations, bins, bins_help, distance, if_diff, cell_gata6, 
 
     # checks to see that position is in the array
     if focus < cell_locations.shape[0]:
-        # offset bins by 2 to avoid missing cells that fall outside the space
-        x = int(cell_locations[focus][0] / distance[0]) + 2
-        y = int(cell_locations[focus][1] / distance[0]) + 2
-        z = int(cell_locations[focus][2] / distance[0]) + 2
+        # get the bin location of the cell
+        x, y, z = bin_locations[focus][0], bin_locations[focus][1], bin_locations[focus][2]
 
         # initialize these variables with essentially nothing values and the distance as an initial comparison
         nearest_gata6_index, nearest_nanog_index, nearest_diff_index = -1, -1, -1

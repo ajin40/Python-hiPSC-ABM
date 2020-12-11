@@ -4,12 +4,7 @@ Experimental
 How many cells are added/removed to the simulation at once, per time step? Type 0 if all at once. Ex. 5
 [ 0 ]
 
-Use the Guye movement method? Where GATA6 high cells with move toward differentiated cells. Ex. True
+Use the Guye movement method? This mode will have GATA6 high cells move toward differentiated cells simulating
+the movement seen in Guye et al. Ex. True
 [ True ]
-
-Use Eunbi's method of motion based on the NetLogo model? Ex. True
-[ True ]
-
-Use FGF4 concentrations for NANOG high movements? Ex. False
-[ False ]
 ------------------------------------------------------------------------------------------------------------------------

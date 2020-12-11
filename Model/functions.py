@@ -349,7 +349,7 @@ def eunbi_motility(simulation):
 
 
 @backend.record_time
-def check_neighbors(simulation):
+def get_neighbors(simulation):
     """ For all cells, determines which cells fall within a fixed
         radius to denote a neighbor then stores this information
         in a graph (uses a bin/bucket sorting method).
@@ -357,32 +357,32 @@ def check_neighbors(simulation):
     # radius of search (meters) in which all cells within are classified as neighbors
     neighbor_distance = 0.000015
 
-    # if a static variable has not been created to hold the maximum number of neighbors, create one
-    if not hasattr(check_neighbors, "max_neighbors"):
+    # if a static variable has not been created to hold the maximum number of neighbors for a cell, create one
+    if not hasattr(get_neighbors, "max_neighbors"):
         # begin with a low number of neighbors that can be revalued if the max number of neighbors exceeds this value
-        check_neighbors.max_neighbors = 5
+        get_neighbors.max_neighbors = 5
 
     # if a static variable has not been created to hold the maximum number of cells in a bin, create one
-    if not hasattr(check_neighbors, "max_cells"):
+    if not hasattr(get_neighbors, "max_cells"):
         # begin with a low number of cells that can be revalued if the max number of cells exceeds this value
-        check_neighbors.max_cells = 5
+        get_neighbors.max_cells = 5
 
     # clear all of the edges in the neighbor graph
     simulation.neighbor_graph.delete_edges(None)
 
     # calls the function that generates an array of bins that generalize the cell locations in addition to a
-    # creating a helper array that assists the search method in counting cells in a particular bin
+    # creating a helper array that assists the search method in counting cells for a particular bin
     bins, bins_help, bin_locations, max_cells = backend.assign_bins(simulation, neighbor_distance,
-                                                                    check_neighbors.max_cells)
+                                                                    get_neighbors.max_cells)
 
-    # update the value of the max number of cells in a bin and double it
-    check_neighbors.max_cells = max_cells
+    # update the value of the max number of cells in a bin
+    get_neighbors.max_cells = max_cells
 
-    # this will run once if all edges are included in edge_holder breaking the loop. if not, this will
+    # this will run once if all edges are included in edge_holder, breaking the loop. if not, this will
     # run a second time with an updated value for the number of predicted neighbors such that all edges are included
     while True:
         # create an array used to hold edges, an array to say if edge exists, and an array to count the edges per cell
-        length = simulation.number_cells * check_neighbors.max_neighbors
+        length = simulation.number_cells * get_neighbors.max_neighbors
         edge_holder = np.zeros((length, 2), dtype=int)
         if_edge = np.zeros(length, dtype=bool)
         edge_count = np.zeros(simulation.number_cells, dtype=int)
@@ -398,16 +398,16 @@ def check_neighbors(simulation):
             edge_holder_cuda = cuda.to_device(edge_holder)
             if_edge_cuda = cuda.to_device(if_edge)
             edge_count_cuda = cuda.to_device(edge_count)
-            max_neighbors_cuda = cuda.to_device(check_neighbors.max_neighbors)
+            max_neighbors_cuda = cuda.to_device(get_neighbors.max_neighbors)
 
             # allocate threads and blocks for gpu memory "threads per block" and "blocks per grid"
             tpb = 72
             bpg = math.ceil(simulation.number_cells / tpb)
 
             # call the cuda kernel with given parameters
-            backend.check_neighbors_gpu[bpg, tpb](bin_locations_cuda, locations_cuda, bins_cuda, bins_help_cuda,
-                                                  distance_cuda, edge_holder_cuda, if_edge_cuda, edge_count_cuda,
-                                                  max_neighbors_cuda)
+            backend.get_neighbors_gpu[bpg, tpb](bin_locations_cuda, locations_cuda, bins_cuda, bins_help_cuda,
+                                                distance_cuda, edge_holder_cuda, if_edge_cuda, edge_count_cuda,
+                                                max_neighbors_cuda)
 
             # return the arrays back from the gpu
             edge_holder = edge_holder_cuda.copy_to_host()
@@ -416,18 +416,18 @@ def check_neighbors(simulation):
 
         # call the jit cpu version
         else:
-            edge_holder, if_edge, edge_count = backend.check_neighbors_cpu(simulation.number_cells, bin_locations,
-                                                                           simulation.locations, bins, bins_help,
-                                                                           neighbor_distance, edge_holder, if_edge,
-                                                                           edge_count, check_neighbors.max_neighbors)
+            edge_holder, if_edge, edge_count = backend.get_neighbors_cpu(simulation.number_cells, bin_locations,
+                                                                         simulation.locations, bins, bins_help,
+                                                                         neighbor_distance, edge_holder, if_edge,
+                                                                         edge_count, get_neighbors.max_neighbors)
 
         # either break the loop if all neighbors were accounted for or revalue the maximum number of neighbors
         # based on the output of the function call and double it for future calls
         max_neighbors = np.amax(edge_count)
-        if check_neighbors.max_neighbors >= max_neighbors:
+        if get_neighbors.max_neighbors >= max_neighbors:
             break
         else:
-            check_neighbors.max_neighbors = max_neighbors * 2
+            get_neighbors.max_neighbors = max_neighbors * 2
 
     # reduce the edges to only edges that actually exist
     edge_holder = edge_holder[if_edge]
@@ -437,145 +437,12 @@ def check_neighbors(simulation):
 
 
 @backend.record_time
-def update_diffusion(simulation):
-    """ goes through all extracellular gradients and
-        approximates the diffusion of that molecule
-    """
-    # get the number of times diffusion is calculated
-    diffuse_steps = int(simulation.step_dt / simulation.diffuse_dt)
-
-    # go through all gradients and update the diffusion of each
-    for gradient_name in simulation.gradient_names:
-        # get the gradient array
-        gradient = simulation.__dict__[gradient_name]
-
-        # set max and min concentration values
-        gradient[gradient > simulation.max_concentration] = simulation.max_concentration
-        gradient[gradient < 0] = 0
-
-        # add edges for initial conditions
-        base = np.pad(gradient, 1, mode="constant", constant_values=0)
-
-        # call the backend function to do so
-        gradient = backend.update_diffusion_cpu(base, diffuse_steps, simulation.diffuse_dt, simulation.spat_res2,
-                                                simulation.diffuse, simulation.size)
-
-        # set max and min concentration values
-        gradient[gradient > simulation.max_concentration] = simulation.max_concentration
-        gradient[gradient < 0] = 0
-
-        # update the gradient
-        simulation.__dict__[gradient_name] = gradient
-
-
-@backend.record_time
-def update_queue(simulation):
-    """ add and removes cells to and from the simulation
-        either all at once or in "groups"
-    """
-    # give how many cells are being added/removed during a given step
-    print("Adding " + str(len(simulation.cells_to_divide)) + " cells...")
-    print("Removing " + str(len(simulation.cells_to_remove)) + " cells...")
-
-    # Division
-    # get the indices of the dividing cells
-    indices = simulation.cells_to_divide
-
-    # go through all instance variable names and copy the values of the dividing cells to end of the array
-    for name in simulation.cell_array_names:
-        # get the instance variable from the class attribute dictionary
-        values = simulation.__dict__[name][indices]
-
-        # if the instance variable is 1-dimensional
-        if simulation.__dict__[name].ndim == 1:
-            simulation.__dict__[name] = np.concatenate((simulation.__dict__[name], values))
-        # if the instance variable is 2-dimensional
-        else:
-            simulation.__dict__[name] = np.concatenate((simulation.__dict__[name], values), axis=0)
-
-    # go through the dividing cells and update the mother and daughter cells
-    for i in range(len(simulation.cells_to_divide)):
-        mother_index = simulation.cells_to_divide[i]
-        daughter_index = simulation.number_cells + i
-
-        # move the cells to positions that are representative of the new locations of daughter cells
-        division_position = backend.random_vector(simulation) * (simulation.max_radius - simulation.min_radius)
-        simulation.locations[mother_index] += division_position
-        simulation.locations[daughter_index] -= division_position
-
-        # reduce both radii to minimum size and set the division counters to zero
-        simulation.radii[mother_index] = simulation.radii[daughter_index] = simulation.min_radius
-        simulation.div_counters[mother_index] = simulation.div_counters[daughter_index] = 0
-
-    # get the number of cells to be added
-    remaining = len(simulation.cells_to_divide)
-
-    # if not adding all cells at once
-    if simulation.group != 0:
-        # Cannot add all of the new cells, otherwise several cells are likely to be added in
-        #   close proximity to each other at later time steps. Such addition, coupled with
-        #   handling collisions, make give rise to sudden changes in overall positions of
-        #   cells within the simulation. Instead, collisions are handled after 'group' number
-        #   of cells are added.
-
-        # stagger the addition of cells, subtracting from the remaining number to add
-        while remaining > 0:
-            # if more cells than how many we would add in a group
-            if remaining >= simulation.group:
-                # add the group number of cells
-                n = simulation.group
-            else:
-                # if less than the group, only add the remaining number
-                n = remaining
-
-            # add the number of new cells to the following graphs
-            simulation.neighbor_graph.add_vertices(n)
-            simulation.jkr_graph.add_vertices(n)
-
-            # increase the number of cells by how many were added
-            simulation.number_cells += n
-
-            # call the handle movement function given the addition of specified number of cells
-            handle_movement(simulation)
-
-            # subtract how many were added
-            remaining -= n
-
-    # add the cells in all at once
-    else:
-        simulation.neighbor_graph.add_vertices(remaining)
-        simulation.jkr_graph.add_vertices(remaining)
-        simulation.number_cells += remaining
-
-    # Removal
-    # get the indices of the cells leaving the simulation
-    indices = simulation.cells_to_remove
-
-    # go through the cell arrays remove the indices
-    for name in simulation.cell_array_names:
-        # if the array is 1-dimensional
-        if simulation.__dict__[name].ndim == 1:
-            simulation.__dict__[name] = np.delete(simulation.__dict__[name], indices)
-        # if the array is 2-dimensional
-        else:
-            simulation.__dict__[name] = np.delete(simulation.__dict__[name], indices, axis=0)
-
-    # update the graphs and number of cells
-    simulation.neighbor_graph.delete_vertices(indices)
-    simulation.jkr_graph.delete_vertices(indices)
-    simulation.number_cells -= len(simulation.cells_to_remove)
-
-    # clear the arrays for the next step
-    simulation.cells_to_divide = np.array([], dtype=int)
-    simulation.cells_to_remove = np.array([], dtype=int)
-
-
-@backend.record_time
 def nearest(simulation):
-    """ looks at cells within a given radius a determines
-        the closest cells of certain types
+    """ Determines the nearest GATA6 high, NANOG high, and
+        differentiated cell within a fixed radius for each
+        cell.
     """
-    # radius of search for nearest cells
+    # radius of search (meters) for nearest cells of the three types
     nearest_distance = 0.000015
 
     # if a static variable has not been created to hold the maximum number of cells in a bin, create one
@@ -584,18 +451,19 @@ def nearest(simulation):
         nearest.max_cells = 5
 
     # calls the function that generates an array of bins that generalize the cell locations in addition to a
-    # creating a helper array that assists the search method in counting cells in a particular bin
+    # creating a helper array that assists the search method in counting cells for a particular bin
     bins, bins_help, bin_locations, max_cells = backend.assign_bins(simulation, nearest_distance, nearest.max_cells)
 
-    # update the value of the max number of cells in a bin and double it
+    # update the value of the max number of cells in a bin
     nearest.max_cells = max_cells
 
-    # turn the following arrays into True/False
+    # turn the following array into True/False instead of strings
     if_diff = simulation.states == "Differentiated"
 
     # call the nvidia gpu version
     if simulation.parallel:
         # turn the following into arrays that can be interpreted by the gpu
+        bin_locations_cuda = cuda.to_device(bin_locations)
         locations_cuda = cuda.to_device(simulation.locations)
         bins_cuda = cuda.to_device(bins)
         bins_help_cuda = cuda.to_device(bins_help)
@@ -612,8 +480,9 @@ def nearest(simulation):
         bpg = math.ceil(simulation.number_cells / tpb)
 
         # call the cuda kernel with given parameters
-        backend.nearest_gpu[bpg, tpb](locations_cuda, bins_cuda, bins_help_cuda, distance_cuda, if_diff_cuda,
-                                      gata6_cuda, nanog_cuda, nearest_gata6_cuda, nearest_nanog_cuda, nearest_diff_cuda)
+        backend.nearest_gpu[bpg, tpb](bin_locations_cuda, locations_cuda, bins_cuda, bins_help_cuda, distance_cuda,
+                                      if_diff_cuda, gata6_cuda, nanog_cuda, nearest_gata6_cuda, nearest_nanog_cuda,
+                                      nearest_diff_cuda)
 
         # return the new nearest arrays back from the gpu
         gata6 = nearest_gata6_cuda.copy_to_host()
@@ -622,9 +491,9 @@ def nearest(simulation):
 
     # call the cpu version
     else:
-        gata6, nanog, diff = backend.nearest_cpu(simulation.number_cells, simulation.cell_locations, bins, bins_help,
-                                                 nearest_distance, if_diff, simulation.GATA6, simulation.NANOG,
-                                                 simulation.nearest_gata6, simulation.nearest_nanog,
+        gata6, nanog, diff = backend.nearest_cpu(simulation.number_cells, bin_locations, simulation.cell_locations,
+                                                 bins, bins_help, nearest_distance, if_diff, simulation.GATA6,
+                                                 simulation.NANOG, simulation.nearest_gata6, simulation.nearest_nanog,
                                                  simulation.nearest_diff)
 
     # revalue the array holding the indices of nearest cells of given type
@@ -668,7 +537,7 @@ def jkr_neighbors(simulation):
     # radius of search (meters) in which neighbors will have physical interactions, double the max cell radius
     jkr_distance = 2 * simulation.max_radius
 
-    # if a static variable has not been created to hold the maximum number of neighbors, create one
+    # if a static variable has not been created to hold the maximum number of neighbors for a cell, create one
     if not hasattr(jkr_neighbors, "max_neighbors"):
         # begin with a low number of neighbors that can be revalued if the max number of neighbors exceeds this value
         jkr_neighbors.max_neighbors = 5
@@ -678,8 +547,8 @@ def jkr_neighbors(simulation):
         # begin with a low number of cells that can be revalued if the max number of cells exceeds this value
         jkr_neighbors.max_cells = 5
 
-    # calls the function that generates an array of bins that generalize the cell locations in addition to a
-    # creating a helper array that assists the search method in counting cells in a particular bin
+    # this will run once if all edges are included in edge_holder, breaking the loop. if not, this will
+    # run a second time with an updated value for the number of predicted neighbors such that all edges are included
     bins, bins_help, bin_locations, max_cells = backend.assign_bins(simulation, jkr_distance, jkr_neighbors.max_cells)
 
     # update the value of the max number of cells in a bin
@@ -840,3 +709,137 @@ def apply_forces(simulation):
     # update the locations and reset the jkr forces back to zero
     simulation.locations = new_locations
     simulation.jkr_forces = np.zeros((simulation.number_cells, 3), dtype=float)
+
+
+@backend.record_time
+def update_diffusion(simulation):
+    """ goes through all extracellular gradients and
+        approximates the diffusion of that molecule
+    """
+    # get the number of times diffusion is calculated
+    diffuse_steps = int(simulation.step_dt / simulation.diffuse_dt)
+
+    # go through all gradients and update the diffusion of each
+    for gradient_name in simulation.gradient_names:
+        # get the gradient array
+        gradient = simulation.__dict__[gradient_name]
+
+        # set max and min concentration values
+        gradient[gradient > simulation.max_concentration] = simulation.max_concentration
+        gradient[gradient < 0] = 0
+
+        # add edges for initial conditions
+        base = np.pad(gradient, 1, mode="constant", constant_values=0)
+
+        # call the backend function to do so
+        gradient = backend.update_diffusion_cpu(base, diffuse_steps, simulation.diffuse_dt, simulation.spat_res2,
+                                                simulation.diffuse, simulation.size)
+
+        # set max and min concentration values
+        gradient[gradient > simulation.max_concentration] = simulation.max_concentration
+        gradient[gradient < 0] = 0
+
+        # update the gradient
+        simulation.__dict__[gradient_name] = gradient
+
+
+@backend.record_time
+def update_queue(simulation):
+    """ add and removes cells to and from the simulation
+        either all at once or in "groups"
+    """
+    # give how many cells are being added/removed during a given step
+    print("Adding " + str(len(simulation.cells_to_divide)) + " cells...")
+    print("Removing " + str(len(simulation.cells_to_remove)) + " cells...")
+
+    # Division
+    # get the indices of the dividing cells
+    indices = simulation.cells_to_divide
+
+    # go through all instance variable names and copy the values of the dividing cells to end of the array
+    for name in simulation.cell_array_names:
+        # get the instance variable from the class attribute dictionary
+        values = simulation.__dict__[name][indices]
+
+        # if the instance variable is 1-dimensional
+        if simulation.__dict__[name].ndim == 1:
+            simulation.__dict__[name] = np.concatenate((simulation.__dict__[name], values))
+        # if the instance variable is 2-dimensional
+        else:
+            simulation.__dict__[name] = np.concatenate((simulation.__dict__[name], values), axis=0)
+
+    # go through the dividing cells and update the mother and daughter cells
+    for i in range(len(simulation.cells_to_divide)):
+        mother_index = simulation.cells_to_divide[i]
+        daughter_index = simulation.number_cells + i
+
+        # move the cells to positions that are representative of the new locations of daughter cells
+        division_position = backend.random_vector(simulation) * (simulation.max_radius - simulation.min_radius)
+        simulation.locations[mother_index] += division_position
+        simulation.locations[daughter_index] -= division_position
+
+        # reduce both radii to minimum size and set the division counters to zero
+        simulation.radii[mother_index] = simulation.radii[daughter_index] = simulation.min_radius
+        simulation.div_counters[mother_index] = simulation.div_counters[daughter_index] = 0
+
+    # get the number of cells to be added
+    remaining = len(simulation.cells_to_divide)
+
+    # if not adding all cells at once
+    if simulation.group != 0:
+        # Cannot add all of the new cells, otherwise several cells are likely to be added in
+        #   close proximity to each other at later time steps. Such addition, coupled with
+        #   handling collisions, make give rise to sudden changes in overall positions of
+        #   cells within the simulation. Instead, collisions are handled after 'group' number
+        #   of cells are added.
+
+        # stagger the addition of cells, subtracting from the remaining number to add
+        while remaining > 0:
+            # if more cells than how many we would add in a group
+            if remaining >= simulation.group:
+                # add the group number of cells
+                n = simulation.group
+            else:
+                # if less than the group, only add the remaining number
+                n = remaining
+
+            # add the number of new cells to the following graphs
+            simulation.neighbor_graph.add_vertices(n)
+            simulation.jkr_graph.add_vertices(n)
+
+            # increase the number of cells by how many were added
+            simulation.number_cells += n
+
+            # call the handle movement function given the addition of specified number of cells
+            handle_movement(simulation)
+
+            # subtract how many were added
+            remaining -= n
+
+    # add the cells in all at once
+    else:
+        simulation.neighbor_graph.add_vertices(remaining)
+        simulation.jkr_graph.add_vertices(remaining)
+        simulation.number_cells += remaining
+
+    # Removal
+    # get the indices of the cells leaving the simulation
+    indices = simulation.cells_to_remove
+
+    # go through the cell arrays remove the indices
+    for name in simulation.cell_array_names:
+        # if the array is 1-dimensional
+        if simulation.__dict__[name].ndim == 1:
+            simulation.__dict__[name] = np.delete(simulation.__dict__[name], indices)
+        # if the array is 2-dimensional
+        else:
+            simulation.__dict__[name] = np.delete(simulation.__dict__[name], indices, axis=0)
+
+    # update the graphs and number of cells
+    simulation.neighbor_graph.delete_vertices(indices)
+    simulation.jkr_graph.delete_vertices(indices)
+    simulation.number_cells -= len(simulation.cells_to_remove)
+
+    # clear the arrays for the next step
+    simulation.cells_to_divide = np.array([], dtype=int)
+    simulation.cells_to_remove = np.array([], dtype=int)

@@ -55,7 +55,7 @@ for simulation.current_step in range(simulation.beginning_step, simulation.end_s
     backend.info(simulation)
 
     # Finds the neighbors of each cell that are within a fixed radius and store this info in a graph.
-    functions.check_neighbors(simulation)
+    functions.get_neighbors(simulation)
 
     # Updates cells by adjusting trackers for differentiation, division, growth, etc. based on intracellular,
     # intercellular, and extracellular conditions through a series of separate methods.
