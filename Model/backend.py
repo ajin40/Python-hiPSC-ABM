@@ -257,14 +257,14 @@ def get_neighbors_cpu(number_cells, bin_locations, locations, bins, bins_help, d
 
 
 @jit(nopython=True)
-def update_diffusion_cpu(base, diffuse_steps, diffuse_dt, spat_res2, diffuse):
-    """ This is the just-in-time compiled helper of
+def update_diffusion_jit(base, diffuse_steps, diffuse_dt, spat_res2, diffuse):
+    """ This is the just-in-time compiled method for
         update_diffusion() that performs the diffusion
         calculation.
     """
-    # finite difference to solve laplacian diffusion equation currently 2D
+    # finite difference to solve laplacian diffusion equation, currently 2D
     for _ in range(diffuse_steps):
-        # set the initial conditions
+        # set the initial conditions by reflecting the edges of the gradient
         base[:, 0, 1:-1] = base[:, 1, 1:-1]
         base[:, -1, 1:-1] = base[:, -2, 1:-1]
         base[0, :, 1:-1] = base[1, :, 1:-1]

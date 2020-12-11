@@ -508,7 +508,7 @@ def handle_movement(simulation):
         of the step. Resets the motility force array to zero after
         movement is done.
     """
-    # if a static variable for holding step time hasn't been created, create one
+    # if a static variable for holding the number of steps hasn't been created, create one
     if not hasattr(handle_movement, "steps"):
         # get the total amount of times the cells will be incrementally moved during the step
         handle_movement.steps = math.ceil(simulation.step_dt / simulation.move_dt)
@@ -712,11 +712,13 @@ def apply_forces(simulation):
 
 @backend.record_time
 def update_diffusion(simulation):
-    """ goes through all extracellular gradients and
-        approximates the diffusion of that molecule
+    """ Goes through all indicated extracellular gradients and
+        approximates the diffusion of the morphogen.
     """
-    # get the number of times diffusion is calculated
-    diffuse_steps = int(simulation.step_dt / simulation.diffuse_dt)
+    # if a static variable for holding step time hasn't been created, create one
+    if not hasattr(update_diffusion, "steps"):
+        # get the total amount of times the cells will be incrementally moved during the step
+        update_diffusion.steps = math.ceil(simulation.step_dt / simulation.diffuse_dt)
 
     # go through all gradients and update the diffusion of each
     for gradient_name in simulation.gradient_names:
@@ -727,14 +729,14 @@ def update_diffusion(simulation):
         gradient[gradient > simulation.max_concentration] = simulation.max_concentration
         gradient[gradient < 0] = 0
 
-        # add edges for initial conditions
+        # add zeros on the edges of the gradient to hold initial values
         base = np.pad(gradient, 1, mode="constant", constant_values=0)
 
-        # call the backend function to do so
-        gradient = backend.update_diffusion_cpu(base, diffuse_steps, simulation.diffuse_dt, simulation.spat_res2,
-                                                simulation.diffuse, simulation.size)
+        # call the JIT diffusion function
+        gradient = backend.update_diffusion_jit(base, update_diffusion.steps, simulation.diffuse_dt,
+                                                simulation.spat_res2, simulation.diffuse, simulation.size)
 
-        # set max and min concentration values
+        # set max and min concentration values again
         gradient[gradient > simulation.max_concentration] = simulation.max_concentration
         gradient[gradient < 0] = 0
 
@@ -751,56 +753,47 @@ def update_queue(simulation):
     print("Adding " + str(len(simulation.cells_to_divide)) + " cells...")
     print("Removing " + str(len(simulation.cells_to_remove)) + " cells...")
 
-    # Division
-    # get the indices of the dividing cells
+    # -------------------- Division --------------------
+    # get the indices of the dividing cells and put copies of those cells at the end of each of the cell arrays
     indices = simulation.cells_to_divide
-
-    # go through all instance variable names and copy the values of the dividing cells to end of the array
     for name in simulation.cell_array_names:
         # get the instance variable from the class attribute dictionary
-        values = simulation.__dict__[name][indices]
+        copies = simulation.__dict__[name][indices]
 
         # if the instance variable is 1-dimensional
         if simulation.__dict__[name].ndim == 1:
-            simulation.__dict__[name] = np.concatenate((simulation.__dict__[name], values))
+            simulation.__dict__[name] = np.concatenate((simulation.__dict__[name], copies))
         # if the instance variable is 2-dimensional
         else:
-            simulation.__dict__[name] = np.concatenate((simulation.__dict__[name], values), axis=0)
+            simulation.__dict__[name] = np.concatenate((simulation.__dict__[name], copies), axis=0)
 
-    # go through the dividing cells and update the mother and daughter cells
+    # go through the dividing cells and update the old cell and new cell
     for i in range(len(simulation.cells_to_divide)):
-        mother_index = simulation.cells_to_divide[i]
-        daughter_index = simulation.number_cells + i
+        # get the indices of the old cell and the new cell
+        old_index = simulation.cells_to_divide[i]
+        new_index = simulation.number_cells + i
 
-        # move the cells to positions that are representative of the new locations of daughter cells
+        # move the cells to new positions
         division_position = backend.random_vector(simulation) * (simulation.max_radius - simulation.min_radius)
-        simulation.locations[mother_index] += division_position
-        simulation.locations[daughter_index] -= division_position
+        simulation.locations[old_index] += division_position
+        simulation.locations[new_index] -= division_position
 
-        # reduce both radii to minimum size and set the division counters to zero
-        simulation.radii[mother_index] = simulation.radii[daughter_index] = simulation.min_radius
-        simulation.div_counters[mother_index] = simulation.div_counters[daughter_index] = 0
+        # reduce both radii to minimum size (representative of a divided cell) and set the division counters to zero
+        simulation.radii[old_index] = simulation.radii[new_index] = simulation.min_radius
+        simulation.div_counters[old_index] = simulation.div_counters[new_index] = 0
 
-    # get the number of cells to be added
-    remaining = len(simulation.cells_to_divide)
-
-    # if not adding all cells at once
+    # get the total number of cells to add and determine if adding all of the cells in at once or not
+    total = len(simulation.cells_to_divide)
     if simulation.group != 0:
-        # Cannot add all of the new cells, otherwise several cells are likely to be added in
-        #   close proximity to each other at later time steps. Such addition, coupled with
-        #   handling collisions, make give rise to sudden changes in overall positions of
-        #   cells within the simulation. Instead, collisions are handled after 'group' number
-        #   of cells are added.
-
         # stagger the addition of cells, subtracting from the remaining number to add
-        while remaining > 0:
+        while total > 0:
             # if more cells than how many we would add in a group
-            if remaining >= simulation.group:
+            if total >= simulation.group:
                 # add the group number of cells
                 n = simulation.group
             else:
                 # if less than the group, only add the remaining number
-                n = remaining
+                n = total
 
             # add the number of new cells to the following graphs
             simulation.neighbor_graph.add_vertices(n)
@@ -813,15 +806,18 @@ def update_queue(simulation):
             handle_movement(simulation)
 
             # subtract how many were added
-            remaining -= n
+            total -= n
 
-    # add the cells in all at once
+    # add the cells in all at once, with no collision handling
     else:
-        simulation.neighbor_graph.add_vertices(remaining)
-        simulation.jkr_graph.add_vertices(remaining)
-        simulation.number_cells += remaining
+        # go through each graph adding the number of dividing cells
+        for graph_name in simulation.graph_names:
+            simulation.__dict__[graph_name].add_vertices(total)
 
-    # Removal
+        # update the number of cells in the simulation
+        simulation.number_cells += total
+
+    # -------------------- Death --------------------
     # get the indices of the cells leaving the simulation
     indices = simulation.cells_to_remove
 
