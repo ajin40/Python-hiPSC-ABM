@@ -116,33 +116,32 @@ def cell_pathway(simulation):
             # get the amount
             amount = simulation.NANOG[index]
 
-            # add it to the normal FGF4 gradient and the alternative gradient
+            # add it to the normal FGF4 gradient and the alternative FGF4 gradient
             backend.adjust_morphogens(simulation, "fgf4_values", index, amount, "nearest")
             backend.adjust_morphogens(simulation, "fgf4_alt", index, amount, "distance")
 
-        # activate the following pathway based on if dox (after 24 hours) has been induced yet
+        # activate the following pathway based on if doxycycline  has been induced yet (after 24 hours/48 steps)
         if simulation.current_step > 48:
-
-            # get a FGF4 value for the FDS based on the concentration of FGF4
+            # get an FGF4 value for the FDS based on the concentration of FGF4
             fgf4_value = backend.get_concentration(simulation, "fgf4_values", index)
 
             # if FDS is boolean
             if simulation.field == 2:
                 # base thresholds on the maximum concentrations
-                if fgf4_value > simulation.max_concentration * 0.5:
-                    fgf4_fds = 1    # FGF4 high
+                if fgf4_value < 0.5 * simulation.max_concentration:
+                    fgf4_fds = 0   # FGF4 low
                 else:
-                    fgf4_fds = 0    # FGF4 low
+                    fgf4_fds = 1    # FGF4 high
 
             # otherwise assume ternary for now
             else:
                 # base thresholds on the maximum concentrations
-                if fgf4_value > simulation.max_concentration * 2/3:
-                    fgf4_fds = 2    # FGF4 high
-                elif fgf4_value > simulation.max_concentration * 1/3:
+                if fgf4_value < 1/3 * simulation.max_concentration:
+                    fgf4_fds = 0    # FGF4 low
+                elif fgf4_value < 2/3 * simulation.max_concentration:
                     fgf4_fds = 1    # FGF4 medium
                 else:
-                    fgf4_fds = 0    # FGF4 low
+                    fgf4_fds = 2    # FGF4 high
 
             # temporarily hold the FGFR value
             temp_fgfr = simulation.FGFR[index]
@@ -167,11 +166,11 @@ def cell_pathway(simulation):
                 # otherwise assume ternary
                 else:
                     # update ternary values based on FDS functions
-                    new_fgfr = (x1*x4*((2*x1 + 1)*(2*x4 + 1) + x1*x4)) % 3
+                    new_fgfr = (x1 * x4 * ((2*x1 + 1) * (2*x4 + 1) + x1 * x4)) % 3
                     new_erk = x2 % 3
-                    new_gata6 = ((x4**2)*(x5 + 1) + (x5**2)*(x4 + 1) + 2*x5 + 1) % 3
-                    new_nanog = (x5**2 + x5*(x5+1)*(x3*(2*x4**2 + 2*x3 + 1) + x4*(2*x3**2 + 2*x4 + 1)) +
-                                 (2*x3**2 + 1)*(2*x4**2 + 1)) % 3
+                    new_gata6 = ((x4**2) * (x5 + 1) + (x5**2) * (x4 + 1) + 2*x5 + 1) % 3
+                    new_nanog = (x5**2 + x5 * (x5 + 1) * (x3 * (2*x4**2 + 2*x3 + 1) + x4*(2*x3**2 + 2*x4 + 1)) +
+                                 (2*x3**2 + 1) * (2*x4**2 + 1)) % 3
 
                 # if the amount of FGFR has increased, subtract that much FGF4 from the gradient
                 fgfr_change = new_fgfr - temp_fgfr
