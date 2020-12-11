@@ -43,7 +43,7 @@ class Simulation:
 
         # create instance variables based on template parameters
         self.group = int(experimental[4][2:-3])
-        self.guye_move = eval(experimental[7][2:-3])
+        self.guye_move = eval(experimental[8][2:-3])
 
         # ------------------------------------------------------------------
 

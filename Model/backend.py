@@ -396,13 +396,13 @@ def jkr_neighbors_gpu(bin_locations, cell_locations, radii, bins, bins_help, edg
 
 
 @jit(nopython=True, parallel=True)
-def get_forces_cpu(jkr_edges, delete_edges, cell_locations, cell_radii, jkr_forces, poisson, youngs,
+def get_forces_cpu(number_edges, jkr_edges, delete_edges, cell_locations, cell_radii, jkr_forces, poisson, youngs,
                    adhesion_const):
     """ this is the just-in-time compiled version of get_forces
         that runs in parallel on the cpu
     """
     # loops over the jkr edges
-    for edge_index in prange(len(jkr_edges)):
+    for edge_index in prange(number_edges):
         # get the cell indices of the edge
         cell_1 = jkr_edges[edge_index][0]
         cell_2 = jkr_edges[edge_index][1]

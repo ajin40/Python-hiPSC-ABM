@@ -491,7 +491,7 @@ def nearest(simulation):
 
     # call the cpu version
     else:
-        gata6, nanog, diff = backend.nearest_cpu(simulation.number_cells, bin_locations, simulation.cell_locations,
+        gata6, nanog, diff = backend.nearest_cpu(simulation.number_cells, bin_locations, simulation.locations,
                                                  bins, bins_help, nearest_distance, if_diff, simulation.GATA6,
                                                  simulation.NANOG, simulation.nearest_gata6, simulation.nearest_nanog,
                                                  simulation.nearest_diff)
@@ -504,9 +504,9 @@ def nearest(simulation):
 
 @backend.record_time
 def handle_movement(simulation):
-    """ runs the following functions together for the time period
-        of the step. resets the motility force array to zero after
-        movement is done
+    """ Runs the following functions together for the time period
+        of the step. Resets the motility force array to zero after
+        movement is done.
     """
     # if a static variable for holding step time hasn't been created, create one
     if not hasattr(handle_movement, "steps"):
@@ -514,7 +514,7 @@ def handle_movement(simulation):
         handle_movement.steps = math.ceil(simulation.step_dt / simulation.move_dt)
 
     # run the following movement functions consecutively
-    for i in range(handle_movement.steps):
+    for _ in range(handle_movement.steps):
         # determines which cells will have physical interactions and save this to a graph
         jkr_neighbors(simulation)
 
@@ -524,15 +524,15 @@ def handle_movement(simulation):
         # apply all forces such as motility and JKR to the cells
         apply_forces(simulation)
 
-    # reset motility forces back to zero vectors
-    simulation.motility_forces = np.zeros((simulation.number_cells, 3), dtype=float)
+    # reset motility forces back to zero
+    simulation.motility_forces[:][:] = 0
 
 
 @backend.record_time
 def jkr_neighbors(simulation):
-    """ for all cells, determines which cells will have physical
-        interactions with other cells returns this information
-        as an array of edges
+    """ For all cells, determines which cells will have physical
+        interactions with other cells and puts this information
+        into a graph.
     """
     # radius of search (meters) in which neighbors will have physical interactions, double the max cell radius
     jkr_distance = 2 * simulation.max_radius
@@ -587,16 +587,15 @@ def jkr_neighbors(simulation):
 
             # return the arrays back from the gpu
             edge_holder = edge_holder_cuda.copy_to_host()
-            if_nonzero = if_edge_cuda.copy_to_host()
+            if_edge = if_edge_cuda.copy_to_host()
             edge_count = edge_count_cuda.copy_to_host()
 
         # call the jit cpu version
         else:
             edge_holder, if_edge, edge_count = backend.jkr_neighbors_cpu(simulation.number_cells, bin_locations,
-                                                                         simulation.locations,
-                                                                         simulation.radii, bins, bins_help,
-                                                                         edge_holder, if_nonzero,
-                                                                         edge_count, jkr_neighbors.max_neighbors)
+                                                                         simulation.locations, simulation.radii, bins,
+                                                                         bins_help, edge_holder, if_edge, edge_count,
+                                                                         jkr_neighbors.max_neighbors)
 
         # either break the loop if all neighbors were accounted for or revalue the maximum number of neighbors
         # based on the output of the function call and double it
@@ -609,24 +608,24 @@ def jkr_neighbors(simulation):
     # reduce the edges to only nonzero edges
     edge_holder = edge_holder[if_edge]
 
-    # add the edges and simplify the graph as this is a running graph that is never cleared due to its use
-    # for holding adhesive JKR bonds from step to step
+    # add the edges and simplify the graph as this graph is never cleared due to its use for holding adhesive JKR
+    # bonds from step to step
     simulation.jkr_graph.add_edges(edge_holder)
     simulation.jkr_graph.simplify()
 
 
 @backend.record_time
 def get_forces(simulation):
-    """ goes through all of "JKR" edges and quantifies any
+    """ Goes through all of "JKR" edges and quantifies any
         resulting adhesive or repulsion forces between
-        pairs of cells
+        pairs of cells.
     """
-    # parameters that rarely change
+    # contact mechanics parameters that rarely change
     adhesion_const = 0.000107    # the adhesion constant in kg/s from P Pathmanathan et al.
     poisson = 0.5    # Poisson's ratio for the cells, 0.5 means incompressible
     youngs = 1000    # Young's modulus for the cells in Pa
 
-    # get the edges as a numpy array, count them, and create an array used to delete edges
+    # get the edges as a numpy array, count them, and create an array used to delete edges from the JKR graph
     jkr_edges = np.array(simulation.jkr_graph.get_edgelist())
     number_edges = len(jkr_edges)
     delete_edges = np.zeros(number_edges, dtype=bool)
@@ -647,7 +646,7 @@ def get_forces(simulation):
 
             # allocate threads and blocks for gpu memory "threads per block" and "blocks per grid"
             tpb = 72
-            bpg = math.ceil(simulation.number_cells / tpb)
+            bpg = math.ceil(number_edges / tpb)
 
             # call the cuda kernel with given parameters
             backend.get_forces_gpu[bpg, tpb](jkr_edges_cuda, delete_edges_cuda, locations_cuda, radii_cuda, forces_cuda,
@@ -659,11 +658,11 @@ def get_forces(simulation):
 
         # call the cpu version
         else:
-            forces, delete_edges = backend.get_forces_cpu(jkr_edges, delete_edges, simulation.locations,
-                                                          simulation.radii, simulation.jkr_forces, poisson,
-                                                          youngs, adhesion_const)
+            forces, delete_edges = backend.get_forces_cpu(number_edges, jkr_edges, delete_edges, simulation.locations,
+                                                          simulation.radii, simulation.jkr_forces, poisson, youngs,
+                                                          adhesion_const)
 
-        # update the jkr edges to remove any edges that have be broken and update the cell jkr forces
+        # update the jkr edges to remove any edges that have be broken and update the JKR forces array
         delete_edges_indices = np.arange(number_edges)[delete_edges]
         simulation.jkr_graph.delete_edges(delete_edges_indices)
         simulation.jkr_forces = forces
@@ -671,10 +670,10 @@ def get_forces(simulation):
 
 @backend.record_time
 def apply_forces(simulation):
-    """ Turns the active motility/division forces and
-        inactive JKR forces into movement
+    """ Turns the motility and JKR forces acting on
+        a cell into movement.
     """
-    # parameters that rarely change
+    # contact mechanics parameters that rarely change
     viscosity = 10000    # the viscosity of the medium in Ns/m used for stokes friction
 
     # call the nvidia gpu version
@@ -708,7 +707,7 @@ def apply_forces(simulation):
 
     # update the locations and reset the jkr forces back to zero
     simulation.locations = new_locations
-    simulation.jkr_forces = np.zeros((simulation.number_cells, 3), dtype=float)
+    simulation.jkr_forces[:][:] = 0.0
 
 
 @backend.record_time
