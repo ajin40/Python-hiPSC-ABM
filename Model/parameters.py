@@ -58,7 +58,7 @@ class Simulation:
         self.field = 3
 
         # the rates (in steps) of division, differentiation, death, and finite dynamical system updating
-        self.pluri_div_thresh = 36
+        self.pluri_div_thresh = 2 #36
         self.diff_div_thresh = 72
         self.pluri_to_diff = 72
         self.death_thresh = 144

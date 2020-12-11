@@ -61,8 +61,8 @@ for simulation.current_step in range(simulation.beginning_step, simulation.end_s
     # intercellular, and extracellular conditions through a series of separate methods.
     functions.cell_death(simulation)
     functions.cell_diff_surround(simulation)
-    functions.cell_growth(simulation)
     functions.cell_division(simulation)
+    functions.cell_growth(simulation)
     functions.cell_pathway(simulation)
 
     # Simulates the diffusion for each of the extracellular gradients via the forward time centered space method.

@@ -55,6 +55,31 @@ def cell_diff_surround(simulation):
 
 
 @backend.record_time
+def cell_division(simulation):
+    """ Increases the cell division counter and if the
+        cell meets criteria mark it for division.
+    """
+    for index in range(simulation.number_cells):
+        # stochastically increase the division counter by either 0 or 1
+        simulation.div_counters[index] += r.randint(0, 1)
+
+        # pluripotent cell
+        if simulation.states[index] == "Pluripotent":
+            # check the division counter against the threshold, add to array if dividing
+            if simulation.div_counters[index] >= simulation.pluri_div_thresh:
+                simulation.cells_to_divide = np.append(simulation.cells_to_divide, index)
+
+        # differentiated cell
+        else:
+            # check the division counter against the threshold, add to array if dividing
+            if simulation.div_counters[index] >= simulation.diff_div_thresh:
+
+                # check for contact inhibition since differentiated
+                if len(simulation.neighbor_graph.neighbors(index)) < 6:
+                    simulation.cells_to_divide = np.append(simulation.cells_to_divide, index)
+
+
+@backend.record_time
 def cell_growth(simulation):
     """ Simulates the growth of a cell currently linear,
         radius-based growth.
@@ -72,37 +97,6 @@ def cell_growth(simulation):
 
             # update the radius for the index
             simulation.radii[index] = radius
-
-
-@backend.record_time
-def cell_division(simulation):
-    """ Increases the cell division counter and if the
-        cell meets criteria mark it for division.
-    """
-    for index in range(simulation.number_cells):
-        # pluripotent cell
-        if simulation.states[index] == "Pluripotent":
-
-            # check the division counter against the threshold, add to array if dividing
-            if simulation.div_counters[index] >= simulation.pluri_div_thresh:
-                simulation.cells_to_divide = np.append(simulation.cells_to_divide, index)
-
-            # if under, stochastically increase the division counter by either 0 or 1
-            else:
-                simulation.div_counters[index] += r.randint(0, 1)
-
-        # differentiated cell
-        else:
-            # check the division counter against the threshold, add to array if dividing
-            if simulation.div_counters[index] >= simulation.diff_div_thresh:
-
-                # check for contact inhibition since differentiated
-                if len(simulation.neighbor_graph.neighbors(index)) < 6:
-                    simulation.cells_to_divide = np.append(simulation.cells_to_divide, index)
-
-            # if under, stochastically increase the division counter by either 0 or 1
-            else:
-                simulation.div_counters[index] += r.randint(0, 1)
 
 
 @backend.record_time
@@ -746,76 +740,67 @@ def update_diffusion(simulation):
 
 @backend.record_time
 def update_queue(simulation):
-    """ add and removes cells to and from the simulation
-        either all at once or in "groups"
+    """ Adds and removes cells to and from the simulation
+        either all at once or in "groups".
     """
-    # give how many cells are being added/removed during a given step
-    print("Adding " + str(len(simulation.cells_to_divide)) + " cells...")
-    print("Removing " + str(len(simulation.cells_to_remove)) + " cells...")
+    # get the number of cells being added and removed
+    num_added = len(simulation.cells_to_divide)
+    num_removed = len(simulation.cells_to_remove)
+
+    # print how many cells are being added/removed during a given step
+    print("Adding " + str(num_added) + " cells...")
+    print("Removing " + str(num_removed) + " cells...")
 
     # -------------------- Division --------------------
-    # get the indices of the dividing cells and put copies of those cells at the end of each of the cell arrays
-    indices = simulation.cells_to_divide
+    # extend each of the arrays by how many cells being added
     for name in simulation.cell_array_names:
-        # get the instance variable from the class attribute dictionary
-        copies = simulation.__dict__[name][indices]
+        # copy the indices of the cell array for the dividing cells
+        copies = simulation.__dict__[name][simulation.cells_to_divide]
 
         # if the instance variable is 1-dimensional
         if simulation.__dict__[name].ndim == 1:
+            # add the copies to the end of the array
             simulation.__dict__[name] = np.concatenate((simulation.__dict__[name], copies))
+
         # if the instance variable is 2-dimensional
         else:
+            # add the copies to the end of the array
             simulation.__dict__[name] = np.concatenate((simulation.__dict__[name], copies), axis=0)
 
-    # go through the dividing cells and update the old cell and new cell
-    for i in range(len(simulation.cells_to_divide)):
-        # get the indices of the old cell and the new cell
-        old_index = simulation.cells_to_divide[i]
-        new_index = simulation.number_cells + i
+    # go through each of the dividing cells
+    for i in range(num_added):
+        # get the indices of the mother cell and the daughter cell
+        mother_index = simulation.cells_to_divide[i]
+        daughter_index = simulation.number_cells
 
         # move the cells to new positions
         division_position = backend.random_vector(simulation) * (simulation.max_radius - simulation.min_radius)
-        simulation.locations[old_index] += division_position
-        simulation.locations[new_index] -= division_position
+        simulation.locations[mother_index] += division_position
+        simulation.locations[daughter_index] -= division_position
 
         # reduce both radii to minimum size (representative of a divided cell) and set the division counters to zero
-        simulation.radii[old_index] = simulation.radii[new_index] = simulation.min_radius
-        simulation.div_counters[old_index] = simulation.div_counters[new_index] = 0
+        simulation.radii[mother_index] = simulation.radii[daughter_index] = simulation.min_radius
+        simulation.div_counters[mother_index] = simulation.div_counters[daughter_index] = 0
 
-    # get the total number of cells to add and determine if adding all of the cells in at once or not
-    total = len(simulation.cells_to_divide)
-    if simulation.group != 0:
-        # stagger the addition of cells, subtracting from the remaining number to add
-        while total > 0:
-            # if more cells than how many we would add in a group
-            if total >= simulation.group:
-                # add the group number of cells
-                n = simulation.group
-            else:
-                # if less than the group, only add the remaining number
-                n = total
-
-            # add the number of new cells to the following graphs
-            simulation.neighbor_graph.add_vertices(n)
-            simulation.jkr_graph.add_vertices(n)
-
-            # increase the number of cells by how many were added
-            simulation.number_cells += n
-
-            # call the handle movement function given the addition of specified number of cells
-            handle_movement(simulation)
-
-            # subtract how many were added
-            total -= n
-
-    # add the cells in all at once, with no collision handling
-    else:
         # go through each graph adding the number of dividing cells
         for graph_name in simulation.graph_names:
-            simulation.__dict__[graph_name].add_vertices(total)
+            simulation.__dict__[graph_name].add_vertex()
 
         # update the number of cells in the simulation
-        simulation.number_cells += total
+        simulation.number_cells += 1
+
+        # if not adding all of the cells at once
+        if simulation.group != 0:
+            # Cannot add all of the new cells, otherwise several cells are likely to be added in
+            #   close proximity to each other at later time steps. Such addition, coupled with
+            #   handling collisions, make give rise to sudden changes in overall positions of
+            #   cells within the simulation. Instead, collisions are handled after 'group' number
+            #   of cells are added.
+
+            # if the current number added is divisible by the group number
+            if (i + 1) % simulation.group == 0:
+                # call the handle movement function to better simulate asynchronous division
+                handle_movement(simulation)
 
     # -------------------- Death --------------------
     # get the indices of the cells leaving the simulation
@@ -830,10 +815,10 @@ def update_queue(simulation):
         else:
             simulation.__dict__[name] = np.delete(simulation.__dict__[name], indices, axis=0)
 
-    # update the graphs and number of cells
-    simulation.neighbor_graph.delete_vertices(indices)
-    simulation.jkr_graph.delete_vertices(indices)
-    simulation.number_cells -= len(simulation.cells_to_remove)
+    # automatically update the graphs and change the number of cells
+    for graph_name in simulation.graph_names:
+        simulation.__dict__[graph_name].delete_vertices(indices)
+    simulation.number_cells -= num_removed
 
     # clear the arrays for the next step
     simulation.cells_to_divide = np.array([], dtype=int)

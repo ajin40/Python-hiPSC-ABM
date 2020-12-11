@@ -2,7 +2,7 @@
 Outputs
 -----------------------------------------------------------------------------------------------------------------------
 Do you want the cell array values outputted to a CSV at each step? Ex. True
-[ False ]
+[ True ]
 
 Do you want topological data analysis (TDA) files produced at each step? These files are CSVs with the 2D locations
 of cells with basic color labeling. Ex. True
