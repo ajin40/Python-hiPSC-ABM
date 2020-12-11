@@ -239,7 +239,8 @@ def cell_motility(simulation):
                     normal = backend.normal_vector(vector_holder)
 
                     # move in direction opposite to nanog high cells
-                    simulation.motility_forces[index] += motility_force * normal * -1
+                    random = backend.random_vector(simulation)
+                    simulation.motility_forces[index] += (normal * -0.8 + random * 0.2) * motility_force
 
                 # if no nanog high cells around, move randomly
                 else:
@@ -250,14 +251,15 @@ def cell_motility(simulation):
                 # continue if using Guye et al. movement and if there exists differentiated cells
                 if simulation.guye_move and simulation.nearest_diff[index] != -1:
                     # get the differentiated neighbor
-                    guye_neighbor = simulation.cell_nearest_diff[index]
+                    guye_neighbor = simulation.nearest_diff[index]
 
                     # get the normal vector
                     vector = simulation.locations[guye_neighbor] - simulation.locations[index]
                     normal = backend.normal_vector(vector)
 
                     # calculate the motility force
-                    simulation.motility_forces[index] += normal * motility_force
+                    random = backend.random_vector(simulation)
+                    simulation.motility_forces[index] += (normal * 0.8 + random * 0.2) * motility_force
 
                 # if no Guye movement or no differentiated cells nearby, move randomly
                 else:
@@ -265,29 +267,8 @@ def cell_motility(simulation):
 
             # if the cell is nanog high and gata6 low
             elif simulation.NANOG[index] > simulation.GATA6[index]:
-                # create a vector to hold the sum of normal vectors between a cell and its neighbors
-                vector_holder = np.array([0.0, 0.0, 0.0])
-
-                # loop over the neighbors
-                count = 0
-                for i in range(len(neighbors)):
-                    # if neighbor is gata6 high, add vector to the cell to the holder
-                    if simulation.GATA6[neighbors[i]] > simulation.NANOG[neighbors[i]]:
-                        count += 1
-                        vector = simulation.locations[neighbors[i]] - simulation.locations[index]
-                        vector_holder += vector
-
-                # if there is at least one gata6 high cell move away from it
-                if count > 0:
-                    # get the normalized vector
-                    normal = backend.normal_vector(vector_holder)
-
-                    # move in direction opposite to gata6 high cells
-                    simulation.motility_forces[index] += motility_force * normal * -1
-
-                # if no nanog high cells around, move randomly
-                else:
-                    simulation.motility_forces[index] += backend.random_vector(simulation) * motility_force
+                # move randomly
+                simulation.motility_forces[index] += backend.random_vector(simulation) * motility_force
 
             # if both gata6/nanog high or both low
             else:
@@ -369,12 +350,12 @@ def eunbi_motility(simulation):
 
 @backend.record_time
 def check_neighbors(simulation):
-    """ for all cells, determines which cells fall within a fixed
+    """ For all cells, determines which cells fall within a fixed
         radius to denote a neighbor then stores this information
-        in a graph (uses a bin/bucket sorting method)
+        in a graph (uses a bin/bucket sorting method).
     """
     # radius of search (meters) in which all cells within are classified as neighbors
-    neighbor_distance = 0.00001
+    neighbor_distance = 0.000015
 
     # if a static variable has not been created to hold the maximum number of neighbors, create one
     if not hasattr(check_neighbors, "max_neighbors"):
