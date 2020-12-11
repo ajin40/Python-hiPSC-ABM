@@ -43,10 +43,9 @@ class Simulation:
 
         # create instance variables based on template parameters
         self.group = int(experimental[4][2:-3])
-        self.lonely_cell = int(experimental[7][2:-3])
-        self.guye_move = eval(experimental[10][2:-3])
-        self.eunbi_move = eval(experimental[13][2:-3])
-        self.fgf4_move = eval(experimental[16][2:-3])
+        self.guye_move = eval(experimental[7][2:-3])
+        self.eunbi_move = eval(experimental[10][2:-3])
+        self.fgf4_move = eval(experimental[13][2:-3])
         # ------------------------------------------------------------------
 
         # define any other instance variables that are not part of the template files

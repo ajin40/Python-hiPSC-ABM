@@ -88,5 +88,8 @@ for simulation.current_step in range(simulation.beginning_step, simulation.end_s
     # CSVs with values of the cells, a temporary pickle of the Simulation object, and performance stats.
     output.step_outputs(simulation)
 
+    print(simulation.fgf4_values)
+    print(simulation.fgf4_alt)
+
 # Ends the simulation by creating a video from all of the step images
 output.create_video(simulation)

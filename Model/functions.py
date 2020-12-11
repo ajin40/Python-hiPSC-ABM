@@ -9,14 +9,14 @@ import backend
 @backend.record_time
 def cell_death(simulation):
     """ Marks the cell for removal if it meets
-        the criteria for cell death
+        the criteria for cell death.
     """
     for index in range(simulation.number_cells):
         # checks to see if cell is pluripotent
         if simulation.states[index] == "Pluripotent":
 
             # gets the number of neighbors for a cell, increasing the death counter if not enough neighbors
-            if len(simulation.neighbor_graph.neighbors(index)) < simulation.lonely_cell:
+            if len(simulation.neighbor_graph.neighbors(index)) < 2:
                 simulation.death_counters[index] += 1
 
             # if not, reset the death counter back to zero
@@ -31,7 +31,7 @@ def cell_death(simulation):
 @backend.record_time
 def cell_diff_surround(simulation):
     """ Simulates differentiated cells inducing the
-        differentiation of a pluripotent cell
+        differentiation of a pluripotent cell.
     """
     for index in range(simulation.number_cells):
         # checks to see if cell is pluripotent and GATA6 low/medium
@@ -41,14 +41,14 @@ def cell_diff_surround(simulation):
             neighbors = simulation.neighbor_graph.neighbors(index)
 
             # loop over neighbors, counting the ones that are differentiated
-            num_diff_neighbors = 0
+            diff_neighbors = 0
             for neighbor_index in neighbors:
                 # checks to see if current neighbor is differentiated and if so add to the counter
                 if simulation.states[neighbor_index] == "Differentiated":
-                    num_diff_neighbors += 1
+                    diff_neighbors += 1
 
                 # if the number of differentiated meets the threshold, set the cell as gata6 high and nanog low
-                if num_diff_neighbors >= 6:
+                if diff_neighbors >= 6:
                     simulation.GATA6[index] = simulation.field - 1
                     simulation.NANOG[index] = 0
                     break
@@ -57,26 +57,27 @@ def cell_diff_surround(simulation):
 @backend.record_time
 def cell_growth(simulation):
     """ Simulates the growth of a cell currently linear,
-        radius-based growth
+        radius-based growth.
     """
     for index in range(simulation.number_cells):
         # increase the cell radius based on the state and whether or not it has reached the max size
         if simulation.radii[index] < simulation.max_radius:
-            division_count = simulation.div_counters[index]
-
             # pluripotent growth
             if simulation.states[index] == "Pluripotent":
-                simulation.radii[index] = simulation.pluri_growth * division_count + simulation.min_radius
+                radius = simulation.pluri_growth * simulation.div_counters[index] + simulation.min_radius
 
             # differentiated growth
             else:
-                simulation.radii[index] = simulation.diff_growth * division_count + simulation.min_radius
+                radius = simulation.diff_growth * simulation.div_counters[index] + simulation.min_radius
+
+            # update the radius for the index
+            simulation.radii[index] = radius
 
 
 @backend.record_time
 def cell_division(simulation):
-    """ Increases the counter to division and if the
-        cell meets criteria marks it for division
+    """ Increases the cell division counter and if the
+        cell meets criteria mark it for division.
     """
     for index in range(simulation.number_cells):
         # pluripotent cell
@@ -95,7 +96,7 @@ def cell_division(simulation):
             # check the division counter against the threshold, add to array if dividing
             if simulation.div_counters[index] >= simulation.diff_div_thresh:
 
-                # check for contact inhibition
+                # check for contact inhibition since differentiated
                 if len(simulation.neighbor_graph.neighbors(index)) < 6:
                     simulation.cells_to_divide = np.append(simulation.cells_to_divide, index)
 
@@ -107,16 +108,17 @@ def cell_division(simulation):
 @backend.record_time
 def cell_pathway(simulation):
     """ Updates finite dynamical system variables and
-        extracellular conditions
+        extracellular conditions.
     """
     for index in range(simulation.number_cells):
         # add FGF4 to the gradient based on the cell's value of NANOG
         if simulation.NANOG[index] > 0:
-
-            # get the amount to add, positive if adding, negative if removing
+            # get the amount
             amount = simulation.NANOG[index]
-            backend.update_concentrations(simulation, "fgf4_values", index, amount, "nearest")
-            # backend.update_concentrations(simulation, "fgf4_alt", index, amount, "distance")
+
+            # add it to the normal FGF4 gradient and the alternative gradient
+            backend.adjust_morphogens(simulation, "fgf4_values", index, amount, "nearest")
+            backend.adjust_morphogens(simulation, "fgf4_alt", index, amount, "distance")
 
         # activate the following pathway based on if dox (after 24 hours) has been induced yet
         if simulation.current_step > 48:
@@ -174,7 +176,7 @@ def cell_pathway(simulation):
                 # if the amount of FGFR has increased, subtract that much FGF4 from the gradient
                 fgfr_change = new_fgfr - temp_fgfr
                 if fgfr_change > 0:
-                    backend.update_concentrations(simulation, "fgf4_values", index, -1 * fgfr_change, "nearest")
+                    backend.adjust_morphogens(simulation, "fgf4_values", index, -1 * fgfr_change, "nearest")
 
                 # update the FDS values of the cell
                 simulation.FGFR[index] = new_fgfr

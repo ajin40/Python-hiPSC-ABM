@@ -19,25 +19,22 @@ def info(simulation):
 
 
 def get_concentration(simulation, gradient_name, index):
-    """ Get the concentration of a cell for specified
-        gradient based on nearest diffusion point.
+    """ Get the concentration of the gradient for a cell's
+        location. Currently this uses the nearest method.
     """
     # get the gradient array from the simulation instance
     gradient = simulation.__dict__[gradient_name]
 
-    # find the nearest diffusion point indices
-    half_index_x = simulation.locations[index][0] // (simulation.spat_res / 2)
-    half_index_y = simulation.locations[index][1] // (simulation.spat_res / 2)
-    half_index_z = simulation.locations[index][2] // (simulation.spat_res / 2)
-    index_x = math.ceil(half_index_x / 2)
-    index_y = math.ceil(half_index_y / 2)
-    index_z = math.ceil(half_index_z / 2)
+    # find the nearest diffusion point
+    half_indices = simulation.locations[index] // (simulation.spat_res / 2)
+    indices = np.ceil(half_indices / 2)
+    x, y, z = indices[0], indices[1], indices[2]
 
     # return the value at the diffusion point
-    return gradient[index_x][index_y][index_z]
+    return gradient[x][y][z]
 
 
-def update_concentrations(simulation, gradient_name, index, amount, mode):
+def adjust_morphogens(simulation, gradient_name, index, amount, mode):
     """ Adjust the concentration of the gradient based on
         the amount, location of cell, and method.
     """
@@ -46,29 +43,47 @@ def update_concentrations(simulation, gradient_name, index, amount, mode):
 
     # use the nearest method similar to the get_concentration()
     if mode == "nearest":
-        # find the nearest diffusion point indices
-        half_index_x = simulation.locations[index][0] // (simulation.spat_res / 2)
-        half_index_y = simulation.locations[index][1] // (simulation.spat_res / 2)
-        half_index_z = simulation.locations[index][2] // (simulation.spat_res / 2)
-        index_x = math.ceil(half_index_x / 2)
-        index_y = math.ceil(half_index_y / 2)
-        index_z = math.ceil(half_index_z / 2)
+        # find the nearest diffusion point
+        half_indices = simulation.locations[index] // (simulation.spat_res / 2)
+        indices = np.ceil(half_indices / 2).astype(int)
+        x, y, z = indices[0], indices[1], indices[2]
 
-        # add the specified amount of concentration to the nearest diffusion point
-        gradient[index_x][index_y][index_z] += amount
+        # add the specified amount to the nearest diffusion point
+        gradient[x][y][z] += amount
 
     # use the distance dependent method for adding concentrations
     elif mode == "distance":
-        # call a just-in-time function for this
-        gradient = update_concentrations_cpu(gradient, simulation.locations[index], amount, simulation.diffuse_radius,
-                                             simulation.diffuse_bins_help, simulation.diffuse_bins,
-                                             simulation.diffuse_locations)
-        # update the gradient
-        simulation.__dict__[gradient_name] = gradient
+        # divide the location for a cell by the spatial resolution
+        indices = (simulation.locations[index] // simulation.spat_res).astype(int)
+        x, y, z = indices[0], indices[1], indices[2]
+
+        # get the four nearest points to the cell in 2D
+        diffusion_points = np.array([[x, y, 0], [x+1, y, 0], [x, y+1, 0], [x+1, y+1, 0]], dtype=int)
+        distances = np.zeros(4, dtype=float)
+        nonzero = np.zeros(4, dtype=bool)
+
+        # go through each point determining if the point is less than the radius
+        for i in range(4):
+            mag = np.linalg.norm(simulation.locations[index] - diffusion_points[i])
+            if mag <= simulation.max_radius:
+                # save the distance and if the distance is nonzero
+                distances[i] += mag
+                if mag != 0:
+                    nonzero[i] = 1
+
+        # add the reciprocals of the distances
+        recip = np.reciprocal(distances[nonzero])
+        total = np.sum(recip)
+
+        # add a proportional amount to each diffusion point that falls within the cell radius
+        for i in range(4):
+            if nonzero[i]:
+                x, y, z = diffusion_points[i][0], diffusion_points[i][1], diffusion_points[i][2]
+                gradient[x][y][z] += amount / (distances[i] * total)
 
     # if some other mode
     else:
-        print("Incorrect mode for updating concentrations")
+        raise Exception("Unknown mode for adjust_morphogens() method")
 
 
 @jit(nopython=True)

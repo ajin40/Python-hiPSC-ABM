@@ -4,9 +4,6 @@ Experimental
 How many cells are added/removed to the simulation at once, per time step? Type 0 if all at once. Ex. 5
 [ 0 ]
 
-Threshold of cells to denote a cell as lonely or not. If lower than this value, increase death counter. Ex. 3
-[ 3 ]
-
 Use the Guye movement method? Where GATA6 high cells with move toward differentiated cells. Ex. True
 [ True ]
 
