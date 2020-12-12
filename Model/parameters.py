@@ -44,6 +44,7 @@ class Simulation:
         # create instance variables based on template parameters
         self.group = int(experimental[4][2:-3])
         self.guye_move = eval(experimental[8][2:-3])
+        self.lonely_thresh = int(experimental[12][2:-3])
 
         # ------------------------------------------------------------------
 
@@ -58,7 +59,7 @@ class Simulation:
         self.field = 3
 
         # the rates (in steps) of division, differentiation, death, and finite dynamical system updating
-        self.pluri_div_thresh = 2 #36
+        self.pluri_div_thresh = 36
         self.diff_div_thresh = 72
         self.pluri_to_diff = 72
         self.death_thresh = 144

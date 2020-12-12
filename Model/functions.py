@@ -16,7 +16,7 @@ def cell_death(simulation):
         if simulation.states[index] == "Pluripotent":
 
             # gets the number of neighbors for a cell, increasing the death counter if not enough neighbors
-            if len(simulation.neighbor_graph.neighbors(index)) < 2:
+            if len(simulation.neighbor_graph.neighbors(index)) < simulation.lonely_thresh:
                 simulation.death_counters[index] += 1
 
             # if not, reset the death counter back to zero

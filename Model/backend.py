@@ -8,7 +8,7 @@ import time
 
 def info(simulation):
     """ Records the beginning of the step in real time and
-        prints the current step/number of cells
+        prints the current step/number of cells.
     """
     # records when the step begins, used for measuring efficiency
     simulation.step_start = time.perf_counter()    # time.perf_counter() is more accurate than time.time()
@@ -18,82 +18,6 @@ def info(simulation):
     print("Number of cells: " + str(simulation.number_cells))
 
 
-def get_concentration(simulation, gradient_name, index):
-    """ Get the concentration of the gradient for a cell's
-        location. Currently this uses the nearest method.
-    """
-    # get the gradient array from the simulation instance
-    gradient = simulation.__dict__[gradient_name]
-
-    # find the nearest diffusion point
-    half_indices = simulation.locations[index] // (simulation.spat_res / 2)
-    indices = np.ceil(half_indices / 2).astype(int)
-    x, y, z = indices[0], indices[1], indices[2]
-
-    # return the value at the diffusion point
-    return gradient[x][y][z]
-
-
-def adjust_morphogens(simulation, gradient_name, index, amount, mode):
-    """ Adjust the concentration of the gradient based on
-        the amount, location of cell, and method.
-    """
-    # get the gradient array from the simulation instance
-    gradient = simulation.__dict__[gradient_name]
-
-    # use the nearest method similar to the get_concentration()
-    if mode == "nearest":
-        # find the nearest diffusion point
-        half_indices = simulation.locations[index] // (simulation.spat_res / 2)
-        indices = np.ceil(half_indices / 2).astype(int)
-        x, y, z = indices[0], indices[1], indices[2]
-
-        # add the specified amount to the nearest diffusion point
-        gradient[x][y][z] += amount
-
-    # use the distance dependent method for adding concentrations
-    elif mode == "distance":
-        # divide the location for a cell by the spatial resolution
-        indices = (simulation.locations[index] // simulation.spat_res).astype(int)
-        x, y, z = indices[0], indices[1], indices[2]
-
-        # get the four nearest points to the cell in 2D
-        diffusion_points = np.array([[x, y, 0], [x+1, y, 0], [x, y+1, 0], [x+1, y+1, 0]], dtype=int)
-        distances = -1 * np.ones(4, dtype=float)
-
-        # hold the sum of the reciprocals of the distances
-        total = 0
-
-        # get the gradient size and go through each point determining if the point is less than the radius
-        gradient_size = simulation.gradient_size
-        for i in range(4):
-            # check that he calculated diffusion point exists
-            if diffusion_points[i][0] < gradient_size[0] and diffusion_points[i][1] < gradient_size[1]:
-                # if they do, calculate magnitude of the distance to each one
-                mag = np.linalg.norm(simulation.locations[index] - diffusion_points[i] * simulation.spat_res)
-                if mag <= simulation.max_radius:
-                    # save the distance and if the distance is nonzero
-                    distances[i] = mag
-                    if mag != 0:
-                        total += 1/mag
-
-        # add a proportional amount to each diffusion point that falls within the cell radius
-        for i in range(4):
-            x, y, z = diffusion_points[i][0], diffusion_points[i][1], 0
-            # if on top of diffusion point add all
-            if distances[i] == 0:
-                gradient[x][y][z] += amount
-            # if in radius add proportional amount
-            elif distances[i] != -1:
-                gradient[x][y][z] += amount / (distances[i] * total)
-            else:
-                pass
-
-    # if some other mode
-    else:
-        raise Exception("Unknown mode for the adjust_morphogens() method")
-
-
 def assign_bins(simulation, distance, max_cells):
     """ Generalizes cell locations to a bin within a multi-
         dimensional array, used for a parallel fixed-radius
@@ -101,44 +25,45 @@ def assign_bins(simulation, distance, max_cells):
     """
     # if there is enough space for all cells that should be in a bin, break out of the loop. if there isn't
     # enough space update the amount of needed space and re-put the cells in bins. this will run once if the prediction
-    # of max neighbors is correct, twice if it isn't the first time
+    # of max neighbors suffices, twice if it isn't the first time
     while True:
         # calculate the size of the array used to represent the bins and the bins helper array, include extra bins
         # for cells that may fall outside of the space
-        bins_help_size = np.ceil(simulation.size / distance).astype(int) + np.array([5, 5, 5], dtype=int)
+        bins_help_size = np.ceil(simulation.size / distance).astype(int) + np.array([3, 3, 3], dtype=int)
         bins_size = np.append(bins_help_size, max_cells)
 
         # create the arrays for "bins" and "bins_help"
         bins_help = np.zeros(bins_help_size, dtype=int)
         bins = np.empty(bins_size, dtype=int)
 
-        # generalize the cell locations to bin indices and offset by 2 to prevent missing cells
+        # generalize the cell locations to bin indices and offset by 1 to prevent missing cells that fall out of the
+        # simulation space
         bin_locations = np.floor_divide(simulation.locations, distance).astype(int)
-        bin_locations += 2 * np.ones((simulation.number_cells, 3), dtype=int)
+        bin_locations += np.ones((simulation.number_cells, 3), dtype=int)
 
         # use jit function to speed up assignment
         bins, bins_help = assign_bins_cpu(simulation.number_cells, bin_locations, bins, bins_help)
 
         # either break the loop if all cells were accounted for or revalue the maximum number of cells based on
-        # the output of the function call
+        # the output of the function call and double it future calls
         new_max_cells = np.amax(bins_help)
         if max_cells >= new_max_cells:
             break
         else:
             max_cells = new_max_cells * 2
 
-    # return the four arrays
     return bins, bins_help, bin_locations, max_cells
 
 
 @jit(nopython=True)
-def assign_bins_cpu(number_cells, cell_locations, bins, bins_help):
-    """ This is the just-in-time compiled helper for assign_bins()
+def assign_bins_cpu(number_cells, bin_locations, bins, bins_help):
+    """ This is the just-in-time compiled helper method for assign_bins()
+        that performs the actual calculations.
     """
     # go through all cells
     for i in range(number_cells):
         # get the indices of the generalized cell location
-        x, y, z = cell_locations[i][0], cell_locations[i][1], cell_locations[i][2]
+        x, y, z = bin_locations[i][0], bin_locations[i][1], bin_locations[i][2]
 
         # use the help array to get the new index for the cell in the bin
         place = bins_help[x][y][z]
@@ -279,6 +204,82 @@ def update_diffusion_jit(base, diffuse_steps, diffuse_dt, spat_res2, diffuse):
 
     # return the gradient back to the simulation
     return base[1:-1, 1:-1, 1:-1]
+
+
+def get_concentration(simulation, gradient_name, index):
+    """ Get the concentration of the gradient for a cell's
+        location. Currently this uses the nearest method.
+    """
+    # get the gradient array from the simulation instance
+    gradient = simulation.__dict__[gradient_name]
+
+    # find the nearest diffusion point
+    half_indices = simulation.locations[index] // (simulation.spat_res / 2)
+    indices = np.ceil(half_indices / 2).astype(int)
+    x, y, z = indices[0], indices[1], indices[2]
+
+    # return the value at the diffusion point
+    return gradient[x][y][z]
+
+
+def adjust_morphogens(simulation, gradient_name, index, amount, mode):
+    """ Adjust the concentration of the gradient based on
+        the amount, location of cell, and method.
+    """
+    # get the gradient array from the simulation instance
+    gradient = simulation.__dict__[gradient_name]
+
+    # use the nearest method similar to the get_concentration()
+    if mode == "nearest":
+        # find the nearest diffusion point
+        half_indices = simulation.locations[index] // (simulation.spat_res / 2)
+        indices = np.ceil(half_indices / 2).astype(int)
+        x, y, z = indices[0], indices[1], indices[2]
+
+        # add the specified amount to the nearest diffusion point
+        gradient[x][y][z] += amount
+
+    # use the distance dependent method for adding concentrations
+    elif mode == "distance":
+        # divide the location for a cell by the spatial resolution
+        indices = (simulation.locations[index] // simulation.spat_res).astype(int)
+        x, y, z = indices[0], indices[1], indices[2]
+
+        # get the four nearest points to the cell in 2D
+        diffusion_points = np.array([[x, y, 0], [x+1, y, 0], [x, y+1, 0], [x+1, y+1, 0]], dtype=int)
+        distances = -1 * np.ones(4, dtype=float)
+
+        # hold the sum of the reciprocals of the distances
+        total = 0
+
+        # get the gradient size and go through each point determining if the point is less than the radius
+        gradient_size = simulation.gradient_size
+        for i in range(4):
+            # check that he calculated diffusion point exists
+            if diffusion_points[i][0] < gradient_size[0] and diffusion_points[i][1] < gradient_size[1]:
+                # if they do, calculate magnitude of the distance to each one
+                mag = np.linalg.norm(simulation.locations[index] - diffusion_points[i] * simulation.spat_res)
+                if mag <= simulation.max_radius:
+                    # save the distance and if the distance is nonzero
+                    distances[i] = mag
+                    if mag != 0:
+                        total += 1/mag
+
+        # add a proportional amount to each diffusion point that falls within the cell radius
+        for i in range(4):
+            x, y, z = diffusion_points[i][0], diffusion_points[i][1], 0
+            # if on top of diffusion point add all
+            if distances[i] == 0:
+                gradient[x][y][z] += amount
+            # if in radius add proportional amount
+            elif distances[i] != -1:
+                gradient[x][y][z] += amount / (distances[i] * total)
+            else:
+                pass
+
+    # if some other mode
+    else:
+        raise Exception("Unknown mode for the adjust_morphogens() method")
 
 
 @jit(nopython=True, parallel=True)
@@ -749,7 +750,7 @@ def record_time(function):
         # start time of the function
         simulation.function_times[function.__name__] = -1 * time.perf_counter()
 
-        # call the actual function
+        # call the function
         function(simulation)
 
         # end time of the function
@@ -759,7 +760,8 @@ def record_time(function):
 
 
 def progress_bar(progress, maximum):
-    """ Creates a progress bar.
+    """ Creates a progress bar for the create_video()
+        function in output.py.
     """
     # length of the bar in characters
     length = 60
