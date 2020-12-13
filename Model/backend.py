@@ -90,7 +90,7 @@ def get_neighbors_gpu(bin_locations, locations, bins, bins_help, distance, edge_
     # get the starting index for writing to the edge holder array
     start = focus * max_neighbors[0]
 
-    # double check that focus is within the array
+    # double check that focus index is within the array
     if focus < bin_locations.shape[0]:
         # holds the total amount of edges for a given cell
         cell_edge_count = 0
@@ -105,7 +105,7 @@ def get_neighbors_gpu(bin_locations, locations, bins, bins_help, distance, edge_
                     # get the count of cells for the current bin
                     bin_count = bins_help[x + i][y + j][z + k]
 
-                    # go through that bin determining if a cell is a neighbor
+                    # go through the bin determining if a cell is a neighbor
                     for l in range(bin_count):
                         # get the index of the current potential neighbor
                         current = bins[x + i][y + j][z + k][l]
@@ -154,7 +154,7 @@ def get_neighbors_cpu(number_cells, bin_locations, locations, bins, bins_help, d
                     # get the count of cells for the current bin
                     bin_count = bins_help[x + i][y + j][z + k]
 
-                    # go through that bin determining if a cell is a neighbor
+                    # go through the bin determining if a cell is a neighbor
                     for l in range(bin_count):
                         # get the index of the current potential neighbor
                         current = bins[x + i][y + j][z + k][l]
@@ -292,7 +292,7 @@ def jkr_neighbors_gpu(bin_locations, locations, radii, bins, bins_help, edge_hol
     # get the starting index for writing to the edge holder array
     start = focus * max_neighbors[0]
 
-    # double check that focus is within the array
+    # double check that focus index is within the array
     if focus < locations.shape[0]:
         # holds the total amount of edges for a given cell
         cell_edge_count = 0
@@ -307,7 +307,7 @@ def jkr_neighbors_gpu(bin_locations, locations, radii, bins, bins_help, edge_hol
                     # get the count of cells for the current bin
                     bin_count = bins_help[x + i][y + j][z + k]
 
-                    # go through that bin determining if a cell is a neighbor
+                    # go through the bin determining if a cell is a neighbor
                     for l in range(bin_count):
                         # get the index of the current potential neighbor
                         current = bins[x + i][y + j][z + k][l]
@@ -362,7 +362,7 @@ def jkr_neighbors_cpu(number_cells, bin_locations, locations, radii, bins, bins_
                     # get the count of cells for the current bin
                     bin_count = bins_help[x + i][y + j][z + k]
 
-                    # go through that bin determining if a cell is a neighbor
+                    # go through the bin determining if a cell is a neighbor
                     for l in range(bin_count):
                         # get the index of the current potential neighbor
                         current = bins[x + i][y + j][z + k][l]
@@ -403,7 +403,7 @@ def get_forces_gpu(jkr_edges, delete_edges, locations, radii, jkr_forces, poisso
     # get the index in the edges array
     edge_index = cuda.grid(1)
 
-    # checks to see that position is in the array
+    # double check that index is within the array
     if edge_index < jkr_edges.shape[0]:
         # get the cell indices of the edge
         cell_1 = jkr_edges[edge_index][0]
@@ -511,185 +511,190 @@ def get_forces_cpu(number_edges, jkr_edges, delete_edges, locations, radii, jkr_
     return jkr_forces, delete_edges
 
 
-@jit(nopython=True, parallel=True)
-def apply_forces_cpu(number_cells, cell_jkr_force, cell_motility_force, cell_locations, cell_radii, viscosity, size,
-                     move_time_step):
-    """ this is the just-in-time compiled version of apply_forces
-        that runs in parallel on the cpu
-    """
-    # loops over all cells using the explicit parallel loop from Numba
-    for i in prange(number_cells):
-        # stokes law for velocity based on force and fluid viscosity
-        stokes_friction = 6 * math.pi * viscosity * cell_radii[i]
-
-        # update the velocity of the cell based on the solution
-        velocity = (cell_motility_force[i] + cell_jkr_force[i]) / stokes_friction
-
-        # set the possible new location
-        new_location = cell_locations[i] + velocity * move_time_step
-
-        # loops over all directions of space
-        for j in range(0, 3):
-            # check if new location is in the space, if not return it to the space limits
-            if new_location[j] > size[j]:
-                cell_locations[i][j] = size[j]
-            elif new_location[j] < 0:
-                cell_locations[i][j] = 0.0
-            else:
-                cell_locations[i][j] = new_location[j]
-
-    # return the updated cell locations
-    return cell_locations
-
-
 @cuda.jit
-def apply_forces_gpu(cell_jkr_force, cell_motility_force, cell_locations, cell_radii, viscosity, size, move_time_step):
-    """ This is the parallelized function for applying
-        forces that is run numerous times.
+def apply_forces_gpu(jkr_force, motility_force, locations, radii, viscosity, size, move_dt):
+    """ A just-in-time compiled cuda kernel for the apply_forces()
+        method that performs the actual calculations.
     """
     # get the index in the array
     index = cuda.grid(1)
 
-    # checks to see that position is in the array
-    if index < cell_locations.shape[0]:
-        # stokes law for velocity based on force and fluid viscosity
-        stokes_friction = 6 * math.pi * viscosity[0] * cell_radii[index]
+    # double check that index is within the array
+    if index < locations.shape[0]:
+        # stokes law for velocity based on force and fluid viscosity (friction)
+        stokes_friction = 6 * math.pi * viscosity[0] * radii[index]
 
-        # loops over all directions of space
+        # loop over all directions of space
         for i in range(3):
-            # update the velocity of the cell based on the solution
-            velocity = (cell_jkr_force[index][i] + cell_motility_force[index][i]) / stokes_friction
+            # update the velocity of the cell based on stokes
+            velocity = (jkr_force[index][i] + motility_force[index][i]) / stokes_friction
 
-            # set the possible new location
-            new_location = cell_locations[index][i] + velocity * move_time_step[0]
+            # set the new location
+            new_location = locations[index][i] + velocity * move_dt[0]
 
-            # check if new location is in the space, if not return it to the space limits
+            # check if new location is in the simulation space, if not set values at space limits
             if new_location > size[i]:
-                cell_locations[index][i] = size[i]
+                locations[index][i] = size[i]
             elif new_location < 0:
-                cell_locations[index][i] = 0.0
+                locations[index][i] = 0
             else:
-                cell_locations[index][i] = new_location
+                locations[index][i] = new_location
 
 
 @jit(nopython=True, parallel=True)
-def nearest_cpu(number_cells, bin_locations, cell_locations, bins, bins_help, distance, if_diff, cell_gata6, cell_nanog,
-                nearest_gata6, nearest_nanog, nearest_diff):
-    """ this is the just-in-time compiled version of nearest
-        that runs in parallel on the cpu
+def apply_forces_cpu(number_cells, jkr_force, motility_force, locations, radii, viscosity, size, move_dt):
+    """ A just-in-time compiled method for the apply_forces()
+        method that performs the actual calculations.
     """
-    # loops over all cells, with the current cell index being the focus
-    for focus in prange(number_cells):
-        # get the bin location of the cell
-        x, y, z = bin_locations[focus][0], bin_locations[focus][1], bin_locations[focus][2]
+    # loop over all cells
+    for i in prange(number_cells):
+        # stokes law for velocity based on force and fluid viscosity (friction)
+        stokes_friction = 6 * math.pi * viscosity * radii[i]
 
-        # initialize these variables with essentially nothing values and the distance as an initial comparison
-        nearest_gata6_index, nearest_nanog_index, nearest_diff_index = -1, -1, -1
-        nearest_gata6_dist, nearest_nanog_dist, nearest_diff_dist = distance * 2, distance * 2, distance * 2
+        # update the velocity of the cell based on stokes
+        velocity = (motility_force[i] + jkr_force[i]) / stokes_friction
 
-        # loop over the bin the cell is in and the surrounding bin
-        for i in range(-1, 2):
-            for j in range(-1, 2):
-                for k in range(-1, 2):
-                    # get the count of cells for the current bin
-                    bin_count = bins_help[x + i][y + j][z + k]
+        # set the new location
+        new_location = locations[i] + velocity * move_dt
 
-                    # go through that bin
-                    for l in range(bin_count):
-                        # get the index of the current cell in question
-                        current = bins[x + i][y + j][z + k][l]
+        # loop over all directions of space
+        for j in range(0, 3):
+            # check if new location is in the space, if not return it to the space limits
+            if new_location[j] > size[j]:
+                locations[i][j] = size[j]
+            elif new_location[j] < 0:
+                locations[i][j] = 0
+            else:
+                locations[i][j] = new_location[j]
 
-                        # check to see if that cell is within the search radius and not the same cell
-                        mag = np.linalg.norm(cell_locations[current] - cell_locations[focus])
-                        if mag <= distance and focus != current:
-                            # update the nearest differentiated cell first
-                            if if_diff[current]:
-                                # if it's closer than the last cell, update the nearest magnitude and index
-                                if mag < nearest_diff_dist:
-                                    nearest_diff_index = current
-                                    nearest_diff_dist = mag
-
-                            # update the nearest gata6 high cell making sure not nanog high
-                            elif cell_gata6[current] > cell_nanog[current]:
-                                # if it's closer than the last cell, update the nearest magnitude and index
-                                if mag < nearest_gata6_dist:
-                                    nearest_gata6_index = current
-                                    nearest_gata6_dist = mag
-
-                            # update the nearest nanog high cell
-                            elif cell_gata6[current] < cell_nanog[current]:
-                                # if it's closer than the last cell, update the nearest magnitude and index
-                                if mag < nearest_nanog_dist:
-                                    nearest_nanog_index = current
-                                    nearest_nanog_dist = mag
-
-        # update the nearest cell of desired type
-        nearest_gata6[focus] = nearest_gata6_index
-        nearest_nanog[focus] = nearest_nanog_index
-        nearest_diff[focus] = nearest_diff_index
-
-    # return the updated edges
-    return nearest_gata6, nearest_nanog, nearest_diff
+    return locations
 
 
 @cuda.jit
-def nearest_gpu(bin_locations, cell_locations, bins, bins_help, distance, if_diff, cell_gata6, cell_nanog,
-                nearest_gata6, nearest_nanog, nearest_diff):
-    """ This is the cuda kernel for the nearest function
-        that runs on a NVIDIA gpu
+def nearest_gpu(bin_locations, locations, bins, bins_help, distance, if_diff, gata6, nanog, nearest_gata6,
+                nearest_nanog, nearest_diff):
+    """ A just-in-time compiled cuda kernel for the nearest()
+        method that performs the actual calculations.
     """
     # get the index in the array
     focus = cuda.grid(1)
 
-    # checks to see that position is in the array
-    if focus < cell_locations.shape[0]:
+    # double check that the index is within the array
+    if focus < locations.shape[0]:
         # get the bin location of the cell
         x, y, z = bin_locations[focus][0], bin_locations[focus][1], bin_locations[focus][2]
 
-        # initialize these variables with essentially nothing values and the distance as an initial comparison
+        # initialize the nearest indices with -1 which will be interpreted as no cell by the motility function
         nearest_gata6_index, nearest_nanog_index, nearest_diff_index = -1, -1, -1
+
+        # initialize the distance for each with double the search radius to provide a starting point
         nearest_gata6_dist, nearest_nanog_dist, nearest_diff_dist = distance[0] * 2, distance[0] * 2, distance[0] * 2
 
-        # loop over the bin the cell is in and the surrounding bins
+        # go through the surrounding bins including the bin the cell is in
         for i in range(-1, 2):
             for j in range(-1, 2):
                 for k in range(-1, 2):
                     # get the count of cells for the current bin
                     bin_count = bins_help[x + i][y + j][z + k]
 
-                    # go through that bin determining if a cell is a neighbor
+                    # go through the bin
                     for l in range(bin_count):
-                        # get the index of the current cell in question
+                        # get the index of the current potential nearest cell
                         current = bins[x + i][y + j][z + k][l]
 
-                        # check to see if that cell is within the search radius and not the same cell
-                        mag = magnitude(cell_locations[focus], cell_locations[current])
+                        # get the magnitude of the distance vector between the cells
+                        mag = magnitude(locations[focus], locations[current])
+
+                        # check to see if the current cell is within the search radius and not the same cell
                         if mag <= distance[0] and focus != current:
-                            # update the nearest differentiated cell first
+                            # if the current cell is differentiated
                             if if_diff[current]:
-                                # if it's closer than the last cell, update the nearest magnitude and index
+                                # if it's closer than the last cell, update the distance and index
                                 if mag < nearest_diff_dist:
                                     nearest_diff_index = current
                                     nearest_diff_dist = mag
 
-                            # update the nearest gata6 high cell making sure not nanog high
-                            elif cell_gata6[current] > cell_nanog[current]:
-                                # if it's closer than the last cell, update the nearest magnitude and index
+                            # if the current cell is gata6 high
+                            elif gata6[current] > nanog[current]:
+                                # if it's closer than the last cell, update the distance and index
                                 if mag < nearest_gata6_dist:
                                     nearest_gata6_index = current
                                     nearest_gata6_dist = mag
 
-                            # update the nearest nanog high cell
-                            elif cell_gata6[current] < cell_nanog[current]:
-                                # if it's closer than the last cell, update the nearest magnitude and index
+                            # if the current cell is nanog high
+                            elif gata6[current] < nanog[current]:
+                                # if it's closer than the last cell, update the distance and index
                                 if mag < nearest_nanog_dist:
                                     nearest_nanog_index = current
                                     nearest_nanog_dist = mag
 
-        # update the nearest cell of certain types
+        # update the arrays
         nearest_gata6[focus] = nearest_gata6_index
         nearest_nanog[focus] = nearest_nanog_index
         nearest_diff[focus] = nearest_diff_index
+
+
+@jit(nopython=True, parallel=True)
+def nearest_cpu(number_cells, bin_locations, locations, bins, bins_help, distance, if_diff, gata6, nanog, nearest_gata6,
+                nearest_nanog, nearest_diff):
+    """ A just-in-time compiled method for the nearest()
+        method that performs the actual calculations.
+    """
+    # loop over all cells
+    for focus in prange(number_cells):
+        # get the bin location of the cell
+        x, y, z = bin_locations[focus][0], bin_locations[focus][1], bin_locations[focus][2]
+
+        # initialize the nearest indices with -1 which will be interpreted as no cell by the motility function
+        nearest_gata6_index, nearest_nanog_index, nearest_diff_index = -1, -1, -1
+
+        # initialize the distance for each with double the search radius to provide a starting point
+        nearest_gata6_dist, nearest_nanog_dist, nearest_diff_dist = distance * 2, distance * 2, distance * 2
+
+        # go through the surrounding bins including the bin the cell is in
+        for i in range(-1, 2):
+            for j in range(-1, 2):
+                for k in range(-1, 2):
+                    # get the count of cells for the current bin
+                    bin_count = bins_help[x + i][y + j][z + k]
+
+                    # go through the bin
+                    for l in range(bin_count):
+                        # get the index of the current potential nearest cell
+                        current = bins[x + i][y + j][z + k][l]
+
+                        # get the magnitude of the distance vector between the cells
+                        mag = np.linalg.norm(locations[current] - locations[focus])
+
+                        # check to see if the current cell is within the search radius and not the same cell
+                        if mag <= distance and focus != current:
+                            # if the current cell is differentiated
+                            if if_diff[current]:
+                                # if it's closer than the last cell, update the distance and index
+                                if mag < nearest_diff_dist:
+                                    nearest_diff_index = current
+                                    nearest_diff_dist = mag
+
+                            # if the current cell is gata6 high
+                            elif gata6[current] > nanog[current]:
+                                # if it's closer than the last cell, update the distance and index
+                                if mag < nearest_gata6_dist:
+                                    nearest_gata6_index = current
+                                    nearest_gata6_dist = mag
+
+                            # if the current cell is nanog high
+                            elif gata6[current] < nanog[current]:
+                                # if it's closer than the last cell, update the distance and index
+                                if mag < nearest_nanog_dist:
+                                    nearest_nanog_index = current
+                                    nearest_nanog_dist = mag
+
+        # update the arrays
+        nearest_gata6[focus] = nearest_gata6_index
+        nearest_nanog[focus] = nearest_nanog_index
+        nearest_diff[focus] = nearest_diff_index
+
+    return nearest_gata6, nearest_nanog, nearest_diff
 
 
 @cuda.jit(device=True)
