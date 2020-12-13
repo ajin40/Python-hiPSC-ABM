@@ -1,6 +1,7 @@
 memory_profiler
 natsort
 numba
-numpy
+numpy<=1.19.3
 opencv-python
 python-igraph
+scipy
