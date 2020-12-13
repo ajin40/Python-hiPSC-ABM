@@ -293,7 +293,7 @@ def simulation_data(simulation):
             header = ["Step Number", "Number Cells", "Step Time", "Memory (MB)"]
 
             # header with all the names of the functions with the "record_time" decorator
-            functions_header = list(simulation.function_times.keys())
+            functions_header = list(simulation.method_times.keys())
 
             # merge the headers together and write the row to the CSV
             csv_object.writerow(header + functions_header)
@@ -304,7 +304,7 @@ def simulation_data(simulation):
 
         # write the row with the corresponding values
         columns = [simulation.current_step, simulation.number_cells, step_time, memory]
-        function_times = list(simulation.function_times.values())
+        function_times = list(simulation.method_times.values())
         csv_object.writerow(columns + function_times)
 
 

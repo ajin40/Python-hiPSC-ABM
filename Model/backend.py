@@ -699,24 +699,26 @@ def nearest_cpu(number_cells, bin_locations, locations, bins, bins_help, distanc
 
 @cuda.jit(device=True)
 def magnitude(location_one, location_two):
-    """ This is the cuda kernel device function that is used
-        to calculate the magnitude between two points.
+    """ A just-in-time compiled cuda kernel device method
+        for getting the distance between two points
     """
-    # hold the value as the function runs
-    count = 0
-
-    # go through x, y, and z coordinates
+    # loop over the axes add the squared difference
+    total = 0
     for i in range(0, 3):
-        count += (location_one[i] - location_two[i]) ** 2
+        total += (location_one[i] - location_two[i]) ** 2
 
-    # return the magnitude
-    return count ** 0.5
+    # return the sqrt of the total
+    return total ** 0.5
 
 
 def normal_vector(vector):
-    """ Returns the normalized vector.
+    """ Returns the normalized vector, sadly this does
+        not exist in numpy.
     """
+    # get the magnitude
     mag = np.linalg.norm(vector)
+
+    # if magnitude is 0 return zero vector, if not divide by the magnitude
     if mag == 0:
         return np.array([0, 0, 0])
     else:
@@ -733,7 +735,7 @@ def random_vector(simulation):
     # determine if simulation is 2D or 3D
     if simulation.size[2] == 0:
         # 2D vector
-        x, y, z = math.cos(theta), math.sin(theta), 0.0
+        x, y, z = math.cos(theta), math.sin(theta), 0
 
     else:
         # 3D vector
@@ -741,41 +743,41 @@ def random_vector(simulation):
         radius = math.cos(phi)
         x, y, z = radius * math.cos(theta), radius * math.sin(theta), math.sin(phi)
 
-    # return random vector
+    # return a vector
     return np.array([x, y, z])
 
 
 def record_time(function):
-    """ A decorator used to time individual methods
-        which is outputted to a CSV each step.
+    """ A decorator used to time individual methods and stores
+        this information in a dict in the simulation object.
     """
     @wraps(function)
-    def wrap(simulation):
-        # start time of the function
-        simulation.function_times[function.__name__] = -1 * time.perf_counter()
+    def wrap(simulation):    # simulation should be the only input to the method
+        # hold the start time
+        simulation.method_times[function.__name__] = -1 * time.perf_counter()
 
-        # call the function
+        # call the method
         function(simulation)
 
-        # end time of the function
-        simulation.function_times[function.__name__] += time.perf_counter()
+        # get the time elapsed
+        simulation.method_times[function.__name__] += time.perf_counter()
 
     return wrap
 
 
 def progress_bar(progress, maximum):
-    """ Creates a progress bar for the create_video()
-        function in output.py.
+    """ Creates a progress bar for the create_video() method
+        in output.py because progress bars are cool.
     """
     # length of the bar in characters
     length = 60
 
-    # calculate the bar string
+    # get the bar string
     fill = int(length * progress / maximum)
     bar = '#' * fill + '.' * (length - fill)
 
     # calculate the percent
     percent = int(100 * progress / maximum)
 
-    # update the progress bar in the terminal
+    # output the progress bar
     print('\r[%s] %s%s' % (bar, percent, '%'), end="")

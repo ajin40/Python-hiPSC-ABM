@@ -117,7 +117,7 @@ class Simulation:
         # various other holders
         self.cell_array_names = list()    # stores the names of the cell arrays
         self.cell_types = dict()          # holds the names of the cell types defined in run.py
-        self.function_times = dict()      # store the runtimes of the various methods as the model runs
+        self.method_times = dict()      # store the runtimes of the various methods as the model runs
 
     def cell_type(self, name, number):
         """ Creates a new cell type for setting initial parameters

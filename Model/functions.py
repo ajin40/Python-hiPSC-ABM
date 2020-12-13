@@ -35,7 +35,7 @@ def cell_diff_surround(simulation):
     """
     for index in range(simulation.number_cells):
         # checks to see if cell is pluripotent and GATA6 low/medium
-        if simulation.states[index] == "Pluripotent" and simulation.GATA6[index] < simulation.field - 1:
+        if simulation.states[index] == "Pluripotent" and simulation.GATA6[index] < simulation.NANOG[index]:
 
             # get the list of neighbors for the cell
             neighbors = simulation.neighbor_graph.neighbors(index)
@@ -181,7 +181,7 @@ def cell_pathway(simulation):
             simulation.fds_counters[index] += 1
 
             # if the cell is GATA6 high and pluripotent
-            if simulation.GATA6[index] == simulation.field - 1 and simulation.states[index] == "Pluripotent":
+            if simulation.GATA6[index] > simulation.NANOG[index] and simulation.states[index] == "Pluripotent":
 
                 # increase the differentiation counter by 0 or 1
                 simulation.diff_counters[index] += r.randint(0, 1)
