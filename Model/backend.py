@@ -42,7 +42,7 @@ def assign_bins(simulation, distance, max_cells):
         bin_locations += np.ones((simulation.number_cells, 3), dtype=int)
 
         # use jit function to speed up assignment
-        bins, bins_help = assign_bins_cpu(simulation.number_cells, bin_locations, bins, bins_help)
+        bins, bins_help = assign_bins_jit(simulation.number_cells, bin_locations, bins, bins_help)
 
         # either break the loop if all cells were accounted for or revalue the maximum number of cells based on
         # the output of the function call and double it future calls
@@ -56,7 +56,7 @@ def assign_bins(simulation, distance, max_cells):
 
 
 @jit(nopython=True)
-def assign_bins_cpu(number_cells, bin_locations, bins, bins_help):
+def assign_bins_jit(number_cells, bin_locations, bins, bins_help):
     """ A just-in-time compiled helper method for assign_bins()
         that calculates which bin a cell will go in.
     """
@@ -81,7 +81,7 @@ def assign_bins_cpu(number_cells, bin_locations, bins, bins_help):
 @cuda.jit
 def get_neighbors_gpu(bin_locations, locations, bins, bins_help, distance, edge_holder, if_edge, edge_count,
                       max_neighbors):
-    """ A just-in-time compiled cuda kernel for the check_neighbors()
+    """ A just-in-time compiled cuda kernel for the get_neighbors()
         method that performs the actual calculations.
     """
     # get the index in the array
@@ -133,7 +133,7 @@ def get_neighbors_gpu(bin_locations, locations, bins, bins_help, distance, edge_
 @jit(nopython=True, parallel=True)
 def get_neighbors_cpu(number_cells, bin_locations, locations, bins, bins_help, distance, edge_holder, if_edge,
                       edge_count, max_neighbors):
-    """ A just-in-time compiled method for the check_neighbors()
+    """ A just-in-time compiled method for the get_neighbors()
         method that performs the actual calculations.
     """
     # loops over all cells, with the current cell index being the focus
@@ -204,24 +204,24 @@ def update_diffusion_jit(base, diffuse_steps, diffuse_dt, spat_res2, diffuse):
 
 
 def get_concentration(simulation, gradient_name, index):
-    """ Get the concentration of the gradient for a cell's
+    """ Get the concentration of a gradient for a cell's
         location. Currently this uses the nearest method.
     """
     # get the gradient array from the simulation instance
     gradient = simulation.__dict__[gradient_name]
 
     # find the nearest diffusion point
-    half_indices = simulation.locations[index] // (simulation.spat_res / 2)
+    half_indices = np.floor(2 * simulation.locations[index] / simulation.spat_res)
     indices = np.ceil(half_indices / 2).astype(int)
     x, y, z = indices[0], indices[1], indices[2]
 
-    # return the value at the diffusion point
+    # return the value of the gradient at the diffusion point
     return gradient[x][y][z]
 
 
 def adjust_morphogens(simulation, gradient_name, index, amount, mode):
     """ Adjust the concentration of the gradient based on
-        the amount, location of cell, and method.
+        the amount, location of cell, and mode.
     """
     # get the gradient array from the simulation instance
     gradient = simulation.__dict__[gradient_name]
@@ -229,43 +229,44 @@ def adjust_morphogens(simulation, gradient_name, index, amount, mode):
     # use the nearest method similar to the get_concentration()
     if mode == "nearest":
         # find the nearest diffusion point
-        half_indices = simulation.locations[index] // (simulation.spat_res / 2)
+        half_indices = np.floor(2 * simulation.locations[index] / simulation.spat_res)
         indices = np.ceil(half_indices / 2).astype(int)
         x, y, z = indices[0], indices[1], indices[2]
 
         # add the specified amount to the nearest diffusion point
         gradient[x][y][z] += amount
 
-    # use the distance dependent method for adding concentrations
+    # use the distance dependent method for adding concentrations, not optimized yet...
     elif mode == "distance":
-        # divide the location for a cell by the spatial resolution
-        indices = (simulation.locations[index] // simulation.spat_res).astype(int)
+        # divide the location for a cell by the spatial resolution then take the floor function of it
+        indices = np.floor(simulation.locations[index] / simulation.spat_res).astype(int)
         x, y, z = indices[0], indices[1], indices[2]
 
-        # get the four nearest points to the cell in 2D
+        # get the four nearest points to the cell in 2D and make array for holding distances
         diffusion_points = np.array([[x, y, 0], [x+1, y, 0], [x, y+1, 0], [x+1, y+1, 0]], dtype=int)
         distances = -1 * np.ones(4, dtype=float)
 
         # hold the sum of the reciprocals of the distances
         total = 0
 
-        # get the gradient size and go through each point determining if the point is less than the radius
+        # get the gradient size and handle each of the four nearest points
         gradient_size = simulation.gradient_size
         for i in range(4):
-            # check that he calculated diffusion point exists
+            # check that the diffusion point is not outside the space
             if diffusion_points[i][0] < gradient_size[0] and diffusion_points[i][1] < gradient_size[1]:
-                # if they do, calculate magnitude of the distance to each one
-                mag = np.linalg.norm(simulation.locations[index] - diffusion_points[i] * simulation.spat_res)
+                # if ok, calculate magnitude of the distance from the cell to it
+                point_location = diffusion_points[i] * simulation.spat_res
+                mag = np.linalg.norm(simulation.locations[index] - point_location)
                 if mag <= simulation.max_radius:
-                    # save the distance and if the distance is nonzero
+                    # save the distance and if the cell is not on top of the point add the reciprocal
                     distances[i] = mag
                     if mag != 0:
                         total += 1/mag
 
-        # add a proportional amount to each diffusion point that falls within the cell radius
+        # add morphogen to each diffusion point that falls within the cell radius
         for i in range(4):
             x, y, z = diffusion_points[i][0], diffusion_points[i][1], 0
-            # if on top of diffusion point add all
+            # if on top of diffusion point add all of the concentration
             if distances[i] == 0:
                 gradient[x][y][z] += amount
             # if in radius add proportional amount
@@ -279,68 +280,11 @@ def adjust_morphogens(simulation, gradient_name, index, amount, mode):
         raise Exception("Unknown mode for the adjust_morphogens() method")
 
 
-@jit(nopython=True, parallel=True)
-def jkr_neighbors_cpu(number_cells, bin_locations, cell_locations, cell_radii, bins, bins_help, edge_holder,
-                      if_edge, edge_count, max_neighbors):
-    """ this is the just-in-time compiled version of jkr_neighbors
-        that runs in parallel on the cpu
-    """
-    # loops over all cells, with the current cell index being the focus
-    for focus in prange(number_cells):
-        # get the starting index for writing to the edge holder array
-        start = focus * max_neighbors
-
-        # holds the total amount of edges for a given cell
-        edge_counter = 0
-
-        # get the bin location of the cell
-        x, y, z = bin_locations[focus][0], bin_locations[focus][1], bin_locations[focus][2]
-
-        # loop over the bin the cell is in and the surrounding bins
-        for i in range(-1, 2):
-            for j in range(-1, 2):
-                for k in range(-1, 2):
-                    # get the count of cells for the current bin
-                    bin_count = bins_help[x + i][y + j][z + k]
-
-                    # go through that bin determining if a cell is a neighbor
-                    for l in range(bin_count):
-                        # get the index of the current cell in question
-                        current = bins[x + i][y + j][z + k][l]
-
-                        # get the magnitude of the distance vector between the cells
-                        mag = np.linalg.norm(cell_locations[current] - cell_locations[focus])
-
-                        # calculate the overlap of the cells
-                        overlap = cell_radii[current] + cell_radii[focus] - mag
-
-                        # if there is 0 or more overlap and not the same cell add the edge
-                        if overlap >= 0 and focus < current:
-                            # if within the bounds of the array, add the edge
-                            if edge_counter < max_neighbors:
-                                # get the index to place the edge
-                                index = start + edge_counter
-
-                                # update the edge array and identify that this edge is nonzero
-                                edge_holder[index][0] = focus
-                                edge_holder[index][1] = current
-                                if_edge[index] = 1
-
-                                # increase the count of edges for a cell and the index for the next edge
-                            edge_counter += 1
-
-        # update the array with number of edges for the cell
-        edge_count[focus] = edge_counter
-
-    # return the updated edges and the array with the counts of neighbors per cell
-    return edge_holder, if_edge, edge_count
-
-
 @cuda.jit
 def jkr_neighbors_gpu(bin_locations, cell_locations, radii, bins, bins_help, edge_holder, if_edge, edge_count,
                       max_neighbors):
-    """ this is the cuda kernel for the jkr_neighbors function
-        that runs on a NVIDIA gpu
+    """ A just-in-time compiled cuda kernel for the jkr_neighbors()
+        method that performs the actual calculations.
     """
     # get the index in the array
     focus = cuda.grid(1)
@@ -348,15 +292,15 @@ def jkr_neighbors_gpu(bin_locations, cell_locations, radii, bins, bins_help, edg
     # get the starting index for writing to the edge holder array
     start = focus * max_neighbors[0]
 
-    # checks to see that position is in the array
+    # double check that focus is within the array
     if focus < cell_locations.shape[0]:
         # holds the total amount of edges for a given cell
-        edge_counter = 0
+        cell_edge_count = 0
 
         # get the bin location of the cell
         x, y, z = bin_locations[focus][0], bin_locations[focus][1], bin_locations[focus][2]
 
-        # loop over the bin the cell is in and the surrounding bins
+        # go through the surrounding bins including the bin the cell is in
         for i in range(-1, 2):
             for j in range(-1, 2):
                 for k in range(-1, 2):
@@ -365,32 +309,90 @@ def jkr_neighbors_gpu(bin_locations, cell_locations, radii, bins, bins_help, edg
 
                     # go through that bin determining if a cell is a neighbor
                     for l in range(bin_count):
-                        # get the index of the current cell in question
+                        # get the index of the current potential neighbor
                         current = bins[x + i][y + j][z + k][l]
 
-                        # get the magnitude of the distance vector between the cells
+                        # get the magnitude of the distance vector between the cell locations
                         mag = magnitude(cell_locations[focus], cell_locations[current])
 
                         # calculate the overlap of the cells
                         overlap = radii[focus] + radii[current] - mag
 
-                        # if there is 0 or more overlap and not the same cell add the edge
+                        # if there is 0 or more overlap and if the current cell has a higher index to prevent double
+                        # counting edges
                         if overlap >= 0 and focus < current:
-                            # if within the bounds of the array, add the edge
-                            if edge_counter < max_neighbors[0]:
-                                # get the index to place the edge
-                                index = start + edge_counter
+                            # if less than the max edges, add the edge
+                            if cell_edge_count < max_neighbors[0]:
+                                # get the index for the edge
+                                index = start + cell_edge_count
 
-                                # update the edge array and identify that this edge is nonzero
+                                # update the edge array and identify that this edge exists
                                 edge_holder[index][0] = focus
                                 edge_holder[index][1] = current
                                 if_edge[index] = 1
 
-                                # increase the count of edges for a cell and the index for the next edge
-                            edge_counter += 1
+                            # increase the count of edges for a cell and the index for the next edge
+                            cell_edge_count += 1
 
         # update the array with number of edges for the cell
-        edge_count[focus] = edge_counter
+        edge_count[focus] = cell_edge_count
+
+
+@jit(nopython=True, parallel=True)
+def jkr_neighbors_cpu(number_cells, bin_locations, cell_locations, cell_radii, bins, bins_help, edge_holder,
+                      if_edge, edge_count, max_neighbors):
+    """ A just-in-time compiled method for the jkr_neighbors()
+        method that performs the actual calculations.
+    """
+    # loops over all cells, with the current cell index being the focus
+    for focus in prange(number_cells):
+        # get the starting index for writing to the edge holder array
+        start = focus * max_neighbors
+
+        # holds the total amount of edges for a given cell
+        cell_edge_count = 0
+
+        # get the bin location of the cell
+        x, y, z = bin_locations[focus][0], bin_locations[focus][1], bin_locations[focus][2]
+
+        # go through the surrounding bins including the bin the cell is in
+        for i in range(-1, 2):
+            for j in range(-1, 2):
+                for k in range(-1, 2):
+                    # get the count of cells for the current bin
+                    bin_count = bins_help[x + i][y + j][z + k]
+
+                    # go through that bin determining if a cell is a neighbor
+                    for l in range(bin_count):
+                        # get the index of the current potential neighbor
+                        current = bins[x + i][y + j][z + k][l]
+
+                        # get the magnitude of the distance vector between the cell locations
+                        mag = np.linalg.norm(cell_locations[current] - cell_locations[focus])
+
+                        # calculate the overlap of the cells
+                        overlap = cell_radii[current] + cell_radii[focus] - mag
+
+                        # if there is 0 or more overlap and if the current cell has a higher index to prevent double
+                        # counting edges
+                        if overlap >= 0 and focus < current:
+                            # if less than the max edges, add the edge
+                            if cell_edge_count < max_neighbors:
+                                # get the index for the edge
+                                index = start + cell_edge_count
+
+                                # update the edge array and identify that this edge exists
+                                edge_holder[index][0] = focus
+                                edge_holder[index][1] = current
+                                if_edge[index] = 1
+
+                            # increase the count of edges for a cell and the index for the next edge
+                            cell_edge_count += 1
+
+        # update the array with number of edges for the cell
+        edge_count[focus] = cell_edge_count
+
+    return edge_holder, if_edge, edge_count
 
 
 @jit(nopython=True, parallel=True)
