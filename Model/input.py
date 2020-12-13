@@ -1,402 +1,209 @@
-import random as r
-import numpy as np
-import csv
 import os
-import platform
 import sys
 import pickle
-import igraph
 import shutil
-import natsort
+import getopt
 
 import output
-import functions
-
-
-# used to hold all values necessary to the simulation as it moves from one step to the next
-class Simulation:
-    def __init__(self, templates_path, name, path, mode, separator):
-        # read the following template files
-        with open(templates_path + "general.txt") as general_file:
-            general = general_file.readlines()
-
-        with open(templates_path + "imaging.txt") as imaging_file:
-            imaging = imaging_file.readlines()
-
-        with open(templates_path + "experimental.txt") as experimental_file:
-            experimental = experimental_file.readlines()
-
-        # hold the name and the output paths of the simulation
-        self.name = name
-        self.path = path
-        self.images_path = path + name + "_images" + separator
-        self.values_path = path + name + "_values" + separator
-        self.gradients_path = path + name + "_gradients" + separator
-        self.tda_path = path + name + "_tda" + separator
-
-        # general template file
-        self.parallel = eval(general[4][2:-3])
-        self.end_step = int(general[7][2:-3])
-        self.number_cells = int(general[10][2:-3])
-        self.size = np.array(eval(general[13][2:-3]))
-
-        # imaging template file
-        self.output_images = eval(imaging[4][2:-3])
-        self.image_quality = int(imaging[8][2:-3])
-        self.fps = float(imaging[11][2:-3])
-        self.color_mode = eval(imaging[15][2:-3])
-        self.output_gradient = eval(imaging[18][2:-3])
-
-        # experimental template file
-        self.pluri_div_thresh = int(experimental[4][2:-3])
-        self.diff_div_thresh = int(experimental[7][2:-3])
-        self.pluri_to_diff = int(experimental[10][2:-3])
-        self.death_thresh = int(experimental[13][2:-3])
-        self.fds_thresh = int(experimental[16][2:-3])
-        self.fgf4_thresh = int(experimental[19][2:-3])
-        self.lonely_cell = int(experimental[22][2:-3])
-        self.group = int(experimental[25][2:-3])
-        self.guye_move = eval(experimental[28][2:-3])
-        self.eunbi_move = eval(experimental[31][2:-3])
-        self.max_fgf4 = float(experimental[34][2:-3])
-        self.fgf4_move = eval(experimental[37][2:-3])
-        self.output_tda = eval(experimental[40][2:-3])
-        self.dox_value = float(experimental[43][2:-3])
-
-        # the following only need to be created if this is a normal simulation
-        if mode == 0:
-            # the step to begin at
-            self.beginning_step = 1
-
-            # these arrays hold all values of the cells, each index corresponds to a cell.
-            self.cell_locations = np.empty((self.number_cells, 3), dtype=float)
-            self.cell_radii = np.empty(self.number_cells, dtype=float)
-            self.cell_motion = np.empty(self.number_cells, dtype=bool)
-            self.cell_fds = np.empty((self.number_cells, 4), dtype=float)
-            self.cell_states = np.empty(self.number_cells, dtype='<U14')
-            self.cell_diff_counter = np.empty(self.number_cells, dtype=int)
-            self.cell_div_counter = np.empty(self.number_cells, dtype=int)
-            self.cell_death_counter = np.empty(self.number_cells, dtype=int)
-            self.cell_fds_counter = np.empty(self.number_cells, dtype=int)
-            self.cell_motility_force = np.empty((self.number_cells, 3), dtype=float)
-            self.cell_jkr_force = np.empty((self.number_cells, 3), dtype=float)
-            self.cell_nearest_gata6 = np.empty(self.number_cells)
-            self.cell_nearest_nanog = np.empty(self.number_cells)
-            self.cell_nearest_diff = np.empty(self.number_cells)
-            self.cell_highest_fgf4 = np.empty((self.number_cells, 3))
-            self.cell_nearest_cluster = np.empty(self.number_cells)
-            self.cell_dox_value = np.empty(self.number_cells, dtype=float)
-
-            # the names of the cell arrays should be in this list as this will be used to delete and add cells
-            # automatically without the need to update add/delete functions
-            self.cell_array_names = ["cell_locations", "cell_radii", "cell_motion", "cell_fds", "cell_states",
-                                     "cell_diff_counter", "cell_div_counter", "cell_death_counter", "cell_fds_counter",
-                                     "cell_motility_force", "cell_jkr_force", "cell_nearest_gata6",
-                                     "cell_nearest_nanog", "cell_nearest_diff", "cell_highest_fgf4",
-                                     "cell_nearest_cluster", "cell_dox_value"]
-
-            # holds all indices of cells that will divide at a current step or be removed at that step
-            self.cells_to_divide, self.cells_to_remove = np.array([], dtype=int), np.array([], dtype=int)
-
-            # create graphs used to all cells and their neighbors, initialize them with the number of cells
-            self.neighbor_graph, self.jkr_graph = igraph.Graph(self.number_cells), igraph.Graph(self.number_cells)
-
-            # min and max radius lengths are used to calculate linear growth of the radius over time in 2D
-            self.max_radius = 0.000005
-            self.min_radius = self.max_radius / 2 ** 0.5
-            self.pluri_growth = (self.max_radius - self.min_radius) / self.pluri_div_thresh
-            self.diff_growth = (self.max_radius - self.min_radius) / self.diff_div_thresh
-
-            # the spatial resolution of the space
-            self.spat_res = 0.00001
-            self.spat_res2 = self.spat_res ** 2
-
-            # the diffusion constant for the molecule gradients and the radius of search for diffusion points
-            self.diffuse = 0.0000000000001
-            self.diffuse_radius = self.spat_res * 0.707106781187 * 2    # 0.707106 is too small
-
-            # get the time step value for diffusion updates depending on whether 2D or 3D
-            if self.size[2] == 0:
-                self.dt = (self.spat_res2 ** 2) / (2 * self.diffuse * (2 * self.spat_res2))
-            else:
-                self.dt = (self.spat_res2 ** 3) / (2 * self.diffuse * (3 * self.spat_res2))
-
-            # calculate the size of the array holding the diffusion points
-            gradient_size = np.ceil(self.size / self.spat_res).astype(int) + np.ones(3, dtype=int)
-
-            # create a primary array for the diffusion points and one to add in a step-wise fashion
-            self.fgf4_values = np.zeros(gradient_size)
-            self.fgf4_values_temp = np.zeros(gradient_size)
-
-            # much like the cell arrays add any gradient names to list this so that a diffusion function can
-            # act on them automatically, the temp is used to incrementally add concentration
-            self.extracellular_names = [["fgf4_values", "fgf4_values_temp"]]
-
-            # the time in seconds for an entire step and the incremental movement time
-            self.step_dt = 1800
-            self.move_dt = 200
-
-            # used to hold the run times of functions
-            self.function_times = dict()
+import parameters
 
 
 def setup():
-    """ controls which mode of the model is run and
-        sets up the model accordingly
+    """ Takes parameters from files, the command line,
+        and/or a text-based GUI to start the model.
     """
-    # keep track of the file separator to use
-    if platform.system() == "Windows":
-        separator = "\\"  # windows
-    else:
-        separator = "/"  # not windows
-
-    # open the path.txt file containing the absolute locations for the template file directory and output directory
+    # get the path separator for the OS and open the paths.txt file containing the locations of the template files
+    separator = os.path.sep
     with open('paths.txt', 'r') as file:
         lines = file.readlines()
 
-    # get the paths to the directory of template files and the output directory, exit() if paths don't exist
-    templates_path = lines[7].strip()
-    if not os.path.isdir(templates_path):
-        print("Path: " + templates_path + " to templates directory does not exist. Please use absolute path.")
-        exit()
-    else:
-        # add separator to end if none is given
-        if templates_path[-1] != "\\" or templates_path[-1] != "/":
-            templates_path += separator
+    # get the path to the template file directory which is used to provide some initial simulation parameters
+    templates_path = os.path.abspath("templates") + separator
 
-    output_path = lines[13].strip()
+    # get the path to the output directory where each simulation directory is created and make sure the
+    # output directory path exists and has separator at the end
+    output_path = lines[7].strip()
     if not os.path.isdir(output_path):
-        print("Path: " + output_path + " to output directory does not exist. Please use absolute path.")
-        exit()
+        # raise error if directory doesn't exist
+        raise Exception("Path: " + output_path + " to templates directory does not exist.")
     else:
-        # add separator to end if none is given
-        if output_path[-1] != "\\" or output_path[-1] != "/":
+        # if path doesn't end with separator, add one
+        if output_path[-1] != separator:
             output_path += separator
 
-    # if no command line attributes besides the file, run the mini gui
-    if len(sys.argv) == 1:
-        # get the name of the simulation
+    # get any command-line options for the model, "n:m:" allows for the -n and -m options
+    options, args = getopt.getopt(sys.argv[1:], "n:m:")  # first argument is "python" so avoid that
+
+    # go through the inputs getting the options
+    for option, value in options:
+        # if the "-n" name option, set the variable name
+        if option == "-n":
+            name = value
+
+        # if the "-m" mode option, set the variable mode
+        elif option == "-m":
+            mode = int(value)  # turn from string to int
+
+        # if some other option, raise error
+        else:
+            raise Exception("Unknown command-line option: " + option)
+
+    # if the name variable has not been initialized by the command-line, run the text-based GUI to get it
+    if 'name' not in locals():
         while True:
+            # prompt for the name
             name = input("What is the \"name\" of the simulation? Type \"help\" for more information: ")
+
+            # keep running if "help" is typed
             if name == "help":
-                print("Type the name of the simulation without quotes and not as a path.\n")
+                print("Type the name of the simulation (not a path)\n")
             else:
                 break
 
-        # get the mode of the simulation
+    # hold the possible modes for the model, used to check that a particular mode exists
+    possible_modes = [0, 1, 2, 3, 4]
+
+    # if the mode variable has not been initialized by the command-line, run the text-based GUI to get it
+    if 'mode' not in locals() or mode not in possible_modes:
         while True:
+            # prompt for the mode
             mode = input("What is the \"mode\" of the simulation? Type \"help\" for more information: ")
+
+            # keep running if "help" is typed
             if mode == "help":
-                print("\nHere are the following modes:")
-                print("new simulation: 0")
-                print("continuation of past simulation: 1")
-                print("turn simulation images to video: 2")
-                print("turn simulation csvs to images/video: 3\n")
+                print("\nHere are the following modes:\n0: New simulation\n1: Continuation of past simulation\n"
+                      "2: Turn simulation images to video\n3: Zip previous simulation\n")
             else:
                 try:
+                    # get the mode as an integer make sure mode exists, break the loop if it does
                     mode = int(mode)
-                    break
+                    if mode in possible_modes:
+                        break
+                    else:
+                        print("Mode does not exist. See possible modes: " + str(possible_modes))
+
+                # if not an integer
                 except ValueError:
                     print("\"mode\" should be an integer")
 
-    # if both the name and the mode are provided, turn the mode into a integer
-    elif len(sys.argv) == 3:
-        name, mode = sys.argv[1], int(sys.argv[2])
-
-    # if anything else
-    else:
-        print("See documentation for running a simulation via command line arguments. No arguments\n"
-              "will prompt for the name of the simulation and the mode in which it should be run.")
-        exit()
-
-    # check the name of the simulation and create a path to simulation output directory
-    name, output_path, path = check_name(name, output_path, separator, mode)
-
-    # run the model normally
-    if mode == 0:
-        # create instance of Simulation class
-        simulation = Simulation(templates_path, name, path, mode, separator)
-
-        # create directory within the simulation output directory for template files and copy them there
-        new_template_direct = simulation.path + simulation.name + "_templates"
-        os.mkdir(new_template_direct)
-        for template_name in os.listdir(templates_path):
-            shutil.copy(templates_path + template_name, new_template_direct)
-
-        # go through all cell arrays giving initial parameters of the cells
-        for i in range(simulation.number_cells):
-            div_counter = r.randint(0, simulation.pluri_div_thresh)
-            simulation.cell_locations[i] = np.array([r.random() * simulation.size[0],
-                                                     r.random() * simulation.size[1],
-                                                     r.random() * simulation.size[2]])
-            simulation.cell_radii[i] = simulation.min_radius + simulation.pluri_growth * div_counter
-            simulation.cell_motion[i] = True
-            simulation.cell_fds[i] = np.array([r.randint(0, 1), r.randint(0, 1), 0, 1])
-            simulation.cell_states[i] = "Pluripotent"
-            simulation.cell_diff_counter[i] = r.randint(0, simulation.pluri_to_diff)
-            simulation.cell_div_counter[i] = div_counter
-            simulation.cell_death_counter[i] = r.randint(0, simulation.death_thresh)
-            simulation.cell_fds_counter[i] = r.randint(0, simulation.fds_thresh)
-            simulation.cell_motility_force[i] = np.zeros(3, dtype=float)
-            simulation.cell_jkr_force[i] = np.zeros(3, dtype=float)
-            simulation.cell_nearest_gata6[i] = np.nan
-            simulation.cell_nearest_nanog[i] = np.nan
-            simulation.cell_nearest_diff[i] = np.nan
-            simulation.cell_highest_fgf4[i] = np.array([np.nan, np.nan, np.nan])
-            simulation.cell_nearest_cluster[i] = np.nan
-            simulation.cell_dox_value[i] = r.random()
-
-        # make a directories for outputting images, csvs, gradients, etc.
-        output.initialize_outputs(simulation)
-
-        # places all of the diffusion points into bins so that the model can use a bin sorting method to when
-        # determining highest/lowest concentrations of the extracellular gradient(s) only needed when beginning
-        # a new simulation
-        functions.setup_diffusion_bins(simulation)
-
-    # continue a past simulation
-    elif mode == 1:
-        # get the new end step of the simulation
-        end_step = int(input("What is the final step of this continuation? "))
-
-        # open the temporary pickled simulation and update the beginning step and the end step
-        with open(path + name + "_temp.pkl", "rb") as temp_file:
-            simulation = pickle.load(temp_file)
-            simulation.beginning_step = simulation.current_step + 1
-            simulation.end_step = end_step
-
-        # make sure the proper output directories exist
-        output.initialize_outputs(simulation)
-
-    # images to video mode
-    elif mode == 2:
-        # create instance of Simulation class used to get imaging information
-        simulation = Simulation(templates_path, name, path, mode, separator)
-
-        # get video using function from output.py
-        output.create_video(simulation)
-
-        # exits out as the conversion from images to video is done
-        exit()
-
-    # turn a collection of csvs into images and a video
-    elif mode == 3:
-        # create simulation instance
-        simulation = Simulation(templates_path, name, path, mode, separator)
-
-        # list the csv files in the values directory and sort them naturally
-        csv_list = os.listdir(simulation.values_path)
-        csv_list = natsort.natsorted(csv_list)
-
-        # list the gradient files in the values directory and sort them naturally
-        gradients_list = os.listdir(simulation.gradients_path)
-        gradients_list = natsort.natsorted(gradients_list)
-
-        # make sure the proper output directories for imaging exist
-        output.initialize_outputs(simulation)
-
-        # loop over all csvs defined in the template file
-        for i in range(len(csv_list)):
-            # updates the instance variables as they aren't updated by anything else
-            simulation.current_step = i + 1
-
-            # get the fgf4 values based on the saved numpy array
-            simulation.fgf4_values = np.load(simulation.gradients_path + gradients_list[i])
-
-            # opens the csv and create a list of the rows
-            with open(simulation.values_path + csv_list[i], newline="") as file:
-                # skip the first row as this is a header
-                csv_rows = list(csv.reader(file))[1:]
-
-            # updates the number of cells and adds that amount of vertices to the graphs
-            simulation.number_cells = len(csv_rows)
-
-            # turn all of the rows into a matrix
-            cell_data = np.column_stack(csv_rows)
-
-            # each row of the matrix will correspond to a cell value holder. the 2D arrays must be handled differently
-            simulation.cell_locations = cell_data[0:3, :].transpose().astype(float)
-            simulation.cell_radii = cell_data[3].astype(float)
-            simulation.cell_motion = cell_data[4] == "True"
-            simulation.cell_fds = cell_data[5:9, :].transpose().astype(float).astype(int)
-            simulation.cell_states = cell_data[9].astype(str)
-
-            # create image of simulation space
-            output.step_image(simulation)
-
-        # get a video of the images
-        output.create_video(simulation)
-
-        # exits out as the conversion from .csv to images/video is done
-        exit()
-
-    else:
-        print("Incorrect mode")
-        exit()
-
-    # return the modified simulation instance
-    return simulation
-
-
-def check_name(name, output_path, separator, mode):
-    """ renames the file if another simulation has the same name
-        or checks to make sure such a simulation exists
-    """
-    # for a new simulation
-    if mode == 0:
-        # keeps the loop running until one condition is met
-        while True:
-            # if the path does not already exist, make that directory and break out of the loop
-            try:
-                os.mkdir(output_path + name)
-                break
-
-            # prompt to either rename or overwrite
-            except OSError:
+    # check the name for the simulation based on the mode
+    while True:
+        # if a new simulation
+        if mode == 0:
+            # see if the directory exists
+            if os.path.isdir(output_path + name):
+                # get user input for overwriting previous simulation
                 print("Simulation with identical name: " + name)
                 user = input("Would you like to overwrite that simulation? (y/n): ")
+
+                # if no overwrite, get new simulation name
                 if user == "n":
                     name = input("New name: ")
+
+                # overwrite by deleting all files/folders in previous directory
                 elif user == "y":
                     # clear current directory to prevent another possible future errors
                     files = os.listdir(output_path + name)
                     for file in files:
+                        # path to each file/folder
                         path = output_path + name + separator + file
-                        # remove file
+
+                        # delete the file/folder
                         if os.path.isfile(path):
                             os.remove(path)
-                        # remove directory
                         else:
                             shutil.rmtree(path)
                     break
                 else:
+                    # inputs should either be "y" or "n"
                     print("Either type ""y"" or ""n""")
+            else:
+                # if does not exist, make directory
+                os.mkdir(output_path + name)
+                break
 
-    # this will look for an existing directory for modes other than 0
-    else:
-        # keeps the loop running until one condition is met
-        while True:
-            # see if the directory exists
+        # extract simulation zip mode
+        elif mode == 4:
+            if os.path.isdir(output_path + name):
+                raise Exception(name + " already exists in " + output_path)
+            elif os.path.isfile(output_path + name + ".zip"):
+                break
+            else:
+                raise Exception(name + ".zip does not exist in " + output_path)
+
+        # mode other than new simulation
+        else:
+            # if the directory exists, break loop
             if os.path.isdir(output_path + name):
                 break
 
-            # if not prompt to change name or end the simulation
             else:
                 print("No directory exists with name/path: " + output_path + name)
-                user = input("Would you like to continue? (y/n): ")
-                if user == "n":
+                name = input("Please type the correct name of the simulation or type \"exit\" to exit: ")
+                if name == "exit":
                     exit()
-                elif user == "y":
-                    print(output_path)
-                    user = input("Is the above path correct? (y/n): ")
-                    if user == "n":
-                        output_path = input("Type correct path:")
-                    print(name)
-                    user = input("Is the above name correct? (y/n): ")
-                    if user == "n":
-                        name = input("Type correct name:")
-                else:
-                    pass
 
-    # return the updated name, directory, and path
-    return name, output_path, output_path + name + separator
+    # create path to simulation directory
+    sim_path = output_path + name + separator
+
+    # create a paths object that holds any important paths
+    paths = output.Paths(name, sim_path, templates_path, separator)
+
+    # -------------- new simulation ---------------------------
+    if mode == 0:
+        # copy model files and template parameters
+        shutil.copytree(os.getcwd(), sim_path + name + "_copy")
+
+        # create Simulation object
+        simulation = parameters.Simulation(paths, name, mode)
+
+    # -------------- continuation of previous simulation ---------------------------
+    elif mode == 1:
+        # get the new end step of the simulation
+        end_step = int(input("What is the final step of this continued simulation? "))
+
+        # load previous simulation object
+        with open(sim_path + name + "_temp" + ".pkl", "rb") as temp_file:
+            simulation = pickle.load(temp_file)
+
+        # update the following parameters of the previous simulation
+        simulation.beginning_step = simulation.current_step + 1    # start one step later
+        simulation.end_step = end_step                             # update end step
+        simulation.mode = mode            # prevents the initialization of cell arrays and such
+        simulation.paths = paths          # update the paths for the case of continuing in different location
+
+    # -------------- images to video ---------------------------
+    elif mode == 2:
+        # create instance of Simulation class used to get imaging and path information
+        simulation = parameters.Simulation(paths, name, mode)
+
+        # make the video and exit
+        output.create_video(simulation)
+        exit()
+
+    # -------------- zip a simulation directory --------------
+    elif mode == 3:
+        print("Compressing: " + name)
+
+        # remove the separator of the path to the simulation directory
+        simulation_path = sim_path[:-1]
+
+        # zip a copy of the directory and save it to the same simulation directory
+        shutil.make_archive(simulation_path, 'zip', root_dir=output_path, base_dir=str(name))
+        print("Done!")
+        exit()
+
+    # -------------- extract a simulation directory zip --------------
+    elif mode == 4:
+        print("Extracting: " + name)
+
+        # remove the separator of the path and add .zip
+        simulation_zip = sim_path[:-1] + ".zip"
+
+        # unpack the directory into the output directory
+        shutil.unpack_archive(simulation_zip, output_path)
+        print("Done!")
+        exit()
+
+    # return the simulation based on the simulation mode
+    return simulation

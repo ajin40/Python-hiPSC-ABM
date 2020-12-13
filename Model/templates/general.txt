@@ -2,16 +2,19 @@
 General Parameters
 -----------------------------------------------------------------------------------------------------------------------
 Do you want the model to use a discrete NVIDIA gpu to accelerate some computationally tasking functions? Ex. True
-[ True ]
+[ False ]
 
 What will the final step number be? Use for when you are beginning a new simulation or continuing an existing. Ex. 192
-[ 192 ]
+[ 20 ]
 
-How many cells to begin the simulation? All cells will begin as NANOG high and pluripotent. Ex. 1000
-[ 2000 ]
+How many NANOG high cells to begin the simulation? Ex. 1000
+[ 10000 ]
 
-What are the dimensions of the space in meters? Order as (x, y, z). Ex. (0.001, 0.001, 0)
-[ (0.001, 0.002, 0) ]
+How many GATA6 high cells to begin the simulation? Ex. 1000
+[ 0 ]
+
+What are the dimensions of the space in meters? Order as (x, y, z). Ex. (0.004, 0.004, 0)
+[ (0.004, 0.004, 0) ]
 
 The time has come. Execute Order Sixty-Six? Ex. True
 [ True ]

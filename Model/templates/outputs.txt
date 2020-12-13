@@ -1,14 +1,25 @@
 -----------------------------------------------------------------------------------------------------------------------
-Imaging
+Outputs
 -----------------------------------------------------------------------------------------------------------------------
+Do you want the cell array values outputted to a CSV at each step? Ex. True
+[ True ]
+
+Do you want topological data analysis (TDA) files produced at each step? These files are CSVs with the 2D locations
+of cells with basic color labeling. Ex. True
+[ False ]
+
+Do you want the extracellular gradients pickled at each step? These can be re-opened via the numpy library for future
+analysis. Ex. True
+[ False ]
+
 Do you want an image produced at each step and a video at the end of the simulation? Ex. True
 [ True ]
 
 What is the image width in pixels? Currently imaging is supported for a 2D space, though a 3D space will yield
 a bird's eye view of the space. Image slicing/3D images to come... Ex. 2000
-[ 2000 ]
+[ 4000 ]
 
-How many frames per second of the output video that collects all step images? Ex. 1.0
+How many frames per second of the output video that collects all step images? Ex. 6
 [ 6 ]
 
 What mode of coloring for step images? True for coloring based on whether a cell pluripotent or differentiated, False
@@ -16,5 +27,5 @@ for coloring based on GATA6/NANOG levels? Ex. False
 [ True ]
 
 Include the FGF4 gradient color-map next to the image of the cells? Ex. True
-[ True ]
+[ False ]
 ------------------------------------------------------------------------------------------------------------------------
