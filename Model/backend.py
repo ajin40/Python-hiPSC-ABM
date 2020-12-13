@@ -281,7 +281,7 @@ def adjust_morphogens(simulation, gradient_name, index, amount, mode):
 
 
 @cuda.jit
-def jkr_neighbors_gpu(bin_locations, cell_locations, radii, bins, bins_help, edge_holder, if_edge, edge_count,
+def jkr_neighbors_gpu(bin_locations, locations, radii, bins, bins_help, edge_holder, if_edge, edge_count,
                       max_neighbors):
     """ A just-in-time compiled cuda kernel for the jkr_neighbors()
         method that performs the actual calculations.
@@ -293,7 +293,7 @@ def jkr_neighbors_gpu(bin_locations, cell_locations, radii, bins, bins_help, edg
     start = focus * max_neighbors[0]
 
     # double check that focus is within the array
-    if focus < cell_locations.shape[0]:
+    if focus < locations.shape[0]:
         # holds the total amount of edges for a given cell
         cell_edge_count = 0
 
@@ -313,7 +313,7 @@ def jkr_neighbors_gpu(bin_locations, cell_locations, radii, bins, bins_help, edg
                         current = bins[x + i][y + j][z + k][l]
 
                         # get the magnitude of the distance vector between the cell locations
-                        mag = magnitude(cell_locations[focus], cell_locations[current])
+                        mag = magnitude(locations[focus], locations[current])
 
                         # calculate the overlap of the cells
                         overlap = radii[focus] + radii[current] - mag
@@ -339,7 +339,7 @@ def jkr_neighbors_gpu(bin_locations, cell_locations, radii, bins, bins_help, edg
 
 
 @jit(nopython=True, parallel=True)
-def jkr_neighbors_cpu(number_cells, bin_locations, cell_locations, cell_radii, bins, bins_help, edge_holder,
+def jkr_neighbors_cpu(number_cells, bin_locations, locations, radii, bins, bins_help, edge_holder,
                       if_edge, edge_count, max_neighbors):
     """ A just-in-time compiled method for the jkr_neighbors()
         method that performs the actual calculations.
@@ -368,10 +368,10 @@ def jkr_neighbors_cpu(number_cells, bin_locations, cell_locations, cell_radii, b
                         current = bins[x + i][y + j][z + k][l]
 
                         # get the magnitude of the distance vector between the cell locations
-                        mag = np.linalg.norm(cell_locations[current] - cell_locations[focus])
+                        mag = np.linalg.norm(locations[current] - locations[focus])
 
                         # calculate the overlap of the cells
-                        overlap = cell_radii[current] + cell_radii[focus] - mag
+                        overlap = radii[current] + radii[focus] - mag
 
                         # if there is 0 or more overlap and if the current cell has a higher index to prevent double
                         # counting edges
@@ -395,66 +395,12 @@ def jkr_neighbors_cpu(number_cells, bin_locations, cell_locations, cell_radii, b
     return edge_holder, if_edge, edge_count
 
 
-@jit(nopython=True, parallel=True)
-def get_forces_cpu(number_edges, jkr_edges, delete_edges, cell_locations, cell_radii, jkr_forces, poisson, youngs,
-                   adhesion_const):
-    """ this is the just-in-time compiled version of get_forces
-        that runs in parallel on the cpu
-    """
-    # loops over the jkr edges
-    for edge_index in prange(number_edges):
-        # get the cell indices of the edge
-        cell_1 = jkr_edges[edge_index][0]
-        cell_2 = jkr_edges[edge_index][1]
-
-        # get the vector between the centers of the cells and the magnitude of this vector
-        vector = cell_locations[cell_1] - cell_locations[cell_2]
-        mag = np.linalg.norm(vector)
-
-        # get the total overlap of the cells
-        overlap = cell_radii[cell_1] + cell_radii[cell_2] - mag
-
-        # gets two values used for JKR
-        e_hat = (((1 - poisson ** 2) / youngs) + ((1 - poisson ** 2) / youngs)) ** -1
-        r_hat = ((1 / cell_radii[cell_1]) + (1 / cell_radii[cell_2])) ** -1
-
-        # used to calculate the max adhesive distance after bond has been already formed
-        overlap_ = (((math.pi * adhesion_const) / e_hat) ** (2 / 3)) * (r_hat ** (1 / 3))
-
-        # get the nondimensionalized overlap
-        d = overlap / overlap_
-
-        # check to see if the cells will have a force interaction
-        if d > -0.360562:
-            # plug the value of d into the nondimensionalized equation for the JKR force
-            f = (-0.0204 * d ** 3) + (0.4942 * d ** 2) + (1.0801 * d) - 1.324
-
-            # convert from the nondimensionalization to find the adhesive force
-            jkr_force = f * math.pi * adhesion_const * r_hat
-
-            # calculate the normalized vector via a reduction as the parallel jit prefers this
-            normal = np.array([0.0, 0.0, 0.0])
-            if mag != 0:
-                normal += vector / mag
-
-            # adds the adhesive force as a vector in opposite directions to each cell's force holder
-            jkr_forces[cell_1] += jkr_force * normal
-            jkr_forces[cell_2] -= jkr_force * normal
-
-        # remove the edge if the it fails to meet the criteria for distance, JKR simulating that the bond is broken
-        else:
-            delete_edges[edge_index] = 1
-
-    # return the updated jkr forces and the edges to be deleted
-    return jkr_forces, delete_edges
-
-
 @cuda.jit
-def get_forces_gpu(jkr_edges, delete_edges, cell_locations, cell_radii, jkr_forces, poisson, youngs, adhesion_const):
-    """ this is the cuda kernel for the get_forces function
-        that runs on a NVIDIA gpu
+def get_forces_gpu(jkr_edges, delete_edges, locations, radii, jkr_forces, poisson, youngs, adhesion_const):
+    """ A just-in-time compiled cuda kernel for the get_forces()
+        method that performs the actual calculations.
     """
-    # get the index in the array
+    # get the index in the edges array
     edge_index = cuda.grid(1)
 
     # checks to see that position is in the array
@@ -464,31 +410,31 @@ def get_forces_gpu(jkr_edges, delete_edges, cell_locations, cell_radii, jkr_forc
         cell_2 = jkr_edges[edge_index][1]
 
         # get the locations of the two cells
-        location_1 = cell_locations[cell_1]
-        location_2 = cell_locations[cell_2]
+        location_1 = locations[cell_1]
+        location_2 = locations[cell_2]
 
-        # get the magnitude of the vector
+        # get the magnitude of the distance between the cells
         mag = magnitude(location_1, location_2)
 
-        # get the total overlap of the cells
-        overlap = cell_radii[cell_1] + cell_radii[cell_2] - mag
+        # get the overlap of the cells
+        overlap = radii[cell_1] + radii[cell_2] - mag
 
-        # gets two values used for JKR
+        # get two values used for JKR calculation
         e_hat = (((1 - poisson[0] ** 2) / youngs[0]) + ((1 - poisson[0] ** 2) / youngs[0])) ** -1
-        r_hat = ((1 / cell_radii[cell_1]) + (1 / cell_radii[cell_2])) ** -1
+        r_hat = ((1 / radii[cell_1]) + (1 / radii[cell_2])) ** -1
 
-        # used to calculate the max adhesive distance after bond has been already formed
+        # value used to calculate the max adhesive distance after bond has been already formed
         overlap_ = (((math.pi * adhesion_const[0]) / e_hat) ** (2 / 3)) * (r_hat ** (1 / 3))
 
         # get the nondimensionalized overlap
         d = overlap / overlap_
 
-        # check to see if the cells will have a force interaction
+        # check to see if the cells will have a force interaction based on the nondimensionalized distance
         if d > -0.360562:
-            # plug the value of d into the nondimensionalized equation for the JKR force
+            # plug the value of d into polynomial approximation for nondimensionalized force
             f = (-0.0204 * d ** 3) + (0.4942 * d ** 2) + (1.0801 * d) - 1.324
 
-            # convert from the nondimensionalization to find the adhesive force
+            # convert from the nondimensionalized force to find the JKR force
             jkr_force = f * math.pi * adhesion_const[0] * r_hat
 
             # loops over all directions of space
@@ -496,7 +442,7 @@ def get_forces_gpu(jkr_edges, delete_edges, cell_locations, cell_radii, jkr_forc
                 # get the vector by axis between the two cells
                 vector = location_1[i] - location_2[i]
 
-                # if the magnitude is 0 use the zero vector, otherwise find the normalized vector
+                # if the magnitude is 0 use the zero vector, otherwise find the normalized vector for each axis
                 if mag != 0:
                     normal = vector / mag
                 else:
@@ -506,9 +452,63 @@ def get_forces_gpu(jkr_edges, delete_edges, cell_locations, cell_radii, jkr_forc
                 jkr_forces[cell_1][i] += jkr_force * normal
                 jkr_forces[cell_2][i] -= jkr_force * normal
 
-        # remove the edge if the it fails to meet the criteria for distance, JKR simulating that the bond is broken
+        # remove the edge if the it fails to meet the criteria for distance, simulating that the bond is broken
         else:
             delete_edges[edge_index] = 1
+
+
+@jit(nopython=True, parallel=True)
+def get_forces_cpu(number_edges, jkr_edges, delete_edges, locations, radii, jkr_forces, poisson, youngs,
+                   adhesion_const):
+    """ A just-in-time compiled method for the get_forces()
+        method that performs the actual calculations.
+    """
+    # go through the edges array
+    for edge_index in prange(number_edges):
+        # get the cell indices of the edge
+        cell_1 = jkr_edges[edge_index][0]
+        cell_2 = jkr_edges[edge_index][1]
+
+        # get the vector between the centers of the cells and the magnitude of this vector
+        vector = locations[cell_1] - locations[cell_2]
+        mag = np.linalg.norm(vector)
+
+        # get the overlap of the cells
+        overlap = radii[cell_1] + radii[cell_2] - mag
+
+        # get two values used for JKR calculation
+        e_hat = (((1 - poisson ** 2) / youngs) + ((1 - poisson ** 2) / youngs)) ** -1
+        r_hat = ((1 / radii[cell_1]) + (1 / radii[cell_2])) ** -1
+
+        # value used to calculate the max adhesive distance after bond has been already formed
+        overlap_ = (((math.pi * adhesion_const) / e_hat) ** (2 / 3)) * (r_hat ** (1 / 3))
+
+        # get the nondimensionalized overlap
+        d = overlap / overlap_
+
+        # check to see if the cells will have a force interaction based on the nondimensionalized distance
+        if d > -0.360562:
+            # plug the value of d into polynomial approximation for nondimensionalized force
+            f = (-0.0204 * d ** 3) + (0.4942 * d ** 2) + (1.0801 * d) - 1.324
+
+            # convert from the nondimensionalized force to find the JKR force
+            jkr_force = f * math.pi * adhesion_const * r_hat
+
+            # if the magnitude is 0 use the zero vector, otherwise find the normalized vector for each axis. numba's
+            # jit prefers a reduction instead of generating a new normalized array
+            normal = np.array([0.0, 0.0, 0.0])
+            if mag != 0:
+                normal += vector / mag
+
+            # adds the adhesive force as a vector in opposite directions to each cell's force holder
+            jkr_forces[cell_1] += jkr_force * normal
+            jkr_forces[cell_2] -= jkr_force * normal
+
+        # remove the edge if the it fails to meet the criteria for distance, simulating that the bond is broken
+        else:
+            delete_edges[edge_index] = 1
+
+    return jkr_forces, delete_edges
 
 
 @jit(nopython=True, parallel=True)
