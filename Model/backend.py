@@ -57,8 +57,8 @@ def assign_bins(simulation, distance, max_cells):
 
 @jit(nopython=True)
 def assign_bins_cpu(number_cells, bin_locations, bins, bins_help):
-    """ This is the just-in-time compiled helper method for assign_bins()
-        that performs the actual calculations.
+    """ A just-in-time compiled helper method for assign_bins()
+        that calculates which bin a cell will go in.
     """
     # go through all cells
     for i in range(number_cells):
@@ -81,8 +81,8 @@ def assign_bins_cpu(number_cells, bin_locations, bins, bins_help):
 @cuda.jit
 def get_neighbors_gpu(bin_locations, locations, bins, bins_help, distance, edge_holder, if_edge, edge_count,
                       max_neighbors):
-    """ This is the cuda kernel for the check_neighbors() function
-        that performs the actual calculation.
+    """ A just-in-time compiled cuda kernel for the check_neighbors()
+        method that performs the actual calculations.
     """
     # get the index in the array
     focus = cuda.grid(1)
@@ -90,15 +90,15 @@ def get_neighbors_gpu(bin_locations, locations, bins, bins_help, distance, edge_
     # get the starting index for writing to the edge holder array
     start = focus * max_neighbors[0]
 
-    # checks to see that position is in the array
+    # double check that focus is within the array
     if focus < bin_locations.shape[0]:
         # holds the total amount of edges for a given cell
-        edge_counter = 0
+        cell_edge_count = 0
 
         # get the bin location of the cell
         x, y, z = bin_locations[focus][0], bin_locations[focus][1], bin_locations[focus][2]
 
-        # loop over the bin the cell is in and the surrounding bins
+        # go through the surrounding bins including the bin the cell is in
         for i in range(-1, 2):
             for j in range(-1, 2):
                 for k in range(-1, 2):
@@ -107,33 +107,34 @@ def get_neighbors_gpu(bin_locations, locations, bins, bins_help, distance, edge_
 
                     # go through that bin determining if a cell is a neighbor
                     for l in range(bin_count):
-                        # get the index of the current cell in question
+                        # get the index of the current potential neighbor
                         current = bins[x + i][y + j][z + k][l]
 
-                        # check to see if that cell is within the search radius and not the same cell
+                        # check to see if that cell is within the search radius and only continue if the current cell
+                        # has a higher index to prevent double counting edges
                         if magnitude(locations[focus], locations[current]) <= distance[0] and focus < current:
-                            # if within the bounds of the array, add the edge
-                            if edge_counter < max_neighbors[0]:
-                                # get the index to place the edge
-                                index = start + edge_counter
+                            # if less than the max edges, add the edge
+                            if cell_edge_count < max_neighbors[0]:
+                                # get the index for the edge
+                                index = start + cell_edge_count
 
-                                # update the edge array and identify that this edge is nonzero
+                                # update the edge array and identify that this edge exists
                                 edge_holder[index][0] = focus
                                 edge_holder[index][1] = current
                                 if_edge[index] = 1
 
                             # increase the count of edges for a cell and the index for the next edge
-                            edge_counter += 1
+                            cell_edge_count += 1
 
         # update the array with number of edges for the cell
-        edge_count[focus] = edge_counter
+        edge_count[focus] = cell_edge_count
 
 
 @jit(nopython=True, parallel=True)
 def get_neighbors_cpu(number_cells, bin_locations, locations, bins, bins_help, distance, edge_holder, if_edge,
                       edge_count, max_neighbors):
-    """ This is the just-in-time compiled helper of check_neighbors()
-        that performs the actual calculations.
+    """ A just-in-time compiled method for the check_neighbors()
+        method that performs the actual calculations.
     """
     # loops over all cells, with the current cell index being the focus
     for focus in prange(number_cells):
@@ -141,12 +142,12 @@ def get_neighbors_cpu(number_cells, bin_locations, locations, bins, bins_help, d
         start = focus * max_neighbors
 
         # holds the total amount of edges for a given cell
-        edge_counter = 0
+        cell_edge_count = 0
 
         # get the bin location of the cell
         x, y, z = bin_locations[focus][0], bin_locations[focus][1], bin_locations[focus][2]
 
-        # loop over the bin the cell is in and the surrounding bins
+        # go through the surrounding bins including the bin the cell is in
         for i in range(-1, 2):
             for j in range(-1, 2):
                 for k in range(-1, 2):
@@ -155,37 +156,35 @@ def get_neighbors_cpu(number_cells, bin_locations, locations, bins, bins_help, d
 
                     # go through that bin determining if a cell is a neighbor
                     for l in range(bin_count):
-                        # get the index of the current cell in question
+                        # get the index of the current potential neighbor
                         current = bins[x + i][y + j][z + k][l]
 
-                        # check to see if that cell is within the search radius and not the same cell
-                        vector = locations[current] - locations[focus]
-                        if np.linalg.norm(vector) <= distance and focus < current:
-                            # if within the bounds of the array, add the edge
-                            if edge_counter < max_neighbors:
-                                # get the index to place the edge
-                                index = start + edge_counter
+                        # check to see if that cell is within the search radius and only continue if the current cell
+                        # has a higher index to prevent double counting edges
+                        if np.linalg.norm(locations[current] - locations[focus]) <= distance and focus < current:
+                            # if less than the max edges, add the edge
+                            if cell_edge_count < max_neighbors:
+                                # get the index for the edge
+                                index = start + cell_edge_count
 
-                                # update the edge array and identify that this edge is nonzero
+                                # update the edge array and identify that this edge exists
                                 edge_holder[index][0] = focus
                                 edge_holder[index][1] = current
                                 if_edge[index] = 1
 
                             # increase the count of edges for a cell and the index for the next edge
-                            edge_counter += 1
+                            cell_edge_count += 1
 
         # update the array with number of edges for the cell
-        edge_count[focus] = edge_counter
+        edge_count[focus] = cell_edge_count
 
-    # return the updated edges and the array with the counts of neighbors per cell
     return edge_holder, if_edge, edge_count
 
 
 @jit(nopython=True)
 def update_diffusion_jit(base, diffuse_steps, diffuse_dt, spat_res2, diffuse):
-    """ This is the just-in-time compiled method for
-        update_diffusion() that performs the diffusion
-        calculation.
+    """ A just-in-time compiled method for update_diffusion()
+        that performs the actual diffusion calculation.
     """
     # finite difference to solve laplacian diffusion equation, currently 2D
     for _ in range(diffuse_steps):
@@ -195,14 +194,12 @@ def update_diffusion_jit(base, diffuse_steps, diffuse_dt, spat_res2, diffuse):
         base[0, :, 1:-1] = base[1, :, 1:-1]
         base[-1, :, 1:-1] = base[-2, :, 1:-1]
 
-        # perform the first part of the calculation
+        # perform the calculation
         x = (base[2:, 1:-1, 1:-1] - 2 * base[1:-1, 1:-1, 1:-1] + base[:-2, 1:-1, 1:-1]) / spat_res2
         y = (base[1:-1, 2:, 1:-1] - 2 * base[1:-1, 1:-1, 1:-1] + base[1:-1, :-2, 1:-1]) / spat_res2
-
-        # update the gradient array
         base[1:-1, 1:-1, 1:-1] = base[1:-1, 1:-1, 1:-1] + diffuse * diffuse_dt * (x + y)
 
-    # return the gradient back to the simulation
+    # return the gradient back without the edges
     return base[1:-1, 1:-1, 1:-1]
 
 
