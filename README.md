@@ -15,23 +15,34 @@ Developed as part of a Southeast Center for Mathematics and Biology (SCMB) seed 
 ##
 
 ### Setup guide
-Download the model either through GitHub or with the Git command.
+The model ***requires*** Python 3.6-3.8. 
+
+Download the model either through GitHub (.zip) or with the Git command below.
 ```
 $ git clone https://github.com/JackToppen/Python-hiPSC-CBM.git
 ```
-Requires Python 3.6-3.8. All necessary modules are Python packages so pip can be used to download them.
+
+The downloaded folder (Python-hiPSC-CBM) will contain the ***Model*** directory (where
+all the code is) and some additional files including documentation and a requirements.txt
+file. 
+
+You can move this downloaded folder to wherever you like and even rename it. The following
+command can be used to automatically install any required dependencies, but just be sure
+to change the path to this downloaded folder that contains the requirements.txt file.
+
 ```
 $ pip install -r requirements.txt
 ```
 
 Under the ***Model*** directory, update ***paths.txt*** such the model knows where to output 
-the folder corresponding to each simulation.
+the folder corresponding to each simulation. This directory should exist prior to running a
+simulation.
 
 You can specify certain parameters using the .txt files in the ***templates*** directory. Additional
-parameters can be added in ***parameters.py***, which are held by the Simulation object.
+parameters may be added in ***parameters.py***, which are held by the Simulation object.
 
-The following command will start a text-based GUI to start a simulation by getting the
- name (whatever you want) and the mode (described below).
+The following command will start a text-based GUI to start a simulation by choosing a
+name (whatever you want) and the mode (described below).
 ```
 $ python run.py
 ```
@@ -44,7 +55,7 @@ Different simulation modes:
 
 
 Additionally, the name and mode can be passed at the command line by using options
- (without the parentheses). This avoids the text-based GUI.
+ (without the parentheses). This avoids the text-based GUI altogether.
 ```
 $ python run.py -n (name) -m (mode)
 ```
