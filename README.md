@@ -3,7 +3,7 @@
 This center-based model aims to understand the emergent patterning of human induced pluripotent
  stem cells (hiPSCs) as they differentiate. Multiple modeling schemes such as morphogen diffusion
  and collision-handling are employed for biological accuracy. Graphical Processing Unit (GPU)
- parallelization through the CUDA platform allows the model to simulate 500,000+ cells.
+ parallelization through the CUDA platform allows for the model to simulate 500,000+ cells.
  
 Developed as part of a Southeast Center for Mathematics and Biology (SCMB) seed project
  located at Georgia Tech. [https://scmb.gatech.edu](https://scmb.gatech.edu/elena-dimitrova-clemson-melissa-kemp-gt-modeling-emergent-patterning-within-pluripotent-colonies)
@@ -15,7 +15,8 @@ Developed as part of a Southeast Center for Mathematics and Biology (SCMB) seed 
 ##
 
 ### Setup guide
-The model ***requires*** Python 3.6-3.8. 
+The model ***requires*** Python 3.6-3.8. The latest Anaconda distribution should already
+include most of the necessary dependencies.
 
 Download the model either through GitHub (.zip) or with the Git command below.
 ```
