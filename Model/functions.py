@@ -112,7 +112,7 @@ def cell_pathway(simulation):
 
             # add it to the normal FGF4 gradient and the alternative FGF4 gradient
             backend.adjust_morphogens(simulation, "fgf4_values", index, amount, "nearest")
-            backend.adjust_morphogens(simulation, "fgf4_alt", index, amount, "distance")
+            # backend.adjust_morphogens(simulation, "fgf4_alt", index, amount, "distance")
 
         # activate the following pathway based on if doxycycline  has been induced yet (after 24 hours/48 steps)
         if simulation.current_step > 48:
@@ -728,7 +728,7 @@ def update_diffusion(simulation):
 
         # call the JIT diffusion function
         gradient = backend.update_diffusion_jit(base, update_diffusion.steps, simulation.diffuse_dt,
-                                                simulation.spat_res2, simulation.diffuse, simulation.size)
+                                                simulation.spat_res2, simulation.diffuse)
 
         # set max and min concentration values again
         gradient[gradient > simulation.max_concentration] = simulation.max_concentration
