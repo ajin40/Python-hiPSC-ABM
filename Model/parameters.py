@@ -53,7 +53,7 @@ class Simulation:
         # the temporal resolution for the simulation
         self.step_dt = 1800  # dt of each simulation step (1800 sec)
         self.move_dt = 200  # dt for incremental movement (200 sec)
-        self.diffuse_dt = 0.5  # dt for stable diffusion model (0.5 sec)
+        self.diffuse_dt = 0.24  # dt for stable diffusion model (0.5 sec)
 
         # the field for the finite dynamical system
         self.field = 3
@@ -81,19 +81,20 @@ class Simulation:
 
         # the spatial resolution of the space, the diffusion constant for the molecule gradients, the radius of
         # search for diffusion points, and the max concentration at a diffusion point
-        self.spat_res = 0.000007071
+        self.spat_res = 0.00000707106
         self.spat_res2 = self.spat_res ** 2
         self.diffuse = 0.00000000005    # 50 um^2/s
         self.diffuse_radius = self.spat_res * 0.707106781187    # not being used currently
         self.max_concentration = 200    # very arbitrary
 
-        # calculate the size of the array for the diffusion points and create gradient arrays
-        self.gradient_size = np.ceil(self.size / self.spat_res).astype(int) + np.ones(3, dtype=int)
-        self.fgf4_values = np.zeros(self.gradient_size)
-        self.fgf4_alt = np.zeros(self.gradient_size)
+        # calculate the size of the array for the diffusion points and create gradient array
+        self.gradient_size = np.ceil(self.size / self.spat_res).astype(int) + 1
+        self.fgf4_values = np.zeros(self.gradient_size, dtype=float)
+        self.fgf4_alt = np.zeros(self.gradient_size, dtype=float)
 
         # add the names of the gradients below for automatic diffusion updating
-        self.gradient_names = ["fgf4_values", "fgf4_alt"]
+        # self.gradient_names = ["fgf4_values", "fgf4_alt"]
+        self.gradient_names = ["fgf4_values"]
 
         ########################################################################################################
         ########################################################################################################

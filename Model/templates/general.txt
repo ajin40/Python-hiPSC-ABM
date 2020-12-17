@@ -8,7 +8,7 @@ What will the final step number be? Use for when you are beginning a new simulat
 [ 20 ]
 
 How many NANOG high cells to begin the simulation? Ex. 1000
-[ 10000 ]
+[ 5000 ]
 
 How many GATA6 high cells to begin the simulation? Ex. 1000
 [ 0 ]

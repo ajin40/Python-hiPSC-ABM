@@ -29,7 +29,7 @@ def assign_bins(simulation, distance, max_cells):
     while True:
         # calculate the size of the array used to represent the bins and the bins helper array, include extra bins
         # for cells that may fall outside of the space
-        bins_help_size = np.ceil(simulation.size / distance).astype(int) + np.array([3, 3, 3], dtype=int)
+        bins_help_size = np.ceil(simulation.size / distance).astype(int) + 3
         bins_size = np.append(bins_help_size, max_cells)
 
         # create the arrays for "bins" and "bins_help"
@@ -39,7 +39,7 @@ def assign_bins(simulation, distance, max_cells):
         # generalize the cell locations to bin indices and offset by 1 to prevent missing cells that fall out of the
         # simulation space
         bin_locations = np.floor_divide(simulation.locations, distance).astype(int)
-        bin_locations += np.ones((simulation.number_cells, 3), dtype=int)
+        bin_locations += 1
 
         # use jit function to speed up assignment
         bins, bins_help = assign_bins_jit(simulation.number_cells, bin_locations, bins, bins_help)
@@ -195,9 +195,9 @@ def update_diffusion_jit(base, diffuse_steps, diffuse_dt, spat_res2, diffuse):
         base[-1, :, 1:-1] = base[-2, :, 1:-1]
 
         # perform the calculation
-        x = (base[2:, 1:-1, 1:-1] - 2 * base[1:-1, 1:-1, 1:-1] + base[:-2, 1:-1, 1:-1]) / spat_res2
-        y = (base[1:-1, 2:, 1:-1] - 2 * base[1:-1, 1:-1, 1:-1] + base[1:-1, :-2, 1:-1]) / spat_res2
-        base[1:-1, 1:-1, 1:-1] = base[1:-1, 1:-1, 1:-1] + diffuse * diffuse_dt * (x + y)
+        x = base[2:, 1:-1, 1:-1] - 2 * base[1:-1, 1:-1, 1:-1] + base[:-2, 1:-1, 1:-1]
+        y = base[1:-1, 2:, 1:-1] - 2 * base[1:-1, 1:-1, 1:-1] + base[1:-1, :-2, 1:-1]
+        base[1:-1, 1:-1, 1:-1] += (diffuse * diffuse_dt / spat_res2) * (x + y)
 
     # return the gradient back without the edges
     return base[1:-1, 1:-1, 1:-1]
