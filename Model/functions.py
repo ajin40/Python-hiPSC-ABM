@@ -709,33 +709,32 @@ def update_diffusion(simulation):
     """ Goes through all indicated extracellular gradients and
         approximates the diffusion of the morphogen.
     """
-    # if a static variable for holding step time hasn't been created, create one
-    if not hasattr(update_diffusion, "steps"):
-        # get the total amount of times the cells will be incrementally moved during the step
-        update_diffusion.steps = math.ceil(simulation.step_dt / simulation.diffuse_dt)
-
-    # go through all gradients and update the diffusion of each
+    # go through all gradients and update the diffusion equation to each
     for gradient_name in simulation.gradient_names:
-        # get the gradient array
-        gradient = simulation.__dict__[gradient_name]
+        # the simulation holds all gradients are 3D arrays for simplicity, so get the gradient as a 2D array instead
+        gradient = simulation.__dict__[gradient_name][:, :, 0]
 
         # set max and min concentration values
         gradient[gradient > simulation.max_concentration] = simulation.max_concentration
         gradient[gradient < 0] = 0
 
-        # add zeros on the edges of the gradient to hold initial values
-        base = np.pad(gradient, 1, mode="constant", constant_values=0)
+        # create a slightly larger array to hold ghost points for initial conditions
+        size = np.array(gradient.shape) + 2
+        base = np.zeros(size, dtype=float)
+
+        # paste the gradient into the middle of the base array
+        base[1:-1, 1:-1] += gradient
 
         # call the JIT diffusion function
-        gradient = backend.update_diffusion_jit(base, update_diffusion.steps, simulation.diffuse_dt,
-                                                simulation.spat_res2, simulation.diffuse)
+        gradient = backend.update_diffusion_jit(base, simulation.step_dt, simulation.diffuse_dt, simulation.spat_res2,
+                                                simulation.diffuse)
 
         # set max and min concentration values again
         gradient[gradient > simulation.max_concentration] = simulation.max_concentration
         gradient[gradient < 0] = 0
 
-        # update the gradient
-        simulation.__dict__[gradient_name] = gradient
+        # update the simulation gradient array
+        simulation.__dict__[gradient_name][:, :, 0] = gradient
 
 
 @backend.record_time

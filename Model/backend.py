@@ -182,25 +182,36 @@ def get_neighbors_cpu(number_cells, bin_locations, locations, bins, bins_help, d
 
 
 @jit(nopython=True)
-def update_diffusion_jit(base, diffuse_steps, diffuse_dt, spat_res2, diffuse):
+def update_diffusion_jit(base, step_dt, diffuse_dt, spat_res2, diffuse):
     """ A just-in-time compiled method for update_diffusion()
         that performs the actual diffusion calculation.
     """
-    # finite difference to solve laplacian diffusion equation, currently 2D
-    for _ in range(diffuse_steps):
-        # set the initial conditions by reflecting the edges of the gradient
-        base[:, 0, 1:-1] = base[:, 1, 1:-1]
-        base[:, -1, 1:-1] = base[:, -2, 1:-1]
-        base[0, :, 1:-1] = base[1, :, 1:-1]
-        base[-1, :, 1:-1] = base[-2, :, 1:-1]
+    # get the total amount of iterations
+    steps = math.ceil(step_dt / diffuse_dt)
 
-        # perform the calculation
-        x = base[2:, 1:-1, 1:-1] - 2 * base[1:-1, 1:-1, 1:-1] + base[:-2, 1:-1, 1:-1]
-        y = base[1:-1, 2:, 1:-1] - 2 * base[1:-1, 1:-1, 1:-1] + base[1:-1, :-2, 1:-1]
-        base[1:-1, 1:-1, 1:-1] += (diffuse * diffuse_dt / spat_res2) * (x + y)
+    # holder the following constant for faster computations
+    a = diffuse_dt * diffuse / spat_res2
+    b = 1 - 4 * a
+
+    # finite difference to solve laplacian diffusion equation, currently 2D
+    for _ in range(steps):
+        # set the initial conditions by reflecting the edges of the gradient
+        base[:, 0] = base[:, 1]
+        base[:, -1] = base[:, -2]
+        base[0, :] = base[1, :]
+        base[-1, :] = base[-2, :]
+
+        # get the morphogen addition for the diffusion points, based on other points and hold this
+        temp = a * (base[2:, 1:-1] + base[:-2, 1:-1] + base[1:-1, 2:] + base[1:-1, :-2])
+
+        # get the diffusion loss for the diffusion points
+        base[1:-1, 1:-1] *= b
+
+        # add morphogen change from the temporary array
+        base[1:-1, 1:-1] += temp
 
     # return the gradient back without the edges
-    return base[1:-1, 1:-1, 1:-1]
+    return base[1:-1, 1:-1]
 
 
 def get_concentration(simulation, gradient_name, index):
