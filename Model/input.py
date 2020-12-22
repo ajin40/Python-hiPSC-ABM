@@ -20,12 +20,12 @@ def setup():
     # get the path to the template file directory which is used to provide some initial simulation parameters
     templates_path = os.path.abspath("templates") + separator
 
-    # get the path to the output directory where each simulation directory is created and make sure the
-    # output directory path exists and has separator at the end
-    output_path = lines[7].strip()
+    # get the path to the output directory where each simulation directory is created
+    output_path = lines[14].strip()
     if not os.path.isdir(output_path):
         # raise error if directory doesn't exist
-        raise Exception("Path: " + output_path + " to templates directory does not exist.")
+        raise Exception("Path: " + output_path + " to output directory does not exist. Please update the paths.txt"
+                        " file to point to a directory used for outputting each simulation directory.")
     else:
         # if path doesn't end with separator, add one
         if output_path[-1] != separator:
