@@ -55,7 +55,7 @@ def assign_bins(simulation, distance, max_cells):
     return bins, bins_help, bin_locations, max_cells
 
 
-@jit(nopython=True)
+@jit(nopython=True, cache=True)
 def assign_bins_jit(number_cells, bin_locations, bins, bins_help):
     """ A just-in-time compiled helper method for assign_bins()
         that calculates which bin a cell will go in.
@@ -130,7 +130,7 @@ def get_neighbors_gpu(bin_locations, locations, bins, bins_help, distance, edge_
         edge_count[focus] = cell_edge_count
 
 
-@jit(nopython=True, parallel=True)
+@jit(nopython=True, parallel=True, cache=True)
 def get_neighbors_cpu(number_cells, bin_locations, locations, bins, bins_help, distance, edge_holder, if_edge,
                       edge_count, max_neighbors):
     """ A just-in-time compiled method for the get_neighbors()
@@ -181,7 +181,7 @@ def get_neighbors_cpu(number_cells, bin_locations, locations, bins, bins_help, d
     return edge_holder, if_edge, edge_count
 
 
-@jit(nopython=True)
+@jit(nopython=True, cache=True)
 def update_diffusion_jit(base, step_dt, diffuse_dt, spat_res2, diffuse):
     """ A just-in-time compiled method for update_diffusion()
         that performs the actual diffusion calculation.
@@ -349,7 +349,7 @@ def jkr_neighbors_gpu(bin_locations, locations, radii, bins, bins_help, edge_hol
         edge_count[focus] = cell_edge_count
 
 
-@jit(nopython=True, parallel=True)
+@jit(nopython=True, parallel=True, cache=True)
 def jkr_neighbors_cpu(number_cells, bin_locations, locations, radii, bins, bins_help, edge_holder,
                       if_edge, edge_count, max_neighbors):
     """ A just-in-time compiled method for the jkr_neighbors()
@@ -468,7 +468,7 @@ def get_forces_gpu(jkr_edges, delete_edges, locations, radii, jkr_forces, poisso
             delete_edges[edge_index] = 1
 
 
-@jit(nopython=True, parallel=True)
+@jit(nopython=True, parallel=True, cache=True)
 def get_forces_cpu(number_edges, jkr_edges, delete_edges, locations, radii, jkr_forces, poisson, youngs,
                    adhesion_const):
     """ A just-in-time compiled method for the get_forces()
@@ -552,7 +552,7 @@ def apply_forces_gpu(jkr_force, motility_force, locations, radii, viscosity, siz
                 locations[index][i] = new_location
 
 
-@jit(nopython=True, parallel=True)
+@jit(nopython=True, parallel=True, cache=True)
 def apply_forces_cpu(number_cells, jkr_force, motility_force, locations, radii, viscosity, size, move_dt):
     """ A just-in-time compiled method for the apply_forces()
         method that performs the actual calculations.
@@ -645,7 +645,7 @@ def nearest_gpu(bin_locations, locations, bins, bins_help, distance, if_diff, ga
         nearest_diff[focus] = nearest_diff_index
 
 
-@jit(nopython=True, parallel=True)
+@jit(nopython=True, parallel=True, cache=True)
 def nearest_cpu(number_cells, bin_locations, locations, bins, bins_help, distance, if_diff, gata6, nanog, nearest_gata6,
                 nearest_nanog, nearest_diff):
     """ A just-in-time compiled method for the nearest()
