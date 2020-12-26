@@ -4,27 +4,35 @@ from backend import get_parameter
 
 
 class Simulation:
-    """ This object holds all of the important information about the simulation as it
-        runs. The template files are used to update parameters that often change.
+    """ This object holds all of the important information about the
+        simulation as it runs.
     """
     def __init__(self, paths, name, mode):
-        # read the template files and create instance variables based on their values
+        """
+        The following instance variables can be updated through template files located in the "templates"
+        directory under the "Model" directory. The values must be specified in the template files as follows.
 
-        # ------------- general template file -------------------------
+            (outputs.txt)
+            1   How many frames per second of the output video that collects all step images? Ex. 6
+            2   | 6 |
+
+        Then use the get_parameters function to read the
+        self.fps = get_parameter(path_to_file, 2, int)
+        """
+
+        # ------------- general template file ------------------------------
         # open the .txt file and get a list of the lines
-        with open(paths.templates + "general.txt") as general_file:
-            general = general_file.readlines()
+        general_path = paths.templates + "general.txt"
 
         # create instance variables based on template parameters
-        self.parallel = get_parameter(general, 5, bool)
-        self.end_step = get_parameter(general, 8, int)
-        self.num_nanog = get_parameter(general, 11, int)
-        self.num_gata6 = get_parameter(general, 14, int)
-        self.size = np.array(get_parameter(general, 17, tuple))
-        print(self.size)
+        self.parallel = get_parameter(general_path, 5, bool)
+        self.end_step = get_parameter(general_path, 8, int)
+        self.num_nanog = get_parameter(general_path, 11, int)
+        self.num_gata6 = get_parameter(general_path, 14, int)
+        self.size = np.array(get_parameter(general_path, 17, tuple))
         # ------------------------------------------------------------------
 
-        # ------------- outputs template file -------------------------
+        # ------------- outputs template file ------------------------------
         # open the .txt file and get a list of the lines
         with open(paths.templates + "outputs.txt") as outputs_file:
             outputs = outputs_file.readlines()

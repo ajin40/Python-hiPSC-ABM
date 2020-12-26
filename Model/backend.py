@@ -795,10 +795,14 @@ def progress_bar(progress, maximum):
     print('\r[%s] %s%s' % (bar, percent, '%'), end="")
 
 
-def get_parameter(file_list, line_number, dtype):
+def get_parameter(path, line_number, dtype):
     """ Gets the parameter as a string from the lines of the
         template file.
     """
+    # open the .txt file and get a list of the lines
+    with open(path) as file:
+        file_list = file.readlines()
+
     # get the right line based on the line numbers not Python indexing
     line = file_list[line_number - 1]
 
@@ -810,15 +814,26 @@ def get_parameter(file_list, line_number, dtype):
     if start == -1 or end == -1:
         raise Exception("Please use pipe characters to specify template file parameters. Example: | (value) |")
 
-    # return a slice of the line that is the string representation of the parameter
-    string = line[(start + 1):(end - 1)].strip()
+    # return a slice of the line that is the string representation of the parameter and remove any whitespace
+    parameter = line[(start + 1):end].strip()
 
+    # convert the parameter from string to desired data type
     if dtype == str:
         pass
     elif dtype == tuple:
-        string = ast.literal_eval(string)
+        # eval() will not produce desired result, use ast standard library instead
+        parameter = ast.literal_eval(parameter)
+    elif dtype == bool:
+        # handle potential inputs for booleans
+        if parameter in ["True", "true", "T", "t", "1"]:
+            parameter = True
+        elif parameter in ["False", "false", "F", "f", "0"]:
+            parameter = False
+        else:
+            raise Exception("Invalid value for bool type")
     else:
-        string = dtype(string)
+        # for float and int type
+        parameter = dtype(parameter)
 
     # get the parameter by removing the pipe characters and any whitespace
-    return string
+    return parameter
