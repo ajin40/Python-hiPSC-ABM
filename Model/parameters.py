@@ -1,5 +1,6 @@
 import numpy as np
 import igraph
+from backend import get_parameter
 
 
 class Simulation:
@@ -15,11 +16,13 @@ class Simulation:
             general = general_file.readlines()
 
         # create instance variables based on template parameters
-        self.parallel = eval(general[4][2:-3])
-        self.end_step = int(general[7][2:-3])
-        self.num_nanog = int(general[10][2:-3])
-        self.num_gata6 = int(general[13][2:-3])
-        self.size = np.array(eval(general[16][2:-3]))
+        self.parallel = get_parameter(general, 5, bool)
+        self.end_step = get_parameter(general, 8, int)
+        self.num_nanog = get_parameter(general, 11, int)
+        self.num_gata6 = get_parameter(general, 14, int)
+        self.size = np.array(get_parameter(general, 17, tuple))
+        print(self.size)
+        # ------------------------------------------------------------------
 
         # ------------- outputs template file -------------------------
         # open the .txt file and get a list of the lines
@@ -35,6 +38,7 @@ class Simulation:
         self.fps = float(outputs[22][2:-3])
         self.color_mode = eval(outputs[26][2:-3])
         self.output_fgf4_image = eval(outputs[29][2:-3])
+        # ------------------------------------------------------------------
 
         # ------------- experimental template file -------------------------
         # open the .txt file and get a list of the lines
@@ -45,7 +49,6 @@ class Simulation:
         self.group = int(experimental[4][2:-3])
         self.guye_move = eval(experimental[8][2:-3])
         self.lonely_thresh = int(experimental[12][2:-3])
-
         # ------------------------------------------------------------------
 
         # define any other instance variables that are not part of the template files

@@ -1,9 +1,10 @@
-import numpy as np
-from numba import jit, cuda, prange
 import math
-import random as r
-from functools import wraps
 import time
+import ast
+import numpy as np
+import random as r
+from numba import jit, cuda, prange
+from functools import wraps
 
 
 def info(simulation):
@@ -792,3 +793,32 @@ def progress_bar(progress, maximum):
 
     # output the progress bar
     print('\r[%s] %s%s' % (bar, percent, '%'), end="")
+
+
+def get_parameter(file_list, line_number, dtype):
+    """ Gets the parameter as a string from the lines of the
+        template file.
+    """
+    # get the right line based on the line numbers not Python indexing
+    line = file_list[line_number - 1]
+
+    # find the indices of the pipe characters
+    start = line.find("|")
+    end = line.find("|", start + 1)
+
+    # raise error if not a pair of pipe characters
+    if start == -1 or end == -1:
+        raise Exception("Please use pipe characters to specify template file parameters. Example: | (value) |")
+
+    # return a slice of the line that is the string representation of the parameter
+    string = line[(start + 1):(end - 1)].strip()
+
+    if dtype == str:
+        pass
+    elif dtype == tuple:
+        string = ast.literal_eval(string)
+    else:
+        string = dtype(string)
+
+    # get the parameter by removing the pipe characters and any whitespace
+    return string
