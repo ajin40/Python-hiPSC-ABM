@@ -4,22 +4,24 @@ from backend import get_parameter
 
 
 class Simulation:
-    """ This object holds all of the important information about the simulation as
-        it runs. Variables can be specified either directly or through template files.
+    """ This object holds all of the important information about the simulation as it
+        runs. Variables can be specified either directly or through the template files.
     """
     def __init__(self, paths, name, mode):
         """
         The following instance variables can be updated through template files located in the "templates"
-        directory under the "Model" directory. The values must be specified in the template files as follows.
+        directory under the "Model" directory. The values must be specified in the .txt files as follows.
 
             (outputs.txt)
             1   How many frames per second of the output video that collects all step images? Ex. 6
             2   | 6 |
+            3
 
-        Use the get_parameters function to read the template files, arguments are as follows get_parameter(
-        self.fps = get_parameter(path, 2, int)
+        Use get_parameter() to read a specific line of a template file and interpret the value as the
+        desired data type.
+
+            self.fps = get_parameter(path, 2, int)
         """
-
         # ------------- general template file ------------------------------
         general_path = paths.templates + "general.txt"    # path to general.txt template file
         self.parallel = get_parameter(general_path, 5, bool)
@@ -27,11 +29,7 @@ class Simulation:
         self.num_nanog = get_parameter(general_path, 11, int)
         self.num_gata6 = get_parameter(general_path, 14, int)
         self.size = np.array(get_parameter(general_path, 17, tuple))
-        print(self.parallel)
-        print(self.end_step)
-        print(self.num_nanog)
-        print(self.num_gata6)
-        print(self.size)
+        self.order_66 = get_parameter(general_path, 20, str)
         # ------------------------------------------------------------------
 
         # ------------- outputs template file ------------------------------
@@ -44,8 +42,6 @@ class Simulation:
         self.fps = get_parameter(outputs_path, 23, float)
         self.color_mode = get_parameter(outputs_path, 27, bool)
         self.output_fgf4_image = get_parameter(outputs_path, 30, bool)
-        print(self.image_quality)
-        print(self.fps)
         # ------------------------------------------------------------------
 
         # ------------- experimental template file -------------------------

@@ -1,6 +1,7 @@
 import math
 import time
 import ast
+import re
 import numpy as np
 import random as r
 from numba import jit, cuda, prange
@@ -58,7 +59,7 @@ def assign_bins(simulation, distance, max_cells):
 
 @jit(nopython=True, cache=True)
 def assign_bins_jit(number_cells, bin_locations, bins, bins_help):
-    """ A just-in-time compiled helper method for assign_bins()
+    """ A just-in-time compiled helper function for assign_bins()
         that calculates which bin a cell will go in.
     """
     # go through all cells
@@ -134,7 +135,7 @@ def get_neighbors_gpu(bin_locations, locations, bins, bins_help, distance, edge_
 @jit(nopython=True, parallel=True, cache=True)
 def get_neighbors_cpu(number_cells, bin_locations, locations, bins, bins_help, distance, edge_holder, if_edge,
                       edge_count, max_neighbors):
-    """ A just-in-time compiled method for the get_neighbors()
+    """ A just-in-time compiled function for the get_neighbors()
         method that performs the actual calculations.
     """
     # loops over all cells, with the current cell index being the focus
@@ -184,7 +185,7 @@ def get_neighbors_cpu(number_cells, bin_locations, locations, bins, bins_help, d
 
 @jit(nopython=True, cache=True)
 def update_diffusion_jit(base, step_dt, diffuse_dt, spat_res2, diffuse):
-    """ A just-in-time compiled method for update_diffusion()
+    """ A just-in-time compiled function for update_diffusion()
         that performs the actual diffusion calculation.
     """
     # get the total amount of iterations
@@ -353,7 +354,7 @@ def jkr_neighbors_gpu(bin_locations, locations, radii, bins, bins_help, edge_hol
 @jit(nopython=True, parallel=True, cache=True)
 def jkr_neighbors_cpu(number_cells, bin_locations, locations, radii, bins, bins_help, edge_holder,
                       if_edge, edge_count, max_neighbors):
-    """ A just-in-time compiled method for the jkr_neighbors()
+    """ A just-in-time compiled function for the jkr_neighbors()
         method that performs the actual calculations.
     """
     # loops over all cells, with the current cell index being the focus
@@ -472,7 +473,7 @@ def get_forces_gpu(jkr_edges, delete_edges, locations, radii, jkr_forces, poisso
 @jit(nopython=True, parallel=True, cache=True)
 def get_forces_cpu(number_edges, jkr_edges, delete_edges, locations, radii, jkr_forces, poisson, youngs,
                    adhesion_const):
-    """ A just-in-time compiled method for the get_forces()
+    """ A just-in-time compiled function for the get_forces()
         method that performs the actual calculations.
     """
     # go through the edges array
@@ -555,7 +556,7 @@ def apply_forces_gpu(jkr_force, motility_force, locations, radii, viscosity, siz
 
 @jit(nopython=True, parallel=True, cache=True)
 def apply_forces_cpu(number_cells, jkr_force, motility_force, locations, radii, viscosity, size, move_dt):
-    """ A just-in-time compiled method for the apply_forces()
+    """ A just-in-time compiled function for the apply_forces()
         method that performs the actual calculations.
     """
     # loop over all cells
@@ -649,7 +650,7 @@ def nearest_gpu(bin_locations, locations, bins, bins_help, distance, if_diff, ga
 @jit(nopython=True, parallel=True, cache=True)
 def nearest_cpu(number_cells, bin_locations, locations, bins, bins_help, distance, if_diff, gata6, nanog, nearest_gata6,
                 nearest_nanog, nearest_diff):
-    """ A just-in-time compiled method for the nearest()
+    """ A just-in-time compiled function for the nearest()
         method that performs the actual calculations.
     """
     # loop over all cells
@@ -711,7 +712,7 @@ def nearest_cpu(number_cells, bin_locations, locations, bins, bins_help, distanc
 
 @cuda.jit(device=True)
 def magnitude(location_one, location_two):
-    """ A just-in-time compiled cuda kernel device method
+    """ A just-in-time compiled cuda kernel device function
         for getting the distance between two points
     """
     # loop over the axes add the squared difference
@@ -777,8 +778,15 @@ def record_time(function):
     return wrap
 
 
+def sort_images(image_list):
+    """ Uses a regular expression for sorting the image file
+        list for the create_video() method in output.py.
+    """
+    return int(re.split('(\d+)', image_list)[1])
+
+
 def progress_bar(progress, maximum):
-    """ Creates a progress bar for the create_video() method
+    """ Creates a progress bar for create_video() method
         in output.py because progress bars are cool.
     """
     # length of the bar in characters
