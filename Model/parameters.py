@@ -4,8 +4,8 @@ from backend import get_parameter
 
 
 class Simulation:
-    """ This object holds all of the important information about the
-        simulation as it runs.
+    """ This object holds all of the important information about the simulation as
+        it runs. Variables can be specified either directly or through template files.
     """
     def __init__(self, paths, name, mode):
         """
@@ -16,47 +16,43 @@ class Simulation:
             1   How many frames per second of the output video that collects all step images? Ex. 6
             2   | 6 |
 
-        Then use the get_parameters function to read the
-        self.fps = get_parameter(path_to_file, 2, int)
+        Use the get_parameters function to read the template files, arguments are as follows get_parameter(
+        self.fps = get_parameter(path, 2, int)
         """
 
         # ------------- general template file ------------------------------
-        # open the .txt file and get a list of the lines
-        general_path = paths.templates + "general.txt"
-
-        # create instance variables based on template parameters
+        general_path = paths.templates + "general.txt"    # path to general.txt template file
         self.parallel = get_parameter(general_path, 5, bool)
         self.end_step = get_parameter(general_path, 8, int)
         self.num_nanog = get_parameter(general_path, 11, int)
         self.num_gata6 = get_parameter(general_path, 14, int)
         self.size = np.array(get_parameter(general_path, 17, tuple))
+        print(self.parallel)
+        print(self.end_step)
+        print(self.num_nanog)
+        print(self.num_gata6)
+        print(self.size)
         # ------------------------------------------------------------------
 
         # ------------- outputs template file ------------------------------
-        # open the .txt file and get a list of the lines
-        with open(paths.templates + "outputs.txt") as outputs_file:
-            outputs = outputs_file.readlines()
-
-        # create instance variables based on template parameters
-        self.output_values = eval(outputs[4][2:-3])
-        self.output_tda = eval(outputs[8][2:-3])
-        self.output_gradients = eval(outputs[12][2:-3])
-        self.output_images = eval(outputs[15][2:-3])
-        self.image_quality = int(outputs[19][2:-3])
-        self.fps = float(outputs[22][2:-3])
-        self.color_mode = eval(outputs[26][2:-3])
-        self.output_fgf4_image = eval(outputs[29][2:-3])
+        outputs_path = paths.templates + "outputs.txt"  # path to outputs.txt template file
+        self.output_values = get_parameter(outputs_path, 5, bool)
+        self.output_tda = get_parameter(outputs_path, 9, bool)
+        self.output_gradients = get_parameter(outputs_path, 13, bool)
+        self.output_images = get_parameter(outputs_path, 16, bool)
+        self.image_quality = get_parameter(outputs_path, 20, int)
+        self.fps = get_parameter(outputs_path, 23, float)
+        self.color_mode = get_parameter(outputs_path, 27, bool)
+        self.output_fgf4_image = get_parameter(outputs_path, 30, bool)
+        print(self.image_quality)
+        print(self.fps)
         # ------------------------------------------------------------------
 
         # ------------- experimental template file -------------------------
-        # open the .txt file and get a list of the lines
-        with open(paths.templates + "experimental.txt") as experimental_file:
-            experimental = experimental_file.readlines()
-
-        # create instance variables based on template parameters
-        self.group = int(experimental[4][2:-3])
-        self.guye_move = eval(experimental[8][2:-3])
-        self.lonely_thresh = int(experimental[12][2:-3])
+        experimental_path = paths.templates + "experimental.txt"  # path to experimental.txt template file
+        self.group = get_parameter(experimental_path, 5, int)
+        self.guye_move = get_parameter(experimental_path, 9, bool)
+        self.lonely_thresh = get_parameter(experimental_path, 13, int)
         # ------------------------------------------------------------------
 
         # define any other instance variables that are not part of the template files
@@ -101,7 +97,7 @@ class Simulation:
         # calculate the size of the array for the diffusion points and create gradient array
         self.gradient_size = np.ceil(self.size / self.spat_res).astype(int) + 1
         self.fgf4_values = np.zeros(self.gradient_size, dtype=float)
-        self.fgf4_alt = np.zeros(self.gradient_size, dtype=float)
+        # self.fgf4_alt = np.zeros(self.gradient_size, dtype=float)
 
         # add the names of the gradients below for automatic diffusion updating
         # self.gradient_names = ["fgf4_values", "fgf4_alt"]

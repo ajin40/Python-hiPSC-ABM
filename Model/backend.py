@@ -799,12 +799,13 @@ def get_parameter(path, line_number, dtype):
     """ Gets the parameter as a string from the lines of the
         template file.
     """
-    # open the .txt file and get a list of the lines
-    with open(path) as file:
-        file_list = file.readlines()
+    # make an attribute with name as template file path and value as a list of the file lines (reduces file opening)
+    if not hasattr(get_parameter, path):
+        with open(path) as file:
+            get_parameter.path = file.readlines()
 
     # get the right line based on the line numbers not Python indexing
-    line = file_list[line_number - 1]
+    line = get_parameter.path[line_number - 1]
 
     # find the indices of the pipe characters
     start = line.find("|")
