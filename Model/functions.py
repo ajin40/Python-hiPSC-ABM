@@ -115,7 +115,7 @@ def cell_pathway(simulation):
             # backend.adjust_morphogens(simulation, "fgf4_alt", index, amount, "distance")
 
         # activate the following pathway based on if doxycycline  has been induced yet (after 24 hours/48 steps)
-        if simulation.current_step > 48:
+        if simulation.current_step >= simulation.dox_step:
             # get an FGF4 value for the FDS based on the concentration of FGF4
             fgf4_value = backend.get_concentration(simulation, "fgf4_values", index)
 

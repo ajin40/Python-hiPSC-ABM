@@ -46,7 +46,9 @@ class Simulation:
         # ------------- experimental template file -------------------------
         experimental_path = paths.templates + "experimental.txt"    # path to experimental.txt template file
         self.group = get_parameter(experimental_path, 5, int)
-        self.guye_move = get_parameter(experimental_path, 9, bool)
+        self.dox_step = get_parameter(experimental_path, 9, int)
+        self.guye_move = get_parameter(experimental_path, 13, bool)
+        self.lonely_thresh = get_parameter(experimental_path, 9, int)
 
         # define any other instance variables that are not part of the template files
 
