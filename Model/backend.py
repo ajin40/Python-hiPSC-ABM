@@ -1,6 +1,5 @@
 import math
 import time
-import ast
 import re
 import numpy as np
 import random as r
@@ -829,9 +828,9 @@ def get_parameter(path, line_number, dtype):
     # convert the parameter from string to desired data type
     if dtype == str:
         pass
-    elif dtype == tuple:
-        # eval() will not produce desired result, use ast standard library instead
-        parameter = ast.literal_eval(parameter)
+    elif dtype == tuple or dtype == list or dtype == dict:
+        # tuple() list() dict() will not produce desired result, use eval() instead
+        parameter = eval(parameter)
     elif dtype == bool:
         # handle potential inputs for booleans
         if parameter in ["True", "true", "T", "t", "1"]:
