@@ -48,7 +48,7 @@ class Simulation:
         self.group = get_parameter(experimental_path, 5, int)
         self.dox_step = get_parameter(experimental_path, 9, int)
         self.guye_move = get_parameter(experimental_path, 13, bool)
-        self.lonely_thresh = get_parameter(experimental_path, 9, int)
+        self.lonely_thresh = get_parameter(experimental_path, 17, int)
 
         # define any other instance variables that are not part of the template files
 
