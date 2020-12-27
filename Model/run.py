@@ -5,6 +5,7 @@ import output
 import backend
 import functions
 
+
 # setup() will direct how the model is run based on inputted parameters. If a new simulation is desired, setup()
 # will return an instance of the Simulation object which holds all important information of the simulation as it runs.
 simulation = input.setup()
@@ -47,7 +48,6 @@ if simulation.mode == 0:
     # These are the initial parameters for "GATA6_high" cells, the "cell_type" argument is used to indicate this
     simulation.initials("GATA6", lambda: r.randrange(0, simulation.field), cell_type="GATA6_high")
     simulation.initials("NANOG", lambda: 0, cell_type="GATA6_high")
-
 
 # Add any functions under the loop that will be called during each step of the simulation.
 for simulation.current_step in range(simulation.beginning_step, simulation.end_step + 1):

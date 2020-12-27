@@ -1,10 +1,9 @@
 import cv2
 import csv
 import time
-import memory_profiler
+import psutil
 import numpy as np
 import pickle
-import natsort
 import os
 import math
 
@@ -298,9 +297,10 @@ def simulation_data(simulation):
             # merge the headers together and write the row to the CSV
             csv_object.writerow(header + functions_header)
 
-        # calculate the total step time and get the current memory used by the model
+        # calculate the total step time and get memory of current python process in megabytes
         step_time = time.perf_counter() - simulation.step_start
-        memory = memory_profiler.memory_usage()[0]
+        process = psutil.Process(os.getpid())
+        memory = process.memory_info()[0] / 1024 ** 2
 
         # write the row with the corresponding values
         columns = [simulation.current_step, simulation.number_cells, step_time, memory]
@@ -323,7 +323,7 @@ def create_video(simulation):
             print("\nCreating video...")
 
             # sort the list naturally so "2, 20, 3, 31..." becomes "2, 3,...,20,...,31"
-            file_list = natsort.natsorted(file_list)
+            file_list = sorted(file_list, key=backend.sort_images)
 
             # sample the first image to get the shape of the images
             frame = cv2.imread(simulation.paths.images + file_list[0])
@@ -345,4 +345,4 @@ def create_video(simulation):
             video_object.release()
 
     # print end statement...super important. Don't remove or model won't run!
-    print("\n\nThe simulation is finished. May the force be with you.")
+    print("\n\nThe simulation is finished. May the force be with you.\n")

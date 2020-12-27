@@ -1,14 +1,18 @@
 -----------------------------------------------------------------------------------------------------------------------
 Experimental
 -----------------------------------------------------------------------------------------------------------------------
-How many cells are added/removed to the simulation at once, per time step? Type 0 if all at once. Ex. 5
-[ 0 ]
+How many cells are added to the simulation at once, per time step? Type 0 if all at once. Ex. 5
+| 0 |
+
+At what step is doxycycline added, allowing cells to become GATA6 high?  This activates the finite dynamical system
+pathway used to quantify the FGF/ERK pathway. Ex. 49
+| 49 |
 
 Use the Guye movement method? This mode will have GATA6 high cells move toward differentiated cells simulating
 the movement seen in Guye et al. Ex. True
-[ True ]
+| True |
 
 What is the threshold for designating a cell lonely and increasing the death counter? If the cell has less neighbors
 than this value the death counter will be increased by one. Ex. 3
-[ 2 ]
+| 2 |
 ------------------------------------------------------------------------------------------------------------------------

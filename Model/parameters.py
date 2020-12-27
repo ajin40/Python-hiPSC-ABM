@@ -1,52 +1,54 @@
 import numpy as np
 import igraph
+from backend import get_parameter
 
 
 class Simulation:
     """ This object holds all of the important information about the simulation as it
-        runs. The template files are used to update parameters that often change.
+        runs. Variables can be specified either directly or through the template files.
     """
     def __init__(self, paths, name, mode):
-        # read the template files and create instance variables based on their values
+        """
+        The following instance variables can be updated through template files located in the "templates"
+        directory under the "Model" directory. The values must be specified in the .txt files as follows.
 
-        # ------------- general template file -------------------------
-        # open the .txt file and get a list of the lines
-        with open(paths.templates + "general.txt") as general_file:
-            general = general_file.readlines()
+            (outputs.txt)
+            1   How many frames per second of the output video that collects all step images? Ex. 6
+            2   | 6 |
+            3
 
-        # create instance variables based on template parameters
-        self.parallel = eval(general[4][2:-3])
-        self.end_step = int(general[7][2:-3])
-        self.num_nanog = int(general[10][2:-3])
-        self.num_gata6 = int(general[13][2:-3])
-        self.size = np.array(eval(general[16][2:-3]))
+        Note: extraneous spaces before or after the pipes will not affect the interpretation of the
+        parameter. Use get_parameter(path-to-file, line number, data type) to read a specific line
+        of a template file and interpret the value as the desired data type.
 
-        # ------------- outputs template file -------------------------
-        # open the .txt file and get a list of the lines
-        with open(paths.templates + "outputs.txt") as outputs_file:
-            outputs = outputs_file.readlines()
+            self.fps = get_parameter(path, 2, float)
+        """
+        # ------------- general template file ------------------------------
+        general_path = paths.templates + "general.txt"    # path to general.txt template file
+        self.parallel = get_parameter(general_path, 5, bool)
+        self.end_step = get_parameter(general_path, 8, int)
+        self.num_nanog = get_parameter(general_path, 11, int)
+        self.num_gata6 = get_parameter(general_path, 14, int)
+        self.size = np.array(get_parameter(general_path, 17, tuple))
+        self.order_66 = get_parameter(general_path, 20, str)
 
-        # create instance variables based on template parameters
-        self.output_values = eval(outputs[4][2:-3])
-        self.output_tda = eval(outputs[8][2:-3])
-        self.output_gradients = eval(outputs[12][2:-3])
-        self.output_images = eval(outputs[15][2:-3])
-        self.image_quality = int(outputs[19][2:-3])
-        self.fps = float(outputs[22][2:-3])
-        self.color_mode = eval(outputs[26][2:-3])
-        self.output_fgf4_image = eval(outputs[29][2:-3])
+        # ------------- outputs template file ------------------------------
+        outputs_path = paths.templates + "outputs.txt"    # path to outputs.txt template file
+        self.output_values = get_parameter(outputs_path, 5, bool)
+        self.output_tda = get_parameter(outputs_path, 9, bool)
+        self.output_gradients = get_parameter(outputs_path, 13, bool)
+        self.output_images = get_parameter(outputs_path, 16, bool)
+        self.image_quality = get_parameter(outputs_path, 20, int)
+        self.fps = get_parameter(outputs_path, 23, float)
+        self.color_mode = get_parameter(outputs_path, 27, bool)
+        self.output_fgf4_image = get_parameter(outputs_path, 30, bool)
 
         # ------------- experimental template file -------------------------
-        # open the .txt file and get a list of the lines
-        with open(paths.templates + "experimental.txt") as experimental_file:
-            experimental = experimental_file.readlines()
-
-        # create instance variables based on template parameters
-        self.group = int(experimental[4][2:-3])
-        self.guye_move = eval(experimental[8][2:-3])
-        self.lonely_thresh = int(experimental[12][2:-3])
-
-        # ------------------------------------------------------------------
+        experimental_path = paths.templates + "experimental.txt"    # path to experimental.txt template file
+        self.group = get_parameter(experimental_path, 5, int)
+        self.dox_step = get_parameter(experimental_path, 9, int)
+        self.guye_move = get_parameter(experimental_path, 13, bool)
+        self.lonely_thresh = get_parameter(experimental_path, 9, int)
 
         # define any other instance variables that are not part of the template files
 
@@ -65,9 +67,9 @@ class Simulation:
         self.death_thresh = 144
         self.fds_thresh = 1
 
-        # min and max radius lengths are used to calculate linear growth of the radius over time in 2D
+        # min and max radius lengths are used to calculate linear growth of the radius over time
         self.max_radius = 0.000005    # 5 um
-        self.min_radius = self.max_radius / 2 ** 0.5
+        self.min_radius = self.max_radius / 2 ** (1/3)    # half the volume for max radius cell in 3D
         self.pluri_growth = (self.max_radius - self.min_radius) / self.pluri_div_thresh
         self.diff_growth = (self.max_radius - self.min_radius) / self.diff_div_thresh
 
@@ -83,14 +85,13 @@ class Simulation:
         # search for diffusion points, and the max concentration at a diffusion point
         self.spat_res = 0.00000707106
         self.spat_res2 = self.spat_res ** 2
-        self.diffuse = 0.00000000005    # 50 um^2/s
-        self.diffuse_radius = self.spat_res * 0.707106781187    # not being used currently
+        self.diffuse_const = 0.00000000005    # 50 um^2/s
         self.max_concentration = 200    # very arbitrary
 
         # calculate the size of the array for the diffusion points and create gradient array
         self.gradient_size = np.ceil(self.size / self.spat_res).astype(int) + 1
         self.fgf4_values = np.zeros(self.gradient_size, dtype=float)
-        self.fgf4_alt = np.zeros(self.gradient_size, dtype=float)
+        # self.fgf4_alt = np.zeros(self.gradient_size, dtype=float)
 
         # add the names of the gradients below for automatic diffusion updating
         # self.gradient_names = ["fgf4_values", "fgf4_alt"]
@@ -100,9 +101,9 @@ class Simulation:
         ########################################################################################################
         ########################################################################################################
 
-        # these instance variables are rarely changed and serve to keep the model running
+        # these instance variables are rarely changed and are necessary for the model to run
 
-        # hold the name and mode of the simulation and the Paths object
+        # hold the name/mode of the simulation and the Paths object
         self.name = name
         self.mode = mode
         self.paths = paths
