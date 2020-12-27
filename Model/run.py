@@ -5,6 +5,7 @@ import output
 import backend
 import functions
 
+
 # setup() will direct how the model is run based on inputted parameters. If a new simulation is desired, setup()
 # will return an instance of the Simulation object which holds all important information of the simulation as it runs.
 simulation = input.setup()
@@ -48,7 +49,6 @@ if simulation.mode == 0:
     simulation.initials("GATA6", lambda: r.randrange(0, simulation.field), cell_type="GATA6_high")
     simulation.initials("NANOG", lambda: 0, cell_type="GATA6_high")
 
-
 # Add any functions under the loop that will be called during each step of the simulation.
 for simulation.current_step in range(simulation.beginning_step, simulation.end_step + 1):
     # Records model run time for the step and prints the current step/number of cells,
@@ -66,7 +66,7 @@ for simulation.current_step in range(simulation.beginning_step, simulation.end_s
     functions.cell_pathway(simulation)
 
     # Simulates the diffusion for each of the extracellular gradients via the forward time centered space method.
-    # functions.update_diffusion(simulation)
+    functions.update_diffusion(simulation)
 
     # Adds/removes cells to/from the simulation either all together or in desired groups of cells. If done in
     # groups, the handle_movement() function will be used to better represent asynchronous division and death.

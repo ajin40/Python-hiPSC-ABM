@@ -1,7 +1,7 @@
 import cv2
 import csv
 import time
-import memory_profiler
+import psutil
 import numpy as np
 import pickle
 import os
@@ -297,9 +297,10 @@ def simulation_data(simulation):
             # merge the headers together and write the row to the CSV
             csv_object.writerow(header + functions_header)
 
-        # calculate the total step time and get the current memory used by the model
+        # calculate the total step time and get memory of current python process in megabytes
         step_time = time.perf_counter() - simulation.step_start
-        memory = memory_profiler.memory_usage()[0]
+        process = psutil.Process(os.getpid())
+        memory = process.memory_info()[0] / 1024 ** 2
 
         # write the row with the corresponding values
         columns = [simulation.current_step, simulation.number_cells, step_time, memory]

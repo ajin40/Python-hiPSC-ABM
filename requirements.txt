@@ -1,4 +1,4 @@
-memory_profiler
+psutil
 numba
 numpy<=1.19.3
 opencv-python
