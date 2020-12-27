@@ -17,10 +17,11 @@ class Simulation:
             2   | 6 |
             3
 
-        Use get_parameter() to read a specific line of a template file and interpret the value as the
-        desired data type.
+        Note: extraneous spaces before or after the pipes will not affect the interpretation of the
+        parameter. Use get_parameter(path-to-file, line number, data type) to read a specific line
+        of a template file and interpret the value as the desired data type.
 
-            self.fps = get_parameter(path, 2, int)
+            self.fps = get_parameter(path, 2, float)
         """
         # ------------- general template file ------------------------------
         general_path = paths.templates + "general.txt"    # path to general.txt template file
@@ -30,10 +31,9 @@ class Simulation:
         self.num_gata6 = get_parameter(general_path, 14, int)
         self.size = np.array(get_parameter(general_path, 17, tuple))
         self.order_66 = get_parameter(general_path, 20, str)
-        # ------------------------------------------------------------------
 
         # ------------- outputs template file ------------------------------
-        outputs_path = paths.templates + "outputs.txt"  # path to outputs.txt template file
+        outputs_path = paths.templates + "outputs.txt"    # path to outputs.txt template file
         self.output_values = get_parameter(outputs_path, 5, bool)
         self.output_tda = get_parameter(outputs_path, 9, bool)
         self.output_gradients = get_parameter(outputs_path, 13, bool)
@@ -42,14 +42,11 @@ class Simulation:
         self.fps = get_parameter(outputs_path, 23, float)
         self.color_mode = get_parameter(outputs_path, 27, bool)
         self.output_fgf4_image = get_parameter(outputs_path, 30, bool)
-        # ------------------------------------------------------------------
 
         # ------------- experimental template file -------------------------
-        experimental_path = paths.templates + "experimental.txt"  # path to experimental.txt template file
+        experimental_path = paths.templates + "experimental.txt"    # path to experimental.txt template file
         self.group = get_parameter(experimental_path, 5, int)
         self.guye_move = get_parameter(experimental_path, 9, bool)
-        self.lonely_thresh = get_parameter(experimental_path, 13, int)
-        # ------------------------------------------------------------------
 
         # define any other instance variables that are not part of the template files
 
@@ -68,9 +65,9 @@ class Simulation:
         self.death_thresh = 144
         self.fds_thresh = 1
 
-        # min and max radius lengths are used to calculate linear growth of the radius over time in 2D
+        # min and max radius lengths are used to calculate linear growth of the radius over time
         self.max_radius = 0.000005    # 5 um
-        self.min_radius = self.max_radius / 2 ** 0.5
+        self.min_radius = self.max_radius / 2 ** (1/3)    # half the volume for max radius cell in 3D
         self.pluri_growth = (self.max_radius - self.min_radius) / self.pluri_div_thresh
         self.diff_growth = (self.max_radius - self.min_radius) / self.diff_div_thresh
 
@@ -86,8 +83,7 @@ class Simulation:
         # search for diffusion points, and the max concentration at a diffusion point
         self.spat_res = 0.00000707106
         self.spat_res2 = self.spat_res ** 2
-        self.diffuse = 0.00000000005    # 50 um^2/s
-        self.diffuse_radius = self.spat_res * 0.707106781187    # not being used currently
+        self.diffuse_const = 0.00000000005    # 50 um^2/s
         self.max_concentration = 200    # very arbitrary
 
         # calculate the size of the array for the diffusion points and create gradient array
@@ -103,9 +99,9 @@ class Simulation:
         ########################################################################################################
         ########################################################################################################
 
-        # these instance variables are rarely changed and serve to keep the model running
+        # these instance variables are rarely changed and are necessary for the model to run
 
-        # hold the name and mode of the simulation and the Paths object
+        # hold the name/mode of the simulation and the Paths object
         self.name = name
         self.mode = mode
         self.paths = paths

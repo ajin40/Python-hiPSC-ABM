@@ -727,7 +727,7 @@ def update_diffusion(simulation):
 
         # call the JIT diffusion function
         gradient = backend.update_diffusion_jit(base, simulation.step_dt, simulation.diffuse_dt, simulation.spat_res2,
-                                                simulation.diffuse)
+                                                simulation.diffuse_const)
 
         # set max and min concentration values again
         gradient[gradient > simulation.max_concentration] = simulation.max_concentration
@@ -794,7 +794,7 @@ def update_queue(simulation):
             #   close proximity to each other at later time steps. Such addition, coupled with
             #   handling collisions, make give rise to sudden changes in overall positions of
             #   cells within the simulation. Instead, collisions are handled after 'group' number
-            #   of cells are added.
+            #   of cells are added. - Daniel Cruz
 
             # if the current number added is divisible by the group number
             if (i + 1) % simulation.group == 0:

@@ -1,7 +1,7 @@
 -----------------------------------------------------------------------------------------------------------------------
 Experimental
 -----------------------------------------------------------------------------------------------------------------------
-How many cells are added/removed to the simulation at once, per time step? Type 0 if all at once. Ex. 5
+How many cells are added to the simulation at once, per time step? Type 0 if all at once. Ex. 5
 | 0 |
 
 Use the Guye movement method? This mode will have GATA6 high cells move toward differentiated cells simulating

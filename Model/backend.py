@@ -184,7 +184,7 @@ def get_neighbors_cpu(number_cells, bin_locations, locations, bins, bins_help, d
 
 
 @jit(nopython=True, cache=True)
-def update_diffusion_jit(base, step_dt, diffuse_dt, spat_res2, diffuse):
+def update_diffusion_jit(base, step_dt, diffuse_dt, spat_res2, diffuse_const):
     """ A just-in-time compiled function for update_diffusion()
         that performs the actual diffusion calculation.
     """
@@ -192,7 +192,7 @@ def update_diffusion_jit(base, step_dt, diffuse_dt, spat_res2, diffuse):
     steps = math.ceil(step_dt / diffuse_dt)
 
     # holder the following constant for faster computations
-    a = diffuse_dt * diffuse / spat_res2
+    a = diffuse_dt * diffuse_const / spat_res2
     b = 1 - 4 * a
 
     # finite difference to solve laplacian diffusion equation, currently 2D
