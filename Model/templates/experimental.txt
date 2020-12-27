@@ -6,7 +6,7 @@ How many cells are added to the simulation at once, per time step? Type 0 if all
 
 At what step is doxycycline added, allowing cells to become GATA6 high?  This activates the finite dynamical system
 pathway used to quantify the FGF/ERK pathway. Ex. 49
-| 1 |
+| 49 |
 
 Use the Guye movement method? This mode will have GATA6 high cells move toward differentiated cells simulating
 the movement seen in Guye et al. Ex. True
