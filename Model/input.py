@@ -72,7 +72,7 @@ def setup():
             # keep running if "help" is typed
             if mode == "help":
                 print("\nHere are the following modes:\n0: New simulation\n1: Continuation of past simulation\n"
-                      "2: Turn simulation images to video\n3: Zip previous simulation\n")
+                      "2: Turn simulation images to video\n3: Zip previous simulation\n4: Unzip a simulation file\n")
             else:
                 try:
                     # get the mode as an integer make sure mode exists, break the loop if it does
