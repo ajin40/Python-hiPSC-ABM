@@ -781,7 +781,7 @@ def sort_images(image_list):
     """ Uses a regular expression for sorting the image file
         list for the create_video() method in output.py.
     """
-    return int(re.split('(\d+)', image_list)[1])
+    return int(re.split('(\d+)', image_list)[-2])
 
 
 def progress_bar(progress, maximum):
