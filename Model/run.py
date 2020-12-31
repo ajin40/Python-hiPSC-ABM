@@ -46,7 +46,7 @@ if simulation.mode == 0:
     simulation.initials("jkr_forces", lambda: np.zeros(3, dtype=float))
 
     # These are the initial parameters for "GATA6_high" cells, the "cell_type" argument is used to indicate this
-    simulation.initials("GATA6", lambda: r.randrange(0, simulation.field), cell_type="GATA6_high")
+    simulation.initials("GATA6", lambda: r.randrange(1, simulation.field), cell_type="GATA6_high")
     simulation.initials("NANOG", lambda: 0, cell_type="GATA6_high")
 
 # Add any functions under the loop that will be called during each step of the simulation.
