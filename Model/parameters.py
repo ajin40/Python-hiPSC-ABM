@@ -157,8 +157,14 @@ class Simulation:
             else:
                 raise Exception("Tuples for defining cell array parameters should have length 2 or 3.")
 
-            # create an instance variable of the Simulation object for the cell array with these parameters
-            self.__dict__[array_params[0]] = np.empty(size, dtype=array_params[1])
+            # if it's the python string data type, use object type instead
+            if array_params[1] == str:
+                array_type = object
+            else:
+                array_type = array_params[1]
+
+            # create instance variable in Simulation object to represent cell array
+            self.__dict__[array_params[0]] = np.empty(size, dtype=array_type)
 
     def initials(self, array_name, func, cell_type=None):
         """ Given a lambda function for the initial values

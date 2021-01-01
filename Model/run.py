@@ -21,7 +21,7 @@ if simulation.mode == 0:
     # generated. The first index of the tuple is the instance variable name for the Simulation object, the second being
     # the data type, and the last (if present) can be used to create a 2D array.
     simulation.cell_arrays(("locations", float, 3), ("radii", float), ("motion", bool), ("FGFR", int), ("ERK", int),
-                           ("GATA6", int), ("NANOG", int), ("states", "<U14"), ("diff_counters", int),
+                           ("GATA6", int), ("NANOG", int), ("states", str), ("diff_counters", int),
                            ("div_counters", int), ("death_counters", int), ("fds_counters", int),
                            ("motility_forces", float, 3), ("jkr_forces", float, 3), ("nearest_nanog", int),
                            ("nearest_gata6", int), ("nearest_diff", int))
