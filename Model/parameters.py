@@ -69,7 +69,7 @@ class Simulation:
 
         # min and max radius lengths are used to calculate linear growth of the radius over time
         self.max_radius = 0.000005    # 5 um
-        self.min_radius = self.max_radius / 2 ** (1/3)    # half the volume for max radius cell in 3D
+        self.min_radius = self.max_radius / 2 ** 0.5    # half the area for max radius cell in 2D
         self.pluri_growth = (self.max_radius - self.min_radius) / self.pluri_div_thresh
         self.diff_growth = (self.max_radius - self.min_radius) / self.diff_div_thresh
 

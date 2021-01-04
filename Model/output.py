@@ -148,7 +148,7 @@ def step_image(simulation):
 @backend.record_time
 def step_values(simulation):
     """ Outputs a CSV file containing information about
-        from all cell arrays
+        from all cell arrays.
     """
     # only continue if outputting cell values
     if simulation.output_values:
@@ -199,7 +199,7 @@ def step_values(simulation):
 @backend.record_time
 def step_gradients(simulation):
     """ Saves the gradient arrays as .npy files for
-        potential later analysis with python
+        potential later analysis with python.
     """
     # only continue if outputting gradient pickles
     if simulation.output_gradients:
@@ -219,7 +219,7 @@ def step_gradients(simulation):
 @backend.record_time
 def step_tda(simulation):
     """ Output a CSV similar to the step_csv though this
-        contains no header and only key cell info
+        contains no header and only key cell info.
     """
     # only continue if outputting TDA files
     if simulation.output_tda:
@@ -227,42 +227,37 @@ def step_tda(simulation):
         if not os.path.isdir(simulation.paths.tda):
             os.mkdir(simulation.paths.tda)
 
-        # get file path
-        file_path = simulation.paths.tda + simulation.name + "_tda_" + str(int(simulation.current_step)) + ".csv"
+        # get the indices of the gata6 high cells and the non gata6 high cells
+        red_indices = simulation.GATA6 > simulation.NANOG
+        green_indices = np.invert(red_indices)
 
-        # open the file
-        with open(file_path, "w", newline="") as new_file:
+        # get the locations of the cells
+        red_locations = simulation.locations[red_indices][:, 0:2]
+        green_locations = simulation.locations[green_indices][:, 0:2]
+
+        # open the file for red cells
+        red_path = simulation.paths.tda + simulation.name + "_tda_red_" + str(int(simulation.current_step)) + ".csv"
+        with open(red_path, "w", newline="") as new_file:
             # create CSV object
             csv_file = csv.writer(new_file)
 
-            # create a temporary array to write cell colors to
-            cell_colors = np.empty(simulation.number_cells, dtype="<U14")
+            # write the locations to the CSV
+            csv_file.writerows(red_locations)
 
-            # go through all cells giving the corresponding color
-            for i in range(simulation.number_cells):
-                if simulation.states[i] == "Differentiated":
-                    color = "red"
-                elif simulation.GATA6[i] > simulation.NANOG[i]:
-                    color = "white"
-                elif not simulation.GATA6[i] < simulation.NANOG[i]:
-                    color = "green"
-                else:
-                    color = "other"
+        # open the file for green cells
+        green_path = simulation.paths.tda + simulation.name + "_tda_green_" + str(int(simulation.current_step)) + ".csv"
+        with open(green_path, "w", newline="") as new_file:
+            # create CSV object
+            csv_file = csv.writer(new_file)
 
-                # update color
-                cell_colors[i] = color
-
-            # combine the multiple cell arrays into a single 2D list
-            cell_data = list(zip(simulation.locations[:, 0], simulation.locations[:, 1], cell_colors))
-
-            # write the 2D list to the CSV
-            csv_file.writerows(cell_data)
+            # write the locations to the CSV
+            csv_file.writerows(green_locations)
 
 
 @backend.record_time
 def temporary(simulation):
     """ Pickle a copy of the simulation class that can be used
-        to continue a past simulation without losing information
+        to continue a past simulation without losing information.
     """
     # get file path
     file_path = simulation.paths.main + simulation.name + "_temp" + ".pkl"
@@ -276,7 +271,7 @@ def temporary(simulation):
 def simulation_data(simulation):
     """ Creates/adds a new line to the running CSV for data about
         the simulation such as memory, step time, number of cells,
-        and run time of functions
+        and run time of functions.
     """
     # get path to data CSV
     data_path = simulation.paths.main + simulation.name + "_data.csv"
