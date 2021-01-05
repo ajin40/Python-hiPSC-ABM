@@ -122,9 +122,8 @@ class Simulation:
         self.method_times = dict()      # store the runtimes of the various methods as the model runs
 
     def cell_type(self, name, number):
-        """ Creates a new cell type for setting initial parameters
-            and defines a section in the cell arrays that corresponds
-            to this cell type.
+        """ Add cells into the simulation and create a cell type
+            slice for defining initial parameters.
         """
         # determine the bounds of the section and update the number of cells
         begin = self.number_cells
@@ -137,51 +136,41 @@ class Simulation:
         # define the bounds of the section for the cell type name
         self.cell_types[name] = (begin, end)
 
-    def cell_arrays(self, *args):
-        """ Creates Simulation instance variables for each cell array
-            which are used to hold cell values.
+    def cell_array(self, array_name, data_type, function, vector=None):
+        """ Create a Simulation instance variable corresponding to a
+            cell array and apply the initial parameters.
         """
-        # go through all tuples passed
-        for array_params in args:
-            # add the array name to a list for automatic addition/removal when cells divide/die
-            self.cell_array_names.append(array_params[0])
+        # add the array name to a list for automatic addition/removal when cells divide/die
+        self.cell_array_names.append(array_name)
 
-            # get the tuple length to designate if this is a 1D or 2D array
-            length = len(array_params)
-
-            # get the initial size of 1D array if the length is 2, but make a 2D array if a third index is provided
-            if length == 2:
-                size = self.number_cells
-            elif length == 3:
-                size = (self.number_cells, array_params[2])
-            else:
-                raise Exception("Tuples for defining cell array parameters should have length 2 or 3.")
-
-            # if it's the python string data type, use object type instead
-            if array_params[1] == str:
-                array_type = object
-            else:
-                array_type = array_params[1]
-
-            # create instance variable in Simulation object to represent cell array
-            self.__dict__[array_params[0]] = np.empty(size, dtype=array_type)
-
-    def initials(self, array_name, func, cell_type=None):
-        """ Given a lambda function for the initial values
-            of a cell array, update the arrays accordingly.
-        """
-        # if no cell type name provided
-        if cell_type is None:
-            # go through all cells and give this initial parameter
-            for i in range(self.number_cells):
-                self.__dict__[array_name][i] = func()
-
-        # otherwise update the section of the array based on the cell type
+        # get the size of the array
+        if vector is None:
+            size = self.number_cells
         else:
-            # get the beginning and end of the slice
-            begin = self.cell_types[cell_type][0]
-            end = self.cell_types[cell_type][1]
+            if vector < 2:
+                raise Exception("vector keyword value should be greater than 1")
+            else:
+                size = (self.number_cells, vector)
 
-            # update only this slice of the cell array
-            for i in range(begin, end):
-                self.__dict__[array_name][i] = func()
+        # if it's the python string data type, use object data type instead
+        if data_type == str:
+            data_type = object
+
+        # create instance variable in Simulation object to represent cell array
+        self.__dict__[array_name] = np.empty(size, dtype=data_type)
+
+        # apply the initial parameter to each index of the array
+        for i in range(self.number_cells):
+            self.__dict__[array_name][i] = function()
+
+    def alt_initials(self, array_name, cell_type, function):
+        """ Using the lambda function apply different initial
+            parameters based on the cell type.
+        """
+        # get the beginning and end of the slice
+        begin = self.cell_types[cell_type][0]
+        end = self.cell_types[cell_type][1]
+
+        # update only this slice of the cell array
+        for i in range(begin, end):
+            self.__dict__[array_name][i] = function()
