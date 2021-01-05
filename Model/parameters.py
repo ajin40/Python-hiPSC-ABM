@@ -122,9 +122,8 @@ class Simulation:
         self.method_times = dict()      # store the runtimes of the various methods as the model runs
 
     def cell_type(self, name, number):
-        """ Creates a new cell type for setting initial parameters
-            and defines a section in the cell arrays that corresponds
-            to this cell type.
+        """ Add cells into the simulation and create a cell type
+            slice for defining initial parameters.
         """
         # determine the bounds of the section and update the number of cells
         begin = self.number_cells
@@ -137,9 +136,9 @@ class Simulation:
         # define the bounds of the section for the cell type name
         self.cell_types[name] = (begin, end)
 
-    def cell_arrays(self, array_name, data_type, function, vector=None):
-        """ Creates Simulation instance variables for each cell array
-            which are used to hold cell values.
+    def cell_array(self, array_name, data_type, function, vector=None):
+        """ Create a Simulation instance variable corresponding to a
+            cell array and apply the initial parameters.
         """
         # add the array name to a list for automatic addition/removal when cells divide/die
         self.cell_array_names.append(array_name)
@@ -153,32 +152,25 @@ class Simulation:
             else:
                 size = (self.number_cells, vector)
 
-        # if it's the python string data type, use object type instead
+        # if it's the python string data type, use object data type instead
         if data_type == str:
             data_type = object
 
         # create instance variable in Simulation object to represent cell array
         self.__dict__[array_name] = np.empty(size, dtype=data_type)
 
+        # apply the initial parameter to each index of the array
         for i in range(self.number_cells):
+            self.__dict__[array_name][i] = function()
 
-
-    def initials(self, array_name, func, cell_type=None):
-        """ Given a lambda function for the initial values
-            of a cell array, update the arrays accordingly.
+    def alt_initials(self, array_name, cell_type, function):
+        """ Using the lambda function apply different initial
+            parameters based on the cell type.
         """
-        # if no cell type name provided
-        if cell_type is None:
-            # go through all cells and give this initial parameter
-            for i in range(self.number_cells):
-                self.__dict__[array_name][i] = func()
+        # get the beginning and end of the slice
+        begin = self.cell_types[cell_type][0]
+        end = self.cell_types[cell_type][1]
 
-        # otherwise update the section of the array based on the cell type
-        else:
-            # get the beginning and end of the slice
-            begin = self.cell_types[cell_type][0]
-            end = self.cell_types[cell_type][1]
-
-            # update only this slice of the cell array
-            for i in range(begin, end):
-                self.__dict__[array_name][i] = func()
+        # update only this slice of the cell array
+        for i in range(begin, end):
+            self.__dict__[array_name][i] = function()
