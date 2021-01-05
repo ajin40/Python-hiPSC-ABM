@@ -1,6 +1,6 @@
 import numpy as np
 import igraph
-from backend import get_parameter
+import input
 
 
 class Simulation:
@@ -25,30 +25,30 @@ class Simulation:
         """
         # ------------- general template file ------------------------------
         general_path = paths.templates + "general.txt"    # path to general.txt template file
-        self.parallel = get_parameter(general_path, 5, bool)
-        self.end_step = get_parameter(general_path, 8, int)
-        self.num_nanog = get_parameter(general_path, 11, int)
-        self.num_gata6 = get_parameter(general_path, 14, int)
-        self.size = np.array(get_parameter(general_path, 17, tuple))
-        self.order_66 = get_parameter(general_path, 20, str)
+        self.parallel = input.get_parameter(general_path, 5, bool)
+        self.end_step = input.get_parameter(general_path, 8, int)
+        self.num_nanog = input.get_parameter(general_path, 11, int)
+        self.num_gata6 = input.get_parameter(general_path, 14, int)
+        self.size = np.array(input.get_parameter(general_path, 17, tuple))
+        self.order_66 = input.get_parameter(general_path, 20, str)
 
         # ------------- outputs template file ------------------------------
         outputs_path = paths.templates + "outputs.txt"    # path to outputs.txt template file
-        self.output_values = get_parameter(outputs_path, 5, bool)
-        self.output_tda = get_parameter(outputs_path, 9, bool)
-        self.output_gradients = get_parameter(outputs_path, 13, bool)
-        self.output_images = get_parameter(outputs_path, 16, bool)
-        self.image_quality = get_parameter(outputs_path, 20, int)
-        self.fps = get_parameter(outputs_path, 23, float)
-        self.color_mode = get_parameter(outputs_path, 27, bool)
-        self.output_fgf4_image = get_parameter(outputs_path, 30, bool)
+        self.output_values = input.get_parameter(outputs_path, 5, bool)
+        self.output_tda = input.get_parameter(outputs_path, 9, bool)
+        self.output_gradients = input.get_parameter(outputs_path, 13, bool)
+        self.output_images = input.get_parameter(outputs_path, 16, bool)
+        self.image_quality = input.get_parameter(outputs_path, 20, int)
+        self.fps = input.get_parameter(outputs_path, 23, float)
+        self.color_mode = input.get_parameter(outputs_path, 27, bool)
+        self.output_fgf4_image = input.get_parameter(outputs_path, 30, bool)
 
         # ------------- experimental template file -------------------------
         experimental_path = paths.templates + "experimental.txt"    # path to experimental.txt template file
-        self.group = get_parameter(experimental_path, 5, int)
-        self.dox_step = get_parameter(experimental_path, 9, int)
-        self.guye_move = get_parameter(experimental_path, 13, bool)
-        self.lonely_thresh = get_parameter(experimental_path, 17, int)
+        self.group = input.get_parameter(experimental_path, 5, int)
+        self.dox_step = input.get_parameter(experimental_path, 9, int)
+        self.guye_move = input.get_parameter(experimental_path, 13, bool)
+        self.lonely_thresh = input.get_parameter(experimental_path, 17, int)
 
         # define any other instance variables that are not part of the template files
 
@@ -121,20 +121,20 @@ class Simulation:
         self.cell_types = dict()          # holds the names of the cell types defined in run.py
         self.method_times = dict()      # store the runtimes of the various methods as the model runs
 
-    def cell_type(self, name, number):
-        """ Add cells into the simulation and create a cell type
-            slice for defining initial parameters.
+    def cell_type(self, type_name, number):
+        """ Add cells into the simulation and creates a cell type slice
+            for defining initial parameters of the cell arrays.
         """
+        # add that number of cells to each of the graphs
+        for graph in self.graph_names:
+            self.__dict__[graph].add_vertices(number)
+
         # determine the bounds of the section and update the number of cells
         begin = self.number_cells
         end = self.number_cells = begin + number
 
-        # add that many cells to each of the graphs
-        for graph in self.graph_names:
-            self.__dict__[graph].add_vertices(number)
-
-        # define the bounds of the section for the cell type name
-        self.cell_types[name] = (begin, end)
+        # define the bounds of the cell array slice for this cell type
+        self.cell_types[type_name] = (begin, end)
 
     def cell_array(self, array_name, data_type, function, vector=None):
         """ Create a Simulation instance variable corresponding to a
@@ -143,20 +143,22 @@ class Simulation:
         # add the array name to a list for automatic addition/removal when cells divide/die
         self.cell_array_names.append(array_name)
 
-        # get the size of the array
-        if vector is None:
-            size = self.number_cells
-        else:
-            if vector < 2:
-                raise Exception("vector keyword value should be greater than 1")
-            else:
-                size = (self.number_cells, vector)
-
-        # if it's the python string data type, use object data type instead
+        # if using python string data type, use object data type instead as this is what numpy prefers5
         if data_type == str:
             data_type = object
 
-        # create instance variable in Simulation object to represent cell array
+        # get the dimensions of the array
+        if vector is None:
+            # 1-dimension array
+            size = self.number_cells
+        else:
+            # 2-dimension array (1D array of vectors)
+            if vector < 2:
+                raise Exception("\"vector\" keyword argument should be greater than 1")
+            else:
+                size = (self.number_cells, vector)
+
+        # create cell array in Simulation object
         self.__dict__[array_name] = np.empty(size, dtype=data_type)
 
         # apply the initial parameter to each index of the array
