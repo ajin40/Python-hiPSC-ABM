@@ -764,12 +764,12 @@ def record_time(function):
         this information in a dict in the simulation object.
     """
     @wraps(function)
-    def wrap(simulation):    # simulation should be the only input to the method
+    def wrap(simulation, *args, **kwargs):    # args and kwargs are for additional arguments and keywords
         # hold the start time
         simulation.method_times[function.__name__] = -1 * time.perf_counter()
 
         # call the method
-        function(simulation)
+        function(simulation, *args, **kwargs)
 
         # get the time elapsed
         simulation.method_times[function.__name__] += time.perf_counter()
@@ -800,48 +800,3 @@ def progress_bar(progress, maximum):
 
     # output the progress bar
     print('\r[%s] %s%s' % (bar, percent, '%'), end="")
-
-
-def get_parameter(path, line_number, dtype):
-    """ Gets the parameter as a string from the lines of the
-        template file.
-    """
-    # make an attribute with name as template file path and value as a list of the file lines (reduces file opening)
-    if not hasattr(get_parameter, path):
-        with open(path) as file:
-            get_parameter.path = file.readlines()
-
-    # get the right line based on the line numbers not Python indexing
-    line = get_parameter.path[line_number - 1]
-
-    # find the indices of the pipe characters
-    start = line.find("|")
-    end = line.find("|", start + 1)
-
-    # raise error if not a pair of pipe characters
-    if start == -1 or end == -1:
-        raise Exception("Please use pipe characters to specify template file parameters. Example: | (value) |")
-
-    # return a slice of the line that is the string representation of the parameter and remove any whitespace
-    parameter = line[(start + 1):end].strip()
-
-    # convert the parameter from string to desired data type
-    if dtype == str:
-        pass
-    elif dtype == tuple or dtype == list or dtype == dict:
-        # tuple() list() dict() will not produce desired result, use eval() instead
-        parameter = eval(parameter)
-    elif dtype == bool:
-        # handle potential inputs for booleans
-        if parameter in ["True", "true", "T", "t", "1"]:
-            parameter = True
-        elif parameter in ["False", "false", "F", "f", "0"]:
-            parameter = False
-        else:
-            raise Exception("Invalid value for bool type")
-    else:
-        # for float and int type
-        parameter = dtype(parameter)
-
-    # get the parameter by removing the pipe characters and any whitespace
-    return parameter
