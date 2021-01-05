@@ -137,34 +137,31 @@ class Simulation:
         # define the bounds of the section for the cell type name
         self.cell_types[name] = (begin, end)
 
-    def cell_arrays(self, *args):
+    def cell_arrays(self, array_name, data_type, function, vector=None):
         """ Creates Simulation instance variables for each cell array
             which are used to hold cell values.
         """
-        # go through all tuples passed
-        for array_params in args:
-            # add the array name to a list for automatic addition/removal when cells divide/die
-            self.cell_array_names.append(array_params[0])
+        # add the array name to a list for automatic addition/removal when cells divide/die
+        self.cell_array_names.append(array_name)
 
-            # get the tuple length to designate if this is a 1D or 2D array
-            length = len(array_params)
-
-            # get the initial size of 1D array if the length is 2, but make a 2D array if a third index is provided
-            if length == 2:
-                size = self.number_cells
-            elif length == 3:
-                size = (self.number_cells, array_params[2])
+        # get the size of the array
+        if vector is None:
+            size = self.number_cells
+        else:
+            if vector < 2:
+                raise Exception("vector keyword value should be greater than 1")
             else:
-                raise Exception("Tuples for defining cell array parameters should have length 2 or 3.")
+                size = (self.number_cells, vector)
 
-            # if it's the python string data type, use object type instead
-            if array_params[1] == str:
-                array_type = object
-            else:
-                array_type = array_params[1]
+        # if it's the python string data type, use object type instead
+        if data_type == str:
+            data_type = object
 
-            # create instance variable in Simulation object to represent cell array
-            self.__dict__[array_params[0]] = np.empty(size, dtype=array_type)
+        # create instance variable in Simulation object to represent cell array
+        self.__dict__[array_name] = np.empty(size, dtype=data_type)
+
+        for i in range(self.number_cells):
+
 
     def initials(self, array_name, func, cell_type=None):
         """ Given a lambda function for the initial values
