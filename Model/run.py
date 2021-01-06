@@ -49,7 +49,6 @@ def steps(simulation):
     """ Specify the order of the methods for each step and include
         any functions that are called before or after all steps.
     """
-    # Add any functions under the loop that will be called during each step of the simulation.
     for simulation.current_step in range(simulation.beginning_step, simulation.end_step + 1):
         # Records model run time for the step and prints the current step/number of cells,
         backend.info(simulation)
