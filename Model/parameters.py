@@ -136,43 +136,52 @@ class Simulation:
         # define the bounds of the cell array slice for this cell type
         self.cell_types[type_name] = (begin, end)
 
-    def cell_array(self, array_name, data_type, function, vector=None):
-        """ Create a Simulation instance variable corresponding to a
-            cell array and apply the initial parameters.
+    def cell_array(self, array_name, function, dtype=float, vector=None, cell_type=None):
+        """ Create or modify a Simulation instance variable corresponding to a
+            cell array with initial parameters.
         """
-        # add the array name to a list for automatic addition/removal when cells divide/die
-        self.cell_array_names.append(array_name)
+        # check to see if cell array already exists
+        if not hasattr(self, array_name):
+            # if no cell type specified, create new cell array
+            if cell_type is None:
+                # add the array name to a list for automatic addition/removal when cells divide/die
+                self.cell_array_names.append(array_name)
 
-        # if using python string data type, use object data type instead as this is what numpy prefers5
-        if data_type == str:
-            data_type = object
+                # if using python string data type, use object data type instead as this is what numpy prefers5
+                if dtype == str:
+                    dtype = object
 
-        # get the dimensions of the array
-        if vector is None:
-            # 1-dimension array
-            size = self.number_cells
-        else:
-            # 2-dimension array (1D array of vectors)
-            if vector < 2:
-                raise Exception("\"vector\" keyword argument should be greater than 1")
+                # get the dimensions of the array
+                if vector is None:
+                    # 1-dimension array
+                    size = self.number_cells
+                else:
+                    # 2-dimension array (1D array of vectors)
+                    size = (self.number_cells, vector)
+
+                # create cell array in Simulation object
+                self.__dict__[array_name] = np.empty(size, dtype=dtype)
+
+                # apply the initial parameter to each index of the array
+                for i in range(self.number_cells):
+                    self.__dict__[array_name][i] = function()
+
+            # if there is a cell type specified, raise error
             else:
-                size = (self.number_cells, vector)
+                raise Exception("No cell array: " + array_name + " exists for modifying initial parameters")
 
-        # create cell array in Simulation object
-        self.__dict__[array_name] = np.empty(size, dtype=data_type)
+        # if array already exists
+        else:
+            # if no cell type specified, raise error for duplicate array
+            if cell_type is None:
+                raise Exception("Cell array: " + array_name + " already exists")
 
-        # apply the initial parameter to each index of the array
-        for i in range(self.number_cells):
-            self.__dict__[array_name][i] = function()
+            # otherwise modify initial parameters for slice of array based on specified cell type
+            else:
+                # get the beginning and end of the slice
+                begin = self.cell_types[cell_type][0]
+                end = self.cell_types[cell_type][1]
 
-    def alt_initials(self, array_name, cell_type, function):
-        """ Using the lambda function apply different initial
-            parameters based on the cell type.
-        """
-        # get the beginning and end of the slice
-        begin = self.cell_types[cell_type][0]
-        end = self.cell_types[cell_type][1]
-
-        # update only this slice of the cell array
-        for i in range(begin, end):
-            self.__dict__[array_name][i] = function()
+                # update only this slice of the cell array
+                for i in range(begin, end):
+                    self.__dict__[array_name][i] = function()
