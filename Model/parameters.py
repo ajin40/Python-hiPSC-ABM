@@ -121,67 +121,58 @@ class Simulation:
         self.cell_types = dict()          # holds the names of the cell types defined in run.py
         self.method_times = dict()      # store the runtimes of the various methods as the model runs
 
-    def cell_type(self, type_name, number):
-        """ Add cells into the simulation and creates a cell type slice
-            for defining initial parameters of the cell arrays.
+    def add_cells(self, number, cell_type=None):
+        """ Add cells into the simulation and optionally create a cell type
+            slice for defining alternative initial parameters.
         """
         # add that number of cells to each of the graphs
         for graph in self.graph_names:
             self.__dict__[graph].add_vertices(number)
 
-        # determine the bounds of the section and update the number of cells
+        # determine the bounds of the slice and update the number of cells
         begin = self.number_cells
         end = self.number_cells = begin + number
 
-        # define the bounds of the cell array slice for this cell type
-        self.cell_types[type_name] = (begin, end)
+        # if a cell type name is passed, hold the slice bounds for that particular cell type
+        if cell_type is not None:
+            self.cell_types[cell_type] = (begin, end)
 
     def cell_array(self, array_name, function, dtype=float, vector=None, cell_type=None):
         """ Create or modify a Simulation instance variable corresponding to a
             cell array with initial parameters.
         """
-        # check to see if cell array already exists
-        if not hasattr(self, array_name):
-            # if no cell type specified, create new cell array
-            if cell_type is None:
-                # add the array name to a list for automatic addition/removal when cells divide/die
-                self.cell_array_names.append(array_name)
+        # if the cell array does not exist and there is no cell type specified, create new array
+        if not hasattr(self, array_name) and cell_type is None:
+            # add the array name to a list for automatic addition/removal when cells divide/die
+            self.cell_array_names.append(array_name)
 
-                # if using python string data type, use object data type instead as this is what numpy prefers5
-                if dtype == str:
-                    dtype = object
+            # if using python string data type, use object data type instead as this is what numpy prefers
+            if dtype == str:
+                dtype = object
 
-                # get the dimensions of the array
-                if vector is None:
-                    # 1-dimension array
-                    size = self.number_cells
-                else:
-                    # 2-dimension array (1D array of vectors)
-                    size = (self.number_cells, vector)
-
-                # create cell array in Simulation object
-                self.__dict__[array_name] = np.empty(size, dtype=dtype)
-
-                # apply the initial parameter to each index of the array
-                for i in range(self.number_cells):
-                    self.__dict__[array_name][i] = function()
-
-            # if there is a cell type specified, raise error
+            # get the dimensions of the array
+            if vector is None:
+                size = self.number_cells    # 1-dimensional array
             else:
-                raise Exception("No cell array: " + array_name + " exists for modifying initial parameters")
+                size = (self.number_cells, vector)    # 2-dimensional array (1-dimensional of vectors)
 
-        # if array already exists
+            # create cell array in Simulation object
+            self.__dict__[array_name] = np.empty(size, dtype=dtype)
+
+            # apply the initial parameter to each index of the array
+            for i in range(self.number_cells):
+                self.__dict__[array_name][i] = function()
+
+        # if array already exists and there is a cell type defined, update the initial parameters for that cell type
+        elif hasattr(self, array_name) and cell_type is not None:
+            # get the bounds of the slice
+            begin = self.cell_types[cell_type][0]
+            end = self.cell_types[cell_type][1]
+
+            # update only this slice of the cell array
+            for i in range(begin, end):
+                self.__dict__[array_name][i] = function()
+
         else:
-            # if no cell type specified, raise error for duplicate array
-            if cell_type is None:
-                raise Exception("Cell array: " + array_name + " already exists")
-
-            # otherwise modify initial parameters for slice of array based on specified cell type
-            else:
-                # get the beginning and end of the slice
-                begin = self.cell_types[cell_type][0]
-                end = self.cell_types[cell_type][1]
-
-                # update only this slice of the cell array
-                for i in range(begin, end):
-                    self.__dict__[array_name][i] = function()
+            raise Exception("Cell array with initial parameters should exist prior to passing alternative"
+                            "initial parameters based on the cell type.")

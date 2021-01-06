@@ -12,13 +12,13 @@ if __name__ == "__main__":
 
 
 def setup_cells(simulation):
-    """ Specify any particular cell types and initialize the cell arrays
-        with either general parameters or cell type specific parameters.
+    """ Specify the number of cells and initialize the cell arrays with
+        either general parameters or cell type specific parameters.
     """
-    # Define the number of cells for each cell type. These names can be used to initialize the model with specific
-    # numbers of cell types that may differ in initial parameters.
-    simulation.cell_type("NANOG_high", simulation.num_nanog)
-    simulation.cell_type("GATA6_high", simulation.num_gata6)
+    # Add cells into the simulation. The cell_type keyword argument can be used to pass alternative initial
+    # parameters by defining a cell type name which can be referenced with the cell_array() method.
+    simulation.add_cells(simulation.num_nanog)
+    simulation.add_cells(simulation.num_gata6, cell_type="GATA6_high")
 
     # Define the cell arrays and their initial parameters with lambda functions. This will create instance variables
     # in the Simulation object with the name specified. The vector keyword can be used to make 2-dimensional arrays.
@@ -66,7 +66,7 @@ def steps(simulation):
         functions.cell_pathway(simulation)
 
         # Simulates the diffusion for each of the extracellular gradients via the forward time centered space method.
-        # functions.update_diffusion(simulation)
+        functions.update_diffusion(simulation)
 
         # Adds/removes cells to/from the simulation either all together or in desired groups of cells. If done in
         # groups, the handle_movement() function will be used to better represent asynchronous division and death.
