@@ -12,37 +12,38 @@ if __name__ == "__main__":
 
 
 def setup_cells(simulation):
-    """ Specify any particular cell types and initialize the cell arrays
-        with either general parameters or cell type specific parameters.
+    """ Specify the number of cells and initialize the cell arrays with
+        either general parameters or cell type specific parameters.
     """
-    # Define the number of cells for each cell type. These names can be used to initialize the model with specific
-    # numbers of cell types that may differ in initial parameters.
-    simulation.cell_type("NANOG_high", simulation.num_nanog)
-    simulation.cell_type("GATA6_high", simulation.num_gata6)
+    # Add cells into the simulation. The cell_type keyword argument can be used to pass alternative initial
+    # parameters by defining a cell type name which can be referenced with the cell_array() method.
+    simulation.add_cells(simulation.num_nanog)
+    simulation.add_cells(simulation.num_gata6, cell_type="GATA6_high")
 
     # Define the cell arrays and their initial parameters with lambda functions. This will create instance variables
     # in the Simulation object with the name specified. The vector keyword can be used to make 2-dimensional arrays.
-    simulation.cell_array("locations", float, lambda: np.random.rand(3) * simulation.size, vector=3)
-    simulation.cell_array("radii", float, lambda: simulation.min_radius)
-    simulation.cell_array("motion", bool, lambda: True)
-    simulation.cell_array("FGFR", int, lambda: r.randrange(0, simulation.field))
-    simulation.cell_array("ERK", int, lambda: r.randrange(0, simulation.field))
-    simulation.cell_array("GATA6", int, lambda: 0)
-    simulation.cell_array("NANOG", int, lambda: r.randrange(1, simulation.field))
-    simulation.cell_array("states", str, lambda: "Pluripotent")
-    simulation.cell_array("death_counters", int, lambda: r.randrange(0, simulation.death_thresh))
-    simulation.cell_array("diff_counters", int, lambda: r.randrange(0, simulation.pluri_to_diff))
-    simulation.cell_array("div_counters", int, lambda: r.randrange(0, simulation.pluri_div_thresh))
-    simulation.cell_array("fds_counters", int, lambda: r.randrange(0, simulation.fds_thresh))
-    simulation.cell_array("motility_forces", float, lambda: np.zeros(3), vector=3)
-    simulation.cell_array("jkr_forces", float, lambda: np.zeros(3), vector=3)
-    simulation.cell_array("nearest_nanog", int, lambda: -1)
-    simulation.cell_array("nearest_gata6", int, lambda: -1)
-    simulation.cell_array("nearest_diff", int, lambda: -1)
+    simulation.cell_array("locations", lambda: np.random.rand(3) * simulation.size, dtype=float, vector=3)
+    simulation.cell_array("radii", lambda: simulation.min_radius, dtype=float)
+    simulation.cell_array("motion", lambda: True, dtype=bool)
+    simulation.cell_array("FGFR", lambda: r.randrange(0, simulation.field), dtype=int)
+    simulation.cell_array("ERK", lambda: r.randrange(0, simulation.field), dtype=int)
+    simulation.cell_array("GATA6", lambda: 0, dtype=int)
+    simulation.cell_array("NANOG", lambda: r.randrange(1, simulation.field), dtype=int)
+    simulation.cell_array("states", lambda: "Pluripotent", dtype=str)
+    simulation.cell_array("death_counters", lambda: r.randrange(0, simulation.death_thresh), dtype=int)
+    simulation.cell_array("diff_counters", lambda: r.randrange(0, simulation.pluri_to_diff), dtype=int)
+    simulation.cell_array("div_counters", lambda: r.randrange(0, simulation.pluri_div_thresh), dtype=int)
+    simulation.cell_array("fds_counters", lambda: r.randrange(0, simulation.fds_thresh), dtype=int)
+    simulation.cell_array("motility_forces", lambda: np.zeros(3), dtype=float, vector=3)
+    simulation.cell_array("jkr_forces", lambda: np.zeros(3), dtype=float, vector=3)
+    simulation.cell_array("nearest_nanog", lambda: -1, dtype=int)
+    simulation.cell_array("nearest_gata6", lambda: -1, dtype=int)
+    simulation.cell_array("nearest_diff", lambda: -1, dtype=int)
 
-    # Modify the initial parameters for the number of cells specified with GATA6_high cell type
-    simulation.alt_initials("GATA6", "GATA6_high", lambda: r.randrange(1, simulation.field))
-    simulation.alt_initials("NANOG", "GATA6_high", lambda: 0)
+    # Alternatively the cell_array() method can be used to modify the initial parameters for a given cell type
+    # which corresponds to modifying a slice of the cell array containing all cells.
+    simulation.cell_array("GATA6", lambda: r.randrange(1, simulation.field), cell_type="GATA6_high")
+    simulation.cell_array("NANOG", lambda: 0, cell_type="GATA6_high")
 
 
 def steps(simulation):
@@ -65,7 +66,7 @@ def steps(simulation):
         functions.cell_pathway(simulation)
 
         # Simulates the diffusion for each of the extracellular gradients via the forward time centered space method.
-        # functions.update_diffusion(simulation)
+        functions.update_diffusion(simulation)
 
         # Adds/removes cells to/from the simulation either all together or in desired groups of cells. If done in
         # groups, the handle_movement() function will be used to better represent asynchronous division and death.
