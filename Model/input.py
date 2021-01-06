@@ -6,9 +6,10 @@ import getopt
 
 import output
 import parameters
+import run
 
 
-def setup():
+def start():
     """ Takes parameters from files, the command line,
         and/or a text-based GUI to start the model.
     """
@@ -157,6 +158,10 @@ def setup():
         # create Simulation object
         simulation = parameters.Simulation(paths, name, mode)
 
+        # initialize the cell arrays and start running
+        run.setup_cells(simulation)
+        run.steps(simulation)
+
     # -------------- continuation of previous simulation ---------------------------
     elif mode == 1:
         # get the new end step of the simulation
@@ -171,6 +176,9 @@ def setup():
         simulation.end_step = end_step                             # update end step
         simulation.mode = mode            # prevents the initialization of cell arrays and such
         simulation.paths = paths          # update the paths for the case of continuing in different location
+
+        # start running
+        run.steps(simulation)
 
     # -------------- images to video ---------------------------
     elif mode == 2:
@@ -205,9 +213,6 @@ def setup():
         print("Done!")
         exit()
 
-    # return the simulation based on the simulation mode
-    return simulation
-
 
 def get_parameter(path, line_number, dtype):
     """ Gets the parameter as a string from the lines of the
@@ -222,15 +227,15 @@ def get_parameter(path, line_number, dtype):
     line = get_parameter.path[line_number - 1]
 
     # find the indices of the pipe characters
-    start = line.find("|")
-    end = line.find("|", start + 1)
+    begin = line.find("|")
+    end = line.find("|", begin + 1)
 
     # raise error if not a pair of pipe characters
-    if start == -1 or end == -1:
+    if begin == -1 or end == -1:
         raise Exception("Please use pipe characters to specify template file parameters. Example: | (value) |")
 
     # return a slice of the line that is the string representation of the parameter and remove any whitespace
-    parameter = line[(start + 1):end].strip()
+    parameter = line[(begin + 1):end].strip()
 
     # convert the parameter from string to desired data type
     if dtype == str:

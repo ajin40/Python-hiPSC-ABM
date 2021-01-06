@@ -1,8 +1,8 @@
+import numpy as np
 import cv2
 import csv
 import time
 import psutil
-import numpy as np
 import pickle
 import os
 import math

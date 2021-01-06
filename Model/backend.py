@@ -1,8 +1,8 @@
+import numpy as np
+import random as r
 import math
 import time
 import re
-import numpy as np
-import random as r
 from numba import jit, cuda, prange
 from functools import wraps
 

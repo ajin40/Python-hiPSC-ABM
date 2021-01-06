@@ -1,7 +1,7 @@
 import numpy as np
-from numba import cuda
-import math
 import random as r
+import math
+from numba import cuda
 
 import backend
 
