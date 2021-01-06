@@ -1,13 +1,15 @@
 import numpy as np
 import igraph
 import input
+from backend import Base
 
 
-class Simulation:
+class Simulation(Base):
     """ This object holds all of the important information about the simulation as it
         runs. Variables can be specified either directly or through the template files.
     """
     def __init__(self, paths, name, mode):
+        super().__init__(paths, name, mode)
         """
         The following instance variables can be updated through template files located in the "templates"
         directory under the "Model" directory. The values must be specified in the .txt files as follows.
@@ -96,83 +98,3 @@ class Simulation:
         # add the names of the gradients below for automatic diffusion updating
         # self.gradient_names = ["fgf4_values", "fgf4_alt"]
         self.gradient_names = ["fgf4_values"]
-
-        ########################################################################################################
-        ########################################################################################################
-        ########################################################################################################
-
-        # these instance variables are rarely changed and are necessary for the model to run
-
-        # hold the name/mode of the simulation and the Paths object
-        self.name = name
-        self.mode = mode
-        self.paths = paths
-
-        # hold the number of cells and the step to begin at (can be altered by various modes)
-        self.number_cells = 0
-        self.beginning_step = 1
-
-        # arrays to store the cells set to divide or die
-        self.cells_to_divide = np.array([], dtype=int)
-        self.cells_to_remove = np.array([], dtype=int)
-
-        # various other holders
-        self.cell_array_names = list()    # stores the names of the cell arrays
-        self.cell_types = dict()          # holds the names of the cell types defined in run.py
-        self.method_times = dict()      # store the runtimes of the various methods as the model runs
-
-    def add_cells(self, number, cell_type=None):
-        """ Add cells into the simulation and optionally create a cell type
-            slice for defining alternative initial parameters.
-        """
-        # add that number of cells to each of the graphs
-        for graph in self.graph_names:
-            self.__dict__[graph].add_vertices(number)
-
-        # determine the bounds of the slice and update the number of cells
-        begin = self.number_cells
-        end = self.number_cells = begin + number
-
-        # if a cell type name is passed, hold the slice bounds for that particular cell type
-        if cell_type is not None:
-            self.cell_types[cell_type] = (begin, end)
-
-    def cell_array(self, array_name, function, dtype=float, vector=None, cell_type=None):
-        """ Create or modify a Simulation instance variable corresponding to a
-            cell array with initial parameters.
-        """
-        # if the cell array does not exist and there is no cell type specified, create new array
-        if not hasattr(self, array_name) and cell_type is None:
-            # add the array name to a list for automatic addition/removal when cells divide/die
-            self.cell_array_names.append(array_name)
-
-            # if using python string data type, use object data type instead as this is what numpy prefers
-            if dtype == str:
-                dtype = object
-
-            # get the dimensions of the array
-            if vector is None:
-                size = self.number_cells    # 1-dimensional array
-            else:
-                size = (self.number_cells, vector)    # 2-dimensional array (1-dimensional of vectors)
-
-            # create cell array in Simulation object
-            self.__dict__[array_name] = np.empty(size, dtype=dtype)
-
-            # apply the initial parameter to each index of the array
-            for i in range(self.number_cells):
-                self.__dict__[array_name][i] = function()
-
-        # if array already exists and there is a cell type defined, update the initial parameters for that cell type
-        elif hasattr(self, array_name) and cell_type is not None:
-            # get the bounds of the slice
-            begin = self.cell_types[cell_type][0]
-            end = self.cell_types[cell_type][1]
-
-            # update only this slice of the cell array
-            for i in range(begin, end):
-                self.__dict__[array_name][i] = function()
-
-        else:
-            raise Exception("Cell array with initial parameters should exist prior to passing alternative"
-                            "initial parameters based on the cell type.")
