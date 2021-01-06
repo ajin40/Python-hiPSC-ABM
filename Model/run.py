@@ -1,16 +1,20 @@
 import numpy as np
 import random as r
+
 import input
 import output
 import backend
 import functions
 
-# call input.start() if this file is being run directly and not imported
+# call input.start() if this file is being run directly
 if __name__ == "__main__":
     input.start()
 
 
 def setup_cells(simulation):
+    """ Specify any particular cell types and initialize the cell arrays
+        with either general parameters or cell type specific parameters.
+    """
     # Define the number of cells for each cell type. These names can be used to initialize the model with specific
     # numbers of cell types that may differ in initial parameters.
     simulation.cell_type("NANOG_high", simulation.num_nanog)
@@ -42,6 +46,9 @@ def setup_cells(simulation):
 
 
 def steps(simulation):
+    """ Specify the order of the methods for each step and include
+        any functions that are called before or after all steps.
+    """
     # Add any functions under the loop that will be called during each step of the simulation.
     for simulation.current_step in range(simulation.beginning_step, simulation.end_step + 1):
         # Records model run time for the step and prints the current step/number of cells,
