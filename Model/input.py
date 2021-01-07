@@ -154,7 +154,7 @@ def start():
     # -------------- new simulation ---------------------------
     if mode == 0:
         # copy model files and template parameters
-        shutil.copytree(os.getcwd(), sim_path + name + "_copy")
+        shutil.copytree(os.getcwd(), sim_path + name + "_copy", ignore=shutil.ignore_patterns("__pycache__"))
 
         # create Simulation object
         simulation = parameters.Simulation(paths, name, mode)
