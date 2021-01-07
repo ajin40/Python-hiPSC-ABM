@@ -8,9 +8,8 @@ Do you want topological data analysis (TDA) files produced at each step? These f
 of cells with basic color labeling. Ex. True
 | True |
 
-Do you want the extracellular gradients pickled at each step? These can be re-opened via the numpy library for future
-analysis. Ex. True
-| False |
+Do you want the 2D extracellular gradients saved as CSVs at each step? Ex. True
+| True |
 
 Do you want an image produced at each step and a video at the end of the simulation? Ex. True
 | True |
