@@ -7,6 +7,7 @@ import getopt
 import output
 import parameters
 import run
+import tda
 
 
 def start():
@@ -62,7 +63,7 @@ def start():
                 break
 
     # hold the possible modes for the model, used to check that a particular mode exists
-    possible_modes = [0, 1, 2, 3, 4]
+    possible_modes = [0, 1, 2, 3, 4, 5]
 
     # if the mode variable has not been initialized by the command-line, run the text-based GUI to get it
     if 'mode' not in locals() or mode not in possible_modes:
@@ -132,7 +133,7 @@ def start():
             else:
                 raise Exception(name + ".zip does not exist in " + output_path)
 
-        # mode other than new simulation
+        # previous simulation output directory modes
         else:
             # if the directory exists, break loop
             if os.path.isdir(output_path + name):
@@ -153,7 +154,7 @@ def start():
     # -------------- new simulation ---------------------------
     if mode == 0:
         # copy model files and template parameters
-        shutil.copytree(os.getcwd(), sim_path + name + "_copy")
+        shutil.copytree(os.getcwd(), sim_path + name + "_copy", ignore=shutil.ignore_patterns("__pycache__"))
 
         # create Simulation object
         simulation = parameters.Simulation(paths, name, mode)
@@ -210,6 +211,14 @@ def start():
 
         # unpack the directory into the output directory
         shutil.unpack_archive(simulation_zip, output_path)
+        print("Done!")
+        exit()
+
+    # -------------- extract a simulation directory zip --------------
+    elif mode == 5:
+        # calculate the persistent homology values
+        tda.calculate_persistence(paths)
+
         print("Done!")
         exit()
 

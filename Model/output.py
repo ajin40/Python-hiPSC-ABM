@@ -21,6 +21,9 @@ class Paths:
         # the directory to the template .txt file
         self.templates = templates
 
+        # hold file separator
+        self.separator = separator
+
         # these directories are sub-directories under the main simulation directory
         self.images = main + name + "_images" + separator    # the images output directory
         self.values = main + name + "_values" + separator    # the cell array values output directory
@@ -141,8 +144,8 @@ def step_image(simulation):
         image = cv2.flip(image, 0)
 
         # save the image as a PNG
-        image_path = simulation.paths.images + simulation.name + "_image_" + str(int(simulation.current_step)) + ".png"
-        cv2.imwrite(image_path, image)
+        file_name = simulation.name + "_image_" + str(int(simulation.current_step)) + ".png"
+        cv2.imwrite(simulation.paths.images + file_name, image)
 
 
 @backend.record_time
@@ -156,11 +159,11 @@ def step_values(simulation):
         if not os.path.isdir(simulation.paths.values):
             os.mkdir(simulation.paths.values)
 
-        # get file path
-        file_path = simulation.paths.values + simulation.name + "_values_" + str(int(simulation.current_step)) + ".csv"
+        # get file name
+        file_name = simulation.name + "_values_" + str(int(simulation.current_step)) + ".csv"
 
         # open the file
-        with open(file_path, "w", newline="") as new_file:
+        with open(simulation.paths.values + file_name, "w", newline="") as new_file:
             # create CSV object
             csv_file = csv.writer(new_file)
 
@@ -198,27 +201,27 @@ def step_values(simulation):
 
 @backend.record_time
 def step_gradients(simulation):
-    """ Saves the gradient arrays as .npy files for
-        potential later analysis with python.
+    """ Saves any 2D gradient arrays as a CSV file.
     """
-    # only continue if outputting gradient pickles
+    # only continue if outputting gradient CSVs
     if simulation.output_gradients:
         # make sure directory exists
-        if not os.path.isdir(simulation.gradients_path):
-            os.mkdir(simulation.gradients_path)
+        if not os.path.isdir(simulation.paths.gradients):
+            os.mkdir(simulation.paths.gradients)
 
         # go through all gradient arrays
         for gradient_name in simulation.gradient_names:
             # get the name for the file
-            name = "_" + gradient_name + "_" + str(simulation.current_step)
+            file_name = simulation.name + "_" + gradient_name + "_" + str(simulation.current_step) + ".csv"
 
-            # save the gradient via numpy compression
-            np.save(simulation.paths.gradients + simulation.name + name + ".npy", simulation.__dict__[gradient_name])
+            # convert gradient from 3D to 2D array and save it as CSV
+            gradient = simulation.__dict__[gradient_name][:, :, 0]
+            np.savetxt(simulation.paths.gradients + file_name, gradient, delimiter=",")
 
 
 @backend.record_time
 def step_tda(simulation):
-    """ Output a CSV similar to the step_csv though this
+    """ Output a CSV similar to the step_values() though this
         contains no header and only key cell info.
     """
     # only continue if outputting TDA files
@@ -235,23 +238,13 @@ def step_tda(simulation):
         red_locations = simulation.locations[red_indices][:, 0:2]
         green_locations = simulation.locations[green_indices][:, 0:2]
 
-        # open the file for red cells
-        red_path = simulation.paths.tda + simulation.name + "_tda_red_" + str(int(simulation.current_step)) + ".csv"
-        with open(red_path, "w", newline="") as new_file:
-            # create CSV object
-            csv_file = csv.writer(new_file)
+        # create CSV file for red cells
+        file_name = simulation.name + "_tda_red_" + str(int(simulation.current_step)) + ".csv"
+        np.savetxt(simulation.paths.tda + file_name, red_locations, delimiter=",")
 
-            # write the locations to the CSV
-            csv_file.writerows(red_locations)
-
-        # open the file for green cells
-        green_path = simulation.paths.tda + simulation.name + "_tda_green_" + str(int(simulation.current_step)) + ".csv"
-        with open(green_path, "w", newline="") as new_file:
-            # create CSV object
-            csv_file = csv.writer(new_file)
-
-            # write the locations to the CSV
-            csv_file.writerows(green_locations)
+        # create CSV file for green cells
+        file_name = simulation.name + "_tda_green_" + str(int(simulation.current_step)) + ".csv"
+        np.savetxt(simulation.paths.tda + file_name, green_locations, delimiter=",")
 
 
 @backend.record_time
@@ -259,11 +252,11 @@ def temporary(simulation):
     """ Pickle a copy of the simulation class that can be used
         to continue a past simulation without losing information.
     """
-    # get file path
-    file_path = simulation.paths.main + simulation.name + "_temp" + ".pkl"
+    # get file name
+    file_name = simulation.name + "_temp" + ".pkl"
 
-    # open the file and get the object
-    with open(file_path, 'wb') as temp_file:
+    # open the file
+    with open(simulation.paths.main + file_name, 'wb') as temp_file:
         # use the highest protocol: -1 for pickling the instance
         pickle.dump(simulation, temp_file, -1)
 
@@ -273,11 +266,11 @@ def simulation_data(simulation):
         the simulation such as memory, step time, number of cells,
         and run time of functions.
     """
-    # get path to data CSV
-    data_path = simulation.paths.main + simulation.name + "_data.csv"
+    # get file name
+    file_name = simulation.name + "_data.csv"
 
     # open the file
-    with open(data_path, "a", newline="") as file_object:
+    with open(simulation.paths.main + file_name, "a", newline="") as file_object:
         # create CSV object
         csv_object = csv.writer(file_object)
 
