@@ -21,6 +21,9 @@ class Paths:
         # the directory to the template .txt file
         self.templates = templates
 
+        # hold file separator
+        self.separator = separator
+
         # these directories are sub-directories under the main simulation directory
         self.images = main + name + "_images" + separator    # the images output directory
         self.values = main + name + "_values" + separator    # the cell array values output directory
