@@ -11,38 +11,142 @@ import tda
 
 
 def start():
-    """ Takes parameters from files, the command line,
-        and/or a text-based GUI to start the model.
+    """ Based on the desired mode in which the model is to be
+        run, this will control that setup.
     """
-    # get the path separator for the OS and open the paths.txt file containing the locations of the template files
+    # get the path separator and the absolute path to the template file directory
     separator = os.path.sep
-    with open('paths.txt', 'r') as file:
-        lines = file.readlines()
-
-    # get the path to the template file directory which is used to provide some initial simulation parameters
     templates_path = os.path.abspath("templates") + separator
 
-    # get the path to the output directory where each simulation directory is created
-    output_path = lines[14].strip()
-    if not os.path.isdir(output_path):
-        # raise error if directory doesn't exist
-        raise Exception("Path: " + output_path + " to output directory does not exist. Please update the paths.txt"
-                        " file to point to a directory used for outputting each simulation directory.")
-    else:
-        # if path doesn't end with separator, add one
+    # get the path to the directory where simulations are outputted and the name/mode for the simulation
+    output_path = output_dir(separator)
+    possible_modes = [0, 1, 2, 3, 4, 5]    # hold possible model modes
+    name, mode = name_and_mode(output_path, separator, possible_modes)
+
+    # create path to simulation directory and make Paths object for storing important paths
+    main_path = output_path + name + separator
+    paths = output.Paths(name, main_path, templates_path, separator)
+
+    # -------------------------- new simulation ---------------------------
+    if mode == 0:
+        # copy model files to simulation output, ignore pycache files
+        copy_name = main_path + name + "_copy"
+        shutil.copytree(os.getcwd(), copy_name, ignore=shutil.ignore_patterns("__pycache__"))
+
+        # create Simulation object
+        simulation = parameters.Simulation(paths, name, mode)
+
+        # add cell arrays to Simulation object and run the model
+        run.setup_cells(simulation)
+        run.steps(simulation)
+
+    # ---------------- continuation of previous simulation ----------------
+    elif mode == 1:
+        # load previous Simulation object instead of creating new Simulation object
+        file_name = main_path + name + "_temp" + ".pkl"
+        with open(file_name, "rb") as file:
+            simulation = pickle.load(file)
+
+        # update the following instance variables
+        simulation.paths = paths  # change paths object for cross platform compatibility
+        simulation.beginning_step = simulation.current_step + 1    # start one step later
+        simulation.end_step = int(input("What is the final step of this continued simulation? "))
+
+        # run the model
+        run.steps(simulation)
+
+    # ------------------------- images to video ---------------------------
+    elif mode == 2:
+        # create Simulation object used to get imaging and path information
+        simulation = parameters.Simulation(paths, name, mode)
+
+        # make the video
+        output.create_video(simulation)
+
+    # --------------------- zip a simulation directory --------------------
+    elif mode == 3:
+        # print statement and remove the separator of the path to the simulation directory
+        print("Compressing: " + name)
+        simulation_dir = main_path[:-1]
+
+        # zip a copy of the directory and save it to the output directory
+        shutil.make_archive(simulation_dir, 'zip', root_dir=output_path, base_dir=str(name))
+        print("Done!")
+
+    # ----------------- extract a simulation directory zip ----------------
+    elif mode == 4:
+        # print statement and get name for .zip file
+        print("Extracting: " + name)
+        zip_file = main_path[:-1] + ".zip"
+
+        # unpack the directory into the output directory
+        shutil.unpack_archive(zip_file, output_path)
+        print("Done!")
+
+    # ------------------------ persistent homology ------------------------
+    elif mode == 5:
+        # calculate the persistent homology values
+        tda.calculate_persistence(paths)
+        print("Done!")
+
+
+def output_dir(separator):
+    """ Get the path to the output directory. If this directory
+        does not exist yet make it and update the paths.txt file.
+    """
+    # read the paths.txt file which should be the path to the output directory
+    with open("paths.txt", "r") as file:
+        lines = file.readlines()
+    output_path = lines[14].strip()   # remove whitespace
+
+    # output directory specified in paths.txt already exists
+    if os.path.isdir(output_path):
+        # if path doesn't end with separator, add it
         if output_path[-1] != separator:
             output_path += separator
 
-    # get any command-line options for the model, "n:m:" allows for the -n and -m options
+    # output directory doesn't exist, run until directory exists
+    else:
+        while True:
+            # prompt user input
+            print("Directory: " + output_path + " for outputting simulations does not exist")
+            user = input("Would you like to make this directory? (y/n): ")
+
+            # if not making this directory
+            if user == "n":
+                # get new path to output directory
+                output_path = input("Correct path (absolute) to output directory: ")
+
+                # update paths.txt file with new output directory path
+                with open("paths.txt", "w") as file:
+                    lines[14] = output_path + "\n"
+                    file.writelines(lines)
+
+            # if yes, make the directory
+            elif user == "y":
+                os.mkdir(output_path)
+                break
+
+            else:
+                print('Either type "y" or "n"')
+
+    return output_path
+
+
+def name_and_mode(output_path, separator, possible_modes):
+    """ This function will get the name and mode for the simulation
+        either from the command line or a text-based GUI.
+    """
+    # get any command-line options for the model, "n:m:" allows for using -n and -m
     options, args = getopt.getopt(sys.argv[1:], "n:m:")  # first argument is "python" so avoid that
 
-    # go through the inputs getting the options
+    # go through the inputs, getting the options
     for option, value in options:
-        # if the "-n" name option, set the variable name
+        # if the "-n" name option, set the name variable
         if option == "-n":
             name = value
 
-        # if the "-m" mode option, set the variable mode
+        # if the "-m" mode option, set the mode variable
         elif option == "-m":
             mode = int(value)  # turn from string to int
 
@@ -62,9 +166,6 @@ def start():
             else:
                 break
 
-    # hold the possible modes for the model, used to check that a particular mode exists
-    possible_modes = [0, 1, 2, 3, 4, 5]
-
     # if the mode variable has not been initialized by the command-line, run the text-based GUI to get it
     if 'mode' not in locals() or mode not in possible_modes:
         while True:
@@ -74,7 +175,8 @@ def start():
             # keep running if "help" is typed
             if mode == "help":
                 print("\nHere are the following modes:\n0: New simulation\n1: Continuation of past simulation\n"
-                      "2: Turn simulation images to video\n3: Zip previous simulation\n4: Unzip a simulation file\n")
+                      "2: Turn simulation images to video\n3: Zip previous simulation\n4: Unzip a simulation file\n"
+                      "5: Calculate persistent homology\n")
             else:
                 try:
                     # get the mode as an integer make sure mode exists, break the loop if it does
@@ -88,7 +190,7 @@ def start():
                 except ValueError:
                     print("\"mode\" should be an integer")
 
-    # check the name for the simulation based on the mode
+    # check that the simulation name is valid based on the mode
     while True:
         # if a new simulation
         if mode == 0:
@@ -118,7 +220,7 @@ def start():
                     break
                 else:
                     # inputs should either be "y" or "n"
-                    print("Either type ""y"" or ""n""")
+                    print('Either type "y" or "n"')
             else:
                 # if does not exist, make directory
                 os.mkdir(output_path + name)
@@ -145,87 +247,12 @@ def start():
                 if name == "exit":
                     exit()
 
-    # create path to simulation directory
-    sim_path = output_path + name + separator
-
-    # create a paths object that holds any important paths
-    paths = output.Paths(name, sim_path, templates_path, separator)
-
-    # -------------- new simulation ---------------------------
-    if mode == 0:
-        # copy model files and template parameters
-        shutil.copytree(os.getcwd(), sim_path + name + "_copy", ignore=shutil.ignore_patterns("__pycache__"))
-
-        # create Simulation object
-        simulation = parameters.Simulation(paths, name, mode)
-
-        # initialize the cell arrays and start running
-        run.setup_cells(simulation)
-        run.steps(simulation)
-
-    # -------------- continuation of previous simulation ---------------------------
-    elif mode == 1:
-        # get the new end step of the simulation
-        end_step = int(input("What is the final step of this continued simulation? "))
-
-        # load previous simulation object
-        with open(sim_path + name + "_temp" + ".pkl", "rb") as temp_file:
-            simulation = pickle.load(temp_file)
-
-        # update the following parameters of the previous simulation
-        simulation.beginning_step = simulation.current_step + 1    # start one step later
-        simulation.end_step = end_step                             # update end step
-        simulation.mode = mode            # prevents the initialization of cell arrays and such
-        simulation.paths = paths          # update the paths for the case of continuing in different location
-
-        # start running
-        run.steps(simulation)
-
-    # -------------- images to video ---------------------------
-    elif mode == 2:
-        # create instance of Simulation class used to get imaging and path information
-        simulation = parameters.Simulation(paths, name, mode)
-
-        # make the video and exit
-        output.create_video(simulation)
-        exit()
-
-    # -------------- zip a simulation directory --------------
-    elif mode == 3:
-        print("Compressing: " + name)
-
-        # remove the separator of the path to the simulation directory
-        simulation_path = sim_path[:-1]
-
-        # zip a copy of the directory and save it to the same simulation directory
-        shutil.make_archive(simulation_path, 'zip', root_dir=output_path, base_dir=str(name))
-        print("Done!")
-        exit()
-
-    # -------------- extract a simulation directory zip --------------
-    elif mode == 4:
-        print("Extracting: " + name)
-
-        # remove the separator of the path and add .zip
-        simulation_zip = sim_path[:-1] + ".zip"
-
-        # unpack the directory into the output directory
-        shutil.unpack_archive(simulation_zip, output_path)
-        print("Done!")
-        exit()
-
-    # -------------- extract a simulation directory zip --------------
-    elif mode == 5:
-        # calculate the persistent homology values
-        tda.calculate_persistence(paths)
-
-        print("Done!")
-        exit()
+    return name, mode
 
 
 def get_parameter(path, line_number, dtype):
     """ Gets the parameter as a string from the lines of the
-        template file.
+        template file. Used for Simulation instance variables.
     """
     # make an attribute with name as template file path and value as a list of the file lines (reduces file opening)
     if not hasattr(get_parameter, path):
