@@ -14,24 +14,12 @@ def start():
     """ Takes parameters from files, the command line,
         and/or a text-based GUI to start the model.
     """
-    # get the path separator for the OS and open the paths.txt file containing the locations of the template files
+    # get the path separator and the absolute path to the template file directory
     separator = os.path.sep
-    with open('paths.txt', 'r') as file:
-        lines = file.readlines()
-
-    # get the path to the template file directory which is used to provide some initial simulation parameters
     templates_path = os.path.abspath("templates") + separator
 
-    # get the path to the output directory where each simulation directory is created
-    output_path = lines[14].strip()
-    if not os.path.isdir(output_path):
-        # raise error if directory doesn't exist
-        raise Exception("Path: " + output_path + " to output directory does not exist. Please update the paths.txt"
-                        " file to point to a directory used for outputting each simulation directory.")
-    else:
-        # if path doesn't end with separator, add one
-        if output_path[-1] != separator:
-            output_path += separator
+    # make and/or get the path to the directory where simulations are outputted
+    output_path = output_dir(separator)
 
     # get any command-line options for the model, "n:m:" allows for the -n and -m options
     options, args = getopt.getopt(sys.argv[1:], "n:m:")  # first argument is "python" so avoid that
@@ -221,6 +209,48 @@ def start():
 
         print("Done!")
         exit()
+
+
+def output_dir(separator):
+    """ Get the path to the output directory. If this directory
+        does not exist yet make it and update the paths.txt file.
+    """
+    # read the 15th line of the paths.txt file which should be the path to the output directory
+    with open("paths.txt", "r") as file:
+        lines = file.readlines()
+    output_path = lines[14].strip()
+
+    # directory already exists
+    if os.path.isdir(output_path):
+        # if path doesn't end with separator, add one
+        if output_path[-1] != separator:
+            output_path += separator
+
+    # directory doesn't exist
+    else:
+        while True:
+            print("Directory: " + output_path + " for outputting simulations does not exist")
+            user = input("Would you like to make this directory? (y/n): ")
+
+            # if no, ask for correct path
+            if user == "n":
+                output_path = input("Correct path to output directory: ")
+                with open("paths.txt", "w") as file:
+                    lines[14] = output_path + "\n"
+                    file.writelines(lines)
+                if os.path.isdir(output_path):
+                    break
+
+            # if yes, make the directory
+            elif user == "y":
+                os.mkdir(output_path)
+                break
+
+            # inputs should either be "y" or "n"
+            else:
+                print("Either type ""y"" or ""n""")
+
+    return output_path
 
 
 def get_parameter(path, line_number, dtype):
