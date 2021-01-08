@@ -21,117 +21,8 @@ def start():
     # make and/or get the path to the directory where simulations are outputted
     output_path = output_dir(separator)
 
-    # get any command-line options for the model, "n:m:" allows for the -n and -m options
-    options, args = getopt.getopt(sys.argv[1:], "n:m:")  # first argument is "python" so avoid that
-
-    # go through the inputs getting the options
-    for option, value in options:
-        # if the "-n" name option, set the variable name
-        if option == "-n":
-            name = value
-
-        # if the "-m" mode option, set the variable mode
-        elif option == "-m":
-            mode = int(value)  # turn from string to int
-
-        # if some other option, raise error
-        else:
-            raise Exception("Unknown command-line option: " + option)
-
-    # if the name variable has not been initialized by the command-line, run the text-based GUI to get it
-    if 'name' not in locals():
-        while True:
-            # prompt for the name
-            name = input("What is the \"name\" of the simulation? Type \"help\" for more information: ")
-
-            # keep running if "help" is typed
-            if name == "help":
-                print("Type the name of the simulation (not a path)\n")
-            else:
-                break
-
-    # hold the possible modes for the model, used to check that a particular mode exists
-    possible_modes = [0, 1, 2, 3, 4, 5]
-
-    # if the mode variable has not been initialized by the command-line, run the text-based GUI to get it
-    if 'mode' not in locals() or mode not in possible_modes:
-        while True:
-            # prompt for the mode
-            mode = input("What is the \"mode\" of the simulation? Type \"help\" for more information: ")
-
-            # keep running if "help" is typed
-            if mode == "help":
-                print("\nHere are the following modes:\n0: New simulation\n1: Continuation of past simulation\n"
-                      "2: Turn simulation images to video\n3: Zip previous simulation\n4: Unzip a simulation file\n")
-            else:
-                try:
-                    # get the mode as an integer make sure mode exists, break the loop if it does
-                    mode = int(mode)
-                    if mode in possible_modes:
-                        break
-                    else:
-                        print("Mode does not exist. See possible modes: " + str(possible_modes))
-
-                # if not an integer
-                except ValueError:
-                    print("\"mode\" should be an integer")
-
-    # check the name for the simulation based on the mode
-    while True:
-        # if a new simulation
-        if mode == 0:
-            # see if the directory exists
-            if os.path.isdir(output_path + name):
-                # get user input for overwriting previous simulation
-                print("Simulation with identical name: " + name)
-                user = input("Would you like to overwrite that simulation? (y/n): ")
-
-                # if no overwrite, get new simulation name
-                if user == "n":
-                    name = input("New name: ")
-
-                # overwrite by deleting all files/folders in previous directory
-                elif user == "y":
-                    # clear current directory to prevent another possible future errors
-                    files = os.listdir(output_path + name)
-                    for file in files:
-                        # path to each file/folder
-                        path = output_path + name + separator + file
-
-                        # delete the file/folder
-                        if os.path.isfile(path):
-                            os.remove(path)
-                        else:
-                            shutil.rmtree(path)
-                    break
-                else:
-                    # inputs should either be "y" or "n"
-                    print("Either type ""y"" or ""n""")
-            else:
-                # if does not exist, make directory
-                os.mkdir(output_path + name)
-                break
-
-        # extract simulation zip mode
-        elif mode == 4:
-            if os.path.isdir(output_path + name):
-                raise Exception(name + " already exists in " + output_path)
-            elif os.path.isfile(output_path + name + ".zip"):
-                break
-            else:
-                raise Exception(name + ".zip does not exist in " + output_path)
-
-        # previous simulation output directory modes
-        else:
-            # if the directory exists, break loop
-            if os.path.isdir(output_path + name):
-                break
-
-            else:
-                print("No directory exists with name/path: " + output_path + name)
-                name = input("Please type the correct name of the simulation or type \"exit\" to exit: ")
-                if name == "exit":
-                    exit()
+    # get the name and the mode of the simulation
+    name, mode = text_gui(output_path, separator)
 
     # create path to simulation directory
     sim_path = output_path + name + separator
@@ -251,6 +142,123 @@ def output_dir(separator):
                 print("Either type ""y"" or ""n""")
 
     return output_path
+
+
+def text_gui(output_path, separator):
+
+    # get any command-line options for the model, "n:m:" allows for the -n and -m options
+    options, args = getopt.getopt(sys.argv[1:], "n:m:")  # first argument is "python" so avoid that
+
+    # go through the inputs getting the options
+    for option, value in options:
+        # if the "-n" name option, set the variable name
+        if option == "-n":
+            name = value
+
+        # if the "-m" mode option, set the variable mode
+        elif option == "-m":
+            mode = int(value)  # turn from string to int
+
+        # if some other option, raise error
+        else:
+            raise Exception("Unknown command-line option: " + option)
+
+    # if the name variable has not been initialized by the command-line, run the text-based GUI to get it
+    if 'name' not in locals():
+        while True:
+            # prompt for the name
+            name = input("What is the \"name\" of the simulation? Type \"help\" for more information: ")
+
+            # keep running if "help" is typed
+            if name == "help":
+                print("Type the name of the simulation (not a path)\n")
+            else:
+                break
+
+    # hold the possible modes for the model, used to check that a particular mode exists
+    possible_modes = [0, 1, 2, 3, 4, 5]
+
+    # if the mode variable has not been initialized by the command-line, run the text-based GUI to get it
+    if 'mode' not in locals() or mode not in possible_modes:
+        while True:
+            # prompt for the mode
+            mode = input("What is the \"mode\" of the simulation? Type \"help\" for more information: ")
+
+            # keep running if "help" is typed
+            if mode == "help":
+                print("\nHere are the following modes:\n0: New simulation\n1: Continuation of past simulation\n"
+                      "2: Turn simulation images to video\n3: Zip previous simulation\n4: Unzip a simulation file\n")
+            else:
+                try:
+                    # get the mode as an integer make sure mode exists, break the loop if it does
+                    mode = int(mode)
+                    if mode in possible_modes:
+                        break
+                    else:
+                        print("Mode does not exist. See possible modes: " + str(possible_modes))
+
+                # if not an integer
+                except ValueError:
+                    print("\"mode\" should be an integer")
+
+    # check the name for the simulation based on the mode
+    while True:
+        # if a new simulation
+        if mode == 0:
+            # see if the directory exists
+            if os.path.isdir(output_path + name):
+                # get user input for overwriting previous simulation
+                print("Simulation with identical name: " + name)
+                user = input("Would you like to overwrite that simulation? (y/n): ")
+
+                # if no overwrite, get new simulation name
+                if user == "n":
+                    name = input("New name: ")
+
+                # overwrite by deleting all files/folders in previous directory
+                elif user == "y":
+                    # clear current directory to prevent another possible future errors
+                    files = os.listdir(output_path + name)
+                    for file in files:
+                        # path to each file/folder
+                        path = output_path + name + separator + file
+
+                        # delete the file/folder
+                        if os.path.isfile(path):
+                            os.remove(path)
+                        else:
+                            shutil.rmtree(path)
+                    break
+                else:
+                    # inputs should either be "y" or "n"
+                    print("Either type ""y"" or ""n""")
+            else:
+                # if does not exist, make directory
+                os.mkdir(output_path + name)
+                break
+
+        # extract simulation zip mode
+        elif mode == 4:
+            if os.path.isdir(output_path + name):
+                raise Exception(name + " already exists in " + output_path)
+            elif os.path.isfile(output_path + name + ".zip"):
+                break
+            else:
+                raise Exception(name + ".zip does not exist in " + output_path)
+
+        # previous simulation output directory modes
+        else:
+            # if the directory exists, break loop
+            if os.path.isdir(output_path + name):
+                break
+
+            else:
+                print("No directory exists with name/path: " + output_path + name)
+                name = input("Please type the correct name of the simulation or type \"exit\" to exit: ")
+                if name == "exit":
+                    exit()
+
+    return name, mode
 
 
 def get_parameter(path, line_number, dtype):
