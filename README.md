@@ -53,6 +53,7 @@ Different simulation modes:
 - 2: Turn previous simulation images to a video
 - 3: Zip a previous simulation
 - 4: Extract previous simulation zip in output directory
+- 5: Calculate persistent homology values
 
 
 Additionally, the name and mode can be passed at the command line by using options
