@@ -383,7 +383,7 @@ def get_neighbors(simulation):
 
         # call the nvidia gpu version
         if simulation.parallel:
-            # turn the following into arrays that can be interpreted by the gpu
+            # send the following as arrays to the gpu
             bin_locations_cuda = cuda.to_device(bin_locations)
             locations_cuda = cuda.to_device(simulation.locations)
             bins_cuda = cuda.to_device(bins)
@@ -398,12 +398,12 @@ def get_neighbors(simulation):
             tpb = 72
             bpg = math.ceil(simulation.number_cells / tpb)
 
-            # call the cuda kernel with given parameters
+            # call the cuda kernel with new gpu arrays
             backend.get_neighbors_gpu[bpg, tpb](bin_locations_cuda, locations_cuda, bins_cuda, bins_help_cuda,
                                                 distance_cuda, edge_holder_cuda, if_edge_cuda, edge_count_cuda,
                                                 max_neighbors_cuda)
 
-            # return the arrays back from the gpu
+            # return the only the following array(s) back from the gpu
             edge_holder = edge_holder_cuda.copy_to_host()
             if_edge = if_edge_cuda.copy_to_host()
             edge_count = edge_count_cuda.copy_to_host()
@@ -456,7 +456,7 @@ def nearest(simulation):
 
     # call the nvidia gpu version
     if simulation.parallel:
-        # turn the following into arrays that can be interpreted by the gpu
+        # send the following as arrays to the gpu
         bin_locations_cuda = cuda.to_device(bin_locations)
         locations_cuda = cuda.to_device(simulation.locations)
         bins_cuda = cuda.to_device(bins)
@@ -473,12 +473,12 @@ def nearest(simulation):
         tpb = 72
         bpg = math.ceil(simulation.number_cells / tpb)
 
-        # call the cuda kernel with given parameters
+        # call the cuda kernel with new gpu arrays
         backend.nearest_gpu[bpg, tpb](bin_locations_cuda, locations_cuda, bins_cuda, bins_help_cuda, distance_cuda,
                                       if_diff_cuda, gata6_cuda, nanog_cuda, nearest_gata6_cuda, nearest_nanog_cuda,
                                       nearest_diff_cuda)
 
-        # return the new nearest arrays back from the gpu
+        # return the only the following array(s) back from the gpu
         gata6 = nearest_gata6_cuda.copy_to_host()
         nanog = nearest_nanog_cuda.copy_to_host()
         diff = nearest_diff_cuda.copy_to_host()
@@ -557,7 +557,7 @@ def jkr_neighbors(simulation):
         if_edge = np.zeros(length, dtype=bool)
         edge_count = np.zeros(simulation.number_cells, dtype=int)
 
-        # call the nvidia gpu version
+        # send the following as arrays to the gpu
         if simulation.parallel:
             # turn the following into arrays that can be interpreted by the gpu
             bin_locations_cuda = cuda.to_device(bin_locations)
@@ -574,12 +574,12 @@ def jkr_neighbors(simulation):
             tpb = 72
             bpg = math.ceil(simulation.number_cells / tpb)
 
-            # call the cuda kernel with given parameters
+            # call the cuda kernel with new gpu arrays
             backend.jkr_neighbors_gpu[bpg, tpb](bin_locations_cuda, locations_cuda, radii_cuda, bins_cuda,
                                                 bins_help_cuda, edge_holder_cuda, if_edge_cuda, edge_count_cuda,
                                                 max_neighbors_cuda)
 
-            # return the arrays back from the gpu
+            # return the only the following array(s) back from the gpu
             edge_holder = edge_holder_cuda.copy_to_host()
             if_edge = if_edge_cuda.copy_to_host()
             edge_count = edge_count_cuda.copy_to_host()
@@ -626,7 +626,7 @@ def get_forces(simulation):
 
     # only continue if edges exist, if no edges compiled functions will raise errors
     if number_edges > 0:
-        # call the nvidia gpu version
+        # send the following as arrays to the gpu
         if simulation.parallel:
             # turn the following into arrays that can be interpreted by the gpu
             jkr_edges_cuda = cuda.to_device(jkr_edges)
@@ -642,11 +642,11 @@ def get_forces(simulation):
             tpb = 72
             bpg = math.ceil(number_edges / tpb)
 
-            # call the cuda kernel with given parameters
+            # call the cuda kernel with new gpu arrays
             backend.get_forces_gpu[bpg, tpb](jkr_edges_cuda, delete_edges_cuda, locations_cuda, radii_cuda, forces_cuda,
                                              poisson_cuda, youngs_cuda, adhesion_const_cuda)
 
-            # return the new forces and the edges to be deleted
+            # return the only the following array(s) back from the gpu
             forces = forces_cuda.copy_to_host()
             delete_edges = delete_edges_cuda.copy_to_host()
 
@@ -670,7 +670,7 @@ def apply_forces(simulation):
     # contact mechanics parameters that rarely change
     viscosity = 10000    # the viscosity of the medium in Ns/m used for stokes friction
 
-    # call the nvidia gpu version
+    # send the following as arrays to the gpu
     if simulation.parallel:
         # turn the following into arrays that can be interpreted by the gpu
         jkr_forces_cuda = cuda.to_device(simulation.jkr_forces)
@@ -685,11 +685,11 @@ def apply_forces(simulation):
         tpb = 72
         bpg = math.ceil(simulation.number_cells / tpb)
 
-        # call the cuda kernel with given parameters
+        # call the cuda kernel with new gpu arrays
         backend.apply_forces_gpu[bpg, tpb](jkr_forces_cuda, motility_forces_cuda, locations_cuda, radii_cuda,
                                            viscosity_cuda, size_cuda, move_dt_cuda)
 
-        # return the new cell locations from the gpu
+        # return the only the following array(s) back from the gpu
         new_locations = locations_cuda.copy_to_host()
 
     # call the cpu version
