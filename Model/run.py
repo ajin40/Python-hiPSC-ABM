@@ -3,25 +3,42 @@ import random as r
 
 import input
 import output
-import backend
 import functions
+import backend
 
-# call input.start() if this file is being run directly
+
+# start the model only if this file is being run directly
 if __name__ == "__main__":
     input.start()
 
 
 def setup_cells(simulation):
-    """ Specify the number of cells and initialize the cell arrays with
-        either general parameters or cell type specific parameters.
+    """ Specify how many cells a simulation will begin with and any cell types
+        which are used to create initial parameters for those cells.
+
+        Example:
+            Add cells into the simulation with the add_cells() method. The first argument is the number of
+            cells, and the optional keyword argument is used to designate an addition of cells with a specific
+            cell type which can be referenced by the cell_array() method for assigning initial conditions.
+
+            simulation.add_cells(1000)
+            simulation.add_cells(500, cell_type="GATA6_high")
+
+
+            The cell_array() will generate NumPy arrays used to hold all values of the cells. The first argument
+            denotes the name of the instance variable generated for that array in the Simulation object. The
+            following specifies the function for providing the initial condition. Keyword argument "dtype"
+            indicates the type of the array, while "vector" can be used to create 2-dimensional vector arrays.
+
+            simulation.cell_array("locations", lambda: np.zeros(3), dtype=float, vector=3)
+            simulation.cell_array("colors", lambda: "green", dtype=str)
+            simulation.cell_array("colors", lambda: "red", cell_type="GATA6_high")
     """
-    # Add cells into the simulation. The cell_type keyword argument can be used to pass alternative initial
-    # parameters by defining a cell type name which can be referenced with the cell_array() method.
+    # add the specified number of NANOG/GATA6 high cells and create cell type GATA6_high for initial parameters
     simulation.add_cells(simulation.num_nanog)
     simulation.add_cells(simulation.num_gata6, cell_type="GATA6_high")
 
-    # Define the cell arrays and their initial parameters with lambda functions. This will create instance variables
-    # in the Simulation object with the name specified. The vector keyword can be used to make 2-dimensional arrays.
+    # create the following cell arrays with initial conditions
     simulation.cell_array("locations", lambda: np.random.rand(3) * simulation.size, dtype=float, vector=3)
     simulation.cell_array("radii", lambda: simulation.min_radius, dtype=float)
     simulation.cell_array("motion", lambda: True, dtype=bool)
@@ -40,15 +57,22 @@ def setup_cells(simulation):
     simulation.cell_array("nearest_gata6", lambda: -1, dtype=int)
     simulation.cell_array("nearest_diff", lambda: -1, dtype=int)
 
-    # Alternatively the cell_array() method can be used to modify the initial parameters for a given cell type
-    # which corresponds to modifying a slice of the cell array containing all cells.
+    # update the "GATA6_high" cells with alternative initial conditions
     simulation.cell_array("GATA6", lambda: r.randrange(1, simulation.field), cell_type="GATA6_high")
     simulation.cell_array("NANOG", lambda: 0, cell_type="GATA6_high")
 
 
 def steps(simulation):
     """ Specify the order of the methods for each step and include
-        any functions that are called before or after all steps.
+        any methods that are called before or after all steps.
+
+        Example:
+            functions.before_steps(simulation)
+
+            for simulation.current_step in range(simulation.beginning_step, simulation.end_step + 1):
+                functions.during_steps(simulation)
+
+            functions.after_steps(simulation)
     """
     for simulation.current_step in range(simulation.beginning_step, simulation.end_step + 1):
         # Records model run time for the step and prints the current step/number of cells,

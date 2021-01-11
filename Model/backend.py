@@ -866,9 +866,10 @@ class Base:
             # create cell array in Simulation object
             self.__dict__[array_name] = np.empty(size, dtype=dtype)
 
-            # apply the initial parameter to each index of the array
-            for i in range(self.number_cells):
-                self.__dict__[array_name][i] = function()
+            # apply the initial parameter to each index of the array only if it's not None
+            if function is not None:
+                for i in range(self.number_cells):
+                    self.__dict__[array_name][i] = function()
 
         # if array already exists and there is a cell type defined, update the initial parameters for that cell type
         elif hasattr(self, array_name) and cell_type is not None:
@@ -876,9 +877,10 @@ class Base:
             begin = self.cell_types[cell_type][0]
             end = self.cell_types[cell_type][1]
 
-            # update only this slice of the cell array
-            for i in range(begin, end):
-                self.__dict__[array_name][i] = function()
+            # update only this slice of the cell array only if it's not None
+            if function is not None:
+                for i in range(begin, end):
+                    self.__dict__[array_name][i] = function()
 
         else:
             raise Exception("Cell array with initial parameters should exist prior to passing alternative"
