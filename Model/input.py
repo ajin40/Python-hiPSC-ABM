@@ -99,36 +99,34 @@ def output_dir(separator):
         lines = file.readlines()
     output_path = lines[14].strip()   # remove whitespace
 
-    # output directory specified in paths.txt already exists
-    if os.path.isdir(output_path):
-        # if path doesn't end with separator, add it
-        if output_path[-1] != separator:
-            output_path += separator
+    # keep running until output directory exists
+    while not os.path.isdir(output_path):
+        # prompt user input
+        print("No directory: \"" + output_path + "\" for outputting simulations exists!")
+        user = input("Would you still like to use this directory? If yes, then that directory will be created, "
+                     "otherwise you can specify another path. (y/n): ")
 
-    # output directory doesn't exist, run until directory exists
-    else:
-        while True:
-            # prompt user input
-            print("Directory: " + output_path + " for outputting simulations does not exist")
-            user = input("Would you like to make this directory? (y/n): ")
+        # if not making this directory
+        if user == "n":
+            # get new path to output directory
+            output_path = input("Correct path (absolute) to output directory: ")
 
-            # if not making this directory
-            if user == "n":
-                # get new path to output directory
-                output_path = input("Correct path (absolute) to output directory: ")
+            # update paths.txt file with new output directory path
+            with open("paths.txt", "w") as file:
+                lines[14] = output_path + "\n"
+                file.writelines(lines)
 
-                # update paths.txt file with new output directory path
-                with open("paths.txt", "w") as file:
-                    lines[14] = output_path + "\n"
-                    file.writelines(lines)
+        # if yes, make the directory
+        elif user == "y":
+            os.mkdir(output_path)
+            break
 
-            # if yes, make the directory
-            elif user == "y":
-                os.mkdir(output_path)
-                break
+        else:
+            print('Either type "y" or "n"')
 
-            else:
-                print('Either type "y" or "n"')
+    # if path doesn't end with separator, add it
+    if output_path[-1] != separator:
+        output_path += separator
 
     return output_path
 
