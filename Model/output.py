@@ -66,8 +66,9 @@ def step_image(simulation):
         x_size = pixels
         y_size = math.ceil(scale * simulation.size[1])
 
-        # create the cell space background image
+        # create the cell space background image and apply background color
         image = np.zeros((y_size, x_size, 3), dtype=np.uint8)
+        image[:, :] = simulation.back_color
 
         # create the gradient image
         if simulation.output_fgf4_image:
