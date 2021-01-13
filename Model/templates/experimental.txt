@@ -15,4 +15,4 @@ the movement seen in Guye et al. Ex. True
 What is the threshold for designating a cell lonely and increasing the death counter? If the cell has less neighbors
 than this value the death counter will be increased by one. Ex. 3
 | 2 |
-------------------------------------------------------------------------------------------------------------------------
+-----------------------------------------------------------------------------------------------------------------------

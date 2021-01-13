@@ -41,9 +41,10 @@ class Simulation(Base):
         self.output_gradients = input.get_parameter(outputs_path, 12, bool)
         self.output_images = input.get_parameter(outputs_path, 15, bool)
         self.image_quality = input.get_parameter(outputs_path, 19, int)
-        self.fps = input.get_parameter(outputs_path, 22, float)
-        self.color_mode = input.get_parameter(outputs_path, 26, bool)
-        self.output_fgf4_image = input.get_parameter(outputs_path, 29, bool)
+        self.back_color = input.get_parameter(outputs_path, 22, tuple)
+        self.fps = input.get_parameter(outputs_path, 25, float)
+        self.color_mode = input.get_parameter(outputs_path, 29, bool)
+        self.output_fgf4_image = input.get_parameter(outputs_path, 32, bool)
 
         # ------------- experimental template file -------------------------
         experimental_path = paths.templates + "experimental.txt"    # path to experimental.txt template file

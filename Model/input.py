@@ -195,7 +195,7 @@ def name_and_mode(output_path, separator, possible_modes):
             # see if the directory exists
             if os.path.isdir(output_path + name):
                 # get user input for overwriting previous simulation
-                print("Simulation with identical name: " + name)
+                print("Simulation already exists with name: " + name)
                 user = input("Would you like to overwrite that simulation? (y/n): ")
 
                 # if no overwrite, get new simulation name
