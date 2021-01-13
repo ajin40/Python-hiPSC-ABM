@@ -143,8 +143,8 @@ def step_image(simulation):
         # flip the image so that origin goes from top, left to bottom, left
         image = cv2.flip(image, 0)
 
-        # save the image as a PNG
-        file_name = simulation.name + "_image_" + str(int(simulation.current_step)) + ".png"
+        # save the image as a PNG, use f-string
+        file_name = f"{simulation.name}_image_{simulation.current_step}.png"
         cv2.imwrite(simulation.paths.images + file_name, image)
 
 
@@ -159,8 +159,8 @@ def step_values(simulation):
         if not os.path.isdir(simulation.paths.values):
             os.mkdir(simulation.paths.values)
 
-        # get file name
-        file_name = simulation.name + "_values_" + str(int(simulation.current_step)) + ".csv"
+        # get file name, use f-string
+        file_name = f"{simulation.name}_values_{simulation.current_step}.csv"
 
         # open the file
         with open(simulation.paths.values + file_name, "w", newline="") as new_file:
@@ -211,8 +211,8 @@ def step_gradients(simulation):
 
         # go through all gradient arrays
         for gradient_name in simulation.gradient_names:
-            # get the name for the file
-            file_name = simulation.name + "_" + gradient_name + "_" + str(simulation.current_step) + ".csv"
+            # get file name, use f-string
+            file_name = f"{simulation.name}_{gradient_name}_{simulation.current_step}.csv"
 
             # convert gradient from 3D to 2D array and save it as CSV
             gradient = simulation.__dict__[gradient_name][:, :, 0]
@@ -238,12 +238,12 @@ def step_tda(simulation):
         red_locations = simulation.locations[red_indices][:, 0:2]
         green_locations = simulation.locations[green_indices][:, 0:2]
 
-        # create CSV file for red cells
-        file_name = simulation.name + "_tda_red_" + str(int(simulation.current_step)) + ".csv"
+        # create CSV file for red cells, use f-string
+        file_name = f"{simulation.name}_tda_red_{simulation.current_step}.csv"
         np.savetxt(simulation.paths.tda + file_name, red_locations, delimiter=",")
 
-        # create CSV file for green cells
-        file_name = simulation.name + "_tda_green_" + str(int(simulation.current_step)) + ".csv"
+        # create CSV file for green cells, use f-string
+        file_name = f"{simulation.name}_tda_green_{simulation.current_step}.csv"
         np.savetxt(simulation.paths.tda + file_name, green_locations, delimiter=",")
 
 
@@ -252,8 +252,8 @@ def temporary(simulation):
     """ Pickle a copy of the simulation class that can be used
         to continue a past simulation without losing information.
     """
-    # get file name
-    file_name = simulation.name + "_temp" + ".pkl"
+    # get file name, use f-string
+    file_name = f"{simulation.name}_temp.pkl"
 
     # open the file
     with open(simulation.paths.main + file_name, 'wb') as temp_file:
@@ -266,8 +266,8 @@ def simulation_data(simulation):
         the simulation such as memory, step time, number of cells,
         and run time of functions.
     """
-    # get file name
-    file_name = simulation.name + "_data.csv"
+    # get file name, use f-string
+    file_name = f"{simulation.name}_data.csv"
 
     # open the file
     with open(simulation.paths.main + file_name, "a", newline="") as file_object:
@@ -317,8 +317,9 @@ def create_video(simulation):
             frame = cv2.imread(simulation.paths.images + file_list[0])
             height, width, channels = frame.shape
 
-            # get the video file path
-            video_path = simulation.paths.main + simulation.name + '_video.mp4'
+            # get the video file path, use f-string
+            file_name = f"{simulation.name}_video.mp4"
+            video_path = simulation.paths.main + file_name
 
             # create the file object with parameters from simulation and above
             video_object = cv2.VideoWriter(video_path, cv2.VideoWriter_fourcc(*"mp4v"), simulation.fps, (width, height))
