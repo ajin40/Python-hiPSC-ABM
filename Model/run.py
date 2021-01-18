@@ -21,30 +21,30 @@ def setup_cells(simulation):
             cells, and the optional keyword argument is used to designate an addition of cells with a specific
             cell type which can be referenced by the cell_array() method for assigning initial conditions.
 
-            simulation.add_cells(1000)
-            simulation.add_cells(500, cell_type="GATA6_high")
-
+                simulation.add_cells(1000)
+                simulation.add_cells(500, cell_type="GATA6_high")
 
             The cell_array() will generate NumPy arrays used to hold all values of the cells. The first argument
             denotes the name of the instance variable generated for that array in the Simulation object. The
-            following specifies the function for providing the initial condition. Keyword argument "dtype"
-            indicates the type of the array, while "vector" can be used to create 2-dimensional vector arrays.
+            following parameters can be used to set initial values, to specify data types, and to create 2D arrays.
 
-            simulation.cell_array("locations", lambda: np.zeros(3), dtype=float, vector=3)
-            simulation.cell_array("colors", lambda: "green", dtype=str)
-            simulation.cell_array("colors", lambda: "red", cell_type="GATA6_high")
+                simulation.cell_array("FGFR", lambda: r.randrange(0, simulation.field), dtype=int)
+                simulation.cell_array("locations", override=np.random.rand(simulation.number_cells) * simulation.size)
+                simulation.cell_array("motility_forces", dtype=float, vector=3)
+                simulation.cell_array("colors", lambda: "green", dtype=str)
+                simulation.cell_array("colors", lambda: "red", cell_type="GATA6_high")
     """
     # add the specified number of NANOG/GATA6 high cells and create cell type GATA6_high for initial parameters
     simulation.add_cells(simulation.num_nanog)
     simulation.add_cells(simulation.num_gata6, cell_type="GATA6_high")
 
-    # create the following cell arrays with initial conditions
-    simulation.cell_array("locations", lambda: np.random.rand(3) * simulation.size, dtype=float, vector=3)
+    # create the following cell arrays with initial conditions, arrays will default to zero
+    simulation.cell_array("locations", override=np.random.rand(simulation.number_cells) * simulation.size)
     simulation.cell_array("radii", lambda: simulation.min_radius, dtype=float)
     simulation.cell_array("motion", lambda: True, dtype=bool)
     simulation.cell_array("FGFR", lambda: r.randrange(0, simulation.field), dtype=int)
     simulation.cell_array("ERK", lambda: r.randrange(0, simulation.field), dtype=int)
-    simulation.cell_array("GATA6", lambda: 0, dtype=int)
+    simulation.cell_array("GATA6", dtype=int)
     simulation.cell_array("NANOG", lambda: r.randrange(1, simulation.field), dtype=int)
     simulation.cell_array("states", lambda: "Pluripotent", dtype=str)
     simulation.cell_array("death_counters", lambda: r.randrange(0, simulation.death_thresh), dtype=int)

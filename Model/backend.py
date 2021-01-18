@@ -851,54 +851,59 @@ class Base:
         # see if cell array already exists in Simulation object
         array_exists = hasattr(self, array_name)
 
-        # add cell array to Simulation object
-        if cell_type is None and not array_exists:
-            # make new cell array
-            if override is None:
-                # add the array name to a list for automatic addition/removal when cells divide/die
-                self.cell_array_names.append(array_name)
-
-                # get the dimensions of the array
-                if vector is None:
-                    size = self.number_cells  # 1-dimensional array
-                else:
-                    size = (self.number_cells, vector)  # 2-dimensional array (1-dimensional of vectors)
-
-                # if using python string data type, use object data type instead as this is what numpy prefers
-                if dtype == str or dtype == object:
-                    # create cell array in Simulation object with NoneType as default value
-                    self.__dict__[array_name] = np.empty(size, dtype=object)
-
-                else:
-                    # create cell array in Simulation object, with zero as default value
-                    self.__dict__[array_name] = np.zeros(size, dtype=dtype)
-
-                # if function is passed, apply initial parameter
-                if function is not None:
-                    for i in range(self.number_cells):
-                        self.__dict__[array_name][i] = function()
-
-            # use existing array that was passed as override
-            else:
-                # make sure array have correct length, otherwise raise error
-                if override.shape[0] != self.number_cells:
-                    raise Exception("Length of override array does not match number of cells in simulation!")
-
-                # use the array and add to list of cell array names
-                else:
-                    self.__dict__[array_name] = override
+        # if there is no cell type parameter passed
+        if cell_type is None:
+            # if a cell array doesn't exist, add one to the Simulation object
+            if not array_exists:
+                # if not passing in an override array, make a new array
+                if override is None:
+                    # add the array name to a list for automatic addition/removal when cells divide/die
                     self.cell_array_names.append(array_name)
 
-        # update initial parameters for specific cell type
-        elif array_exists:
-            # get the bounds of the slice
-            begin = self.cell_types[cell_type][0]
-            end = self.cell_types[cell_type][1]
+                    # get the dimensions of the array
+                    if vector is None:
+                        size = self.number_cells  # 1-dimensional array
+                    else:
+                        size = (self.number_cells, vector)  # 2-dimensional array (1-dimensional of vectors)
 
-            # update only this slice of the cell array only if it's not None
-            if function is not None:
-                for i in range(begin, end):
-                    self.__dict__[array_name][i] = function()
+                    # if using python string data type, use object data type instead
+                    if dtype == str or dtype == object:
+                        # create cell array in Simulation object with NoneType as default value
+                        self.__dict__[array_name] = np.empty(size, dtype=object)
 
+                    else:
+                        # create cell array in Simulation object, with zeros as default values
+                        self.__dict__[array_name] = np.zeros(size, dtype=dtype)
+
+                    # if function is passed, apply initial parameter
+                    if function is not None:
+                        for i in range(self.number_cells):
+                            self.__dict__[array_name][i] = function()
+
+                # use existing array that was passed as override parameter
+                else:
+                    # make sure array have correct length, otherwise raise error
+                    if override.shape[0] != self.number_cells:
+                        raise Exception("Length of override array does not match number of cells in simulation!")
+
+                    # use the array and add to list of cell array names
+                    else:
+                        self.__dict__[array_name] = override
+                        self.cell_array_names.append(array_name)
+            else:
+                raise Exception(f"Cell array: {array_name} already exists in Simulation object!")
+
+        # if a cell type parameter is passed, try to revalue existing array
         else:
-            raise Exception("See documentation for setting up cell arrays.")
+            # only continue if array exists
+            if array_exists:
+                # get the bounds of the slice
+                begin = self.cell_types[cell_type][0]
+                end = self.cell_types[cell_type][1]
+
+                # update only this slice of the cell array only if it's not None
+                if function is not None:
+                    for i in range(begin, end):
+                        self.__dict__[array_name][i] = function()
+            else:
+                raise Exception(f"Cell array: {array_name} does not exist! Please create array before revaluing it.")
