@@ -844,35 +844,53 @@ class Base:
         if cell_type is not None:
             self.cell_types[cell_type] = (begin, end)
 
-    def cell_array(self, array_name, function, dtype=float, vector=None, cell_type=None):
+    def cell_array(self, array_name, override=None, function=None, dtype=float, vector=None, cell_type=None):
         """ Create or modify a Simulation instance variable corresponding to a
             cell array with initial parameters.
         """
-        # if the cell array does not exist and there is no cell type specified, create new array
-        if not hasattr(self, array_name) and cell_type is None:
-            # add the array name to a list for automatic addition/removal when cells divide/die
-            self.cell_array_names.append(array_name)
+        # see if cell array already exists in Simulation object
+        array_exists = hasattr(self, array_name)
 
-            # if using python string data type, use object data type instead as this is what numpy prefers
-            if dtype == str:
-                dtype = object
+        # add cell array to Simulation object
+        if cell_type is None and not array_exists:
+            # make new cell array
+            if override is None:
+                # add the array name to a list for automatic addition/removal when cells divide/die
+                self.cell_array_names.append(array_name)
 
-            # get the dimensions of the array
-            if vector is None:
-                size = self.number_cells  # 1-dimensional array
+                # get the dimensions of the array
+                if vector is None:
+                    size = self.number_cells  # 1-dimensional array
+                else:
+                    size = (self.number_cells, vector)  # 2-dimensional array (1-dimensional of vectors)
+
+                # if using python string data type, use object data type instead as this is what numpy prefers
+                if dtype == str or dtype == object:
+                    # create cell array in Simulation object with NoneType as default value
+                    self.__dict__[array_name] = np.empty(size, dtype=object)
+
+                else:
+                    # create cell array in Simulation object, with zero as default value
+                    self.__dict__[array_name] = np.zeros(size, dtype=dtype)
+
+                # if function is passed, apply initial parameter
+                if function is not None:
+                    for i in range(self.number_cells):
+                        self.__dict__[array_name][i] = function()
+
+            # use existing array that was passed as override
             else:
-                size = (self.number_cells, vector)  # 2-dimensional array (1-dimensional of vectors)
+                # make sure array have correct length, otherwise raise error
+                if override.shape[0] != self.number_cells:
+                    raise Exception("Length of override array does not match number of cells in simulation!")
 
-            # create cell array in Simulation object
-            self.__dict__[array_name] = np.empty(size, dtype=dtype)
+                # use the array and add to list of cell array names
+                else:
+                    self.__dict__[array_name] = override
+                    self.cell_array_names.append(array_name)
 
-            # apply the initial parameter to each index of the array only if it's not None
-            if function is not None:
-                for i in range(self.number_cells):
-                    self.__dict__[array_name][i] = function()
-
-        # if array already exists and there is a cell type defined, update the initial parameters for that cell type
-        elif hasattr(self, array_name) and cell_type is not None:
+        # update initial parameters for specific cell type
+        elif array_exists:
             # get the bounds of the slice
             begin = self.cell_types[cell_type][0]
             end = self.cell_types[cell_type][1]
@@ -883,5 +901,4 @@ class Base:
                     self.__dict__[array_name][i] = function()
 
         else:
-            raise Exception("Cell array with initial parameters should exist prior to passing alternative"
-                            "initial parameters based on the cell type.")
+            raise Exception("See documentation for setting up cell arrays.")
