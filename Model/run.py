@@ -21,45 +21,45 @@ def setup_cells(simulation):
             cells, and the optional keyword argument is used to designate an addition of cells with a specific
             cell type which can be referenced by the cell_array() method for assigning initial conditions.
 
-            simulation.add_cells(1000)
-            simulation.add_cells(500, cell_type="GATA6_high")
-
+                simulation.add_cells(1000)
+                simulation.add_cells(500, cell_type="GATA6_high")
 
             The cell_array() will generate NumPy arrays used to hold all values of the cells. The first argument
             denotes the name of the instance variable generated for that array in the Simulation object. The
-            following specifies the function for providing the initial condition. Keyword argument "dtype"
-            indicates the type of the array, while "vector" can be used to create 2-dimensional vector arrays.
+            following parameters can be used to set initial values, to specify data types, and to create 2D arrays.
 
-            simulation.cell_array("locations", lambda: np.zeros(3), dtype=float, vector=3)
-            simulation.cell_array("colors", lambda: "green", dtype=str)
-            simulation.cell_array("colors", lambda: "red", cell_type="GATA6_high")
+                simulation.cell_array("FGFR", lambda: r.randrange(0, simulation.field), dtype=int)
+                simulation.cell_array("locations", override=np.random.rand(simulation.number_cells) * simulation.size)
+                simulation.cell_array("motility_forces", dtype=float, vector=3)
+                simulation.cell_array("colors", lambda: "green", dtype=str)
+                simulation.cell_array("colors", lambda: "red", cell_type="GATA6_high")
     """
     # add the specified number of NANOG/GATA6 high cells and create cell type GATA6_high for initial parameters
     simulation.add_cells(simulation.num_nanog)
     simulation.add_cells(simulation.num_gata6, cell_type="GATA6_high")
 
-    # create the following cell arrays with initial conditions
-    simulation.cell_array("locations", lambda: np.random.rand(3) * simulation.size, dtype=float, vector=3)
-    simulation.cell_array("radii", lambda: simulation.min_radius, dtype=float)
-    simulation.cell_array("motion", lambda: True, dtype=bool)
-    simulation.cell_array("FGFR", lambda: r.randrange(0, simulation.field), dtype=int)
-    simulation.cell_array("ERK", lambda: r.randrange(0, simulation.field), dtype=int)
-    simulation.cell_array("GATA6", lambda: 0, dtype=int)
-    simulation.cell_array("NANOG", lambda: r.randrange(1, simulation.field), dtype=int)
-    simulation.cell_array("states", lambda: "Pluripotent", dtype=str)
-    simulation.cell_array("death_counters", lambda: r.randrange(0, simulation.death_thresh), dtype=int)
-    simulation.cell_array("diff_counters", lambda: r.randrange(0, simulation.pluri_to_diff), dtype=int)
-    simulation.cell_array("div_counters", lambda: r.randrange(0, simulation.pluri_div_thresh), dtype=int)
-    simulation.cell_array("fds_counters", lambda: r.randrange(0, simulation.fds_thresh), dtype=int)
-    simulation.cell_array("motility_forces", lambda: np.zeros(3), dtype=float, vector=3)
-    simulation.cell_array("jkr_forces", lambda: np.zeros(3), dtype=float, vector=3)
-    simulation.cell_array("nearest_nanog", lambda: -1, dtype=int)
-    simulation.cell_array("nearest_gata6", lambda: -1, dtype=int)
-    simulation.cell_array("nearest_diff", lambda: -1, dtype=int)
+    # create the following cell arrays with initial conditions, arrays will default to zero
+    simulation.cell_array("locations", override=np.random.rand(simulation.number_cells, 3) * simulation.size)
+    simulation.cell_array("radii", dtype=float, func=lambda: simulation.min_radius)
+    simulation.cell_array("motion", dtype=bool, func=lambda: True)
+    simulation.cell_array("FGFR", dtype=int, func=lambda: r.randrange(0, simulation.field))
+    simulation.cell_array("ERK", dtype=int, func=lambda: r.randrange(0, simulation.field))
+    simulation.cell_array("GATA6", dtype=int)
+    simulation.cell_array("NANOG", dtype=int, func=lambda: r.randrange(1, simulation.field))
+    simulation.cell_array("states", dtype=str, func=lambda: "Pluripotent")
+    simulation.cell_array("death_counters", dtype=int, func=lambda: r.randrange(0, simulation.death_thresh))
+    simulation.cell_array("diff_counters", dtype=int, func=lambda: r.randrange(0, simulation.pluri_to_diff))
+    simulation.cell_array("div_counters", dtype=int, func=lambda: r.randrange(0, simulation.pluri_div_thresh))
+    simulation.cell_array("fds_counters", dtype=int, func=lambda: r.randrange(0, simulation.fds_thresh))
+    simulation.cell_array("motility_forces", dtype=float, vector=3)
+    simulation.cell_array("jkr_forces", dtype=float, vector=3)
+    simulation.cell_array("nearest_nanog", dtype=int, func=lambda: -1)
+    simulation.cell_array("nearest_gata6", dtype=int, func=lambda: -1)
+    simulation.cell_array("nearest_diff", dtype=int, func=lambda: -1)
 
     # update the "GATA6_high" cells with alternative initial conditions
-    simulation.cell_array("GATA6", lambda: r.randrange(1, simulation.field), cell_type="GATA6_high")
-    simulation.cell_array("NANOG", lambda: 0, cell_type="GATA6_high")
+    simulation.cell_array("GATA6", cell_type="GATA6_high", func=lambda: r.randrange(1, simulation.field))
+    simulation.cell_array("NANOG", cell_type="GATA6_high", func=lambda: 0)
 
 
 def steps(simulation):
@@ -105,13 +105,22 @@ def steps(simulation):
         functions.cell_motility(simulation)
         # functions.eunbi_motility(simulation)
 
-        # Attempts to move the cells to a state of physical equilibrium between adhesive and repulsive forces acting on
-        # the cells, while applying active motility forces from the previous cell_motility() function.
-        functions.handle_movement(simulation)
+        # Through the series of methods, attempt to move the cells to a state of physical equilibrium between adhesive
+        # and repulsive forces acting on the cells, while applying active motility forces.
+        for _ in range(simulation.move_steps):
+            functions.jkr_neighbors(simulation)
+            functions.get_forces(simulation)
+            functions.apply_forces(simulation)
 
         # Saves multiple forms of information about the simulation at the current step, including an image of the space,
-        # CSVs with values of the cells, a temporary pickle of the Simulation object, and performance stats.
-        output.step_outputs(simulation)
+        # CSVs with values of the cells, a temporary pickle of the Simulation object, and performance stats. See the
+        # outputs.txt template file for turning off certain outputs.
+        output.step_image(simulation)
+        output.step_values(simulation)
+        output.step_gradients(simulation)
+        output.step_tda(simulation)
+        output.temporary(simulation)
+        output.simulation_data(simulation)
 
     # Ends the simulation by creating a video from all of the step images
     output.create_video(simulation)

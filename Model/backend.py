@@ -14,6 +14,10 @@ def info(simulation):
     # records when the step begins, used for measuring efficiency
     simulation.step_start = time.perf_counter()    # time.perf_counter() is more accurate than time.time()
 
+    # reset method time measures back to zero, used to measure methods called multiple times
+    for method_name in simulation.method_times.keys():
+        simulation.method_times[method_name] = 0
+
     # prints the current step number and the number of cells
     print("Step: " + str(simulation.current_step))
     print("Number of cells: " + str(simulation.number_cells))
@@ -760,19 +764,22 @@ def random_vector(simulation):
 
 
 def record_time(function):
-    """ A decorator used to time individual methods and stores
-        this information in a dict in the simulation object.
+    """ A decorator used to time individual methods. If a method is called
+        more than once, the time will be cumulative for the step.
     """
     @wraps(function)
-    def wrap(simulation, *args, **kwargs):    # args and kwargs are for additional arguments and keywords
-        # hold the start time
-        simulation.method_times[function.__name__] = -1 * time.perf_counter()
-
-        # call the method
+    def wrap(simulation, *args, **kwargs):    # args and kwargs are for additional arguments
+        # get the start/end time and call the method
+        start = time.perf_counter()
         function(simulation, *args, **kwargs)
+        end = time.perf_counter()
 
-        # get the time elapsed
-        simulation.method_times[function.__name__] += time.perf_counter()
+        # make sure key exists
+        if function.__name__ not in simulation.method_times.keys():
+            simulation.method_times[function.__name__] = 0
+
+        # add the time to the running count for this step (if method is called more than once)
+        simulation.method_times[function.__name__] += end - start
 
     return wrap
 
@@ -844,44 +851,66 @@ class Base:
         if cell_type is not None:
             self.cell_types[cell_type] = (begin, end)
 
-    def cell_array(self, array_name, function, dtype=float, vector=None, cell_type=None):
-        """ Create or modify a Simulation instance variable corresponding to a
-            cell array with initial parameters.
+    def cell_array(self, array_name, cell_type=None, dtype=float, vector=None, func=None, override=None):
+        """ Create a cell array in the Simulation object used to hold
+            cell values and specify the initial values of the array.
         """
-        # if the cell array does not exist and there is no cell type specified, create new array
-        if not hasattr(self, array_name) and cell_type is None:
-            # add the array name to a list for automatic addition/removal when cells divide/die
-            self.cell_array_names.append(array_name)
+        # see if cell array already exists in Simulation object
+        array_exists = hasattr(self, array_name)
 
-            # if using python string data type, use object data type instead as this is what numpy prefers
-            if dtype == str:
-                dtype = object
+        # if there is no cell type parameter passed
+        if cell_type is None:
+            # if a cell array doesn't exist, add one to the Simulation object
+            if not array_exists:
+                # if not passing in an override array, make a new array
+                if override is None:
+                    # add the array name to a list for automatic addition/removal when cells divide/die
+                    self.cell_array_names.append(array_name)
 
-            # get the dimensions of the array
-            if vector is None:
-                size = self.number_cells  # 1-dimensional array
+                    # get the dimensions of the array
+                    if vector is None:
+                        size = self.number_cells  # 1-dimensional array
+                    else:
+                        size = (self.number_cells, vector)  # 2-dimensional array (1-dimensional of vectors)
+
+                    # if using python string data type, use object data type instead
+                    if dtype == str or dtype == object:
+                        # create cell array in Simulation object with NoneType as default value
+                        self.__dict__[array_name] = np.empty(size, dtype=object)
+
+                    else:
+                        # create cell array in Simulation object, with zeros as default values
+                        self.__dict__[array_name] = np.zeros(size, dtype=dtype)
+
+                    # if function is passed, apply initial parameter
+                    if func is not None:
+                        for i in range(self.number_cells):
+                            self.__dict__[array_name][i] = func()
+
+                # use existing array that was passed as override parameter
+                else:
+                    # make sure array have correct length, otherwise raise error
+                    if override.shape[0] != self.number_cells:
+                        raise Exception("Length of override array does not match number of cells in simulation!")
+
+                    # use the array and add to list of cell array names
+                    else:
+                        self.__dict__[array_name] = override
+                        self.cell_array_names.append(array_name)
             else:
-                size = (self.number_cells, vector)  # 2-dimensional array (1-dimensional of vectors)
+                raise Exception(f'Cell array: "{array_name}" already exists in Simulation object!')
 
-            # create cell array in Simulation object
-            self.__dict__[array_name] = np.empty(size, dtype=dtype)
-
-            # apply the initial parameter to each index of the array only if it's not None
-            if function is not None:
-                for i in range(self.number_cells):
-                    self.__dict__[array_name][i] = function()
-
-        # if array already exists and there is a cell type defined, update the initial parameters for that cell type
-        elif hasattr(self, array_name) and cell_type is not None:
-            # get the bounds of the slice
-            begin = self.cell_types[cell_type][0]
-            end = self.cell_types[cell_type][1]
-
-            # update only this slice of the cell array only if it's not None
-            if function is not None:
-                for i in range(begin, end):
-                    self.__dict__[array_name][i] = function()
-
+        # if a cell type parameter is passed, try to revalue existing array
         else:
-            raise Exception("Cell array with initial parameters should exist prior to passing alternative"
-                            "initial parameters based on the cell type.")
+            # only continue if array exists
+            if array_exists:
+                # get the bounds of the slice
+                begin = self.cell_types[cell_type][0]
+                end = self.cell_types[cell_type][1]
+
+                # update only this slice of the cell array only if it's not None
+                if func is not None:
+                    for i in range(begin, end):
+                        self.__dict__[array_name][i] = func()
+            else:
+                raise Exception(f'Cell array: "{array_name}" does not exist! Please create array before revaluing it.')
