@@ -31,23 +31,6 @@ class Paths:
         self.tda = main + name + "_tda" + separator    # the topological data analysis output directory
 
 
-def step_outputs(simulation):
-    """ Calls multiple functions that each output some sort of
-        file relating to the simulation at a particular step.
-    """
-    # information about the cells/environment at current step
-    step_image(simulation)
-    step_values(simulation)
-    step_gradients(simulation)
-    step_tda(simulation)
-
-    # create a temporary pickle of the Simulation object
-    temporary(simulation)
-
-    # number of cells, memory, step time, and individual methods times
-    simulation_data(simulation)
-
-
 @backend.record_time
 def step_image(simulation):
     """ Creates an image representation of the space in which

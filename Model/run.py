@@ -113,8 +113,14 @@ def steps(simulation):
             functions.apply_forces(simulation)
 
         # Saves multiple forms of information about the simulation at the current step, including an image of the space,
-        # CSVs with values of the cells, a temporary pickle of the Simulation object, and performance stats.
-        output.step_outputs(simulation)
+        # CSVs with values of the cells, a temporary pickle of the Simulation object, and performance stats. See the
+        # outputs.txt template file for turning off certain outputs.
+        output.step_image(simulation)
+        output.step_values(simulation)
+        output.step_gradients(simulation)
+        output.step_tda(simulation)
+        output.temporary(simulation)
+        output.simulation_data(simulation)
 
     # Ends the simulation by creating a video from all of the step images
     output.create_video(simulation)
