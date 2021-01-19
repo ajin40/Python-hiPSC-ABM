@@ -3,6 +3,7 @@ import random as r
 import math
 import time
 import re
+import os
 from numba import jit, cuda, prange
 from functools import wraps
 
@@ -807,6 +808,14 @@ def progress_bar(progress, maximum):
 
     # output the progress bar
     print('\r[%s] %s%s' % (bar, percent, '%'), end="")
+
+
+def check_direct(path):
+    """ Used primarily by output methods, checks to see if directory
+        exists and if not, make it.
+    """
+    if not os.path.isdir(path):
+        os.mkdir(path)
 
 
 class Base:
