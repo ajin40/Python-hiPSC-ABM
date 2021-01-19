@@ -1,5 +1,6 @@
 import numpy as np
 import igraph
+import math
 import input
 from backend import Base
 
@@ -59,6 +60,7 @@ class Simulation(Base):
         self.step_dt = 1800  # dt of each simulation step (1800 sec)
         self.move_dt = 200  # dt for incremental movement (200 sec)
         self.diffuse_dt = 0.24  # dt for stable diffusion model (0.5 sec)
+        self.move_steps = math.ceil(self.step_dt / self.move_dt)
 
         # the field for the finite dynamical system
         self.field = 3

@@ -105,9 +105,12 @@ def steps(simulation):
         functions.cell_motility(simulation)
         # functions.eunbi_motility(simulation)
 
-        # Attempts to move the cells to a state of physical equilibrium between adhesive and repulsive forces acting on
-        # the cells, while applying active motility forces from the previous cell_motility() function.
-        functions.handle_movement(simulation)
+        # Through the series of methods, attempt to move the cells to a state of physical equilibrium between adhesive
+        # and repulsive forces acting on the cells, while applying active motility forces.
+        for _ in range(simulation.move_steps):
+            functions.jkr_neighbors(simulation)
+            functions.get_forces(simulation)
+            functions.apply_forces(simulation)
 
         # Saves multiple forms of information about the simulation at the current step, including an image of the space,
         # CSVs with values of the cells, a temporary pickle of the Simulation object, and performance stats.

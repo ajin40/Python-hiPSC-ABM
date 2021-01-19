@@ -206,6 +206,9 @@ def cell_motility(simulation):
     # this is the motility force of the cells
     motility_force = 0.000000002
 
+    # reset motility forces to zero vector
+    simulation.motility_forces[:, :] = 0
+
     # loop over all of the cells
     for index in range(simulation.number_cells):
         # get the neighbors of the cell
@@ -278,6 +281,9 @@ def eunbi_motility(simulation):
     """
     # this is the motility force of the cells
     motility_force = 0.000000002
+
+    # reset motility forces to zero vector
+    simulation.motility_forces[:, :] = 0
 
     # loop over all of the cells
     for index in range(simulation.number_cells):
@@ -494,32 +500,6 @@ def nearest(simulation):
     simulation.nearest_gata6 = gata6
     simulation.nearest_nanog = nanog
     simulation.nearest_diff = diff
-
-
-@backend.record_time
-def handle_movement(simulation):
-    """ Runs the following functions together for the time period
-        of the step. Resets the motility force array to zero after
-        movement is done.
-    """
-    # if a static variable for holding the number of steps hasn't been created, create one
-    if not hasattr(handle_movement, "steps"):
-        # get the total amount of times the cells will be incrementally moved during the step
-        handle_movement.steps = math.ceil(simulation.step_dt / simulation.move_dt)
-
-    # run the following movement functions consecutively
-    for _ in range(handle_movement.steps):
-        # determines which cells will have physical interactions and save this to a graph
-        jkr_neighbors(simulation)
-
-        # go through the edges found in the above function and calculate resulting JKR forces
-        get_forces(simulation)
-
-        # apply all forces such as motility and JKR to the cells
-        apply_forces(simulation)
-
-    # reset motility forces back to zero
-    simulation.motility_forces[:][:] = 0
 
 
 @backend.record_time
