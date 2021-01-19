@@ -844,9 +844,9 @@ class Base:
         if cell_type is not None:
             self.cell_types[cell_type] = (begin, end)
 
-    def cell_array(self, array_name, override=None, function=None, dtype=float, vector=None, cell_type=None):
-        """ Create or modify a Simulation instance variable corresponding to a
-            cell array with initial parameters.
+    def cell_array(self, array_name, cell_type=None, dtype=float, vector=None, func=None, override=None):
+        """ Create a cell array in the Simulation object used to hold
+            cell values and specify the initial values of the array.
         """
         # see if cell array already exists in Simulation object
         array_exists = hasattr(self, array_name)
@@ -876,9 +876,9 @@ class Base:
                         self.__dict__[array_name] = np.zeros(size, dtype=dtype)
 
                     # if function is passed, apply initial parameter
-                    if function is not None:
+                    if func is not None:
                         for i in range(self.number_cells):
-                            self.__dict__[array_name][i] = function()
+                            self.__dict__[array_name][i] = func()
 
                 # use existing array that was passed as override parameter
                 else:
@@ -891,7 +891,7 @@ class Base:
                         self.__dict__[array_name] = override
                         self.cell_array_names.append(array_name)
             else:
-                raise Exception(f"Cell array: {array_name} already exists in Simulation object!")
+                raise Exception(f'Cell array: "{array_name}" already exists in Simulation object!')
 
         # if a cell type parameter is passed, try to revalue existing array
         else:
@@ -902,8 +902,8 @@ class Base:
                 end = self.cell_types[cell_type][1]
 
                 # update only this slice of the cell array only if it's not None
-                if function is not None:
+                if func is not None:
                     for i in range(begin, end):
-                        self.__dict__[array_name][i] = function()
+                        self.__dict__[array_name][i] = func()
             else:
-                raise Exception(f"Cell array: {array_name} does not exist! Please create array before revaluing it.")
+                raise Exception(f'Cell array: "{array_name}" does not exist! Please create array before revaluing it.')

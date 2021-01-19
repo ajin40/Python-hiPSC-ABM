@@ -39,27 +39,27 @@ def setup_cells(simulation):
     simulation.add_cells(simulation.num_gata6, cell_type="GATA6_high")
 
     # create the following cell arrays with initial conditions, arrays will default to zero
-    simulation.cell_array("locations", override=np.random.rand(simulation.number_cells) * simulation.size)
-    simulation.cell_array("radii", lambda: simulation.min_radius, dtype=float)
-    simulation.cell_array("motion", lambda: True, dtype=bool)
-    simulation.cell_array("FGFR", lambda: r.randrange(0, simulation.field), dtype=int)
-    simulation.cell_array("ERK", lambda: r.randrange(0, simulation.field), dtype=int)
+    simulation.cell_array("locations", override=np.random.rand(simulation.number_cells, 3) * simulation.size)
+    simulation.cell_array("radii", dtype=float, func=lambda: simulation.min_radius)
+    simulation.cell_array("motion", dtype=bool, func=lambda: True)
+    simulation.cell_array("FGFR", dtype=int, func=lambda: r.randrange(0, simulation.field))
+    simulation.cell_array("ERK", dtype=int, func=lambda: r.randrange(0, simulation.field))
     simulation.cell_array("GATA6", dtype=int)
-    simulation.cell_array("NANOG", lambda: r.randrange(1, simulation.field), dtype=int)
-    simulation.cell_array("states", lambda: "Pluripotent", dtype=str)
-    simulation.cell_array("death_counters", lambda: r.randrange(0, simulation.death_thresh), dtype=int)
-    simulation.cell_array("diff_counters", lambda: r.randrange(0, simulation.pluri_to_diff), dtype=int)
-    simulation.cell_array("div_counters", lambda: r.randrange(0, simulation.pluri_div_thresh), dtype=int)
-    simulation.cell_array("fds_counters", lambda: r.randrange(0, simulation.fds_thresh), dtype=int)
+    simulation.cell_array("NANOG", dtype=int, func=lambda: r.randrange(1, simulation.field))
+    simulation.cell_array("states", dtype=str, func=lambda: "Pluripotent")
+    simulation.cell_array("death_counters", dtype=int, func=lambda: r.randrange(0, simulation.death_thresh))
+    simulation.cell_array("diff_counters", dtype=int, func=lambda: r.randrange(0, simulation.pluri_to_diff))
+    simulation.cell_array("div_counters", dtype=int, func=lambda: r.randrange(0, simulation.pluri_div_thresh))
+    simulation.cell_array("fds_counters", dtype=int, func=lambda: r.randrange(0, simulation.fds_thresh))
     simulation.cell_array("motility_forces", dtype=float, vector=3)
     simulation.cell_array("jkr_forces", dtype=float, vector=3)
-    simulation.cell_array("nearest_nanog", lambda: -1, dtype=int)
-    simulation.cell_array("nearest_gata6", lambda: -1, dtype=int)
-    simulation.cell_array("nearest_diff", lambda: -1, dtype=int)
+    simulation.cell_array("nearest_nanog", dtype=int, func=lambda: -1)
+    simulation.cell_array("nearest_gata6", dtype=int, func=lambda: -1)
+    simulation.cell_array("nearest_diff", dtype=int, func=lambda: -1)
 
     # update the "GATA6_high" cells with alternative initial conditions
-    simulation.cell_array("GATA6", lambda: r.randrange(1, simulation.field), cell_type="GATA6_high")
-    simulation.cell_array("NANOG", lambda: 0, cell_type="GATA6_high")
+    simulation.cell_array("GATA6", cell_type="GATA6_high", func=lambda: r.randrange(1, simulation.field))
+    simulation.cell_array("NANOG", cell_type="GATA6_high", func=lambda: 0)
 
 
 def steps(simulation):
