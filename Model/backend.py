@@ -14,6 +14,10 @@ def info(simulation):
     # records when the step begins, used for measuring efficiency
     simulation.step_start = time.perf_counter()    # time.perf_counter() is more accurate than time.time()
 
+    # reset method time measures back to zero, used to measure methods called multiple times
+    for method_name in simulation.method_times.keys():
+        simulation.method_times[method_name] = 0
+
     # prints the current step number and the number of cells
     print("Step: " + str(simulation.current_step))
     print("Number of cells: " + str(simulation.number_cells))
@@ -760,19 +764,22 @@ def random_vector(simulation):
 
 
 def record_time(function):
-    """ A decorator used to time individual methods and stores
-        this information in a dict in the simulation object.
+    """ A decorator used to time individual methods. If a method is called
+        more than once, the time will be cumulative for the step.
     """
     @wraps(function)
-    def wrap(simulation, *args, **kwargs):    # args and kwargs are for additional arguments and keywords
-        # hold the start time
-        simulation.method_times[function.__name__] = -1 * time.perf_counter()
-
-        # call the method
+    def wrap(simulation, *args, **kwargs):    # args and kwargs are for additional arguments
+        # get the start/end time and call the method
+        start = time.perf_counter()
         function(simulation, *args, **kwargs)
+        end = time.perf_counter()
 
-        # get the time elapsed
-        simulation.method_times[function.__name__] += time.perf_counter()
+        # make sure key exists
+        if function.__name__ not in simulation.method_times.keys():
+            simulation.method_times[function.__name__] = 0
+
+        # add the time to the running count for this step (if method is called more than once)
+        simulation.method_times[function.__name__] += end - start
 
     return wrap
 

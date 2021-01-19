@@ -643,18 +643,25 @@ def get_forces(simulation):
 
 
 @backend.record_time
-def apply_forces(simulation):
+def apply_forces(simulation, apply_motility=True):
     """ Turns the motility and JKR forces acting on
         a cell into movement.
     """
     # contact mechanics parameters that rarely change
     viscosity = 10000    # the viscosity of the medium in Ns/m used for stokes friction
 
+    # this method can be called in update_queue() to simulate asynchronous division, if apply_motility is False
+    # an array of zeros will be used to prevent erroneous motility forces
+    if apply_motility:
+        motility_forces = simulation.motility_forces
+    else:
+        motility_forces = np.zeros_like(simulation.motility_forces)
+
     # send the following as arrays to the gpu
     if simulation.parallel:
         # turn the following into arrays that can be interpreted by the gpu
         jkr_forces_cuda = cuda.to_device(simulation.jkr_forces)
-        motility_forces_cuda = cuda.to_device(simulation.motility_forces)
+        motility_forces_cuda = cuda.to_device(motility_forces)
         locations_cuda = cuda.to_device(simulation.locations)
         radii_cuda = cuda.to_device(simulation.radii)
         viscosity_cuda = cuda.to_device(viscosity)
@@ -674,14 +681,13 @@ def apply_forces(simulation):
 
     # call the cpu version
     else:
-        new_locations = backend.apply_forces_cpu(simulation.number_cells, simulation.jkr_forces,
-                                                 simulation.motility_forces, simulation.locations,
-                                                 simulation.radii, viscosity, simulation.size,
+        new_locations = backend.apply_forces_cpu(simulation.number_cells, simulation.jkr_forces, motility_forces,
+                                                 simulation.locations, simulation.radii, viscosity, simulation.size,
                                                  simulation.move_dt)
 
     # update the locations and reset the jkr forces back to zero
     simulation.locations = new_locations
-    simulation.jkr_forces[:][:] = 0.0
+    simulation.jkr_forces[:, :] = 0
 
 
 @backend.record_time
@@ -778,8 +784,10 @@ def update_queue(simulation):
 
             # if the current number added is divisible by the group number
             if (i + 1) % simulation.group == 0:
-                # call the handle movement function to better simulate asynchronous division
-                handle_movement(simulation)
+                # run the following once to better simulate asynchronous division
+                jkr_neighbors(simulation)
+                get_forces(simulation)
+                apply_forces(simulation, apply_motility=False)    # don't apply motility forces
 
     # -------------------- Death --------------------
     # get the indices of the cells leaving the simulation
