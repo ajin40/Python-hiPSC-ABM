@@ -29,8 +29,8 @@ def setup_cells(simulation):
             following parameters can be used to set initial values, to specify data types, and to create 2D arrays.
 
                 simulation.cell_array("FGFR", lambda: r.randrange(0, simulation.field), dtype=int)
-                simulation.cell_array("locations", override=np.random.rand(simulation.number_cells) * simulation.size)
-                simulation.cell_array("motility_forces", dtype=float, vector=3)
+                simulation.cell_array("locations", override=some_array)
+                simulation.cell_array("motility_forces", vector=3)
                 simulation.cell_array("colors", lambda: "green", dtype=str)
                 simulation.cell_array("colors", lambda: "red", cell_type="GATA6_high")
     """
@@ -38,7 +38,7 @@ def setup_cells(simulation):
     simulation.add_cells(simulation.num_nanog)
     simulation.add_cells(simulation.num_gata6, cell_type="GATA6_high")
 
-    # create the following cell arrays with initial conditions, arrays will default to zero
+    # create the following cell arrays with initial conditions, arrays will default to zero and float type
     simulation.cell_array("locations", override=np.random.rand(simulation.number_cells, 3) * simulation.size)
     simulation.cell_array("radii", func=lambda: simulation.min_radius)
     simulation.cell_array("motion", dtype=bool, func=lambda: True)
@@ -112,9 +112,9 @@ def steps(simulation):
             functions.get_forces(simulation)
             functions.apply_forces(simulation)
 
-        # Saves multiple forms of information about the simulation at the current step, including an image of the space,
-        # CSVs with values of the cells, a temporary pickle of the Simulation object, and performance stats. See the
-        # outputs.txt template file for turning off certain outputs.
+        # Saves multiple forms of information about the simulation at the current step, including an image of the
+        # space, CSVs with values of the cells, a temporary pickle of the Simulation object, and performance stats.
+        # See the outputs.txt template file for turning off certain outputs.
         output.step_image(simulation)
         output.step_values(simulation)
         output.step_gradients(simulation)
