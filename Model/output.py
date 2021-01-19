@@ -44,87 +44,69 @@ def step_image(simulation):
             os.mkdir(simulation.paths.images)
 
         # get the size of the array used for imaging in addition to the scaling factor
-        pixels = simulation.image_quality
-        scale = pixels/simulation.size[0]
-        x_size = pixels
+        x_size = simulation.image_quality
+        scale = x_size/simulation.size[0]
         y_size = math.ceil(scale * simulation.size[1])
 
         # create the cell space background image and apply background color
         image = np.zeros((y_size, x_size, 3), dtype=np.uint8)
         image[:, :] = simulation.back_color
 
-        # create the gradient image
+        # if outputting gradient image, create it
         if simulation.output_fgf4_image:
-            # normalize the concentration values and multiple by 255 to create grayscale image
-            grad_image = simulation.fgf4_values[:, :, 0] * (255 / simulation.max_concentration)
-            grad_image = grad_image.astype(np.uint8)
+            # normalize the concentration values and multiple by 255
+            grad_image = 255 * simulation.fgf4_values[:, :, 0] / simulation.max_concentration
+            grad_image = grad_image.astype(np.uint8)    # use unsigned int8
 
-            # recolor the grayscale image into a colormap and resize to match the cell space array
+            # recolor the grayscale image into a colormap and resize to match the cell space image
             grad_image = cv2.applyColorMap(grad_image, cv2.COLORMAP_OCEAN)
             grad_image = cv2.resize(grad_image, (y_size, x_size), interpolation=cv2.INTER_NEAREST)
 
-            # flip and rotate to turn go from (y, x) to (x, y) so that origin is top, left to match OpenCV locations
-            grad_image = cv2.rotate(grad_image, cv2.ROTATE_90_COUNTERCLOCKWISE)
-            grad_image = cv2.flip(grad_image, 0)
+            # transpose the array to match the point location of OpenCV: (x, y) with origin top left
+            grad_image = cv2.transpose(grad_image)
 
         # go through all of the cells
         for index in range(simulation.number_cells):
-            x = math.ceil(simulation.locations[index][0] * scale)    # the x-coordinate
-            y = math.ceil(simulation.locations[index][1] * scale)    # the y-coordinate
-            point = (x, y)                                           # the x, y point
-            major = math.ceil(simulation.radii[index] * scale)       # the major axis length
-            minor = math.ceil(simulation.radii[index] * scale)       # the minor axis length
-            rotation = 0                                             # the rotation of the ellipse (zero for now)
+            # get xy coordinates and the axis lengths
+            x, y = int(scale * simulation.locations[index][0]), int(scale * simulation.locations[index][1])
+            major = int(scale * simulation.radii[index])
+            minor = int(scale * simulation.radii[index])
 
             # color the cells according to the mode
             if simulation.color_mode:
-                # if the cell is differentiated, color red
                 if simulation.states[index] == "Differentiated":
-                    color = (0, 0, 230)
-
-                # if the cell is gata6 high and nanog low, color white
+                    color = (0, 0, 230)    # red
                 elif simulation.GATA6[index] > simulation.NANOG[index]:
-                    color = (255, 255, 255)
-
-                # if anything else, color green
+                    color = (255, 255, 255)    # white
                 else:
-                    color = (32, 252, 22)
+                    color = (32, 252, 22)    # green
 
             # False yields coloring based on the finite dynamical system
             else:
-                # if the cell is differentiated, color red
                 if simulation.states[index] == "Differentiated":
-                    color = (0, 0, 230)
-
-                # if the cell is gata6 high and nanog low, color white
+                    color = (0, 0, 230)    # red
                 elif simulation.GATA6[index] > simulation.NANOG[index]:
-                    color = (255, 255, 255)
-
-                # if the cell is both gata6 high and nanog high, color yellow
+                    color = (255, 255, 255)    # white
                 elif simulation.GATA6[index] == simulation.NANOG[index] == simulation.field - 1:
-                    color = (30, 255, 255)
-
-                # if the cell is both gata6 low and nanog low, color blue
+                    color = (30, 255, 255)    # yellow
                 elif simulation.GATA6[index] == simulation.NANOG[index] == 0:
-                    color = (255, 50, 50)
-
-                # if anything else, color green
+                    color = (255, 50, 50)    # blue
                 else:
-                    color = (32, 252, 22)
+                    color = (32, 252, 22)    # green
 
             # draw the cell and a black outline to distinguish overlapping cells
-            image = cv2.ellipse(image, point, (major, minor), rotation, 0, 360, color, -1)
-            image = cv2.ellipse(image, point, (major, minor), rotation, 0, 360, (0, 0, 0), 1)
+            image = cv2.ellipse(image, (x, y), (major, minor), 0, 0, 360, color, -1)
+            image = cv2.ellipse(image, (x, y), (major, minor), 0, 0, 360, (0, 0, 0), 1)
 
-            # draw the outline of the cell on the gradient image
+            # draw a black outline of the cell on the gradient image
             if simulation.output_fgf4_image:
-                grad_image = cv2.ellipse(grad_image, point, (major, minor), rotation, 0, 360, (255, 255, 255), 1)
+                grad_image = cv2.ellipse(grad_image, (x, y), (major, minor), 0, 0, 360, (255, 255, 255), 1)
 
-        # combine the to images side by side if including gradient, gradient will be on the right
+        # if including gradient image, combine the to images side by side with gradient image on the right
         if simulation.output_fgf4_image:
             image = np.concatenate((image, grad_image), axis=1)
 
-        # flip the image so that origin goes from top, left to bottom, left
+        # flip the image so that origin goes from top/left to bottom/left
         image = cv2.flip(image, 0)
 
         # save the image as a PNG, use f-string
