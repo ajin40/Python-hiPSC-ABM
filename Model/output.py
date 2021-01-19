@@ -11,18 +11,15 @@ import backend
 
 
 class Paths:
-    """ This object contains the paths to the multiple output
-        directories for the simulation.
+    """ This object is primarily used to hold any important paths for a
+        simulation. For a continued simulation, this will update the Paths
+        object for the case that the computer and/or paths change(s).
     """
     def __init__(self, name, main, templates, separator):
-        # the main directory of the simulation output
-        self.main = main
-
-        # the directory to the template .txt file
-        self.templates = templates
-
-        # hold file separator
-        self.separator = separator
+        # hold the following
+        self.main = main    # the path to the main directory for this simulation
+        self.templates = templates    # the path to the .txt template directory
+        self.separator = separator    # file separator
 
         # these directories are sub-directories under the main simulation directory
         self.images = main + name + "_images" + separator    # the images output directory
@@ -33,15 +30,14 @@ class Paths:
 
 @backend.record_time
 def step_image(simulation):
-    """ Creates an image representation of the space in which
-        the cells reside including the extracellular gradient.
-        Note OpenCV uses BGR instead of RGB.
+    """ Creates an image representation of the cell space. Note OpenCV
+        uses BGR instead of RGB.
     """
     # only continue if outputting images
     if simulation.output_images:
-        # make sure directory exists
-        if not os.path.isdir(simulation.paths.images):
-            os.mkdir(simulation.paths.images)
+        # get path and make sure directory exists
+        directory_path = simulation.paths.images
+        backend.check_direct(directory_path)
 
         # get the size of the array used for imaging in addition to the scaling factor
         x_size = simulation.image_quality
@@ -111,7 +107,7 @@ def step_image(simulation):
 
         # save the image as a PNG, use f-string
         file_name = f"{simulation.name}_image_{simulation.current_step}.png"
-        cv2.imwrite(simulation.paths.images + file_name, image)
+        cv2.imwrite(directory_path + file_name, image)
 
 
 @backend.record_time
@@ -121,15 +117,15 @@ def step_values(simulation):
     """
     # only continue if outputting cell values
     if simulation.output_values:
-        # make sure directory exists
-        if not os.path.isdir(simulation.paths.values):
-            os.mkdir(simulation.paths.values)
+        # get path and make sure directory exists
+        directory_path = simulation.paths.values
+        backend.check_direct(directory_path)
 
         # get file name, use f-string
         file_name = f"{simulation.name}_values_{simulation.current_step}.csv"
 
         # open the file
-        with open(simulation.paths.values + file_name, "w", newline="") as new_file:
+        with open(directory_path + file_name, "w", newline="") as new_file:
             # create CSV object
             csv_file = csv.writer(new_file)
 
@@ -171,9 +167,9 @@ def step_gradients(simulation):
     """
     # only continue if outputting gradient CSVs
     if simulation.output_gradients:
-        # make sure directory exists
-        if not os.path.isdir(simulation.paths.gradients):
-            os.mkdir(simulation.paths.gradients)
+        # get path and make sure directory exists
+        directory_path = simulation.paths.gradients
+        backend.check_direct(directory_path)
 
         # go through all gradient arrays
         for gradient_name in simulation.gradient_names:
@@ -182,7 +178,7 @@ def step_gradients(simulation):
 
             # convert gradient from 3D to 2D array and save it as CSV
             gradient = simulation.__dict__[gradient_name][:, :, 0]
-            np.savetxt(simulation.paths.gradients + file_name, gradient, delimiter=",")
+            np.savetxt(directory_path + file_name, gradient, delimiter=",")
 
 
 @backend.record_time
@@ -192,9 +188,9 @@ def step_tda(simulation):
     """
     # only continue if outputting TDA files
     if simulation.output_tda:
-        # make sure directory exists
-        if not os.path.isdir(simulation.paths.tda):
-            os.mkdir(simulation.paths.tda)
+        # get path and make sure directory exists
+        directory_path = simulation.paths.tda
+        backend.check_direct(directory_path)
 
         # get the indices of the gata6 high cells and the non gata6 high cells
         red_indices = simulation.GATA6 > simulation.NANOG
@@ -210,7 +206,7 @@ def step_tda(simulation):
 
         # create CSV file for green cells, use f-string
         file_name = f"{simulation.name}_tda_green_{simulation.current_step}.csv"
-        np.savetxt(simulation.paths.tda + file_name, green_locations, delimiter=",")
+        np.savetxt(directory_path + file_name, green_locations, delimiter=",")
 
 
 @backend.record_time
