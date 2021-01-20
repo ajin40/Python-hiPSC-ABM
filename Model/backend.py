@@ -2,8 +2,6 @@ import numpy as np
 import random as r
 import math
 import time
-import re
-import os
 from numba import jit, cuda, prange
 from functools import wraps
 
@@ -14,10 +12,6 @@ def info(simulation):
     """
     # records when the step begins, used for measuring efficiency
     simulation.step_start = time.perf_counter()    # time.perf_counter() is more accurate than time.time()
-
-    # reset method time measures back to zero, used to measure methods called multiple times
-    for method_name in simulation.method_times.keys():
-        simulation.method_times[method_name] = 0
 
     # prints the current step number and the number of cells
     print("Step: " + str(simulation.current_step))
@@ -717,7 +711,7 @@ def nearest_cpu(number_cells, bin_locations, locations, bins, bins_help, distanc
 @cuda.jit(device=True)
 def magnitude(location_one, location_two):
     """ A just-in-time compiled cuda kernel device function
-        for getting the distance between two points
+        for getting the distance between two points.
     """
     # loop over the axes add the squared difference
     total = 0
@@ -730,7 +724,7 @@ def magnitude(location_one, location_two):
 
 def normal_vector(vector):
     """ Returns the normalized vector, sadly this does
-        not exist in numpy.
+        not exist in NumPy.
     """
     # get the magnitude
     mag = np.linalg.norm(vector)
@@ -783,39 +777,6 @@ def record_time(function):
         simulation.method_times[function.__name__] += end - start
 
     return wrap
-
-
-def sort_images(image_list):
-    """ Uses a regular expression for sorting the image file
-        list for the create_video() method in output.py.
-    """
-    return int(re.split('(\d+)', image_list)[-2])
-
-
-def progress_bar(progress, maximum):
-    """ Creates a progress bar for create_video() method
-        in output.py because progress bars are cool.
-    """
-    # length of the bar in characters
-    length = 60
-
-    # get the bar string
-    fill = int(length * progress / maximum)
-    bar = '#' * fill + '.' * (length - fill)
-
-    # calculate the percent
-    percent = int(100 * progress / maximum)
-
-    # output the progress bar
-    print('\r[%s] %s%s' % (bar, percent, '%'), end="")
-
-
-def check_direct(path):
-    """ Used primarily by output methods, checks to see if directory
-        exists and if not, make it.
-    """
-    if not os.path.isdir(path):
-        os.mkdir(path)
 
 
 class Base:
