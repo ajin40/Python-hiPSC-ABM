@@ -6,6 +6,7 @@ import psutil
 import pickle
 import os
 import math
+import re
 
 import backend
 
@@ -37,7 +38,7 @@ def step_image(simulation):
     if simulation.output_images:
         # get path and make sure directory exists
         directory_path = simulation.paths.images
-        backend.check_direct(directory_path)
+        check_direct(directory_path)
 
         # get the size of the array used for imaging in addition to the scaling factor
         x_size = simulation.image_quality
@@ -119,7 +120,7 @@ def step_values(simulation):
     if simulation.output_values:
         # get path and make sure directory exists
         directory_path = simulation.paths.values
-        backend.check_direct(directory_path)
+        check_direct(directory_path)
 
         # get file name, use f-string
         file_name = f"{simulation.name}_values_{simulation.current_step}.csv"
@@ -169,7 +170,7 @@ def step_gradients(simulation):
     if simulation.output_gradients:
         # get path and make sure directory exists
         directory_path = simulation.paths.gradients
-        backend.check_direct(directory_path)
+        check_direct(directory_path)
 
         # go through all gradient arrays
         for gradient_name in simulation.gradient_names:
@@ -190,7 +191,7 @@ def step_tda(simulation):
     if simulation.output_tda:
         # get path and make sure directory exists
         directory_path = simulation.paths.tda
-        backend.check_direct(directory_path)
+        check_direct(directory_path)
 
         # get the indices of the gata6 high cells and the non gata6 high cells
         red_indices = simulation.GATA6 > simulation.NANOG
@@ -257,6 +258,10 @@ def simulation_data(simulation):
         function_times = list(simulation.method_times.values())
         csv_object.writerow(columns + function_times)
 
+        # reset method time measures back to zero, used to measure methods called multiple times
+        for method_name in simulation.method_times.keys():
+            simulation.method_times[method_name] = 0
+
 
 def create_video(simulation):
     """ Takes all of the step images of a simulation and writes
@@ -273,7 +278,7 @@ def create_video(simulation):
             print("\nCreating video...")
 
             # sort the list naturally so "2, 20, 3, 31..." becomes "2, 3,...,20,...,31"
-            file_list = sorted(file_list, key=backend.sort_images)
+            file_list = sorted(file_list, key=sort_images)
 
             # sample the first image to get the shape of the images
             frame = cv2.imread(simulation.paths.images + file_list[0])
@@ -290,10 +295,40 @@ def create_video(simulation):
             for i in range(image_count):
                 image = cv2.imread(simulation.paths.images + file_list[i])
                 video_object.write(image)
-                backend.progress_bar(i + 1, image_count)
+                progress_bar(i + 1, image_count)
 
             # close the video file
             video_object.release()
 
     # print end statement...super important. Don't remove or model won't run!
     print("\n\nThe simulation is finished. May the force be with you.\n")
+
+
+def check_direct(path):
+    """ Checks to see if directory exists and if not, then make it.
+    """
+    if not os.path.isdir(path):
+        os.mkdir(path)
+
+
+def sort_images(image_list):
+    """ Uses a regular expression for sorting the image file list.
+    """
+    return int(re.split('(\d+)', image_list)[-2])
+
+
+def progress_bar(progress, maximum):
+    """ Make a progress bar because progress bars are cool.
+    """
+    # length of the bar in characters
+    length = 60
+
+    # get the bar string
+    fill = int(length * progress / maximum)
+    bar = '#' * fill + '.' * (length - fill)
+
+    # calculate the percent
+    percent = int(100 * progress / maximum)
+
+    # output the progress bar
+    print('\r[%s] %s%s' % (bar, percent, '%'), end="")
