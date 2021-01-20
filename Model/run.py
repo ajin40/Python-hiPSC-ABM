@@ -7,38 +7,38 @@ import functions
 import backend
 
 
-# start the model only if this file is being run directly
+# Only start the model if this file is being run directly.
 if __name__ == "__main__":
     input.start()
 
 
 def setup_cells(simulation):
-    """ Specify how many cells a simulation will begin with and any cell types
-        which are used to create initial parameters for those cells.
+    """ Here you can specify how many cells a simulation will begin with
+        and define any cell arrays with initial conditions.
 
-        Example:
-            Add cells into the simulation with the add_cells() method. The first argument is the number of
-            cells, and the optional keyword argument is used to designate an addition of cells with a specific
-            cell type which can be referenced by the cell_array() method for assigning initial conditions.
+        How-to:
+            The lines below first add 1000 general cells into the simulation and then add 500 cells marked with the
+            "GATA6_high" parameter. This allows for specifying initial conditions to just the 500 cells.
 
-                simulation.add_cells(1000)
-                simulation.add_cells(500, cell_type="GATA6_high")
+            simulation.add_cells(1000)
+            simulation.add_cells(500, cell_type="GATA6_high")
 
-            The cell_array() will generate NumPy arrays used to hold all values of the cells. The first argument
-            denotes the name of the instance variable generated for that array in the Simulation object. The
-            following parameters can be used to set initial values, to specify data types, and to create 2D arrays.
+            The cell_array() method will generate a NumPy array used to hold all values of the cells. The first
+            argument is required to name the array as an instance variable in the Simulation object. Other optional
+            parameters can be used to customize the array. Note: the array will default to a 1-dimension array of
+            zeros represented as floats. See examples below.
 
-                simulation.cell_array("FGFR", lambda: r.randrange(0, simulation.field), dtype=int)
-                simulation.cell_array("locations", override=some_array)
-                simulation.cell_array("motility_forces", vector=3)
-                simulation.cell_array("colors", lambda: "green", dtype=str)
-                simulation.cell_array("colors", lambda: "red", cell_type="GATA6_high")
+            simulation.cell_array("colors", lambda: "green", dtype=str)
+            simulation.cell_array("colors", lambda: "red", cell_type="GATA6_high")
+            simulation.cell_array("locations", override=some_array)
+            simulation.cell_array("motility_forces", vector=3)
+
     """
-    # add the specified number of NANOG/GATA6 high cells and create cell type GATA6_high for initial parameters
+    # Add the specified number of NANOG/GATA6 high cells and create cell type GATA6_high for initial parameters.
     simulation.add_cells(simulation.num_nanog)
     simulation.add_cells(simulation.num_gata6, cell_type="GATA6_high")
 
-    # create the following cell arrays with initial conditions, arrays will default to zero and float type
+    # Create the following cell arrays with initial conditions.
     simulation.cell_array("locations", override=np.random.rand(simulation.number_cells, 3) * simulation.size)
     simulation.cell_array("radii", func=lambda: simulation.min_radius)
     simulation.cell_array("motion", dtype=bool, func=lambda: True)
@@ -57,25 +57,26 @@ def setup_cells(simulation):
     simulation.cell_array("nearest_gata6", dtype=int, func=lambda: -1)
     simulation.cell_array("nearest_diff", dtype=int, func=lambda: -1)
 
-    # update the "GATA6_high" cells with alternative initial conditions
+    # Update the "GATA6_high" cells with alternative initial conditions.
     simulation.cell_array("GATA6", cell_type="GATA6_high", func=lambda: r.randrange(1, simulation.field))
     simulation.cell_array("NANOG", cell_type="GATA6_high", func=lambda: 0)
 
 
 def steps(simulation):
-    """ Specify the order of the methods for each step and include
-        any methods that are called before or after all steps.
+    """ This method is used to specify the order of the methods that
+        happen before, during, and after the simulation steps.
 
-        Example:
-            functions.before_steps(simulation)
-
+        How-to:
+            before_steps(simulation)
             for simulation.current_step in range(simulation.beginning_step, simulation.end_step + 1):
-                functions.during_steps(simulation)
+                during_steps(simulation)
+                some_method(simulation)
+                other_method(simulation)
+            after_steps(simulation)
 
-            functions.after_steps(simulation)
     """
     for simulation.current_step in range(simulation.beginning_step, simulation.end_step + 1):
-        # Records model run time for the step and prints the current step/number of cells,
+        # Records model run time for the step and prints the current step/number of cells.
         backend.info(simulation)
 
         # Finds the neighbors of each cell that are within a fixed radius and store this info in a graph.
