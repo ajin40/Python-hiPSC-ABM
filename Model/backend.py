@@ -808,6 +808,12 @@ class Base:
     def add_cells(self, number, cell_type=None):
         """ Add cells into the simulation and optionally create a cell type
             slice for defining alternative initial parameters.
+
+            number: (int) the number of cells being added into the simulation.
+
+            cell_type: (str) can specify that these cells have a certain cell type which can be used to
+                apply an initial parameter to these cells instead of the entire cell array.
+
         """
         # add that number of cells to each of the graphs
         for graph in self.graph_names:
@@ -824,6 +830,24 @@ class Base:
     def cell_array(self, array_name, cell_type=None, dtype=float, vector=None, func=None, override=None):
         """ Create a cell array in the Simulation object used to hold
             cell values and specify the initial values of the array.
+
+            array_name: (str) the name of the instance variable for the cell array that will be added
+                to the Simulation object.
+
+            cell_type: (str) the name of the cell type specified in add_cells() to limit the initial
+                parameter to only a particular slice of the cell array.
+
+            dtype: this defines the data type of the array, defaults to float similar to NumPy.
+
+            vector: (int) used to generate 2D arrays (1D array of vectors), the value corresponds
+                to the length of the vector for each index/cell.
+
+            func: a function that can be called for each index of the array, used to specify initial
+                parameters.
+
+            override: (array) instead of creating a new array this override that and use a NumPy array
+                generated from an alternative source such as a CSV.
+
         """
         # if using existing array for cell array
         if override is not None:

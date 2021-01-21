@@ -193,13 +193,14 @@ def step_tda(simulation):
         directory_path = simulation.paths.tda
         check_direct(directory_path)
 
-        # get the indices of the gata6 high cells and the non gata6 high cells
+        # get the indices as an array of True/False of gata6 high cells and the non gata6 high cells
         red_indices = simulation.GATA6 > simulation.NANOG
         green_indices = np.invert(red_indices)
 
         # get the locations of the cells
-        red_locations = simulation.locations[red_indices][:, 0:2]
-        green_locations = simulation.locations[green_indices][:, 0:2]
+        red_locations = simulation.locations[red_indices, 0:2]
+        green_locations = simulation.locations[green_indices, 0:2]
+        all_locations = simulation.locations[:, 0:2]
 
         # create CSV file for red cells, use f-string
         file_name = f"{simulation.name}_tda_red_{simulation.current_step}.csv"
@@ -208,6 +209,10 @@ def step_tda(simulation):
         # create CSV file for green cells, use f-string
         file_name = f"{simulation.name}_tda_green_{simulation.current_step}.csv"
         np.savetxt(directory_path + file_name, green_locations, delimiter=",")
+
+        # create CSV file for all cells, use f-string
+        file_name = f"{simulation.name}_tda_all_{simulation.current_step}.csv"
+        np.savetxt(directory_path + file_name, all_locations, delimiter=",")
 
 
 @backend.record_time
