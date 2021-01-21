@@ -5,16 +5,16 @@ Do you want the model to use a discrete NVIDIA gpu to accelerate some computatio
 | False |
 
 What will the final step number be? Use for when you are beginning a new simulation or continuing an existing. Ex. 192
-| 5 |
+| 60 |
 
 How many NANOG high cells to begin the simulation? Ex. 1000
-| 10 |
+| 10000 |
 
 How many GATA6 high cells to begin the simulation? Ex. 1000
 | 0 |
 
 What are the dimensions of the space in meters? Order as (x, y, z). Ex. (0.004, 0.004, 0)
-| (0.001, 0.001, 0) |
+| (0.004, 0.004, 0) |
 
 The time has come. Execute Order Sixty-Six? Ex. True
 | True |
