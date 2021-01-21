@@ -269,38 +269,38 @@ def simulation_data(simulation):
 
 
 def create_video(simulation):
-    """ Takes all of the step images of a simulation and writes
-        them to a new video file.
+    """ Take all of the images outputted by a simulation and
+        write them to a video file in the main directory.
     """
     # continue if there is an image directory
     if os.path.isdir(simulation.paths.images):
-        # get all of the images in the directory
-        file_list = os.listdir(simulation.paths.images)
-
-        # continue if image directory has images in it
+        # get all of the images in the directory and the number of images
+        file_list = [file for file in os.listdir(simulation.paths.images) if file.endswith(".png")]
         image_count = len(file_list)
+
+        # only continue if image directory has images in it
         if image_count > 0:
             print("\nCreating video...")
 
-            # sort the list naturally so "2, 20, 3, 31..." becomes "2, 3,...,20,...,31"
-            file_list = sorted(file_list, key=sort_images)
+            # sort the file list so "2, 20, 3, 31..." becomes "2, 3,...,20,...,31"
+            file_list = sorted(file_list, key=sort_naturally)
 
-            # sample the first image to get the shape of the images
-            frame = cv2.imread(simulation.paths.images + file_list[0])
-            height, width, channels = frame.shape
+            # sample the first image to later get the shape of all images
+            first = cv2.imread(simulation.paths.images + file_list[0])
 
             # get the video file path, use f-string
             file_name = f"{simulation.name}_video.mp4"
             video_path = simulation.paths.main + file_name
 
             # create the file object with parameters from simulation and above
-            video_object = cv2.VideoWriter(video_path, cv2.VideoWriter_fourcc(*"mp4v"), simulation.fps, (width, height))
+            codec = cv2.VideoWriter_fourcc(*"mp4v")
+            video_object = cv2.VideoWriter(video_path, codec, simulation.fps, first.shape[0:2])
 
-            # go through sorted image name list, reading and writing each to the video object
+            # go through sorted image list, reading and writing each image to the video object
             for i in range(image_count):
                 image = cv2.imread(simulation.paths.images + file_list[i])
                 video_object.write(image)
-                progress_bar(i + 1, image_count)
+                progress_bar(i, image_count)    # show progress
 
             # close the video file
             video_object.release()
@@ -310,29 +310,29 @@ def create_video(simulation):
 
 
 def check_direct(path):
-    """ Checks to see if directory exists and if not, then make it.
+    """ Checks that directory exists and if not, then make it.
     """
     if not os.path.isdir(path):
         os.mkdir(path)
 
 
-def sort_images(image_list):
-    """ Uses a regular expression for sorting the image file list.
+def sort_naturally(file_list):
+    """ Use a regular expression for sorting the file list
+        based on the appended step number in the file name.
     """
-    return int(re.split('(\d+)', image_list)[-2])
+    return int(re.split('(\d+)', file_list)[-2])
 
 
 def progress_bar(progress, maximum):
     """ Make a progress bar because progress bars are cool.
     """
-    # length of the bar in characters
+    # length of the bar
     length = 60
 
-    # get the bar string
+    # calculate the following
+    progress += 1    # start at 1 not 0
     fill = int(length * progress / maximum)
     bar = '#' * fill + '.' * (length - fill)
-
-    # calculate the percent
     percent = int(100 * progress / maximum)
 
     # output the progress bar
