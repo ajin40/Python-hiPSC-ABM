@@ -37,8 +37,7 @@ def step_image(simulation):
     # only continue if outputting images
     if simulation.output_images:
         # get path and make sure directory exists
-        directory_path = simulation.paths.images
-        check_direct(directory_path)
+        directory_path = check_direct(simulation.paths.images)
 
         # get the size of the array used for imaging in addition to the scaling factor
         x_size = simulation.image_quality
@@ -113,26 +112,23 @@ def step_image(simulation):
 
 @backend.record_time
 def step_values(simulation):
-    """ Outputs a CSV file containing information about
-        from all cell arrays.
+    """ Outputs a CSV file containing values from all cell
+        arrays.
     """
     # only continue if outputting cell values
     if simulation.output_values:
         # get path and make sure directory exists
-        directory_path = simulation.paths.values
-        check_direct(directory_path)
+        directory_path = check_direct(simulation.paths.values)
 
         # get file name, use f-string
         file_name = f"{simulation.name}_values_{simulation.current_step}.csv"
 
         # open the file
-        with open(directory_path + file_name, "w", newline="") as new_file:
-            # create CSV object
-            csv_file = csv.writer(new_file)
-
-            # creat lists for the header and the data of the CSV
-            header = list()
-            data = list()
+        with open(directory_path + file_name, "w", newline="") as file:
+            # create CSV object and the following lists
+            csv_file = csv.writer(file)
+            header = list()    # header of the CSV (first row)
+            data = list()    # holds the cell arrays
 
             # go through each of the cell arrays
             for array_name in simulation.cell_array_names:
@@ -143,23 +139,22 @@ def step_values(simulation):
                 if cell_array.ndim == 1:
                     header.append(array_name)    # add the array name to the header
                     cell_array = np.reshape(cell_array, (-1, 1))  # resize array from 1D to 2D
-                    data.append(cell_array)    # add the array to the data holder
 
                 # if the array is not one dimensional
                 else:
-                    # add multiple headers for each slice of the 2D array
+                    # create name for column based on slice of array ex. locations[0], locations[1], locations[2]
                     for i in range(cell_array.shape[1]):
                         header.append(array_name + "[" + str(i) + "]")
-                    data.append(cell_array)    # add the array to the data holder
 
-            # create a header as the first row of the CSV
+                # add the array to the data holder
+                data.append(cell_array)
+
+            # write header as the first row of the CSV
             csv_file.writerow(header)
 
-            # stack the arrays to create rows for the CSV file
-            cell_data = np.hstack(data)
-
-            # write the 2D list to the CSV
-            csv_file.writerows(cell_data)
+            # stack the arrays to create rows for the CSV file and save to CSV
+            data = np.hstack(data)
+            csv_file.writerows(data)
 
 
 @backend.record_time
@@ -169,29 +164,33 @@ def step_gradients(simulation):
     # only continue if outputting gradient CSVs
     if simulation.output_gradients:
         # get path and make sure directory exists
-        directory_path = simulation.paths.gradients
-        check_direct(directory_path)
+        directory_path = check_direct(simulation.paths.gradients)
+
+        # get the separator and save the following gradient outputs each to separate directories
+        separator = simulation.paths.separator
 
         # go through all gradient arrays
         for gradient_name in simulation.gradient_names:
+            # get directory to specific gradient
+            grad_direct = check_direct(directory_path + separator + gradient_name + separator)
+
             # get file name, use f-string
             file_name = f"{simulation.name}_{gradient_name}_{simulation.current_step}.csv"
 
             # convert gradient from 3D to 2D array and save it as CSV
             gradient = simulation.__dict__[gradient_name][:, :, 0]
-            np.savetxt(directory_path + file_name, gradient, delimiter=",")
+            np.savetxt(grad_direct + file_name, gradient, delimiter=",")
 
 
 @backend.record_time
 def step_tda(simulation):
-    """ Output a CSV similar to the step_values() though this
-        contains no header and only key cell info.
+    """ Create CSV files for different types of cells. Each
+        cell type will have its own subdirectory.
     """
     # only continue if outputting TDA files
     if simulation.output_tda:
         # get path and make sure directory exists
-        directory_path = simulation.paths.tda
-        check_direct(directory_path)
+        directory_path = check_direct(simulation.paths.tda)
 
         # get the indices as an array of True/False of gata6 high cells and the non gata6 high cells
         red_indices = simulation.GATA6 > simulation.NANOG
@@ -202,17 +201,23 @@ def step_tda(simulation):
         green_locations = simulation.locations[green_indices, 0:2]
         all_locations = simulation.locations[:, 0:2]
 
-        # create CSV file for red cells, use f-string
-        file_name = f"{simulation.name}_tda_red_{simulation.current_step}.csv"
-        np.savetxt(simulation.paths.tda + file_name, red_locations, delimiter=",")
+        # get the separator and save the following TDA outputs each to separate directories
+        separator = simulation.paths.separator
 
-        # create CSV file for green cells, use f-string
-        file_name = f"{simulation.name}_tda_green_{simulation.current_step}.csv"
-        np.savetxt(directory_path + file_name, green_locations, delimiter=",")
-
-        # create CSV file for all cells, use f-string
+        # save all cell locations to a CSV
+        all_path = check_direct(directory_path + separator + "all" + separator)
         file_name = f"{simulation.name}_tda_all_{simulation.current_step}.csv"
-        np.savetxt(directory_path + file_name, all_locations, delimiter=",")
+        np.savetxt(all_path + file_name, all_locations, delimiter=",")
+
+        # save only GATA6 high cell locations to CSV
+        red_path = check_direct(directory_path + separator + "red" + separator)
+        file_name = f"{simulation.name}_tda_red_{simulation.current_step}.csv"
+        np.savetxt(red_path + file_name, red_locations, delimiter=",")
+
+        # save only non-GATA6 high, pluripotent cells to a CSV
+        green_path = check_direct(directory_path + separator + "green" + separator)
+        file_name = f"{simulation.name}_tda_green_{simulation.current_step}.csv"
+        np.savetxt(green_path + file_name, green_locations, delimiter=",")
 
 
 @backend.record_time
@@ -223,10 +228,10 @@ def temporary(simulation):
     # get file name, use f-string
     file_name = f"{simulation.name}_temp.pkl"
 
-    # open the file
-    with open(simulation.paths.main + file_name, 'wb') as temp_file:
+    # open the file in binary mode
+    with open(simulation.paths.main + file_name, "wb") as file:
         # use the highest protocol: -1 for pickling the instance
-        pickle.dump(simulation, temp_file, -1)
+        pickle.dump(simulation, file, -1)
 
 
 def simulation_data(simulation):
@@ -314,6 +319,9 @@ def check_direct(path):
     """
     if not os.path.isdir(path):
         os.mkdir(path)
+
+    # optionally return the path, can be used to make nicer variable
+    return path
 
 
 def sort_naturally(file_list):
