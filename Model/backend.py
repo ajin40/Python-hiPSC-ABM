@@ -709,53 +709,49 @@ def nearest_cpu(number_cells, bin_locations, locations, bins, bins_help, distanc
 
 
 @cuda.jit(device=True)
-def magnitude(location_one, location_two):
+def magnitude(vector_1, vector_2):
     """ A just-in-time compiled cuda kernel device function
-        for getting the distance between two points.
+        for getting the distance between two vectors.
     """
     # loop over the axes add the squared difference
     total = 0
     for i in range(0, 3):
-        total += (location_one[i] - location_two[i]) ** 2
+        total += (vector_1[i] - vector_2[i]) ** 2
 
     # return the sqrt of the total
     return total ** 0.5
 
 
 def normal_vector(vector):
-    """ Returns the normalized vector, sadly this does
-        not exist in NumPy.
+    """ Returns the normalized vector, sadly this does not
+        exist in NumPy.
     """
-    # get the magnitude
+    # get the magnitude of the vector
     mag = np.linalg.norm(vector)
 
-    # if magnitude is 0 return zero vector, if not divide by the magnitude
+    # if magnitude is 0 return zero vector, otherwise divide by the magnitude
     if mag == 0:
-        return np.array([0, 0, 0])
+        return np.zeros(3)
     else:
         return vector / mag
 
 
 def random_vector(simulation):
-    """ Computes a random vector on a unit sphere centered
+    """ Computes a random vector on the unit sphere centered
         at the origin.
     """
-    # a random angle on the cell
+    # random angle on the cell
     theta = r.random() * 2 * math.pi
 
-    # determine if simulation is 2D or 3D
+    # 2D vector: [x, y, 0]
     if simulation.size[2] == 0:
-        # 2D vector
-        x, y, z = math.cos(theta), math.sin(theta), 0
+        return np.array([math.cos(theta), math.sin(theta), 0])
 
+    # 3D vector: [x, y, z]
     else:
-        # 3D vector
         phi = r.random() * 2 * math.pi
         radius = math.cos(phi)
-        x, y, z = radius * math.cos(theta), radius * math.sin(theta), math.sin(phi)
-
-    # return a vector
-    return np.array([x, y, z])
+        return np.array([radius * math.cos(theta), radius * math.sin(theta), math.sin(phi)])
 
 
 def record_time(function):
