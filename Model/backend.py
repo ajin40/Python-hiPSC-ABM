@@ -6,6 +6,113 @@ from numba import jit, cuda, prange
 from functools import wraps
 
 
+class Base:
+    """ This object is the base class for the Simulation object. It's used to
+        make the Simulation class look a lot less intimidating.
+    """
+    def __init__(self, paths, name):
+        self.paths = paths    # the Paths object which holds any output paths
+        self.name = name    # the name of the simulation
+
+        # the running number of cells and the step to begin at (altered by continuation mode)
+        self.number_cells = 0
+        self.beginning_step = 1
+
+        # arrays to store the cells set to divide or to be removed
+        self.cells_to_divide = np.array([], dtype=int)
+        self.cells_to_remove = np.array([], dtype=int)
+
+        # various other holders
+        self.cell_array_names = list()  # store the variable names of each cell array
+        self.cell_types = dict()  # hold the names of cell types defined in run.py
+        self.method_times = dict()  # store the runtimes of selected methods, used by record_time() decorator
+
+        # suppresses IDE error, not necessary
+        self.graph_names = None
+
+    def add_cells(self, number, cell_type=None):
+        """ Add cells to the Simulation object and potentially add a cell type
+            with bounds for defining alternative initial parameters.
+
+                number (int): the number of cells being added to the Simulation object
+                cell_type (str): the name of a cell type that can be used by cell_array() to only apply
+                    initial parameters to these cells, instead of the entire array.
+        """
+        # add specified number of cells to each graph
+        for graph_name in self.graph_names:
+            self.__dict__[graph_name].add_vertices(number)
+
+        # update the running number of cells and determine bounds for slice if cell_type is used
+        begin = self.number_cells
+        self.number_cells += number
+
+        # if a cell type name is passed, hold the slice bounds for that particular cell type
+        if cell_type is not None:
+            self.cell_types[cell_type] = (begin, self.number_cells)
+
+    def cell_array(self, array_name, cell_type=None, dtype=float, vector=None, func=None, override=None):
+        """ Create a cell array in the Simulation object used to hold values
+            for all cells and optionally specify initial parameters.
+
+                array_name (str): the name of the variable made for the cell array in the Simulation object
+                cell_type (str): see add_cells()
+                dtype (object): the data type of the array, defaults to float
+                vector (int): the length of the vector for each cell in the array
+                func (object): a function called for each index of the array to specify initial parameters
+                override (array): use the array passed instead of generating a new array
+        """
+        # if using existing array for cell array
+        if override is not None:
+            # make sure array have correct length, otherwise raise error
+            if override.shape[0] != self.number_cells:
+                raise Exception("Length of override array does not match number of cells in simulation!")
+
+            # use the array and add to list of cell array names
+            else:
+                self.__dict__[array_name] = override
+                self.cell_array_names.append(array_name)
+
+        # otherwise make sure a default cell array exists for initial parameters
+        else:
+            # if no cell array in Simulation object, make one
+            if not hasattr(self, array_name):
+                # add the array name to a list for automatic addition/removal when cells divide/die
+                self.cell_array_names.append(array_name)
+
+                # get the dimensions of the array
+                if vector is None:
+                    size = self.number_cells  # 1-dimensional array
+                else:
+                    size = (self.number_cells, vector)  # 2-dimensional array (1-dimensional of vectors)
+
+                # if using python string data type, use object data type instead
+                if dtype == str or dtype == object:
+                    # create cell array in Simulation object with NoneType as default value
+                    self.__dict__[array_name] = np.empty(size, dtype=object)
+
+                else:
+                    # create cell array in Simulation object, with zeros as default values
+                    self.__dict__[array_name] = np.zeros(size, dtype=dtype)
+
+        # if no cell type parameter passed
+        if cell_type is None:
+            # if function is passed, apply initial parameter
+            if func is not None:
+                for i in range(self.number_cells):
+                    self.__dict__[array_name][i] = func()
+
+        # otherwise a cell type is passed
+        else:
+            # get the bounds of the slice
+            begin = self.cell_types[cell_type][0]
+            end = self.cell_types[cell_type][1]
+
+            # if function is passed, apply initial parameter to slice
+            if func is not None:
+                for i in range(begin, end):
+                    self.__dict__[array_name][i] = func()
+
+
 def info(simulation):
     """ Records the beginning of the step in real time and
         prints the current step/number of cells.
@@ -19,9 +126,8 @@ def info(simulation):
 
 
 def assign_bins(simulation, distance, max_cells):
-    """ Generalizes cell locations to a bin within a multi-
-        dimensional array, used for a parallel fixed-radius
-        neighbor search.
+    """ Generalizes cell locations to a bin within a multi-dimensional
+        array, used for a parallel fixed-radius neighbor search.
     """
     # if there is enough space for all cells that should be in a bin, break out of the loop. if there isn't
     # enough space update the amount of needed space and re-put the cells in bins. this will run once if the prediction
@@ -773,125 +879,3 @@ def record_time(function):
         simulation.method_times[function.__name__] += end - start
 
     return wrap
-
-
-class Base:
-    """ This object is used to reduce the apparent complexity of the Simulation
-        object and separate parameters that should probably be left untouched.
-    """
-    def __init__(self, paths, name, mode):
-        # hold the name/mode of the simulation and the Paths object
-        self.name = name
-        self.mode = mode
-        self.paths = paths
-
-        # hold the number of cells and the step to begin at (can be altered by various modes)
-        self.number_cells = 0
-        self.beginning_step = 1
-
-        # arrays to store the cells set to divide or die
-        self.cells_to_divide = np.array([], dtype=int)
-        self.cells_to_remove = np.array([], dtype=int)
-
-        # various other holders
-        self.cell_array_names = list()  # stores the names of the cell arrays
-        self.cell_types = dict()  # holds the names of the cell types defined in run.py
-        self.method_times = dict()  # store the runtimes of the various methods as the model runs
-
-        # used to suppress IDE error, not necessary
-        self.graph_names = None
-
-    def add_cells(self, number, cell_type=None):
-        """ Add cells into the simulation and optionally create a cell type
-            slice for defining alternative initial parameters.
-
-            number: (int) the number of cells being added into the simulation.
-
-            cell_type: (str) can specify that these cells have a certain cell type which can be used to
-                apply an initial parameter to these cells instead of the entire cell array.
-
-        """
-        # add that number of cells to each of the graphs
-        for graph in self.graph_names:
-            self.__dict__[graph].add_vertices(number)
-
-        # determine the bounds of the slice and update the number of cells
-        begin = self.number_cells
-        end = self.number_cells = begin + number
-
-        # if a cell type name is passed, hold the slice bounds for that particular cell type
-        if cell_type is not None:
-            self.cell_types[cell_type] = (begin, end)
-
-    def cell_array(self, array_name, cell_type=None, dtype=float, vector=None, func=None, override=None):
-        """ Create a cell array in the Simulation object used to hold
-            cell values and specify the initial values of the array.
-
-            array_name: (str) the name of the instance variable for the cell array that will be added
-                to the Simulation object.
-
-            cell_type: (str) the name of the cell type specified in add_cells() to limit the initial
-                parameter to only a particular slice of the cell array.
-
-            dtype: this defines the data type of the array, defaults to float similar to NumPy.
-
-            vector: (int) used to generate 2D arrays (1D array of vectors), the value corresponds
-                to the length of the vector for each index/cell.
-
-            func: a function that can be called for each index of the array, used to specify initial
-                parameters.
-
-            override: (array) instead of creating a new array this override that and use a NumPy array
-                generated from an alternative source such as a CSV.
-
-        """
-        # if using existing array for cell array
-        if override is not None:
-            # make sure array have correct length, otherwise raise error
-            if override.shape[0] != self.number_cells:
-                raise Exception("Length of override array does not match number of cells in simulation!")
-
-            # use the array and add to list of cell array names
-            else:
-                self.__dict__[array_name] = override
-                self.cell_array_names.append(array_name)
-
-        # otherwise make sure a default cell array exists for initial parameters
-        else:
-            # if no cell array in Simulation object, make one
-            if not hasattr(self, array_name):
-                # add the array name to a list for automatic addition/removal when cells divide/die
-                self.cell_array_names.append(array_name)
-
-                # get the dimensions of the array
-                if vector is None:
-                    size = self.number_cells  # 1-dimensional array
-                else:
-                    size = (self.number_cells, vector)  # 2-dimensional array (1-dimensional of vectors)
-
-                # if using python string data type, use object data type instead
-                if dtype == str or dtype == object:
-                    # create cell array in Simulation object with NoneType as default value
-                    self.__dict__[array_name] = np.empty(size, dtype=object)
-
-                else:
-                    # create cell array in Simulation object, with zeros as default values
-                    self.__dict__[array_name] = np.zeros(size, dtype=dtype)
-
-        # if no cell type parameter passed
-        if cell_type is None:
-            # if function is passed, apply initial parameter
-            if func is not None:
-                for i in range(self.number_cells):
-                    self.__dict__[array_name][i] = func()
-
-        # otherwise a cell type is passed
-        else:
-            # get the bounds of the slice
-            begin = self.cell_types[cell_type][0]
-            end = self.cell_types[cell_type][1]
-
-            # if function is passed, apply initial parameter to slice
-            if func is not None:
-                for i in range(begin, end):
-                    self.__dict__[array_name][i] = func()
