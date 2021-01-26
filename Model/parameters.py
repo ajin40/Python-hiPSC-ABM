@@ -9,8 +9,8 @@ class Simulation(Base):
     """ This object holds all of the important information about the simulation as it
         runs. Variables can be specified either directly or through the template files.
     """
-    def __init__(self, paths, name, mode):
-        super().__init__(paths, name, mode)    # initialize the Base object
+    def __init__(self, paths, name):
+        super().__init__(paths, name)    # initialize the Base object
         """
         The following instance variables can be updated through template files located in the "templates"
         directory under the "Model" directory. The values must be specified in the .txt files as follows.

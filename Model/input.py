@@ -34,7 +34,7 @@ def start():
         shutil.copytree(os.getcwd(), copy_name, ignore=shutil.ignore_patterns("__pycache__"))
 
         # create Simulation object
-        simulation = parameters.Simulation(paths, name, mode)
+        simulation = parameters.Simulation(paths, name)
 
         # add cell arrays to Simulation object and run the model
         run.setup_cells(simulation)
@@ -58,7 +58,7 @@ def start():
     # ------------------------- images to video ---------------------------
     elif mode == 2:
         # create Simulation object used to get imaging and path information
-        simulation = parameters.Simulation(paths, name, mode)
+        simulation = parameters.Simulation(paths, name)
 
         # make the video
         output.create_video(simulation)
