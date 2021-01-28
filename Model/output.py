@@ -102,8 +102,9 @@ def step_image(simulation):
         if simulation.output_fgf4_image:
             image = np.concatenate((image, grad_image), axis=1)
 
-        # flip the image so that origin goes from top/left to bottom/left
-        image = cv2.flip(image, 0)
+        # if the origin should be bottom-left flip it, otherwise it will be top-left
+        if simulation.origin_bottom:
+            image = cv2.flip(image, 0)
 
         # save the image as a PNG, use f-string
         file_name = f"{simulation.name}_image_{simulation.current_step}.png"
@@ -196,10 +197,16 @@ def step_tda(simulation):
         red_indices = simulation.GATA6 > simulation.NANOG
         green_indices = np.invert(red_indices)
 
+        # if TDA locations should be based on pixel location
+        if simulation.in_pixels:
+            scale = simulation.image_quality / simulation.size[0]
+        else:
+            scale = 1    # use meters
+
         # get the locations of the cells
-        red_locations = simulation.locations[red_indices, 0:2]
-        green_locations = simulation.locations[green_indices, 0:2]
-        all_locations = simulation.locations[:, 0:2]
+        red_locations = simulation.locations[red_indices, 0:2] * scale
+        green_locations = simulation.locations[green_indices, 0:2] * scale
+        all_locations = simulation.locations[:, 0:2] * scale
 
         # get the separator and save the following TDA outputs each to separate directories
         separator = simulation.paths.separator
