@@ -90,8 +90,9 @@ def steps(simulation):
         functions.cell_growth(simulation)
         functions.cell_pathway(simulation)
 
-        # Simulates the diffusion for each of the extracellular gradients via the forward time centered space method.
-        functions.update_diffusion(simulation)
+        # Simulates molecular diffusion the specified extracellular gradient via the forward time centered space method.
+        functions.update_diffusion(simulation, "fgf4_values")
+        # functions.update_diffusion(simulation, "fgf4_alt")
 
         # Adds/removes cells to/from the simulation either all together or in desired groups of cells. If done in
         # groups, the handle_movement() function will be used to better represent asynchronous division and death.
