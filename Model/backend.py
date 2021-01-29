@@ -693,19 +693,21 @@ def nearest_cpu(number_cells, bin_locations, locations, bins, bins_help, distanc
 
 
 @jit(nopython=True, cache=True)
-def update_diffusion_jit(base, step_dt, diffuse_dt, spat_res2, diffuse_const):
+def update_diffusion_jit(base, steps, diffuse_dt, last_dt, diffuse_const, spat_res2):
     """ A just-in-time compiled function for update_diffusion()
         that performs the actual diffusion calculation.
     """
-    # get the total amount of iterations
-    steps = math.ceil(step_dt / diffuse_dt)
-
-    # holder the following constant for faster computations
+    # holder the following constant for faster computation, given that dx and dy match
     a = diffuse_dt * diffuse_const / spat_res2
     b = 1 - 4 * a
 
     # finite difference to solve laplacian diffusion equation, currently 2D
-    for _ in range(steps):
+    for i in range(steps):
+        # on the last step apply smaller diffuse dt if step dt doesn't divide nicely
+        if i == steps - 1:
+            a = last_dt * diffuse_const / spat_res2
+            b = 1 - 4 * a
+
         # set the initial conditions by reflecting the edges of the gradient
         base[:, 0] = base[:, 1]
         base[:, -1] = base[:, -2]

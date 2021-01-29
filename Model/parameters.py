@@ -56,7 +56,7 @@ class Simulation(Base):
         # the temporal resolution for the simulation
         self.step_dt = 1800  # dt of each simulation step (1800 sec)
         self.move_dt = 200  # dt for incremental movement (200 sec)
-        self.diffuse_dt = 0.24  # dt for stable diffusion model (0.5 sec)
+        self.diffuse_dt = 0.23  # dt for stable diffusion model (0.5 sec)
         self.move_steps = math.ceil(self.step_dt / self.move_dt)
 
         # the field for the finite dynamical system
@@ -93,8 +93,5 @@ class Simulation(Base):
         # calculate the size of the array for the diffusion points and create gradient array
         self.gradient_size = np.ceil(self.size / self.spat_res).astype(int) + 1
         self.fgf4_values = np.zeros(self.gradient_size, dtype=float)
-        # self.fgf4_alt = np.zeros(self.gradient_size, dtype=float)
-
-        # add the names of the gradients below for automatic diffusion updating
-        # self.gradient_names = ["fgf4_values", "fgf4_alt"]
-        self.gradient_names = ["fgf4_values"]
+        self.fgf4_alt = np.zeros(self.gradient_size, dtype=float)
+        self.gradient_names = ["fgf4_values", "fgf4_alt"]    # add names for automatic CSV output of gradients

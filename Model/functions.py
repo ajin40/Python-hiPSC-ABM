@@ -684,36 +684,37 @@ def apply_forces(simulation, apply_motility=True):
 
 
 @backend.record_time
-def update_diffusion(simulation):
-    """ Goes through all indicated extracellular gradients and
-        approximates the diffusion of the morphogen.
+def update_diffusion(simulation, gradient_name, diffuse_const=None, diffuse_dt=None):
+    """ Approximates the diffusion of the morphogen for the
+        extracellular gradient specified.
     """
-    # go through all gradients and update the diffusion equation to each
-    for gradient_name in simulation.gradient_names:
-        # the simulation holds all gradients are 3D arrays for simplicity, so get the gradient as a 2D array instead
-        gradient = simulation.__dict__[gradient_name][:, :, 0]
+    # if no parameter specified for diffusion constant use the one in Simulation object
+    if diffuse_const is None:
+        diffuse_const = simulation.diffuse_const
 
-        # set max and min concentration values
-        gradient[gradient > simulation.max_concentration] = simulation.max_concentration
-        gradient[gradient < 0] = 0
+    # if no parameter specified for diffusion time step use the one in Simulation object
+    if diffuse_dt is None:
+        diffuse_dt = simulation.diffuse_dt
 
-        # create a slightly larger array to hold ghost points for initial conditions
-        size = np.array(gradient.shape) + 2
-        base = np.zeros(size, dtype=float)
+    # the simulation holds all gradients are 3D arrays for simplicity, get the gradient as a 2D array
+    gradient = simulation.__dict__[gradient_name][:, :, 0]
 
-        # paste the gradient into the middle of the base array
-        base[1:-1, 1:-1] += gradient
+    # set max and min concentration values
+    gradient[gradient > simulation.max_concentration] = simulation.max_concentration
+    gradient[gradient < 0] = 0
 
-        # call the JIT diffusion function
-        gradient = backend.update_diffusion_jit(base, simulation.step_dt, simulation.diffuse_dt, simulation.spat_res2,
-                                                simulation.diffuse_const)
+    # pad the sides of the array with zeros for holding ghost points
+    base = np.pad(gradient, 1)
 
-        # set max and min concentration values again
-        gradient[gradient > simulation.max_concentration] = simulation.max_concentration
-        gradient[gradient < 0] = 0
+    # calculate the number of steps and the last step time if it doesn't divide nicely
+    steps, last_dt = divmod(simulation.step_dt, simulation.diffuse_dt)
+    steps = int(steps) + 1   # make sure steps is an int, add extra step for the last dt if it's less
 
-        # update the simulation gradient array
-        simulation.__dict__[gradient_name][:, :, 0] = gradient
+    # call the JIT diffusion function
+    gradient = backend.update_diffusion_jit(base, steps, diffuse_dt, last_dt, diffuse_const, simulation.spat_res2)
+
+    # update the simulation gradient array
+    simulation.__dict__[gradient_name][:, :, 0] = gradient
 
 
 @backend.record_time
