@@ -80,7 +80,7 @@ def steps(simulation):
         backend.info(simulation)
 
         # Finds the neighbors of each cell that are within a fixed radius and store this info in a graph.
-        functions.get_neighbors(simulation)
+        functions.get_neighbors(simulation, distance=0.000015)
 
         # Updates cells by adjusting trackers for differentiation, division, growth, etc. based on intracellular,
         # intercellular, and extracellular conditions through a series of separate methods.
@@ -99,7 +99,7 @@ def steps(simulation):
 
         # Finds the nearest NANOG high, GATA6 high, and differentiated cells within a fixed radius. This provides
         # information that can be used for approximating cell motility.
-        functions.nearest(simulation)
+        functions.nearest(simulation, distance=0.000015)
 
         # Calculates the direction/magnitude of a cell's movement depending on a variety of factors such as state
         # and presence of neighbors.
@@ -119,9 +119,9 @@ def steps(simulation):
         output.step_image(simulation)
         output.step_values(simulation)
         output.step_gradients(simulation)
-        output.step_tda(simulation)
+        output.step_tda(simulation, in_pixels=True)
         output.temporary(simulation)
         output.simulation_data(simulation)
 
     # Ends the simulation by creating a video from all of the step images
-    output.create_video(simulation)
+    output.create_video(simulation, fps=6)
