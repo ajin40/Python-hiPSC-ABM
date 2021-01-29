@@ -18,23 +18,7 @@ What is the image width in pixels? Currently imaging is supported for a 2D space
 a bird's eye view of the space. Image slicing/3D images to come... Ex. 2000
 | 4000 |
 
-How should the locations in the TDA CSVs be scaled? Indicate "True" for scaling based on pixels and "False" for
-no scaling, resulting in locations in meters. Ex. True
-| True |
-
-Where should the origin be for imaging? Indicate "True" for bottom-left and "False" for top-left. Ex. True
-| True |
-
-What is the color of the image background? Use BGR instead of RGB. Ex. (255, 255, 255)
-| (0, 0, 0) |
-
-How many frames per second of the output video that collects all step images? Ex. 6
-| 6 |
-
 What mode of coloring for step images? True for coloring based on whether a cell pluripotent or differentiated, False
 for coloring based on GATA6/NANOG levels? Ex. False
 | True |
-
-Include the FGF4 gradient color-map next to the image of the cells? Ex. True
-| False |
 -----------------------------------------------------------------------------------------------------------------------

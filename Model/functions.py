@@ -349,14 +349,11 @@ def eunbi_motility(simulation):
 
 
 @backend.record_time
-def get_neighbors(simulation):
+def get_neighbors(simulation, distance=0.00002):
     """ For all cells, determines which cells fall within a fixed
         radius to denote a neighbor then stores this information
         in a graph (uses a bin/bucket sorting method).
     """
-    # radius of search (meters) in which all cells within are classified as neighbors
-    neighbor_distance = 0.000015
-
     # if a static variable has not been created to hold the maximum number of neighbors for a cell, create one
     if not hasattr(get_neighbors, "max_neighbors"):
         # begin with a low number of neighbors that can be revalued if the max number of neighbors exceeds this value
@@ -372,8 +369,7 @@ def get_neighbors(simulation):
 
     # calls the function that generates an array of bins that generalize the cell locations in addition to a
     # creating a helper array that assists the search method in counting cells for a particular bin
-    bins, bins_help, bin_locations, max_cells = backend.assign_bins(simulation, neighbor_distance,
-                                                                    get_neighbors.max_cells)
+    bins, bins_help, bin_locations, max_cells = backend.assign_bins(simulation, distance, get_neighbors.max_cells)
 
     # update the value of the max number of cells in a bin
     get_neighbors.max_cells = max_cells
@@ -394,7 +390,7 @@ def get_neighbors(simulation):
             locations_cuda = cuda.to_device(simulation.locations)
             bins_cuda = cuda.to_device(bins)
             bins_help_cuda = cuda.to_device(bins_help)
-            distance_cuda = cuda.to_device(neighbor_distance)
+            distance_cuda = cuda.to_device(distance)
             edge_holder_cuda = cuda.to_device(edge_holder)
             if_edge_cuda = cuda.to_device(if_edge)
             edge_count_cuda = cuda.to_device(edge_count)
@@ -418,8 +414,8 @@ def get_neighbors(simulation):
         else:
             edge_holder, if_edge, edge_count = backend.get_neighbors_cpu(simulation.number_cells, bin_locations,
                                                                          simulation.locations, bins, bins_help,
-                                                                         neighbor_distance, edge_holder, if_edge,
-                                                                         edge_count, get_neighbors.max_neighbors)
+                                                                         distance, edge_holder, if_edge, edge_count,
+                                                                         get_neighbors.max_neighbors)
 
         # either break the loop if all neighbors were accounted for or revalue the maximum number of neighbors
         # based on the output of the function call and double it for future calls
@@ -437,14 +433,11 @@ def get_neighbors(simulation):
 
 
 @backend.record_time
-def nearest(simulation):
+def nearest(simulation, distance=0.00002):
     """ Determines the nearest GATA6 high, NANOG high, and
         differentiated cell within a fixed radius for each
         cell.
     """
-    # radius of search (meters) for nearest cells of the three types
-    nearest_distance = 0.000015
-
     # if a static variable has not been created to hold the maximum number of cells in a bin, create one
     if not hasattr(nearest, "max_cells"):
         # begin with a low number of cells that can be revalued if the max number of cells exceeds this value
@@ -452,7 +445,7 @@ def nearest(simulation):
 
     # calls the function that generates an array of bins that generalize the cell locations in addition to a
     # creating a helper array that assists the search method in counting cells for a particular bin
-    bins, bins_help, bin_locations, max_cells = backend.assign_bins(simulation, nearest_distance, nearest.max_cells)
+    bins, bins_help, bin_locations, max_cells = backend.assign_bins(simulation, distance, nearest.max_cells)
 
     # update the value of the max number of cells in a bin
     nearest.max_cells = max_cells
@@ -467,7 +460,7 @@ def nearest(simulation):
         locations_cuda = cuda.to_device(simulation.locations)
         bins_cuda = cuda.to_device(bins)
         bins_help_cuda = cuda.to_device(bins_help)
-        distance_cuda = cuda.to_device(nearest_distance)
+        distance_cuda = cuda.to_device(distance)
         if_diff_cuda = cuda.to_device(if_diff)
         gata6_cuda = cuda.to_device(simulation.GATA6)
         nanog_cuda = cuda.to_device(simulation.NANOG)
@@ -492,8 +485,8 @@ def nearest(simulation):
     # call the cpu version
     else:
         gata6, nanog, diff = backend.nearest_cpu(simulation.number_cells, bin_locations, simulation.locations,
-                                                 bins, bins_help, nearest_distance, if_diff, simulation.GATA6,
-                                                 simulation.NANOG, simulation.nearest_gata6, simulation.nearest_nanog,
+                                                 bins, bins_help, distance, if_diff, simulation.GATA6, simulation.NANOG,
+                                                 simulation.nearest_gata6, simulation.nearest_nanog,
                                                  simulation.nearest_diff)
 
     # revalue the array holding the indices of nearest cells of given type

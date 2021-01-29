@@ -30,7 +30,7 @@ class Paths:
 
 
 @backend.record_time
-def step_image(simulation):
+def step_image(simulation, background=(0, 0, 0), origin_bottom=True, fgf4_gradient=False):
     """ Creates an image representation of the cell space. Note OpenCV
         uses BGR instead of RGB.
     """
@@ -46,10 +46,10 @@ def step_image(simulation):
 
         # create the cell space background image and apply background color
         image = np.zeros((y_size, x_size, 3), dtype=np.uint8)
-        image[:, :] = simulation.back_color
+        image[:, :] = background
 
         # if outputting gradient image, create it
-        if simulation.output_fgf4_image:
+        if fgf4_gradient:
             # normalize the concentration values and multiple by 255
             grad_image = 255 * simulation.fgf4_values[:, :, 0] / simulation.max_concentration
             grad_image = grad_image.astype(np.uint8)    # use unsigned int8
@@ -95,15 +95,15 @@ def step_image(simulation):
             image = cv2.ellipse(image, (x, y), (major, minor), 0, 0, 360, (0, 0, 0), 1)
 
             # draw a black outline of the cell on the gradient image
-            if simulation.output_fgf4_image:
+            if fgf4_gradient:
                 grad_image = cv2.ellipse(grad_image, (x, y), (major, minor), 0, 0, 360, (255, 255, 255), 1)
 
         # if including gradient image, combine the to images side by side with gradient image on the right
-        if simulation.output_fgf4_image:
+        if fgf4_gradient:
             image = np.concatenate((image, grad_image), axis=1)
 
         # if the origin should be bottom-left flip it, otherwise it will be top-left
-        if simulation.origin_bottom:
+        if origin_bottom:
             image = cv2.flip(image, 0)
 
         # save the image as a PNG, use f-string
@@ -184,7 +184,7 @@ def step_gradients(simulation):
 
 
 @backend.record_time
-def step_tda(simulation):
+def step_tda(simulation, in_pixels=False):
     """ Create CSV files for different types of cells. Each
         cell type will have its own subdirectory.
     """
@@ -198,7 +198,7 @@ def step_tda(simulation):
         green_indices = np.invert(red_indices)
 
         # if TDA locations should be based on pixel location
-        if simulation.in_pixels:
+        if in_pixels:
             scale = simulation.image_quality / simulation.size[0]
         else:
             scale = 1    # use meters
@@ -280,7 +280,7 @@ def simulation_data(simulation):
             simulation.method_times[method_name] = 0
 
 
-def create_video(simulation):
+def create_video(simulation, fps=10):
     """ Take all of the images outputted by a simulation and
         write them to a video file in the main directory.
     """
@@ -306,7 +306,7 @@ def create_video(simulation):
 
             # create the file object with parameters from simulation and above
             codec = cv2.VideoWriter_fourcc(*"mp4v")
-            video_object = cv2.VideoWriter(video_path, codec, simulation.fps, first.shape[0:2])
+            video_object = cv2.VideoWriter(video_path, codec, fps, first.shape[0:2])
 
             # go through sorted image list, reading and writing each image to the video object
             for i in range(image_count):
@@ -327,7 +327,7 @@ def check_direct(path):
     if not os.path.isdir(path):
         os.mkdir(path)
 
-    # optionally return the path, can be used to make nicer variable
+    # optionally return the path, can be used to make variable
     return path
 
 
