@@ -1,6 +1,5 @@
 from tkinter.filedialog import askopenfilename
 import numpy as np
-import persim
 from matplotlib import pyplot as plt
 import ripser
 import os
@@ -15,10 +14,10 @@ if __name__ == "__main__":
     separator = os.path.sep
     output_dir = input.output_dir(separator)
 
-    # suppress tkinter GUI
+    # suppress tkinter GUI, put file explorer on top
     root = tkinter.Tk()
+    root.attributes('-topmost', True)
     root.withdraw()
-    root.lift()
 
     # open mini file explorer to get the
     file_path = askopenfilename()
@@ -39,13 +38,37 @@ if __name__ == "__main__":
 
     # calculate the persistent homology values
     diagrams = ripser.ripser(data, maxdim=1)['dgms']
-    persim.plot_diagrams(diagrams, xy_range=[0, 300, 0, 300])
-    plt.savefig(output_path + "figure.png")
 
     # save the outputs for 0-dimensional analysis
-    file_path = output_path + "0-dim_" + file_name
+    file_path = output_path + "0dim_" + file_name
     np.savetxt(file_path, diagrams[0], delimiter=",")
 
     # save the outputs for 1-dimensional analysis
-    file_path = output_path + "1-dim_" + file_name
+    file_path = output_path + "1dim_" + file_name
     np.savetxt(file_path, diagrams[1], delimiter=",")
+
+    # make persistence diagram figure (5 inches x 4.75 inches) and add one Axes object
+    fig = plt.figure(figsize=(5, 4.75))   # make new figure
+    ax = plt.axes()  # add new axes
+
+    # add the following labels and legend
+    ax.set_title("Persistence Diagram")
+    ax.set_xlabel("birth")
+    ax.set_ylabel("death")
+
+    # sizing of the plot
+    ax.set_aspect(1)    # set aspect ratio to 1:1
+    ax.set_xlim(-5, 1000)    # set x limits (-5 to show 0-dim points)
+    ax.set_ylim(0, 1000)    # set y limits
+
+    # draw diagonal line
+    ax.plot([0, 1000], [0, 1000], color="k", linestyle="--")
+
+    # add the zero dimensional and one dimensional data as points
+    ax.scatter(diagrams[0][:, 0], diagrams[0][:, 1], c="cornflowerblue", marker=".", label="$H_0$")
+    ax.scatter(diagrams[1][:, 0], diagrams[1][:, 1], c="forestgreen", marker=".", label="$H_1$")
+
+    # save the figure as a png
+    ax.legend(loc='lower right')  # legend lower right
+    file_path = output_path + "figure.png"
+    fig.savefig(file_path, dpi=400)
