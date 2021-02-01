@@ -10,6 +10,14 @@ import input
 
 # only run TDA pipeline if being run directly
 if __name__ == "__main__":
+    # -------------------- options ---------------------
+    xy_max = 200    # max size of the axes
+    H0_color = "cornflowerblue"    # color of 0-dim points from matplotlib colors
+    H1_color = "forestgreen"    # color of 1-dim points from matplotlib colors
+    image_name = "figure.png"    # name of the persistence diagram
+    dpi = 400    # resolution of persistence diagram
+    # --------------------------------------------------
+
     # get the separator and the output directory
     separator = os.path.sep
     output_dir = input.output_dir(separator)
@@ -66,10 +74,10 @@ if __name__ == "__main__":
     ax.plot([0, xy_max], [0, xy_max], color="k", linestyle="--")
 
     # add the zero dimensional and one dimensional data as points
-    ax.scatter(diagrams[0][:, 0], diagrams[0][:, 1], c="cornflowerblue", marker=".", label="$H_0$")
-    ax.scatter(diagrams[1][:, 0], diagrams[1][:, 1], c="forestgreen", marker=".", label="$H_1$")
+    ax.scatter(diagrams[0][:, 0], diagrams[0][:, 1], c=H0_color, marker=".", label="$H_0$")
+    ax.scatter(diagrams[1][:, 0], diagrams[1][:, 1], c=H1_color, marker=".", label="$H_1$")
 
     # save the figure as a png
     ax.legend(loc='lower right')  # legend lower right
-    file_path = output_path + "figure.png"
-    fig.savefig(file_path, dpi=400)
+    file_path = output_path + image_name
+    fig.savefig(file_path, dpi=dpi)

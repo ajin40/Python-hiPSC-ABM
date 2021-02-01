@@ -20,7 +20,7 @@ def start():
     # get the path to the directory where simulations are outputted and the name/mode for the simulation
     output_path = output_dir(separator)
     possible_modes = [0, 1, 2, 3, 4]    # hold possible model modes
-    name, mode = name_and_mode(output_path, separator, possible_modes)
+    name, mode = get_namemode(output_path, separator, possible_modes)
 
     # create path to simulation directory and make Paths object for storing important paths
     main_path = output_path + name + separator
@@ -124,7 +124,7 @@ def output_dir(separator):
     return output_path
 
 
-def name_and_mode(output_path, separator, possible_modes):
+def get_namemode(output_path, separator, possible_modes):
     """ This function will get the name and mode for the simulation
         either from the command line or a text-based GUI.
     """
