@@ -18,6 +18,7 @@ if __name__ == "__main__":
     # suppress tkinter GUI
     root = tkinter.Tk()
     root.withdraw()
+    root.lift()
 
     # open mini file explorer to get the
     file_path = askopenfilename()
@@ -26,11 +27,12 @@ if __name__ == "__main__":
     if not file_path.endswith(".csv"):
         raise Exception("TDA input file should be a CSV")
 
-    # get the name of the file and make a director with the name of the file
+    # get the name of the file and make a directory with the name of the file
     file_name = os.path.basename(file_path)
     name_no_ext = os.path.splitext(file_name)[0]
     output_path = output_dir + "TDA_results_" + name_no_ext + separator
-    os.mkdir(output_path)
+    if not os.path.isdir(output_path):
+        os.mkdir(output_path)
 
     # get CSV data as an array
     data = np.genfromtxt(file_path, delimiter=",")
