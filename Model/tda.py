@@ -10,6 +10,14 @@ import input
 
 # only run TDA pipeline if being run directly
 if __name__ == "__main__":
+    # -------------------- options ---------------------
+    xy_max = 200    # max size of the axes
+    H0_color = "cornflowerblue"    # color of 0-dim points from matplotlib colors
+    H1_color = "forestgreen"    # color of 1-dim points from matplotlib colors
+    image_name = "figure.png"    # name of the persistence diagram
+    dpi = 400    # resolution of persistence diagram
+    # --------------------------------------------------
+
     # get the separator and the output directory
     separator = os.path.sep
     output_dir = input.output_dir(separator)
@@ -20,7 +28,7 @@ if __name__ == "__main__":
     root.withdraw()
 
     # open mini file explorer to get the
-    file_path = askopenfilename()
+    file_path = askopenfilename(filetypes=[("TDA files", "*.csv")])
 
     # make sure ends with ".csv"
     if not file_path.endswith(".csv"):
@@ -57,18 +65,19 @@ if __name__ == "__main__":
     ax.set_ylabel("death")
 
     # sizing of the plot
+    xy_max = 200
     ax.set_aspect(1)    # set aspect ratio to 1:1
-    ax.set_xlim(-5, 1000)    # set x limits (-5 to show 0-dim points)
-    ax.set_ylim(0, 1000)    # set y limits
+    ax.set_xlim(-5, xy_max)    # set x limits (-5 to show 0-dim points)
+    ax.set_ylim(0, xy_max)    # set y limits
 
     # draw diagonal line
-    ax.plot([0, 1000], [0, 1000], color="k", linestyle="--")
+    ax.plot([0, xy_max], [0, xy_max], color="k", linestyle="--")
 
     # add the zero dimensional and one dimensional data as points
-    ax.scatter(diagrams[0][:, 0], diagrams[0][:, 1], c="cornflowerblue", marker=".", label="$H_0$")
-    ax.scatter(diagrams[1][:, 0], diagrams[1][:, 1], c="forestgreen", marker=".", label="$H_1$")
+    ax.scatter(diagrams[0][:, 0], diagrams[0][:, 1], c=H0_color, marker=".", label="$H_0$")
+    ax.scatter(diagrams[1][:, 0], diagrams[1][:, 1], c=H1_color, marker=".", label="$H_1$")
 
     # save the figure as a png
     ax.legend(loc='lower right')  # legend lower right
-    file_path = output_path + "figure.png"
-    fig.savefig(file_path, dpi=400)
+    file_path = output_path + image_name
+    fig.savefig(file_path, dpi=dpi)
