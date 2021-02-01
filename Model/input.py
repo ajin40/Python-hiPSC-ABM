@@ -7,7 +7,6 @@ import getopt
 import output
 import parameters
 import run
-import tda
 
 
 def start():
@@ -20,7 +19,7 @@ def start():
 
     # get the path to the directory where simulations are outputted and the name/mode for the simulation
     output_path = output_dir(separator)
-    possible_modes = [0, 1, 2, 3, 4, 5]    # hold possible model modes
+    possible_modes = [0, 1, 2, 3, 4]    # hold possible model modes
     name, mode = name_and_mode(output_path, separator, possible_modes)
 
     # create path to simulation directory and make Paths object for storing important paths
@@ -81,12 +80,6 @@ def start():
 
         # unpack the directory into the output directory
         shutil.unpack_archive(zip_file, output_path)
-        print("Done!")
-
-    # ------------------------ persistent homology ------------------------
-    elif mode == 5:
-        # calculate the persistent homology values
-        tda.calculate_persistence(paths)
         print("Done!")
 
 
