@@ -1,5 +1,7 @@
 from tkinter.filedialog import askopenfilename
 import numpy as np
+import persim
+from matplotlib import pyplot as plt
 import ripser
 import os
 import tkinter
@@ -35,6 +37,8 @@ if __name__ == "__main__":
 
     # calculate the persistent homology values
     diagrams = ripser.ripser(data, maxdim=1)['dgms']
+    persim.plot_diagrams(diagrams, xy_range=[0, 300, 0, 300])
+    plt.savefig(output_path + "figure.png")
 
     # save the outputs for 0-dimensional analysis
     file_path = output_path + "0-dim_" + file_name
