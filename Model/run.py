@@ -1,7 +1,7 @@
 import numpy as np
 import random as r
 
-import input
+import setup
 import output
 import functions
 import backend
@@ -9,7 +9,7 @@ import backend
 
 # Only start the model if this file is being run directly.
 if __name__ == "__main__":
-    input.start()
+    setup.start()
 
 
 def setup_cells(simulation):
