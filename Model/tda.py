@@ -5,7 +5,7 @@ import ripser
 import os
 import tkinter
 
-import setup
+import run
 
 
 # only run TDA pipeline if being run directly
@@ -20,7 +20,7 @@ if __name__ == "__main__":
 
     # get the separator and the output directory
     separator = os.path.sep
-    output_dir = setup.output_dir(separator)
+    output_dir = run.output_dir(separator)
 
     # suppress tkinter GUI, put file explorer on top
     root = tkinter.Tk()
