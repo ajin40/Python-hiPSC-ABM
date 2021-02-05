@@ -5,13 +5,13 @@ import ripser
 import os
 import tkinter
 
-import input
+import run
 
 
 # only run TDA pipeline if being run directly
 if __name__ == "__main__":
     # -------------------- options ---------------------
-    xy_max = 200    # max size of the axes
+    xy_max = 400   # max size of the axes
     H0_color = "cornflowerblue"    # color of 0-dim points from matplotlib colors
     H1_color = "forestgreen"    # color of 1-dim points from matplotlib colors
     image_name = "figure.png"    # name of the persistence diagram
@@ -20,7 +20,7 @@ if __name__ == "__main__":
 
     # get the separator and the output directory
     separator = os.path.sep
-    output_dir = input.output_dir(separator)
+    output_dir = run.output_dir(separator)
 
     # suppress tkinter GUI, put file explorer on top
     root = tkinter.Tk()
@@ -65,7 +65,6 @@ if __name__ == "__main__":
     ax.set_ylabel("death")
 
     # sizing of the plot
-    xy_max = 200
     ax.set_aspect(1)    # set aspect ratio to 1:1
     ax.set_xlim(-5, xy_max)    # set x limits (-5 to show 0-dim points)
     ax.set_ylim(0, xy_max)    # set y limits
