@@ -863,8 +863,7 @@ def random_vector(simulation):
 
 
 def record_time(function):
-    """ A decorator used to time individual methods. If a method is called
-        more than once, the time will be cumulative for the step.
+    """ A decorator used to time individual methods.
     """
     @wraps(function)
     def wrap(simulation, *args, **kwargs):    # args and kwargs are for additional arguments
@@ -873,11 +872,7 @@ def record_time(function):
         function(simulation, *args, **kwargs)
         end = time.perf_counter()
 
-        # make sure key exists
-        if function.__name__ not in simulation.method_times.keys():
-            simulation.method_times[function.__name__] = 0
-
-        # add the time to the running count for this step (if method is called more than once)
-        simulation.method_times[function.__name__] += end - start
+        # add the time to the dictionary holding these times
+        simulation.method_times[function.__name__] = end - start
 
     return wrap

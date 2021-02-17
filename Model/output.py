@@ -275,10 +275,6 @@ def simulation_data(simulation):
         function_times = list(simulation.method_times.values())
         csv_object.writerow(columns + function_times)
 
-        # reset method time measures back to zero, used to measure methods called multiple times
-        for method_name in simulation.method_times.keys():
-            simulation.method_times[method_name] = 0
-
 
 def create_video(simulation, fps=10):
     """ Take all of the images outputted by a simulation and

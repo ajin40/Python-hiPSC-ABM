@@ -13,11 +13,14 @@ def setup_cells(simulation):
     """ Indicate the cell arrays in the simulation and any initial
         conditions of these arrays. See documentation for more info.
     """
-    # Add the specified number of NANOG/GATA6 high cells and create cell type GATA6_high for initial parameters.
+    # Add the specified number of NANOG/GATA6 high cells and create cell type GATA6_high for setting initial parameters
+    # with cell_array().
     simulation.add_cells(simulation.num_nanog)
     simulation.add_cells(simulation.num_gata6, cell_type="GATA6_high")
 
-    # Create the following cell arrays with initial conditions.
+    # Create the following cell arrays in the Simulation object. The instance variable simulation."array-name" will
+    # point to this array. The arrays default to float64, 1-dim arrays (length of # cells). Use the parameters to
+    # adjust the data type, 2-dim size, and initial condition for the entire array.
     simulation.cell_array("locations", override=np.random.rand(simulation.number_cells, 3) * simulation.size)
     simulation.cell_array("radii", func=lambda: simulation.min_radius)
     simulation.cell_array("motion", dtype=bool, func=lambda: True)
@@ -36,15 +39,16 @@ def setup_cells(simulation):
     simulation.cell_array("nearest_gata6", dtype=int, func=lambda: -1)
     simulation.cell_array("nearest_diff", dtype=int, func=lambda: -1)
 
-    # Update the "GATA6_high" cells with alternative initial conditions.
+    # Update the number of cells marked with the "GATA6_high" cell type with alternative initial conditions.
     simulation.cell_array("GATA6", cell_type="GATA6_high", func=lambda: r.randrange(1, simulation.field))
     simulation.cell_array("NANOG", cell_type="GATA6_high", func=lambda: 0)
 
 
 def run_steps(simulation):
-    """ Specify the functions/methods called before/during/after the
-        model steps.
+    """ Specify the functions/methods called before/during/after
+        a simulation's steps. See documentation for more info.
     """
+    # Iterate over all steps specified in the Simulation object
     for simulation.current_step in range(simulation.beginning_step, simulation.end_step + 1):
         # Records model run time for the step and prints the current step/number of cells.
         backend.info(simulation)
@@ -62,7 +66,7 @@ def run_steps(simulation):
 
         # Simulates molecular diffusion the specified extracellular gradient via the forward time centered space method.
         functions.update_diffusion(simulation, "fgf4_values")
-        # functions.update_diffusion(simulation, "fgf4_alt")
+        # functions.update_diffusion(simulation, "fgf4_alt")    # for testing morphogen release methods
 
         # Adds/removes cells to/from the simulation either all together or in desired groups of cells. If done in
         # groups, the handle_movement() function will be used to better represent asynchronous division and death.
@@ -79,10 +83,7 @@ def run_steps(simulation):
 
         # Through the series of methods, attempt to move the cells to a state of physical equilibrium between adhesive
         # and repulsive forces acting on the cells, while applying active motility forces.
-        for _ in range(simulation.move_steps):
-            functions.jkr_neighbors(simulation)
-            functions.get_forces(simulation)
-            functions.apply_forces(simulation)
+        functions.handle_movement(simulation)
 
         # Saves multiple forms of information about the simulation at the current step, including an image of the
         # space, CSVs with values of the cells, a temporary pickle of the Simulation object, and performance stats.
@@ -148,9 +149,8 @@ class Simulation(backend.Base):
 
         # the temporal resolution for the simulation
         self.step_dt = 1800  # dt of each simulation step (1800 sec)
-        self.move_dt = 200  # dt for incremental movement (200 sec)
-        self.diffuse_dt = 0.23  # dt for stable diffusion model (0.5 sec)
-        self.move_steps = math.ceil(self.step_dt / self.move_dt)
+        self.move_dt = 181  # dt for incremental movement (180 sec)
+        self.diffuse_dt = 0.24  # dt for stable diffusion model (0.24 sec)
 
         # the field for the finite dynamical system
         self.field = 3
@@ -183,8 +183,10 @@ class Simulation(backend.Base):
         self.diffuse_const = 0.00000000005    # 50 um^2/s
         self.max_concentration = 200    # very arbitrary
 
-        # calculate the size of the array for the diffusion points and create gradient array
+        # calculate the size of the array for the diffusion points and create gradient array(s)
         self.gradient_size = np.ceil(self.size / self.spat_res).astype(int) + 1
         self.fgf4_values = np.zeros(self.gradient_size, dtype=float)
-        self.fgf4_alt = np.zeros(self.gradient_size, dtype=float)
-        self.gradient_names = ["fgf4_values", "fgf4_alt"]    # add names for automatic CSV output of gradients
+        self.gradient_names = ["fgf4_values"]  # add names for automatic CSV output of gradients
+
+        # self.fgf4_alt = np.zeros(self.gradient_size, dtype=float)    # for testing morphogen release methods
+        # self.gradient_names = ["fgf4_values", "fgf4_alt"]    # add names for automatic CSV output of gradients

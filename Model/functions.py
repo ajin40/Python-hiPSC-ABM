@@ -496,6 +496,23 @@ def nearest(simulation, distance=0.00002):
 
 
 @backend.record_time
+def handle_movement(simulation):
+    """ Calls three methods used to move the cells to a
+        state of physical equilibrium between repulsive,
+        adhesive, and motility forces.
+    """
+    # calculate the number of steps and the last step time if it doesn't divide nicely
+    steps, last_dt = divmod(simulation.step_dt, simulation.move_dt)
+    total_steps = int(steps) + 1  # make sure steps is an int, add extra step for the last dt if it's less
+
+    # go through all steps
+    for step in range(total_steps):
+        jkr_neighbors(simulation)
+        get_forces(simulation)
+        apply_forces(simulation, step, total_steps, last_dt)
+
+
+@backend.record_time
 def jkr_neighbors(simulation):
     """ For all cells, determines which cells will have physical
         interactions with other cells and puts this information
@@ -636,7 +653,7 @@ def get_forces(simulation):
 
 
 @backend.record_time
-def apply_forces(simulation, apply_motility=True):
+def apply_forces(simulation, step, total_steps, last_dt, apply_motility=True):
     """ Turns the motility and JKR forces acting on
         a cell into movement.
     """
@@ -650,6 +667,12 @@ def apply_forces(simulation, apply_motility=True):
     else:
         motility_forces = np.zeros_like(simulation.motility_forces)
 
+    # if the move_dt does not evenly divide the step_dt use the last_dt for the last step
+    if step == total_steps - 1:
+        move_dt = last_dt
+    else:
+        move_dt = simulation.move_dt
+
     # send the following as arrays to the gpu
     if simulation.parallel:
         # turn the following into arrays that can be interpreted by the gpu
@@ -659,7 +682,7 @@ def apply_forces(simulation, apply_motility=True):
         radii_cuda = cuda.to_device(simulation.radii)
         viscosity_cuda = cuda.to_device(viscosity)
         size_cuda = cuda.to_device(simulation.size)
-        move_dt_cuda = cuda.to_device(simulation.move_dt)
+        move_dt_cuda = cuda.to_device(move_dt)
 
         # allocate threads and blocks for gpu memory "threads per block" and "blocks per grid"
         tpb = 72
@@ -676,7 +699,7 @@ def apply_forces(simulation, apply_motility=True):
     else:
         new_locations = backend.apply_forces_cpu(simulation.number_cells, simulation.jkr_forces, motility_forces,
                                                  simulation.locations, simulation.radii, viscosity, simulation.size,
-                                                 simulation.move_dt)
+                                                 move_dt)
 
     # update the locations and reset the jkr forces back to zero
     simulation.locations = new_locations
