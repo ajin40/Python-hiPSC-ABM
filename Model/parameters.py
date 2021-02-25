@@ -54,7 +54,7 @@ def run_steps(simulation):
         backend.info(simulation)
 
         # Finds the neighbors of each cell that are within a fixed radius and store this info in a graph.
-        functions.get_neighbors(simulation, distance=0.000015)
+        functions.get_neighbors(simulation, distance=0.00001)    # double max cell radius
 
         # Updates cells by adjusting trackers for differentiation, division, growth, etc. based on intracellular,
         # intercellular, and extracellular conditions through a series of separate methods.
@@ -69,12 +69,12 @@ def run_steps(simulation):
         # functions.update_diffusion(simulation, "fgf4_alt")    # for testing morphogen release methods
 
         # Adds/removes cells to/from the simulation either all together or in desired groups of cells. If done in
-        # groups, the handle_movement() function will be used to better represent asynchronous division and death.
+        # groups, the apply_forces() function will be used to better represent asynchronous division and death.
         functions.update_queue(simulation)
 
         # Finds the nearest NANOG high, GATA6 high, and differentiated cells within a fixed radius. This provides
         # information that can be used for approximating cell motility.
-        functions.nearest(simulation, distance=0.000015)
+        functions.nearest(simulation, distance=0.000015)    # triple max cell radius
 
         # Calculates the direction/magnitude of a cell's movement depending on a variety of factors such as state
         # and presence of neighbors.
@@ -83,7 +83,7 @@ def run_steps(simulation):
 
         # Through the series of methods, attempt to move the cells to a state of physical equilibrium between adhesive
         # and repulsive forces acting on the cells, while applying active motility forces.
-        functions.handle_movement(simulation)
+        functions.apply_forces(simulation)
 
         # Saves multiple forms of information about the simulation at the current step, including an image of the
         # space, CSVs with values of the cells, a temporary pickle of the Simulation object, and performance stats.
@@ -181,7 +181,7 @@ class Simulation(backend.Base):
         self.spat_res = 0.00000707106
         self.spat_res2 = self.spat_res ** 2
         self.diffuse_const = 0.00000000005    # 50 um^2/s
-        self.max_concentration = 200    # very arbitrary
+        self.max_concentration = 30
 
         # calculate the size of the array for the diffusion points and create gradient array(s)
         self.gradient_size = np.ceil(self.size / self.spat_res).astype(int) + 1

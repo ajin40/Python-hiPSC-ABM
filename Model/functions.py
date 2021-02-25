@@ -206,9 +206,6 @@ def cell_motility(simulation):
     # this is the motility force of the cells
     motility_force = 0.000000002
 
-    # reset motility forces to zero vector
-    simulation.motility_forces[:, :] = 0
-
     # loop over all of the cells
     for index in range(simulation.number_cells):
         # get the neighbors of the cell
@@ -216,8 +213,8 @@ def cell_motility(simulation):
 
         # if not surrounded 6 or more cells, calculate motility forces
         if len(neighbors) < 6:
-            # if the cell state is differentiated
-            if simulation.states[index] == "Differentiated":
+            # if the cell state is GATA6 high
+            if simulation.GATA6[index] > simulation.NANOG[index]:
                 # create a vector to hold the sum of normal vectors between a cell and its neighbors
                 vector_holder = np.array([0.0, 0.0, 0.0])
 
@@ -243,33 +240,35 @@ def cell_motility(simulation):
                 else:
                     simulation.motility_forces[index] += backend.random_vector(simulation) * motility_force
 
-            # if the cell is gata6 high and nanog low
-            elif simulation.GATA6[index] > simulation.NANOG[index]:
-                # continue if using Guye et al. movement and if there exists differentiated cells
-                if simulation.guye_move and simulation.nearest_diff[index] != -1:
-                    # get the differentiated neighbor
-                    guye_neighbor = simulation.nearest_diff[index]
+            # if the cell is nanog high and gata6 low
+            elif simulation.GATA6[index] < simulation.NANOG[index]:
+                # create a vector to hold the sum of normal vectors between a cell and its neighbors
+                vector_holder = np.array([0.0, 0.0, 0.0])
 
-                    # get the normal vector
-                    vector = simulation.locations[guye_neighbor] - simulation.locations[index]
-                    normal = backend.normal_vector(vector)
+                # loop over the neighbors
+                count = 0
+                for i in range(len(neighbors)):
+                    # if neighbor is nanog high, add vector to the cell to the holder
+                    if simulation.NANOG[neighbors[i]] > simulation.GATA6[neighbors[i]]:
+                        count += 1
+                        vector = simulation.locations[neighbors[i]] - simulation.locations[index]
+                        vector_holder += vector
 
-                    # calculate the motility force
+                # if there is at least one nanog high cell move toward it
+                if count > 0:
+                    # get the normalized vector
+                    normal = backend.normal_vector(vector_holder)
+
+                    # move in direction to nanog high cells
                     random = backend.random_vector(simulation)
                     simulation.motility_forces[index] += (normal * 0.8 + random * 0.2) * motility_force
 
-                # if no Guye movement or no differentiated cells nearby, move randomly
+                # if no nanog high cells around, move randomly
                 else:
                     simulation.motility_forces[index] += backend.random_vector(simulation) * motility_force
 
-            # if the cell is nanog high and gata6 low
-            elif simulation.NANOG[index] > simulation.GATA6[index]:
-                # move randomly
-                simulation.motility_forces[index] += backend.random_vector(simulation) * motility_force
-
-            # if both gata6/nanog high or both low
+            # if same value, move randomly
             else:
-                # move randomly
                 simulation.motility_forces[index] += backend.random_vector(simulation) * motility_force
 
 
@@ -280,10 +279,7 @@ def eunbi_motility(simulation):
         are closer to Eunbi's model.
     """
     # this is the motility force of the cells
-    motility_force = 0.000000002
-
-    # reset motility forces to zero vector
-    simulation.motility_forces[:, :] = 0
+    motility_force = 0.000000008
 
     # loop over all of the cells
     for index in range(simulation.number_cells):
@@ -299,7 +295,7 @@ def eunbi_motility(simulation):
                     # if there is a nanog high cell nearby, move away from it
                     if simulation.nearest_nanog[index] != -1:
                         nearest_index = simulation.nearest_nanog[index]
-                        vector = simulation.locations[nearest_index] - simulation.cell_locations[index]
+                        vector = simulation.locations[nearest_index] - simulation.locations[index]
                         normal = backend.normal_vector(vector)
                         random = backend.random_vector(simulation)
                         simulation.motility_forces[index] += (normal * -0.8 + random * 0.2) * motility_force
@@ -346,6 +342,9 @@ def eunbi_motility(simulation):
                 # if both gata6/nanog high or both low, move randomly
                 else:
                     simulation.motility_forces[index] += backend.random_vector(simulation) * motility_force
+
+            else:
+                simulation.motion[index] = False
 
 
 @backend.record_time
@@ -496,23 +495,80 @@ def nearest(simulation, distance=0.00002):
 
 
 @backend.record_time
-def handle_movement(simulation):
-    """ Calls three methods used to move the cells to a
+def apply_forces(simulation, one_step=False, motility=True):
+    """ Calls multiple methods used to move the cells to a
         state of physical equilibrium between repulsive,
         adhesive, and motility forces.
     """
-    # calculate the number of steps and the last step time if it doesn't divide nicely
-    steps, last_dt = divmod(simulation.step_dt, simulation.move_dt)
-    total_steps = int(steps) + 1  # make sure steps is an int, add extra step for the last dt if it's less
+    # the viscosity of the medium in Ns/m used for stokes friction
+    viscosity = 10000
 
-    # go through all steps
+    # this method can be called in update_queue() to simulate asynchronous division, only run one step
+    if one_step:
+        total_steps = 1
+        last_dt = simulation.move_dt
+    else:
+        # calculate the number of steps and the last step time if it doesn't divide nicely
+        steps, last_dt = divmod(simulation.step_dt, simulation.move_dt)
+        total_steps = int(steps) + 1  # make sure steps is an int, add extra step for the last dt if it's less
+
+    # if motility is False, an array of zeros will be used to prevent motility forces from being applied
+    if motility:
+        motility_forces = simulation.motility_forces
+    else:
+        motility_forces = np.zeros_like(simulation.motility_forces)
+
+    # go through all move steps
     for step in range(total_steps):
+        # update graph for pairs of contacting cells
         jkr_neighbors(simulation)
+
+        # calculate the JKR forces based on the graph
         get_forces(simulation)
-        apply_forces(simulation, step, total_steps, last_dt)
+
+        # apply the forces with the following
+        # if the move_dt does not divide step_dt evenly use the last_dt computed above for the last step
+        if step == total_steps - 1:
+            move_dt = last_dt
+        else:
+            move_dt = simulation.move_dt
+
+        # send the following as arrays to the gpu
+        if simulation.parallel:
+            # turn the following into arrays that can be interpreted by the gpu
+            jkr_forces_cuda = cuda.to_device(simulation.jkr_forces)
+            motility_forces_cuda = cuda.to_device(motility_forces)
+            locations_cuda = cuda.to_device(simulation.locations)
+            radii_cuda = cuda.to_device(simulation.radii)
+            viscosity_cuda = cuda.to_device(viscosity)
+            size_cuda = cuda.to_device(simulation.size)
+            move_dt_cuda = cuda.to_device(move_dt)
+
+            # allocate threads and blocks for gpu memory "threads per block" and "blocks per grid"
+            tpb = 72
+            bpg = math.ceil(simulation.number_cells / tpb)
+
+            # call the cuda kernel with new gpu arrays
+            backend.apply_forces_gpu[bpg, tpb](jkr_forces_cuda, motility_forces_cuda, locations_cuda, radii_cuda,
+                                               viscosity_cuda, size_cuda, move_dt_cuda)
+
+            # return the only the following array(s) back from the gpu
+            new_locations = locations_cuda.copy_to_host()
+
+        # call the cpu version
+        else:
+            new_locations = backend.apply_forces_cpu(simulation.number_cells, simulation.jkr_forces, motility_forces,
+                                                     simulation.locations, simulation.radii, viscosity, simulation.size,
+                                                     move_dt)
+
+        # update the locations and reset the jkr forces back to zero
+        simulation.locations = new_locations
+        simulation.jkr_forces[:, :] = 0
+
+    # reset motility forces back to zero
+    simulation.motility_forces[:, :] = 0
 
 
-@backend.record_time
 def jkr_neighbors(simulation):
     """ For all cells, determines which cells will have physical
         interactions with other cells and puts this information
@@ -598,7 +654,6 @@ def jkr_neighbors(simulation):
     simulation.jkr_graph.simplify()
 
 
-@backend.record_time
 def get_forces(simulation):
     """ Goes through all of "JKR" edges and quantifies any
         resulting adhesive or repulsion forces between
@@ -650,60 +705,6 @@ def get_forces(simulation):
         delete_edges_indices = np.arange(number_edges)[delete_edges]
         simulation.jkr_graph.delete_edges(delete_edges_indices)
         simulation.jkr_forces = forces
-
-
-@backend.record_time
-def apply_forces(simulation, step, total_steps, last_dt, apply_motility=True):
-    """ Turns the motility and JKR forces acting on
-        a cell into movement.
-    """
-    # contact mechanics parameters that rarely change
-    viscosity = 10000    # the viscosity of the medium in Ns/m used for stokes friction
-
-    # this method can be called in update_queue() to simulate asynchronous division, if apply_motility is False
-    # an array of zeros will be used to prevent erroneous motility forces
-    if apply_motility:
-        motility_forces = simulation.motility_forces
-    else:
-        motility_forces = np.zeros_like(simulation.motility_forces)
-
-    # if the move_dt does not evenly divide the step_dt use the last_dt for the last step
-    if step == total_steps - 1:
-        move_dt = last_dt
-    else:
-        move_dt = simulation.move_dt
-
-    # send the following as arrays to the gpu
-    if simulation.parallel:
-        # turn the following into arrays that can be interpreted by the gpu
-        jkr_forces_cuda = cuda.to_device(simulation.jkr_forces)
-        motility_forces_cuda = cuda.to_device(motility_forces)
-        locations_cuda = cuda.to_device(simulation.locations)
-        radii_cuda = cuda.to_device(simulation.radii)
-        viscosity_cuda = cuda.to_device(viscosity)
-        size_cuda = cuda.to_device(simulation.size)
-        move_dt_cuda = cuda.to_device(move_dt)
-
-        # allocate threads and blocks for gpu memory "threads per block" and "blocks per grid"
-        tpb = 72
-        bpg = math.ceil(simulation.number_cells / tpb)
-
-        # call the cuda kernel with new gpu arrays
-        backend.apply_forces_gpu[bpg, tpb](jkr_forces_cuda, motility_forces_cuda, locations_cuda, radii_cuda,
-                                           viscosity_cuda, size_cuda, move_dt_cuda)
-
-        # return the only the following array(s) back from the gpu
-        new_locations = locations_cuda.copy_to_host()
-
-    # call the cpu version
-    else:
-        new_locations = backend.apply_forces_cpu(simulation.number_cells, simulation.jkr_forces, motility_forces,
-                                                 simulation.locations, simulation.radii, viscosity, simulation.size,
-                                                 move_dt)
-
-    # update the locations and reset the jkr forces back to zero
-    simulation.locations = new_locations
-    simulation.jkr_forces[:, :] = 0
 
 
 @backend.record_time
@@ -802,9 +803,7 @@ def update_queue(simulation):
             # if the current number added is divisible by the group number
             if (i + 1) % simulation.group == 0:
                 # run the following once to better simulate asynchronous division
-                jkr_neighbors(simulation)
-                get_forces(simulation)
-                apply_forces(simulation, apply_motility=False)    # don't apply motility forces
+                apply_forces(simulation, one_step=True, motility=False)
 
     # -------------------- Death --------------------
     # get the indices of the cells leaving the simulation
