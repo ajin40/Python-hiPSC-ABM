@@ -22,7 +22,7 @@ def setup_cells(simulation):
     # point to this array. The arrays default to float64, 1-dim arrays (length of # cells). Use the parameters to
     # adjust the data type, 2-dim size, and initial condition for the entire array.
     simulation.cell_array("locations", override=np.random.rand(simulation.number_cells, 3) * simulation.size)
-    simulation.cell_array("radii", func=lambda: simulation.min_radius)
+    simulation.cell_array("radii")
     simulation.cell_array("motion", dtype=bool, func=lambda: True)
     simulation.cell_array("FGFR", dtype=int, func=lambda: r.randrange(0, simulation.field))
     simulation.cell_array("ERK", dtype=int, func=lambda: r.randrange(0, simulation.field))
@@ -35,9 +35,9 @@ def setup_cells(simulation):
     simulation.cell_array("fds_counters", dtype=int, func=lambda: r.randrange(0, simulation.fds_thresh))
     simulation.cell_array("motility_forces", vector=3)
     simulation.cell_array("jkr_forces", vector=3)
-    simulation.cell_array("nearest_nanog", dtype=int, func=lambda: -1)
-    simulation.cell_array("nearest_gata6", dtype=int, func=lambda: -1)
-    simulation.cell_array("nearest_diff", dtype=int, func=lambda: -1)
+    # simulation.cell_array("nearest_nanog", dtype=int, func=lambda: -1)
+    # simulation.cell_array("nearest_gata6", dtype=int, func=lambda: -1)
+    # simulation.cell_array("nearest_diff", dtype=int, func=lambda: -1)
 
     # Update the number of cells marked with the "GATA6_high" cell type with alternative initial conditions.
     simulation.cell_array("GATA6", cell_type="GATA6_high", func=lambda: r.randrange(1, simulation.field))
@@ -74,7 +74,7 @@ def run_steps(simulation):
 
         # Finds the nearest NANOG high, GATA6 high, and differentiated cells within a fixed radius. This provides
         # information that can be used for approximating cell motility.
-        functions.nearest(simulation, distance=0.000015)    # triple max cell radius
+        # functions.nearest(simulation, distance=0.000015)    # triple max cell radius
 
         # Calculates the direction/magnitude of a cell's movement depending on a variety of factors such as state
         # and presence of neighbors.

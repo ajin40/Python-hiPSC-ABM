@@ -213,8 +213,8 @@ def cell_motility(simulation):
 
         # if not surrounded 6 or more cells, calculate motility forces
         if len(neighbors) < 6:
-            # if the cell state is GATA6 high
-            if simulation.GATA6[index] > simulation.NANOG[index]:
+            # if the cell is differentiated
+            if simulation.states[index] == "Differentiated":
                 # create a vector to hold the sum of normal vectors between a cell and its neighbors
                 vector_holder = np.array([0.0, 0.0, 0.0])
 
@@ -240,36 +240,94 @@ def cell_motility(simulation):
                 else:
                     simulation.motility_forces[index] += backend.random_vector(simulation) * motility_force
 
-            # if the cell is nanog high and gata6 low
-            elif simulation.GATA6[index] < simulation.NANOG[index]:
-                # create a vector to hold the sum of normal vectors between a cell and its neighbors
-                vector_holder = np.array([0.0, 0.0, 0.0])
+            # otherwise the cell is pluripotent
+            else:
+                # if the cell state is GATA6 high
+                if simulation.GATA6[index] > simulation.NANOG[index]:
+                    # if guye movement, move toward differentiated cells
+                    if simulation.guye_move:
+                        # create a vector to hold the sum of normal vectors between a cell and its neighbors
+                        vector_holder = np.array([0.0, 0.0, 0.0])
 
-                # loop over the neighbors
-                count = 0
-                for i in range(len(neighbors)):
-                    # if neighbor is nanog high, add vector to the cell to the holder
-                    if simulation.NANOG[neighbors[i]] > simulation.GATA6[neighbors[i]]:
-                        count += 1
-                        vector = simulation.locations[neighbors[i]] - simulation.locations[index]
-                        vector_holder += vector
+                        # loop over the neighbors
+                        count = 0
+                        for i in range(len(neighbors)):
+                            # if neighbor is differentiated, add vector to the cell to the holder
+                            if simulation.states[neighbors[i]] == "Differentiated":
+                                count += 1
+                                vector = simulation.locations[neighbors[i]] - simulation.locations[index]
+                                vector_holder += vector
 
-                # if there is at least one nanog high cell move toward it
-                if count > 0:
-                    # get the normalized vector
-                    normal = backend.normal_vector(vector_holder)
+                        # if there is at least differentiated cell move toward it
+                        if count > 0:
+                            # get the normalized vector
+                            normal = backend.normal_vector(vector_holder)
 
-                    # move in direction to nanog high cells
-                    random = backend.random_vector(simulation)
-                    simulation.motility_forces[index] += (normal * 0.8 + random * 0.2) * motility_force
+                            # move in direction to differentiated cells
+                            random = backend.random_vector(simulation)
+                            simulation.motility_forces[index] += (normal * 0.8 + random * 0.2) * motility_force
 
-                # if no nanog high cells around, move randomly
+                        # if no differentiated cells around, move randomly
+                        else:
+                            simulation.motility_forces[index] += backend.random_vector(simulation) * motility_force
+
+                    # otherwise move away from nanog high cells
+                    else:
+                        # create a vector to hold the sum of normal vectors between a cell and its neighbors
+                        vector_holder = np.array([0.0, 0.0, 0.0])
+
+                        # loop over the neighbors
+                        count = 0
+                        for i in range(len(neighbors)):
+                            # if neighbor is nanog high, add vector to the cell to the holder
+                            if simulation.NANOG[neighbors[i]] > simulation.GATA6[neighbors[i]]:
+                                count += 1
+                                vector = simulation.locations[neighbors[i]] - simulation.locations[index]
+                                vector_holder += vector
+
+                        # if there is at least one nanog high cell move away from it
+                        if count > 0:
+                            # get the normalized vector
+                            normal = backend.normal_vector(vector_holder)
+
+                            # move in direction opposite to nanog high cells
+                            random = backend.random_vector(simulation)
+                            simulation.motility_forces[index] += (normal * -0.8 + random * 0.2) * motility_force
+
+                        # if no nanog high cells around, move randomly
+                        else:
+                            simulation.motility_forces[index] += backend.random_vector(simulation) * motility_force
+
+                # if the cell is nanog high and gata6 low
+                elif simulation.GATA6[index] < simulation.NANOG[index]:
+                    # create a vector to hold the sum of normal vectors between a cell and its neighbors
+                    vector_holder = np.array([0.0, 0.0, 0.0])
+
+                    # loop over the neighbors
+                    count = 0
+                    for i in range(len(neighbors)):
+                        # if neighbor is nanog high, add vector to the cell to the holder
+                        if simulation.NANOG[neighbors[i]] > simulation.GATA6[neighbors[i]]:
+                            count += 1
+                            vector = simulation.locations[neighbors[i]] - simulation.locations[index]
+                            vector_holder += vector
+
+                    # if there is at least one nanog high cell move toward it
+                    if count > 0:
+                        # get the normalized vector
+                        normal = backend.normal_vector(vector_holder)
+
+                        # move in direction to nanog high cells
+                        random = backend.random_vector(simulation)
+                        simulation.motility_forces[index] += (normal * 0.8 + random * 0.2) * motility_force
+
+                    # if no nanog high cells around, move randomly
+                    else:
+                        simulation.motility_forces[index] += backend.random_vector(simulation) * motility_force
+
+                # if same value, move randomly
                 else:
                     simulation.motility_forces[index] += backend.random_vector(simulation) * motility_force
-
-            # if same value, move randomly
-            else:
-                simulation.motility_forces[index] += backend.random_vector(simulation) * motility_force
 
 
 @backend.record_time
@@ -500,34 +558,35 @@ def apply_forces(simulation, one_step=False, motility=True):
         state of physical equilibrium between repulsive,
         adhesive, and motility forces.
     """
-    # the viscosity of the medium in Ns/m used for stokes friction
+    # the viscosity of the medium in Ns/m, used for stokes friction
     viscosity = 10000
 
-    # this method can be called in update_queue() to simulate asynchronous division, only run one step
+    # this method can be called by update_queue() to better represent asynchronous division
     if one_step:
-        total_steps = 1
-        last_dt = simulation.move_dt
+        total_steps, last_dt = 1, simulation.move_dt    # move once based on move_dt
+
+    # otherwise run normally
     else:
         # calculate the number of steps and the last step time if it doesn't divide nicely
         steps, last_dt = divmod(simulation.step_dt, simulation.move_dt)
-        total_steps = int(steps) + 1  # make sure steps is an int, add extra step for the last dt if it's less
+        total_steps = int(steps) + 1    # add extra step for the last dt, if divides nicely last_dt will equal zero
 
-    # if motility is False, an array of zeros will be used to prevent motility forces from being applied
+    # if motility parameter is False, an array of zeros will be used for the motility forces
     if motility:
         motility_forces = simulation.motility_forces
     else:
         motility_forces = np.zeros_like(simulation.motility_forces)
 
-    # go through all move steps
+    # go through all move steps, calculating the physical interactions and applying the forces
     for step in range(total_steps):
         # update graph for pairs of contacting cells
         jkr_neighbors(simulation)
 
         # calculate the JKR forces based on the graph
-        get_forces(simulation)
+        jkr_forces(simulation)
 
-        # apply the forces with the following
-        # if the move_dt does not divide step_dt evenly use the last_dt computed above for the last step
+        # apply both the JKR forces and the motility forces
+        # if on the last step use, that dt
         if step == total_steps - 1:
             move_dt = last_dt
         else:
@@ -561,7 +620,7 @@ def apply_forces(simulation, one_step=False, motility=True):
                                                      simulation.locations, simulation.radii, viscosity, simulation.size,
                                                      move_dt)
 
-        # update the locations and reset the jkr forces back to zero
+        # update the locations and reset the JKR forces back to zero
         simulation.locations = new_locations
         simulation.jkr_forces[:, :] = 0
 
@@ -654,7 +713,7 @@ def jkr_neighbors(simulation):
     simulation.jkr_graph.simplify()
 
 
-def get_forces(simulation):
+def jkr_forces(simulation):
     """ Goes through all of "JKR" edges and quantifies any
         resulting adhesive or repulsion forces between
         pairs of cells.
@@ -688,7 +747,7 @@ def get_forces(simulation):
             bpg = math.ceil(number_edges / tpb)
 
             # call the cuda kernel with new gpu arrays
-            backend.get_forces_gpu[bpg, tpb](jkr_edges_cuda, delete_edges_cuda, locations_cuda, radii_cuda, forces_cuda,
+            backend.jkr_forces_gpu[bpg, tpb](jkr_edges_cuda, delete_edges_cuda, locations_cuda, radii_cuda, forces_cuda,
                                              poisson_cuda, youngs_cuda, adhesion_const_cuda)
 
             # return the only the following array(s) back from the gpu
@@ -697,7 +756,7 @@ def get_forces(simulation):
 
         # call the cpu version
         else:
-            forces, delete_edges = backend.get_forces_cpu(number_edges, jkr_edges, delete_edges, simulation.locations,
+            forces, delete_edges = backend.jkr_forces_cpu(number_edges, jkr_edges, delete_edges, simulation.locations,
                                                           simulation.radii, simulation.jkr_forces, poisson, youngs,
                                                           adhesion_const)
 

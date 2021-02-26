@@ -391,8 +391,8 @@ def jkr_neighbors_cpu(number_cells, bin_locations, locations, radii, bins, bins_
 
 
 @cuda.jit
-def get_forces_gpu(jkr_edges, delete_edges, locations, radii, jkr_forces, poisson, youngs, adhesion_const):
-    """ A just-in-time compiled cuda kernel for the get_forces()
+def jkr_forces_gpu(jkr_edges, delete_edges, locations, radii, jkr_forces, poisson, youngs, adhesion_const):
+    """ A just-in-time compiled cuda kernel for the jkr_forces()
         method that performs the actual calculations.
     """
     # get the index in the edges array
@@ -453,9 +453,9 @@ def get_forces_gpu(jkr_edges, delete_edges, locations, radii, jkr_forces, poisso
 
 
 @jit(nopython=True, parallel=True, cache=True)
-def get_forces_cpu(number_edges, jkr_edges, delete_edges, locations, radii, jkr_forces, poisson, youngs,
+def jkr_forces_cpu(number_edges, jkr_edges, delete_edges, locations, radii, jkr_forces, poisson, youngs,
                    adhesion_const):
-    """ A just-in-time compiled function for the get_forces()
+    """ A just-in-time compiled function for the jkr_forces()
         method that performs the actual calculations.
     """
     # go through the edges array
