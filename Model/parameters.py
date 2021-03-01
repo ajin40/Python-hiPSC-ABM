@@ -2,11 +2,11 @@ import numpy as np
 import random as r
 import igraph
 import math
-import run
 
 import backend
 import functions
 import output
+from run import template_param
 
 
 def setup_cells(simulation):
@@ -122,28 +122,28 @@ class Simulation(backend.Base):
         """
         # ------------- general template file ------------------------------
         general_path = paths.templates + "general.txt"    # path to general.txt template file
-        self.parallel = run.get_parameter(general_path, 5, bool)
-        self.end_step = run.get_parameter(general_path, 8, int)
-        self.num_nanog = run.get_parameter(general_path, 11, int)
-        self.num_gata6 = run.get_parameter(general_path, 14, int)
-        self.size = np.array(run.get_parameter(general_path, 17, tuple))
-        self.order_66 = run.get_parameter(general_path, 20, str)
+        self.parallel = template_param(general_path, 5, bool)
+        self.end_step = template_param(general_path, 8, int)
+        self.num_nanog = template_param(general_path, 11, int)
+        self.num_gata6 = template_param(general_path, 14, int)
+        self.size = np.array(template_param(general_path, 17, tuple))
+        self.order_66 = template_param(general_path, 20, str)
 
         # ------------- outputs template file ------------------------------
         outputs_path = paths.templates + "outputs.txt"    # path to outputs.txt template file
-        self.output_values = run.get_parameter(outputs_path, 5, bool)
-        self.output_tda = run.get_parameter(outputs_path, 9, bool)
-        self.output_gradients = run.get_parameter(outputs_path, 12, bool)
-        self.output_images = run.get_parameter(outputs_path, 15, bool)
-        self.image_quality = run.get_parameter(outputs_path, 19, int)
-        self.color_mode = run.get_parameter(outputs_path, 23, bool)
+        self.output_values = template_param(outputs_path, 5, bool)
+        self.output_tda = template_param(outputs_path, 9, bool)
+        self.output_gradients = template_param(outputs_path, 12, bool)
+        self.output_images = template_param(outputs_path, 15, bool)
+        self.image_quality = template_param(outputs_path, 19, int)
+        self.color_mode = template_param(outputs_path, 23, bool)
 
         # ------------- experimental template file -------------------------
         experimental_path = paths.templates + "experimental.txt"    # path to experimental.txt template file
-        self.group = run.get_parameter(experimental_path, 5, int)
-        self.dox_step = run.get_parameter(experimental_path, 9, int)
-        self.guye_move = run.get_parameter(experimental_path, 13, bool)
-        self.lonely_thresh = run.get_parameter(experimental_path, 17, int)
+        self.group = template_param(experimental_path, 5, int)
+        self.dox_step = template_param(experimental_path, 9, int)
+        self.guye_move = template_param(experimental_path, 13, bool)
+        self.lonely_thresh = template_param(experimental_path, 17, int)
 
         # define any other instance variables that are not part of the template files
 
