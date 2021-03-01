@@ -18,7 +18,7 @@ def start():
 
     # get the path to the directory where simulations are outputted and the name/mode for the simulation
     output_path = output_dir(separator)
-    possible_modes = [0, 1, 2, 3, 4]    # hold possible model modes
+    possible_modes = [0, 1, 2, 3]    # hold possible model modes
     name, mode = get_namemode(output_path, separator, possible_modes)
 
     # create path to simulation directory and make Paths object for storing important paths
@@ -49,6 +49,7 @@ def start():
         simulation.paths = paths  # change paths object for cross platform compatibility
         simulation.beginning_step = simulation.current_step + 1    # start one step later
         simulation.end_step = int(input("What is the final step of this continued simulation? "))
+        print()
 
         # run the model
         parameters.run_steps(simulation)
@@ -64,21 +65,11 @@ def start():
     # --------------------- zip a simulation directory --------------------
     elif mode == 3:
         # print statement and remove the separator of the path to the simulation directory
-        print("Compressing: " + name)
+        print('Compressing "' + name + '" simulation...')
         simulation_dir = main_path[:-1]
 
         # zip a copy of the directory and save it to the output directory
         shutil.make_archive(simulation_dir, 'zip', root_dir=output_path, base_dir=str(name))
-        print("Done!")
-
-    # ----------------- extract a simulation directory zip ----------------
-    elif mode == 4:
-        # print statement and get name for .zip file
-        print("Extracting: " + name)
-        zip_file = main_path[:-1] + ".zip"
-
-        # unpack the directory into the output directory
-        shutil.unpack_archive(zip_file, output_path)
         print("Done!")
 
 
@@ -160,12 +151,12 @@ def get_namemode(output_path, separator, possible_modes):
         while True:
             # prompt for the mode
             mode = input("What is the \"mode\" of the simulation? Type \"help\" for more information: ")
+            print()
 
             # keep running if "help" is typed
             if mode == "help":
-                print("\nHere are the following modes:\n0: New simulation\n1: Continuation of past simulation\n"
-                      "2: Turn simulation images to video\n3: Zip previous simulation\n4: Unzip a simulation file\n"
-                      "5: Calculate persistent homology\n")
+                print("Here are the following modes:\n0: New simulation\n1: Continuation of past simulation\n"
+                      "2: Turn simulation images to video\n3: Zip previous simulation\n")
             else:
                 try:
                     # get the mode as an integer make sure mode exists, break the loop if it does
@@ -173,11 +164,13 @@ def get_namemode(output_path, separator, possible_modes):
                     if mode in possible_modes:
                         break
                     else:
-                        print("Mode does not exist. See possible modes: " + str(possible_modes))
+                        print("Mode does not exist, see possible modes: " + str(possible_modes))
+                        print()
 
                 # if not an integer
                 except ValueError:
-                    print("\"mode\" should be an integer")
+                    print("Input: \"mode\" should be an integer")
+                    print()
 
     # check that the simulation name is valid based on the mode
     while True:
@@ -214,15 +207,6 @@ def get_namemode(output_path, separator, possible_modes):
                 # if does not exist, make directory
                 os.mkdir(output_path + name)
                 break
-
-        # extract simulation zip mode
-        elif mode == 4:
-            if os.path.isdir(output_path + name):
-                raise Exception(name + " already exists in " + output_path)
-            elif os.path.isfile(output_path + name + ".zip"):
-                break
-            else:
-                raise Exception(name + ".zip does not exist in " + output_path)
 
         # previous simulation output directory modes
         else:
