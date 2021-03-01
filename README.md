@@ -52,7 +52,6 @@ Different simulation modes:
 - 1: Continue a past simulation
 - 2: Turn previous simulation images to a video
 - 3: Zip a previous simulation
-- 4: Extract previous simulation zip in output directory
 
 
 Additionally, the name and mode can be passed at the command line by using options
