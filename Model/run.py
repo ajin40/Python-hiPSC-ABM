@@ -19,7 +19,7 @@ def start():
     # get the path to the directory where simulations are outputted and the name/mode for the simulation
     output_path = output_dir(separator)
     possible_modes = [0, 1, 2, 3]    # hold possible model modes
-    name, mode = get_namemode(output_path, separator, possible_modes)
+    name, mode, final_step = start_params(output_path, separator, possible_modes)
 
     # create path to simulation directory and make Paths object for storing important paths
     main_path = output_path + name + separator
@@ -48,8 +48,7 @@ def start():
         # update the following instance variables
         simulation.paths = paths  # change paths object for cross platform compatibility
         simulation.beginning_step = simulation.current_step + 1    # start one step later
-        simulation.end_step = int(input("What is the final step of this continued simulation? "))
-        print()
+        simulation.end_step = final_step    # update final step
 
         # run the model
         parameters.run_steps(simulation)
@@ -113,12 +112,12 @@ def output_dir(separator):
     return output_path
 
 
-def get_namemode(output_path, separator, possible_modes):
+def start_params(output_path, separator, possible_modes):
     """ This function will get the name and mode for the simulation
         either from the command line or a text-based GUI.
     """
-    # get any command-line options for the model, "n:m:" allows for using -n and -m
-    options, args = getopt.getopt(sys.argv[1:], "n:m:")  # first argument is "python" so avoid that
+    # get any command-line options for the model, "n:m:c:" allows for using -n, -m, and -c
+    options, args = getopt.getopt(sys.argv[1:], "n:m:c:")  # first argument is "python" so avoid that
 
     # go through the inputs, getting the options
     for option, value in options:
@@ -130,11 +129,15 @@ def get_namemode(output_path, separator, possible_modes):
         elif option == "-m":
             mode = int(value)  # turn from string to int
 
+        # if the "-c" mode option, set the final step for continuation mode
+        elif option == "-c":
+            final_step = int(value)  # turn from string to int
+
         # if some other option, raise error
         else:
             raise Exception("Unknown command-line option: " + option)
 
-    # if the name variable has not been initialized by the command-line, run the text-based GUI to get it
+    # if the name variable has not been initialized by the command-line, run the text-based UI to get it
     if 'name' not in locals():
         while True:
             # prompt for the name
@@ -142,11 +145,11 @@ def get_namemode(output_path, separator, possible_modes):
 
             # keep running if "help" is typed
             if name == "help":
-                print("Type the name of the simulation (not a path)\n")
+                print("\nType the name of the simulation (not a path).\n")
             else:
                 break
 
-    # if the mode variable has not been initialized by the command-line, run the text-based GUI to get it
+    # if the mode variable has not been initialized by the command-line, run the text-based UI to get it
     if 'mode' not in locals() or mode not in possible_modes:
         while True:
             # prompt for the mode
@@ -164,13 +167,38 @@ def get_namemode(output_path, separator, possible_modes):
                     if mode in possible_modes:
                         break
                     else:
-                        print("Mode does not exist, see possible modes: " + str(possible_modes))
-                        print()
+                        print("Mode does not exist, see possible modes: " + str(possible_modes) + "\n")
 
                 # if not an integer
                 except ValueError:
-                    print("Input: \"mode\" should be an integer")
-                    print()
+                    print("Input: \"mode\" should be an integer.\n")
+
+    # if the final_step variable has not been initialized by the command-line, run the text-based GUI to get it
+    if 'final_step' not in locals():
+        # if continuation mode
+        if mode == 1:
+            while True:
+                # prompt for the final step number
+                final_step = input("What is the final step of this continued simulation? Type \"help\" for more"
+                                   " information: ")
+                print()
+
+                # keep running if "help" is typed
+                if final_step == "help":
+                    print("Enter the new step number that will be the last step of the simulation.\n")
+                else:
+                    try:
+                        # get the final step as an integer, break the loop if conversion is successful
+                        final_step = int(final_step)
+                        break
+
+                    # if not an integer
+                    except ValueError:
+                        print("Input: \"final step\" should be an integer.\n")
+
+        # if not continuation mode, give final_step default value
+        else:
+            final_step = None
 
     # check that the simulation name is valid based on the mode
     while True:
@@ -181,10 +209,12 @@ def get_namemode(output_path, separator, possible_modes):
                 # get user input for overwriting previous simulation
                 print("Simulation already exists with name: " + name)
                 user = input("Would you like to overwrite that simulation? (y/n): ")
+                print()
 
                 # if no overwrite, get new simulation name
                 if user == "n":
                     name = input("New name: ")
+                    print()
 
                 # overwrite by deleting all files/folders in previous directory
                 elif user == "y":
@@ -217,23 +247,24 @@ def get_namemode(output_path, separator, possible_modes):
             else:
                 print("No directory exists with name/path: " + output_path + name)
                 name = input("Please type the correct name of the simulation or type \"exit\" to exit: ")
+                print()
                 if name == "exit":
                     exit()
 
-    return name, mode
+    return name, mode, final_step
 
 
-def get_parameter(path, line_number, dtype):
+def template_param(path, line_number, dtype):
     """ Gets the parameter as a string from the lines of the
         template file. Used for Simulation instance variables.
     """
     # make an attribute with name as template file path and value as a list of the file lines (reduces file opening)
-    if not hasattr(get_parameter, path):
+    if not hasattr(template_param, path):
         with open(path) as file:
-            get_parameter.path = file.readlines()
+            template_param.path = file.readlines()
 
     # get the right line based on the line numbers not Python indexing
-    line = get_parameter.path[line_number - 1]
+    line = template_param.path[line_number - 1]
 
     # find the indices of the pipe characters
     begin = line.find("|")
