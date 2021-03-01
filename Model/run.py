@@ -94,9 +94,8 @@ def output_dir(separator):
     # keep running until output directory exists
     while not os.path.isdir(output_path):
         # prompt user input
-        print("No directory: \"" + output_path + "\" for outputting simulations exists!")
-        user = input("Would you still like to use this directory? If yes, then that directory will be created, "
-                     "otherwise you can specify another path. (y/n): ")
+        print("Simulation output directory: \"" + output_path + "\" does not exist!")
+        user = input('Do you want to make this directory? If "n" you can specify the correct path (y/n): ')
 
         # if not making this directory
         if user == "n":
@@ -110,7 +109,7 @@ def output_dir(separator):
 
         # if yes, make the directory
         elif user == "y":
-            os.mkdir(output_path)
+            os.makedirs(output_path)
             break
 
         else:
