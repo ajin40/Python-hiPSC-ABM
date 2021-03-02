@@ -89,7 +89,8 @@ def run_steps(simulation):
         # space, CSVs with values of the cells, a temporary pickle of the Simulation object, and performance stats.
         # See the outputs.txt template file for turning off certain outputs.
         output.step_image(simulation)
-        output.step_values(simulation)
+        # output.step_values(simulation)
+        output.short_step_values(simulation)
         output.step_gradients(simulation)
         output.step_tda(simulation, in_pixels=True)
         output.temporary(simulation)
