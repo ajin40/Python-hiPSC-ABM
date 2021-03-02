@@ -28,7 +28,7 @@ def setup_cells(simulation):
     simulation.cell_array("ERK", dtype=int, func=lambda: r.randrange(0, simulation.field))
     simulation.cell_array("GATA6", dtype=int)
     simulation.cell_array("NANOG", dtype=int, func=lambda: r.randrange(1, simulation.field))
-    simulation.cell_array("states", dtype=str, func=lambda: "Pluripotent")
+    simulation.cell_array("states", dtype=int, func=lambda: 0)
     simulation.cell_array("death_counters", dtype=int, func=lambda: r.randrange(0, simulation.death_thresh))
     simulation.cell_array("diff_counters", dtype=int, func=lambda: r.randrange(0, simulation.pluri_to_diff))
     simulation.cell_array("div_counters", dtype=int, func=lambda: r.randrange(0, simulation.pluri_div_thresh))
@@ -153,7 +153,7 @@ class Simulation(backend.Base):
         self.diffuse_dt = 0.24  # dt for stable diffusion model (0.24 sec)
 
         # the field for the finite dynamical system
-        self.field = 3
+        self.field = 2
 
         # the rates (in steps) of division, differentiation, death, and finite dynamical system updating
         self.pluri_div_thresh = 36

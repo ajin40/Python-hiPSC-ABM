@@ -70,7 +70,7 @@ def step_image(simulation, background=(0, 0, 0), origin_bottom=True, fgf4_gradie
 
             # color the cells according to the mode
             if simulation.color_mode:
-                if simulation.states[index] == "Differentiated":
+                if simulation.states[index] == 1:
                     color = (0, 0, 230)    # red
                 elif simulation.GATA6[index] > simulation.NANOG[index]:
                     color = (255, 255, 255)    # white
@@ -79,7 +79,7 @@ def step_image(simulation, background=(0, 0, 0), origin_bottom=True, fgf4_gradie
 
             # False yields coloring based on the finite dynamical system
             else:
-                if simulation.states[index] == "Differentiated":
+                if simulation.states[index] == 1:
                     color = (0, 0, 230)    # red
                 elif simulation.GATA6[index] > simulation.NANOG[index]:
                     color = (255, 255, 255)    # white
