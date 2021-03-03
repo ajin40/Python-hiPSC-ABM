@@ -70,7 +70,7 @@ def step_image(simulation, background=(0, 0, 0), origin_bottom=True, fgf4_gradie
 
             # color the cells according to the mode
             if simulation.color_mode:
-                if simulation.states[index] == "Differentiated":
+                if simulation.states[index] == 1:
                     color = (0, 0, 230)    # red
                 elif simulation.GATA6[index] > simulation.NANOG[index]:
                     color = (255, 255, 255)    # white
@@ -79,7 +79,7 @@ def step_image(simulation, background=(0, 0, 0), origin_bottom=True, fgf4_gradie
 
             # False yields coloring based on the finite dynamical system
             else:
-                if simulation.states[index] == "Differentiated":
+                if simulation.states[index] == 1:
                     color = (0, 0, 230)    # red
                 elif simulation.GATA6[index] > simulation.NANOG[index]:
                     color = (255, 255, 255)    # white
@@ -133,6 +133,55 @@ def step_values(simulation):
 
             # go through each of the cell arrays
             for array_name in simulation.cell_array_names:
+                # get the cell array
+                cell_array = simulation.__dict__[array_name]
+
+                # if the array is one dimensional
+                if cell_array.ndim == 1:
+                    header.append(array_name)    # add the array name to the header
+                    cell_array = np.reshape(cell_array, (-1, 1))  # resize array from 1D to 2D
+
+                # if the array is not one dimensional
+                else:
+                    # create name for column based on slice of array ex. locations[0], locations[1], locations[2]
+                    for i in range(cell_array.shape[1]):
+                        header.append(array_name + "[" + str(i) + "]")
+
+                # add the array to the data holder
+                data.append(cell_array)
+
+            # write header as the first row of the CSV
+            csv_file.writerow(header)
+
+            # stack the arrays to create rows for the CSV file and save to CSV
+            data = np.hstack(data)
+            csv_file.writerows(data)
+
+
+@backend.record_time
+def short_step_values(simulation):
+    """ Outputs a CSV file containing values from all cell
+        arrays.
+    """
+    # only continue if outputting cell values
+    if simulation.output_values:
+        # get path and make sure directory exists
+        directory_path = check_direct(simulation.paths.values)
+
+        # get file name, use f-string
+        file_name = f"{simulation.name}_values_{simulation.current_step}.csv"
+
+        # open the file
+        with open(directory_path + file_name, "w", newline="") as file:
+            # create CSV object and the following lists
+            csv_file = csv.writer(file)
+            header = list()    # header of the CSV (first row)
+            data = list()    # holds the cell arrays
+
+            short_cell_array_names =  ["locations","FGFR","ERK","GATA6","NANOG","states","diff_counters","div_counters"]
+
+            # go through each of the cell arrays
+            for array_name in short_cell_array_names:
                 # get the cell array
                 cell_array = simulation.__dict__[array_name]
 
