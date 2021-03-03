@@ -28,7 +28,7 @@ def setup_cells(simulation):
     simulation.cell_array("ERK", dtype=int, func=lambda: r.randrange(0, simulation.field))
     simulation.cell_array("GATA6", dtype=int)
     simulation.cell_array("NANOG", dtype=int, func=lambda: r.randrange(1, simulation.field))
-    simulation.cell_array("states", dtype=int, func=lambda: 0)
+    simulation.cell_array("states", dtype=int)
     simulation.cell_array("death_counters", dtype=int, func=lambda: r.randrange(0, simulation.death_thresh))
     simulation.cell_array("diff_counters", dtype=int, func=lambda: r.randrange(0, simulation.pluri_to_diff))
     simulation.cell_array("div_counters", dtype=int, func=lambda: r.randrange(0, simulation.pluri_div_thresh))
