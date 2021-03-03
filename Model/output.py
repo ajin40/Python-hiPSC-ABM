@@ -72,7 +72,7 @@ def step_image(simulation, background=(0, 0, 0), origin_bottom=True, fgf4_gradie
             if simulation.color_mode:
                 if simulation.states[index] == 1:
                     color = (0, 0, 230)    # red
-                elif simulation.GATA6[index] > simulation.NANOG[index]:
+                elif simulation.GATA6[index] >= simulation.NANOG[index] and simulation.GATA6[index] != 0:
                     color = (255, 255, 255)    # white
                 else:
                     color = (32, 252, 22)    # green

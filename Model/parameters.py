@@ -27,7 +27,7 @@ def setup_cells(simulation):
     simulation.cell_array("FGFR", dtype=int, func=lambda: r.randrange(0, simulation.field))
     simulation.cell_array("ERK", dtype=int, func=lambda: r.randrange(0, simulation.field))
     simulation.cell_array("GATA6", dtype=int)
-    simulation.cell_array("NANOG", dtype=int, func=lambda: r.randrange(1, simulation.field))
+    simulation.cell_array("NANOG", dtype=int, func=lambda: r.randrange(0, simulation.field))
     simulation.cell_array("states", dtype=int)
     simulation.cell_array("death_counters", dtype=int, func=lambda: r.randrange(0, simulation.death_thresh))
     simulation.cell_array("diff_counters", dtype=int, func=lambda: r.randrange(0, simulation.pluri_to_diff))
@@ -58,11 +58,13 @@ def run_steps(simulation):
 
         # Updates cells by adjusting trackers for differentiation, division, growth, etc. based on intracellular,
         # intercellular, and extracellular conditions through a series of separate methods.
-        functions.cell_death(simulation)
+        # functions.cell_death(simulation)
         functions.cell_diff_surround(simulation)
         functions.cell_division(simulation)
         functions.cell_growth(simulation)
+        functions.cell_stochastic_update(simulation)
         functions.cell_pathway(simulation)
+        functions.cell_differentiate(simulation)
 
         # Simulates molecular diffusion the specified extracellular gradient via the forward time centered space method.
         functions.update_diffusion(simulation, "fgf4_values")
@@ -155,6 +157,10 @@ class Simulation(backend.Base):
 
         # the field for the finite dynamical system
         self.field = 2
+
+        # prob for random update
+        self.GATA6_prob = 0.1
+        self.NANOG_prob = 0.1
 
         # the rates (in steps) of division, differentiation, death, and finite dynamical system updating
         self.pluri_div_thresh = 36

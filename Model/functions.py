@@ -100,6 +100,17 @@ def cell_growth(simulation):
 
 
 @backend.record_time
+def cell_stochastic_update(simulation):
+    """ Stochastically updates the value for GATA6 and NANOG
+        based on set probabilities.
+    """
+    for index in range(simulation.number_cells):
+        if r.random() < simulation.GATA6_prob:
+            if simulation.GATA6[index] != simulation.field - 1:
+                simulation.GATA6[index] += 1
+
+
+@backend.record_time
 def cell_pathway(simulation):
     """ Updates finite dynamical system variables and
         extracellular conditions.
@@ -180,22 +191,26 @@ def cell_pathway(simulation):
             # increase the finite dynamical system counter
             simulation.fds_counters[index] += 1
 
-            # if the cell is GATA6 high and pluripotent
-            if simulation.GATA6[index] > simulation.NANOG[index] and simulation.states[index] == 0:
 
-                # increase the differentiation counter by 0 or 1
-                simulation.diff_counters[index] += r.randint(0, 1)
+@backend.record_time
+def cell_differentiate(simulation):
+    for index in range(simulation.number_cells):
+        # if the cell is GATA6 high and pluripotent
+        if simulation.GATA6[index] > simulation.NANOG[index] and simulation.states[index] == 0:
 
-                # if the differentiation counter is greater than or equal to the threshold, differentiate
-                if simulation.diff_counters[index] >= simulation.pluri_to_diff:
-                    # change the state to differentiated
-                    simulation.states[index] = 1
+            # increase the differentiation counter by 0 or 1
+            simulation.diff_counters[index] += r.randint(0, 1)
 
-                    # make sure NANOG is low
-                    simulation.NANOG[index] = 0
+            # if the differentiation counter is greater than or equal to the threshold, differentiate
+            if simulation.diff_counters[index] >= simulation.pluri_to_diff:
+                # change the state to differentiated
+                simulation.states[index] = 1
 
-                    # allow the cell to actively move again
-                    simulation.motion[index] = True
+                # make sure NANOG is low
+                simulation.NANOG[index] = 0
+
+                # allow the cell to actively move again
+                simulation.motion[index] = True
 
 
 @backend.record_time
