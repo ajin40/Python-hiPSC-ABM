@@ -62,12 +62,12 @@ def run_steps(simulation):
         functions.cell_diff_surround(simulation)
         functions.cell_division(simulation)
         functions.cell_growth(simulation)
-        functions.cell_stochastic_update(simulation)
+        # functions.cell_stochastic_update(simulation)
         functions.cell_pathway(simulation)
         functions.cell_differentiate(simulation)
 
         # Simulates molecular diffusion the specified extracellular gradient via the forward time centered space method.
-        functions.update_diffusion(simulation, "fgf4_values")
+        # functions.update_diffusion(simulation, "fgf4_values")
         # functions.update_diffusion(simulation, "fgf4_alt")    # for testing morphogen release methods
 
         # Adds/removes cells to/from the simulation either all together or in desired groups of cells. If done in
@@ -91,8 +91,8 @@ def run_steps(simulation):
         # space, CSVs with values of the cells, a temporary pickle of the Simulation object, and performance stats.
         # See the outputs.txt template file for turning off certain outputs.
         output.step_image(simulation)
-        # output.step_values(simulation)
-        output.short_step_values(simulation)
+        output.step_values(simulation, arrays=["locations", "FGFR", "ERK", "GATA6", "NANOG", "states", "diff_counters",
+                                               "div_counters"])
         output.step_gradients(simulation)
         output.step_tda(simulation, in_pixels=True)
         output.temporary(simulation)

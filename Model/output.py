@@ -112,12 +112,20 @@ def step_image(simulation, background=(0, 0, 0), origin_bottom=True, fgf4_gradie
 
 
 @backend.record_time
-def step_values(simulation):
+def step_values(simulation, arrays=None):
     """ Outputs a CSV file containing values from all cell
         arrays.
     """
     # only continue if outputting cell values
     if simulation.output_values:
+        # if arrays is None automatically output all cell arrays
+        if arrays is None:
+            cell_array_names = simulation.cell_array_names
+
+        # otherwise only output arrays specified in list
+        else:
+            cell_array_names = arrays
+
         # get path and make sure directory exists
         directory_path = check_direct(simulation.paths.values)
 
@@ -132,56 +140,7 @@ def step_values(simulation):
             data = list()    # holds the cell arrays
 
             # go through each of the cell arrays
-            for array_name in simulation.cell_array_names:
-                # get the cell array
-                cell_array = simulation.__dict__[array_name]
-
-                # if the array is one dimensional
-                if cell_array.ndim == 1:
-                    header.append(array_name)    # add the array name to the header
-                    cell_array = np.reshape(cell_array, (-1, 1))  # resize array from 1D to 2D
-
-                # if the array is not one dimensional
-                else:
-                    # create name for column based on slice of array ex. locations[0], locations[1], locations[2]
-                    for i in range(cell_array.shape[1]):
-                        header.append(array_name + "[" + str(i) + "]")
-
-                # add the array to the data holder
-                data.append(cell_array)
-
-            # write header as the first row of the CSV
-            csv_file.writerow(header)
-
-            # stack the arrays to create rows for the CSV file and save to CSV
-            data = np.hstack(data)
-            csv_file.writerows(data)
-
-
-@backend.record_time
-def short_step_values(simulation):
-    """ Outputs a CSV file containing values from all cell
-        arrays.
-    """
-    # only continue if outputting cell values
-    if simulation.output_values:
-        # get path and make sure directory exists
-        directory_path = check_direct(simulation.paths.values)
-
-        # get file name, use f-string
-        file_name = f"{simulation.name}_values_{simulation.current_step}.csv"
-
-        # open the file
-        with open(directory_path + file_name, "w", newline="") as file:
-            # create CSV object and the following lists
-            csv_file = csv.writer(file)
-            header = list()    # header of the CSV (first row)
-            data = list()    # holds the cell arrays
-
-            short_cell_array_names =  ["locations","FGFR","ERK","GATA6","NANOG","states","diff_counters","div_counters"]
-
-            # go through each of the cell arrays
-            for array_name in short_cell_array_names:
+            for array_name in cell_array_names:
                 # get the cell array
                 cell_array = simulation.__dict__[array_name]
 
