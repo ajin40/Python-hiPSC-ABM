@@ -67,7 +67,7 @@ def run_steps(simulation):
         functions.cell_differentiate(simulation)
 
         # Simulates molecular diffusion the specified extracellular gradient via the forward time centered space method.
-        # functions.update_diffusion(simulation, "fgf4_values")
+        functions.update_diffusion(simulation, "fgf4_values")
         # functions.update_diffusion(simulation, "fgf4_alt")    # for testing morphogen release methods
 
         # Adds/removes cells to/from the simulation either all together or in desired groups of cells. If done in
