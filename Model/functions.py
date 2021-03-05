@@ -105,9 +105,15 @@ def cell_stochastic_update(simulation):
         based on set probabilities.
     """
     for index in range(simulation.number_cells):
+        # if falling under threshold, raise the GATA6 value to the highest
         if r.random() < simulation.GATA6_prob:
             if simulation.GATA6[index] != simulation.field - 1:
                 simulation.GATA6[index] += 1
+
+        # # if falling under threshold, raise the NANOG value to the highest
+        # if r.random() < simulation.NANOG_prob:
+        #     if simulation.NANOG[index] != simulation.field - 1:
+        #         simulation.NANOG[index] += 1
 
 
 @backend.record_time
@@ -194,6 +200,9 @@ def cell_pathway(simulation):
 
 @backend.record_time
 def cell_differentiate(simulation):
+    """ Based on GATA6 and NANOG values, stochastically increase
+        differentiation counter and/or differentiate.
+    """
     for index in range(simulation.number_cells):
         # if the cell is GATA6 high and pluripotent
         if simulation.GATA6[index] > simulation.NANOG[index] and simulation.states[index] == 0:

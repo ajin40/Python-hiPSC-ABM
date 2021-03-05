@@ -160,9 +160,9 @@ class Simulation(backend.Base):
         # the field for the finite dynamical system
         self.field = 2
 
-        # prob for random update
-        self.GATA6_prob = 0.1
-        self.NANOG_prob = 0.1
+        # probability of randomly increasing FDS value to high
+        self.GATA6_prob = 0.01
+        self.NANOG_prob = 0.01
 
         # the rates (in steps) of division, differentiation, death, and finite dynamical system updating
         self.pluri_div_thresh = 36
