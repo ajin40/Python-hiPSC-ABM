@@ -13,7 +13,7 @@ def cell_death(simulation):
     """
     for index in range(simulation.number_cells):
         # checks to see if cell is pluripotent
-        if simulation.states[index] == "Pluripotent":
+        if simulation.states[index] == 0:
 
             # gets the number of neighbors for a cell, increasing the death counter if not enough neighbors
             if len(simulation.neighbor_graph.neighbors(index)) < simulation.lonely_thresh:
@@ -35,7 +35,7 @@ def cell_diff_surround(simulation):
     """
     for index in range(simulation.number_cells):
         # checks to see if cell is pluripotent and GATA6 low/medium
-        if simulation.states[index] == "Pluripotent" and simulation.GATA6[index] < simulation.NANOG[index]:
+        if simulation.states[index] == 0 and simulation.GATA6[index] < simulation.NANOG[index]:
 
             # get the list of neighbors for the cell
             neighbors = simulation.neighbor_graph.neighbors(index)
@@ -44,7 +44,7 @@ def cell_diff_surround(simulation):
             diff_neighbors = 0
             for neighbor_index in neighbors:
                 # checks to see if current neighbor is differentiated and if so add to the counter
-                if simulation.states[neighbor_index] == "Differentiated":
+                if simulation.states[neighbor_index] == 1:
                     diff_neighbors += 1
 
                 # if the number of differentiated meets the threshold, set the cell as gata6 high and nanog low
@@ -64,7 +64,7 @@ def cell_division(simulation):
         simulation.div_counters[index] += r.randint(0, 1)
 
         # pluripotent cell
-        if simulation.states[index] == "Pluripotent":
+        if simulation.states[index] == 0:
             # check the division counter against the threshold, add to array if dividing
             if simulation.div_counters[index] >= simulation.pluri_div_thresh:
                 simulation.cells_to_divide = np.append(simulation.cells_to_divide, index)
@@ -88,7 +88,7 @@ def cell_growth(simulation):
         # increase the cell radius based on the state and whether or not it has reached the max size
         if simulation.radii[index] < simulation.max_radius:
             # pluripotent growth
-            if simulation.states[index] == "Pluripotent":
+            if simulation.states[index] == 0:
                 radius = simulation.pluri_growth * simulation.div_counters[index] + simulation.min_radius
 
             # differentiated growth
@@ -97,6 +97,23 @@ def cell_growth(simulation):
 
             # update the radius for the index
             simulation.radii[index] = radius
+
+
+@backend.record_time
+def cell_stochastic_update(simulation):
+    """ Stochastically updates the value for GATA6 and NANOG
+        based on set probabilities.
+    """
+    for index in range(simulation.number_cells):
+        # if falling under threshold, raise the GATA6 value to the highest
+        if r.random() < simulation.GATA6_prob:
+            if simulation.GATA6[index] != simulation.field - 1:
+                simulation.GATA6[index] += 1
+
+        # # if falling under threshold, raise the NANOG value to the highest
+        # if r.random() < simulation.NANOG_prob:
+        #     if simulation.NANOG[index] != simulation.field - 1:
+        #         simulation.NANOG[index] += 1
 
 
 @backend.record_time
@@ -180,22 +197,29 @@ def cell_pathway(simulation):
             # increase the finite dynamical system counter
             simulation.fds_counters[index] += 1
 
-            # if the cell is GATA6 high and pluripotent
-            if simulation.GATA6[index] > simulation.NANOG[index] and simulation.states[index] == "Pluripotent":
 
-                # increase the differentiation counter by 0 or 1
-                simulation.diff_counters[index] += r.randint(0, 1)
+@backend.record_time
+def cell_differentiate(simulation):
+    """ Based on GATA6 and NANOG values, stochastically increase
+        differentiation counter and/or differentiate.
+    """
+    for index in range(simulation.number_cells):
+        # if the cell is GATA6 high and pluripotent
+        if simulation.GATA6[index] > simulation.NANOG[index] and simulation.states[index] == 0:
 
-                # if the differentiation counter is greater than or equal to the threshold, differentiate
-                if simulation.diff_counters[index] >= simulation.pluri_to_diff:
-                    # change the state to differentiated
-                    simulation.states[index] = "Differentiated"
+            # increase the differentiation counter by 0 or 1
+            simulation.diff_counters[index] += r.randint(0, 1)
 
-                    # make sure NANOG is low
-                    simulation.NANOG[index] = 0
+            # if the differentiation counter is greater than or equal to the threshold, differentiate
+            if simulation.diff_counters[index] >= simulation.pluri_to_diff:
+                # change the state to differentiated
+                simulation.states[index] = 1
 
-                    # allow the cell to actively move again
-                    simulation.motion[index] = True
+                # make sure NANOG is low
+                simulation.NANOG[index] = 0
+
+                # allow the cell to actively move again
+                simulation.motion[index] = True
 
 
 @backend.record_time
@@ -214,7 +238,7 @@ def cell_motility(simulation):
         # if not surrounded 6 or more cells, calculate motility forces
         if len(neighbors) < 6:
             # if the cell is differentiated
-            if simulation.states[index] == "Differentiated":
+            if simulation.states[index] == 1:
                 # create a vector to hold the sum of normal vectors between a cell and its neighbors
                 vector_holder = np.array([0.0, 0.0, 0.0])
 
@@ -253,7 +277,7 @@ def cell_motility(simulation):
                         count = 0
                         for i in range(len(neighbors)):
                             # if neighbor is differentiated, add vector to the cell to the holder
-                            if simulation.states[neighbors[i]] == "Differentiated":
+                            if simulation.states[neighbors[i]] == 1:
                                 count += 1
                                 vector = simulation.locations[neighbors[i]] - simulation.locations[index]
                                 vector_holder += vector
@@ -349,7 +373,7 @@ def eunbi_motility(simulation):
             # if cell is not surrounded by 6 or more other cells, calculate motility forces
             if len(neighbors) < 6:
                 # if differentiated
-                if simulation.states[index] == "Differentiated":
+                if simulation.states[index] == 1:
                     # if there is a nanog high cell nearby, move away from it
                     if simulation.nearest_nanog[index] != -1:
                         nearest_index = simulation.nearest_nanog[index]
@@ -508,7 +532,7 @@ def nearest(simulation, distance=0.00002):
     nearest.max_cells = max_cells
 
     # turn the following array into True/False instead of strings
-    if_diff = simulation.states == "Differentiated"
+    if_diff = simulation.states == 1
 
     # call the nvidia gpu version
     if simulation.parallel:

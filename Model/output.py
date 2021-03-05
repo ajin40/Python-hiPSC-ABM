@@ -70,16 +70,16 @@ def step_image(simulation, background=(0, 0, 0), origin_bottom=True, fgf4_gradie
 
             # color the cells according to the mode
             if simulation.color_mode:
-                if simulation.states[index] == "Differentiated":
+                if simulation.states[index] == 1:
                     color = (0, 0, 230)    # red
-                elif simulation.GATA6[index] > simulation.NANOG[index]:
+                elif simulation.GATA6[index] >= simulation.NANOG[index] and simulation.GATA6[index] != 0:
                     color = (255, 255, 255)    # white
                 else:
                     color = (32, 252, 22)    # green
 
             # False yields coloring based on the finite dynamical system
             else:
-                if simulation.states[index] == "Differentiated":
+                if simulation.states[index] == 1:
                     color = (0, 0, 230)    # red
                 elif simulation.GATA6[index] > simulation.NANOG[index]:
                     color = (255, 255, 255)    # white
@@ -106,18 +106,27 @@ def step_image(simulation, background=(0, 0, 0), origin_bottom=True, fgf4_gradie
         if origin_bottom:
             image = cv2.flip(image, 0)
 
-        # save the image as a PNG, use f-string
+        # save the image as a PNG
+        image_compression = 4    # image compression of png (0: no compression, ..., 9: max compression)
         file_name = f"{simulation.name}_image_{simulation.current_step}.png"
-        cv2.imwrite(directory_path + file_name, image)
+        cv2.imwrite(directory_path + file_name, image, [cv2.IMWRITE_PNG_COMPRESSION, image_compression])
 
 
 @backend.record_time
-def step_values(simulation):
+def step_values(simulation, arrays=None):
     """ Outputs a CSV file containing values from all cell
         arrays.
     """
     # only continue if outputting cell values
     if simulation.output_values:
+        # if arrays is None automatically output all cell arrays
+        if arrays is None:
+            cell_array_names = simulation.cell_array_names
+
+        # otherwise only output arrays specified in list
+        else:
+            cell_array_names = arrays
+
         # get path and make sure directory exists
         directory_path = check_direct(simulation.paths.values)
 
@@ -132,7 +141,7 @@ def step_values(simulation):
             data = list()    # holds the cell arrays
 
             # go through each of the cell arrays
-            for array_name in simulation.cell_array_names:
+            for array_name in cell_array_names:
                 # get the cell array
                 cell_array = simulation.__dict__[array_name]
 
@@ -276,7 +285,7 @@ def simulation_data(simulation):
         csv_object.writerow(columns + function_times)
 
 
-def create_video(simulation, fps=10):
+def create_video(simulation):
     """ Take all of the images outputted by a simulation and
         write them to a video file in the main directory.
     """
@@ -293,8 +302,10 @@ def create_video(simulation, fps=10):
             # sort the file list so "2, 20, 3, 31..." becomes "2, 3,...,20,...,31"
             file_list = sorted(file_list, key=sort_naturally)
 
-            # sample the first image to later get the shape of all images
-            first = cv2.imread(simulation.paths.images + file_list[0])
+            # sample the first image to get the dimensions of the image, and then scale the image
+            size = cv2.imread(simulation.paths.images + file_list[0]).shape[0:2]
+            scale = simulation.video_quality / size[1]
+            new_size = (simulation.video_quality, int(scale * size[0]))
 
             # get the video file path, use f-string
             file_name = f"{simulation.name}_video.mp4"
@@ -302,11 +313,12 @@ def create_video(simulation, fps=10):
 
             # create the file object with parameters from simulation and above
             codec = cv2.VideoWriter_fourcc(*"mp4v")
-            video_object = cv2.VideoWriter(video_path, codec, fps, first.shape[0:2])
+            video_object = cv2.VideoWriter(video_path, codec, simulation.fps, new_size)
 
             # go through sorted image list, reading and writing each image to the video object
             for i in range(image_count):
                 image = cv2.imread(simulation.paths.images + file_list[i])
+                image = cv2.resize(image, new_size, interpolation=cv2.INTER_AREA)
                 video_object.write(image)
                 progress_bar(i, image_count)    # show progress
 
