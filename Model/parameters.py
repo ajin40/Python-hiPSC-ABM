@@ -6,6 +6,8 @@ import math
 import backend
 import functions
 import output
+
+from backend import add_cells, cell_array
 from run import template_param
 
 
@@ -15,33 +17,33 @@ def setup_cells(simulation):
     """
     # Add the specified number of NANOG/GATA6 high cells and create cell type GATA6_high for setting initial parameters
     # with cell_array().
-    simulation.add_cells(simulation.num_nanog)
-    simulation.add_cells(simulation.num_gata6, cell_type="GATA6_high")
+    add_cells(simulation, simulation.num_nanog)
+    add_cells(simulation, simulation.num_gata6, cell_type="GATA6_high")
 
     # Create the following cell arrays in the Simulation object. The instance variable simulation."array-name" will
-    # point to this array. The arrays default to float64, 1-dim arrays (length of # cells). Use the parameters to
-    # adjust the data type, 2-dim size, and initial condition for the entire array.
-    simulation.cell_array("locations", override=np.random.rand(simulation.number_cells, 3) * simulation.size)
-    simulation.cell_array("radii")
-    simulation.cell_array("motion", dtype=bool, func=lambda: True)
-    simulation.cell_array("FGFR", dtype=int, func=lambda: r.randrange(0, simulation.field))
-    simulation.cell_array("ERK", dtype=int, func=lambda: r.randrange(0, simulation.field))
-    simulation.cell_array("GATA6", dtype=int)
-    simulation.cell_array("NANOG", dtype=int, func=lambda: r.randrange(0, simulation.field))
-    simulation.cell_array("states", dtype=int)
-    simulation.cell_array("death_counters", dtype=int, func=lambda: r.randrange(0, simulation.death_thresh))
-    simulation.cell_array("diff_counters", dtype=int, func=lambda: r.randrange(0, simulation.pluri_to_diff))
-    simulation.cell_array("div_counters", dtype=int, func=lambda: r.randrange(0, simulation.pluri_div_thresh))
-    simulation.cell_array("fds_counters", dtype=int, func=lambda: r.randrange(0, simulation.fds_thresh))
-    simulation.cell_array("motility_forces", vector=3)
-    simulation.cell_array("jkr_forces", vector=3)
-    # simulation.cell_array("nearest_nanog", dtype=int, func=lambda: -1)
-    # simulation.cell_array("nearest_gata6", dtype=int, func=lambda: -1)
-    # simulation.cell_array("nearest_diff", dtype=int, func=lambda: -1)
+    # point to this array. The arrays default to float64, 1-dim arrays (length of # cells) with values of zero. Use
+    # the parameters to adjust the data type, 2-dim size, and initial condition for the entire array.
+    cell_array(simulation, "locations", override=np.random.rand(simulation.number_cells, 3) * simulation.size)
+    cell_array(simulation, "radii")
+    cell_array(simulation, "motion", dtype=bool, func=lambda: True)
+    cell_array(simulation, "FGFR", dtype=int, func=lambda: r.randrange(0, simulation.field))
+    cell_array(simulation, "ERK", dtype=int, func=lambda: r.randrange(0, simulation.field))
+    cell_array(simulation, "GATA6", dtype=int)
+    cell_array(simulation, "NANOG", dtype=int, func=lambda: r.randrange(0, simulation.field))
+    cell_array(simulation, "states", dtype=int)
+    cell_array(simulation, "death_counters", dtype=int, func=lambda: r.randrange(0, simulation.death_thresh))
+    cell_array(simulation, "diff_counters", dtype=int, func=lambda: r.randrange(0, simulation.pluri_to_diff))
+    cell_array(simulation, "div_counters", dtype=int, func=lambda: r.randrange(0, simulation.pluri_div_thresh))
+    cell_array(simulation, "fds_counters", dtype=int, func=lambda: r.randrange(0, simulation.fds_thresh))
+    cell_array(simulation, "motility_forces", vector=3)
+    cell_array(simulation, "jkr_forces", vector=3)
+    # cell_array(simulation, "nearest_nanog", dtype=int, func=lambda: -1)
+    # cell_array(simulation, "nearest_gata6", dtype=int, func=lambda: -1)
+    # cell_array(simulation, "nearest_diff", dtype=int, func=lambda: -1)
 
     # Update the number of cells marked with the "GATA6_high" cell type with alternative initial conditions.
-    simulation.cell_array("GATA6", cell_type="GATA6_high", func=lambda: r.randrange(1, simulation.field))
-    simulation.cell_array("NANOG", cell_type="GATA6_high", func=lambda: 0)
+    cell_array(simulation, "GATA6", cell_type="GATA6_high", func=lambda: r.randrange(1, simulation.field))
+    cell_array(simulation, "NANOG", cell_type="GATA6_high", func=lambda: 0)
 
 
 def run_steps(simulation):
