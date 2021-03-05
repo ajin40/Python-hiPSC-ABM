@@ -9,7 +9,7 @@ of cells with basic color labeling. Ex. True
 | True |
 
 Do you want the 2D extracellular gradients saved as CSVs at each step? Ex. True
-| True |
+| False |
 
 Do you want an image produced at each step and a video at the end of the simulation? Ex. True
 | True |
@@ -17,6 +17,13 @@ Do you want an image produced at each step and a video at the end of the simulat
 What is the image width in pixels? Currently imaging is supported for a 2D space, though a 3D space will yield
 a bird's eye view of the space. Image slicing/3D images to come... Ex. 2000
 | 4000 |
+
+What is the scale factor for the video resolution? A value of 0.25 would reduce 2000 x 2000 pixel images to
+500 x 500 pixels, which reduces the resulting video file size. Ex. 0.25
+| 0.25 |
+
+What should the frames-per-second (FPS) of the resulting video comprised of step images be? Ex. 10.0
+| 6.0 |
 
 What mode of coloring for step images? True for coloring based on whether a cell pluripotent or differentiated, False
 for coloring based on GATA6/NANOG levels? Ex. False

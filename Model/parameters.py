@@ -99,7 +99,7 @@ def run_steps(simulation):
         output.simulation_data(simulation)
 
     # Ends the simulation by creating a video from all of the step images
-    output.create_video(simulation, fps=6)
+    output.create_video(simulation)
 
 
 class Simulation(backend.Base):
@@ -139,7 +139,9 @@ class Simulation(backend.Base):
         self.output_gradients = template_param(outputs_path, 12, bool)
         self.output_images = template_param(outputs_path, 15, bool)
         self.image_quality = template_param(outputs_path, 19, int)
-        self.color_mode = template_param(outputs_path, 23, bool)
+        self.video_scale = template_param(outputs_path, 23, float)
+        self.fps = template_param(outputs_path, 26, float)
+        self.color_mode = template_param(outputs_path, 30, bool)
 
         # ------------- experimental template file -------------------------
         experimental_path = paths.templates + "experimental.txt"    # path to experimental.txt template file
