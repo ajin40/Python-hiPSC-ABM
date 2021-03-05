@@ -304,8 +304,8 @@ def create_video(simulation):
 
             # sample the first image to get the dimensions of the image, and then scale the image
             size = cv2.imread(simulation.paths.images + file_list[0]).shape[0:2]
-            scale = simulation.video_scale
-            new_size = (int(scale * size[0]), int(scale * size[1]))
+            scale = simulation.video_quality / size[1]
+            new_size = (simulation.video_quality, int(scale * size[0]))
 
             # get the video file path, use f-string
             file_name = f"{simulation.name}_video.mp4"

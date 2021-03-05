@@ -139,7 +139,7 @@ class Simulation(backend.Base):
         self.output_gradients = template_param(outputs_path, 12, bool)
         self.output_images = template_param(outputs_path, 15, bool)
         self.image_quality = template_param(outputs_path, 19, int)
-        self.video_scale = template_param(outputs_path, 23, float)
+        self.video_quality = template_param(outputs_path, 23, int)
         self.fps = template_param(outputs_path, 26, float)
         self.color_mode = template_param(outputs_path, 30, bool)
 
