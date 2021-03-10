@@ -900,8 +900,8 @@ def commandline_param(flag, dtype):
             except IndexError:
                 raise Exception(f"No value for option: {args[i]}")
 
-    # raise error if option not found
-    raise Exception(f"Option: {flag} not found")
+    # return NoneType if no value passed
+    return None
 
 
 def template_param(path, line_number, dtype):
