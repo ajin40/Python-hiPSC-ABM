@@ -7,8 +7,7 @@ import backend
 import functions
 import output
 
-from backend import add_cells, cell_array
-from run import template_param
+from backend import add_cells, cell_array, commandline_param, template_param
 
 
 def setup_cells(simulation):
@@ -133,6 +132,7 @@ class Simulation(backend.Base):
         self.num_gata6 = template_param(general_path, 14, int)
         self.size = np.array(template_param(general_path, 17, tuple))
         self.order_66 = template_param(general_path, 20, str)
+        self.order_66 = commandline_param("-o", bool)
 
         # ------------- outputs template file ------------------------------
         outputs_path = paths.templates + "outputs.txt"    # path to outputs.txt template file
