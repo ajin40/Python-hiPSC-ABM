@@ -3,6 +3,7 @@ import sys
 import pickle
 import shutil
 import getopt
+import psutil
 
 import output
 import backend
@@ -240,4 +241,9 @@ def start_params(output_path, separator, possible_modes):
 
 # Only start the model if this file is being run directly.
 if __name__ == "__main__":
+    # get process (run.py) and set priority to high
+    p = psutil.Process(os.getpid())
+    p.nice(psutil.HIGH_PRIORITY_CLASS)
+
+    # start the model
     start()

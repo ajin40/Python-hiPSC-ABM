@@ -156,8 +156,9 @@ class Simulation(backend.Base):
 
         # the temporal resolution for the simulation
         self.step_dt = 1800  # dt of each simulation step (1800 sec)
-        self.move_dt = 181  # dt for incremental movement (180 sec)
-        self.diffuse_dt = 0.24  # dt for stable diffusion model (0.24 sec)
+        self.move_dt = 180  # dt for incremental movement (180 sec)
+        # self.diffuse_dt = 0.24  # dt for stable diffusion model (0.24 sec)
+        self.diffuse_dt = 6.24  # dt for stable diffusion model (6 sec)
 
         # the field for the finite dynamical system
         self.field = 2
@@ -191,7 +192,8 @@ class Simulation(backend.Base):
         # search for diffusion points, and the max concentration at a diffusion point
         self.spat_res = 0.00000707106
         self.spat_res2 = self.spat_res ** 2
-        self.diffuse_const = 0.00000000005    # 50 um^2/s
+        # self.diffuse_const = 0.00000000005    # 50 um^2/s
+        self.diffuse_const = 0.000000000002  # 2 um^2/s
         self.max_concentration = 30
 
         # calculate the size of the array for the diffusion points and create gradient array(s)
