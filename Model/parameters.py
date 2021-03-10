@@ -194,12 +194,13 @@ class Simulation(backend.Base):
         self.spat_res2 = self.spat_res ** 2
         # self.diffuse_const = 0.00000000005    # 50 um^2/s
         self.diffuse_const = 0.000000000002  # 2 um^2/s
-        self.max_concentration = 30
+        self.max_concentration = 2
 
         # calculate the size of the array for the diffusion points and create gradient array(s)
         self.gradient_size = np.ceil(self.size / self.spat_res).astype(int) + 1
         self.fgf4_values = np.zeros(self.gradient_size, dtype=float)
         self.gradient_names = ["fgf4_values"]  # add names for automatic CSV output of gradients
+        self.degradation = 0.1    # this will degrade the morphogen by this much at each step
 
         # self.fgf4_alt = np.zeros(self.gradient_size, dtype=float)    # for testing morphogen release methods
         # self.gradient_names = ["fgf4_values", "fgf4_alt"]    # add names for automatic CSV output of gradients

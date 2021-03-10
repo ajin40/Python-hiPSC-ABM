@@ -820,6 +820,9 @@ def update_diffusion(simulation, gradient_name, diffuse_const=None, diffuse_dt=N
     # call the JIT diffusion function
     gradient = backend.update_diffusion_jit(base, steps, diffuse_dt, last_dt, diffuse_const, simulation.spat_res2)
 
+    # degrade the morphogen concentrations
+    gradient *= 1 - simulation.degradation
+
     # update the simulation gradient array
     simulation.__dict__[gradient_name][:, :, 0] = gradient
 
