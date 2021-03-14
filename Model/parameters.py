@@ -7,8 +7,7 @@ import backend
 import functions
 import output
 
-from backend import add_cells, cell_array
-from run import template_param
+from backend import add_cells, cell_array, commandline_param, template_param
 
 
 def setup_cells(simulation):
@@ -133,6 +132,7 @@ class Simulation(backend.Base):
         self.num_gata6 = template_param(general_path, 14, int)
         self.size = np.array(template_param(general_path, 17, tuple))
         self.order_66 = template_param(general_path, 20, str)
+        # self.order_66 = commandline_param("-o", bool)
 
         # ------------- outputs template file ------------------------------
         outputs_path = paths.templates + "outputs.txt"    # path to outputs.txt template file
@@ -156,8 +156,9 @@ class Simulation(backend.Base):
 
         # the temporal resolution for the simulation
         self.step_dt = 1800  # dt of each simulation step (1800 sec)
-        self.move_dt = 181  # dt for incremental movement (180 sec)
-        self.diffuse_dt = 0.24  # dt for stable diffusion model (0.24 sec)
+        self.move_dt = 180  # dt for incremental movement (180 sec)
+        # self.diffuse_dt = 0.24  # dt for stable diffusion model (0.24 sec)
+        self.diffuse_dt = 6.24  # dt for stable diffusion model (6 sec)
 
         # the field for the finite dynamical system
         self.field = 2
@@ -191,13 +192,15 @@ class Simulation(backend.Base):
         # search for diffusion points, and the max concentration at a diffusion point
         self.spat_res = 0.00000707106
         self.spat_res2 = self.spat_res ** 2
-        self.diffuse_const = 0.00000000005    # 50 um^2/s
-        self.max_concentration = 30
+        # self.diffuse_const = 0.00000000005    # 50 um^2/s
+        self.diffuse_const = 0.000000000002  # 2 um^2/s
+        self.max_concentration = 2
 
         # calculate the size of the array for the diffusion points and create gradient array(s)
         self.gradient_size = np.ceil(self.size / self.spat_res).astype(int) + 1
         self.fgf4_values = np.zeros(self.gradient_size, dtype=float)
         self.gradient_names = ["fgf4_values"]  # add names for automatic CSV output of gradients
+        self.degradation = 0.1    # this will degrade the morphogen by this much at each step
 
         # self.fgf4_alt = np.zeros(self.gradient_size, dtype=float)    # for testing morphogen release methods
         # self.gradient_names = ["fgf4_values", "fgf4_alt"]    # add names for automatic CSV output of gradients

@@ -3,8 +3,10 @@ import sys
 import pickle
 import shutil
 import getopt
+import psutil
 
 import output
+import backend
 import parameters
 
 
@@ -116,29 +118,12 @@ def start_params(output_path, separator, possible_modes):
     """ This function will get the name and mode for the simulation
         either from the command line or a text-based GUI.
     """
-    # get any command-line options for the model, "n:m:c:" allows for using -n, -m, and -c
-    options, args = getopt.getopt(sys.argv[1:], "n:m:c:")  # first argument is "python" so avoid that
-
-    # go through the inputs, getting the options
-    for option, value in options:
-        # if the "-n" name option, set the name variable
-        if option == "-n":
-            name = value
-
-        # if the "-m" mode option, set the mode variable
-        elif option == "-m":
-            mode = int(value)  # turn from string to int
-
-        # if the "-c" mode option, set the final step for continuation mode
-        elif option == "-c":
-            final_step = int(value)  # turn from string to int
-
-        # if some other option, raise error
-        else:
-            raise Exception("Unknown command-line option: " + option)
+    # try to get the name and mode from the command line
+    name = backend.commandline_param("-n", str)
+    mode = backend.commandline_param("-m", int)
 
     # if the name variable has not been initialized by the command-line, run the text-based UI to get it
-    if 'name' not in locals():
+    if name is None:
         while True:
             # prompt for the name
             name = input("What is the \"name\" of the simulation? Type \"help\" for more information: ")
@@ -150,7 +135,7 @@ def start_params(output_path, separator, possible_modes):
                 break
 
     # if the mode variable has not been initialized by the command-line, run the text-based UI to get it
-    if 'mode' not in locals() or mode not in possible_modes:
+    if mode is None or mode not in possible_modes:
         while True:
             # prompt for the mode
             mode = input("What is the \"mode\" of the simulation? Type \"help\" for more information: ")
@@ -254,51 +239,11 @@ def start_params(output_path, separator, possible_modes):
     return name, mode, final_step
 
 
-def template_param(path, line_number, dtype):
-    """ Gets the parameter as a string from the lines of the
-        template file. Used for Simulation instance variables.
-    """
-    # make an attribute with name as template file path and value as a list of the file lines (reduces file opening)
-    if not hasattr(template_param, path):
-        with open(path) as file:
-            template_param.path = file.readlines()
-
-    # get the right line based on the line numbers not Python indexing
-    line = template_param.path[line_number - 1]
-
-    # find the indices of the pipe characters
-    begin = line.find("|")
-    end = line.find("|", begin + 1)
-
-    # raise error if not a pair of pipe characters
-    if begin == -1 or end == -1:
-        raise Exception("Please use pipe characters to specify template file parameters. Example: | (value) |")
-
-    # return a slice of the line that is the string representation of the parameter and remove any whitespace
-    parameter = line[(begin + 1):end].strip()
-
-    # convert the parameter from string to desired data type
-    if dtype == str:
-        pass
-    elif dtype == tuple or dtype == list or dtype == dict:
-        # tuple() list() dict() will not produce desired result, use eval() instead
-        parameter = eval(parameter)
-    elif dtype == bool:
-        # handle potential inputs for booleans
-        if parameter in ["True", "true", "T", "t", "1"]:
-            parameter = True
-        elif parameter in ["False", "false", "F", "f", "0"]:
-            parameter = False
-        else:
-            raise Exception("Invalid value for bool type")
-    else:
-        # for float and int type
-        parameter = dtype(parameter)
-
-    # get the parameter by removing the pipe characters and any whitespace
-    return parameter
-
-
 # Only start the model if this file is being run directly.
 if __name__ == "__main__":
+    # get process (run.py) and set priority to high
+    p = psutil.Process(os.getpid())
+    p.nice(psutil.HIGH_PRIORITY_CLASS)
+
+    # start the model
     start()
