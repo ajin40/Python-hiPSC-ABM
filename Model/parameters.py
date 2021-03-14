@@ -3,11 +3,9 @@ import random as r
 import igraph
 import math
 
-import backend
-import functions
-import output
-
-from backend import add_cells, cell_array, commandline_param, template_param
+from backend import Base, template_param, commandline_param
+from functions import Functions
+from output import Outputs
 
 
 def setup_cells(simulation):
@@ -16,33 +14,33 @@ def setup_cells(simulation):
     """
     # Add the specified number of NANOG/GATA6 high cells and create cell type GATA6_high for setting initial parameters
     # with cell_array().
-    add_cells(simulation, simulation.num_nanog)
-    add_cells(simulation, simulation.num_gata6, cell_type="GATA6_high")
+    simulation.add_cells(simulation.num_nanog)
+    simulation.add_cells(simulation.num_gata6, cell_type="GATA6_high")
 
     # Create the following cell arrays in the Simulation object. The instance variable simulation."array-name" will
     # point to this array. The arrays default to float64, 1-dim arrays (length of # cells) with values of zero. Use
     # the parameters to adjust the data type, 2-dim size, and initial condition for the entire array.
-    cell_array(simulation, "locations", override=np.random.rand(simulation.number_cells, 3) * simulation.size)
-    cell_array(simulation, "radii")
-    cell_array(simulation, "motion", dtype=bool, func=lambda: True)
-    cell_array(simulation, "FGFR", dtype=int, func=lambda: r.randrange(0, simulation.field))
-    cell_array(simulation, "ERK", dtype=int, func=lambda: r.randrange(0, simulation.field))
-    cell_array(simulation, "GATA6", dtype=int)
-    cell_array(simulation, "NANOG", dtype=int, func=lambda: r.randrange(0, simulation.field))
-    cell_array(simulation, "states", dtype=int)
-    cell_array(simulation, "death_counters", dtype=int, func=lambda: r.randrange(0, simulation.death_thresh))
-    cell_array(simulation, "diff_counters", dtype=int, func=lambda: r.randrange(0, simulation.pluri_to_diff))
-    cell_array(simulation, "div_counters", dtype=int, func=lambda: r.randrange(0, simulation.pluri_div_thresh))
-    cell_array(simulation, "fds_counters", dtype=int, func=lambda: r.randrange(0, simulation.fds_thresh))
-    cell_array(simulation, "motility_forces", vector=3)
-    cell_array(simulation, "jkr_forces", vector=3)
-    # cell_array(simulation, "nearest_nanog", dtype=int, func=lambda: -1)
-    # cell_array(simulation, "nearest_gata6", dtype=int, func=lambda: -1)
-    # cell_array(simulation, "nearest_diff", dtype=int, func=lambda: -1)
+    simulation.cell_array("locations", override=np.random.rand(simulation.number_cells, 3) * simulation.size)
+    simulation.cell_array("radii")
+    simulation.cell_array("motion", dtype=bool, func=lambda: True)
+    simulation.cell_array("FGFR", dtype=int, func=lambda: r.randrange(0, simulation.field))
+    simulation.cell_array("ERK", dtype=int, func=lambda: r.randrange(0, simulation.field))
+    simulation.cell_array("GATA6", dtype=int)
+    simulation.cell_array("NANOG", dtype=int, func=lambda: r.randrange(0, simulation.field))
+    simulation.cell_array("states", dtype=int)
+    simulation.cell_array("death_counters", dtype=int, func=lambda: r.randrange(0, simulation.death_thresh))
+    simulation.cell_array("diff_counters", dtype=int, func=lambda: r.randrange(0, simulation.pluri_to_diff))
+    simulation.cell_array("div_counters", dtype=int, func=lambda: r.randrange(0, simulation.pluri_div_thresh))
+    simulation.cell_array("fds_counters", dtype=int, func=lambda: r.randrange(0, simulation.fds_thresh))
+    simulation.cell_array("motility_forces", vector=3)
+    simulation.cell_array("jkr_forces", vector=3)
+    # simulation.cell_array("nearest_nanog", dtype=int, func=lambda: -1)
+    # simulation.cell_array("nearest_gata6", dtype=int, func=lambda: -1)
+    # simulation.cell_array( "nearest_diff", dtype=int, func=lambda: -1)
 
     # Update the number of cells marked with the "GATA6_high" cell type with alternative initial conditions.
-    cell_array(simulation, "GATA6", cell_type="GATA6_high", func=lambda: r.randrange(1, simulation.field))
-    cell_array(simulation, "NANOG", cell_type="GATA6_high", func=lambda: 0)
+    simulation.cell_array("GATA6", cell_type="GATA6_high", func=lambda: r.randrange(1, simulation.field))
+    simulation.cell_array("NANOG", cell_type="GATA6_high", func=lambda: 0)
 
 
 def run_steps(simulation):
@@ -52,63 +50,63 @@ def run_steps(simulation):
     # Iterate over all steps specified in the Simulation object
     for simulation.current_step in range(simulation.beginning_step, simulation.end_step + 1):
         # Records model run time for the step and prints the current step/number of cells.
-        backend.info(simulation)
+        simulation.info()
 
         # Finds the neighbors of each cell that are within a fixed radius and store this info in a graph.
-        functions.get_neighbors(simulation, distance=0.00001)    # double max cell radius
+        simulation.get_neighbors(distance=0.00001)    # double max cell radius
 
         # Updates cells by adjusting trackers for differentiation, division, growth, etc. based on intracellular,
         # intercellular, and extracellular conditions through a series of separate methods.
         # functions.cell_death(simulation)
-        functions.cell_diff_surround(simulation)
-        functions.cell_division(simulation)
-        functions.cell_growth(simulation)
-        # functions.cell_stochastic_update(simulation)
-        functions.cell_pathway(simulation)
-        functions.cell_differentiate(simulation)
+        simulation.cell_diff_surround()
+        simulation.cell_division()
+        simulation.cell_growth()
+        # simulation.cell_stochastic_update()
+        simulation.cell_pathway()
+        simulation.cell_differentiate()
 
         # Simulates molecular diffusion the specified extracellular gradient via the forward time centered space method.
-        functions.update_diffusion(simulation, "fgf4_values")
-        # functions.update_diffusion(simulation, "fgf4_alt")    # for testing morphogen release methods
+        simulation.update_diffusion("fgf4_values")
+        # simulation.update_diffusion("fgf4_alt")    # for testing morphogen release methods
 
         # Adds/removes cells to/from the simulation either all together or in desired groups of cells. If done in
         # groups, the apply_forces() function will be used to better represent asynchronous division and death.
-        functions.update_queue(simulation)
+        simulation.update_queue()
 
         # Finds the nearest NANOG high, GATA6 high, and differentiated cells within a fixed radius. This provides
         # information that can be used for approximating cell motility.
-        # functions.nearest(simulation, distance=0.000015)    # triple max cell radius
+        # simulation.nearest(distance=0.000015)    # triple max cell radius
 
         # Calculates the direction/magnitude of a cell's movement depending on a variety of factors such as state
         # and presence of neighbors.
-        functions.cell_motility(simulation)
-        # functions.eunbi_motility(simulation)
+        simulation.cell_motility()
+        # simulation.eunbi_motility()
 
         # Through the series of methods, attempt to move the cells to a state of physical equilibrium between adhesive
         # and repulsive forces acting on the cells, while applying active motility forces.
-        functions.apply_forces(simulation)
+        simulation.apply_forces()
 
         # Saves multiple forms of information about the simulation at the current step, including an image of the
         # space, CSVs with values of the cells, a temporary pickle of the Simulation object, and performance stats.
         # See the outputs.txt template file for turning off certain outputs.
-        output.step_image(simulation)
-        output.step_values(simulation, arrays=["locations", "FGFR", "ERK", "GATA6", "NANOG", "states", "diff_counters",
-                                               "div_counters"])
-        output.step_gradients(simulation)
-        output.step_tda(simulation, in_pixels=True)
-        output.temporary(simulation)
-        output.simulation_data(simulation)
+        simulation.step_image()
+        simulation.step_values(arrays=["locations", "FGFR", "ERK", "GATA6", "NANOG", "states", "diff_counters",
+                                       "div_counters"])
+        simulation.step_gradients()
+        simulation.step_tda(in_pixels=True)
+        simulation.temporary()
+        simulation.data()
 
     # Ends the simulation by creating a video from all of the step images
-    output.create_video(simulation)
+    simulation.create_video()
 
 
-class Simulation(backend.Base):
+class Simulation(Functions, Outputs):
     """ This object holds all of the important information about the simulation as it
         runs. Variables can be specified either directly or through the template files.
     """
     def __init__(self, paths, name):
-        super().__init__(paths, name)    # initialize the Base object
+        Base.__init__(self, paths, name)   # initialize the Base object
         """
         The following instance variables can be updated through template files located in the "templates"
         directory under the "Model" directory. The values must be specified in the .txt files as follows.
