@@ -101,7 +101,7 @@ def run_steps(simulation):
     simulation.create_video()
 
 
-class Simulation(Functions, Outputs):
+class Simulation(Functions, Outputs, Base):
     """ This object holds all of the important information about the simulation as it
         runs. Variables can be specified either directly or through the template files.
     """

@@ -3,12 +3,23 @@ import random as r
 import math
 from numba import cuda
 
-import backend
-from backend import Base
+from backend import *
 
 
-class Functions(Base):
-    @backend.record_time
+class Functions:
+
+    def info(self):
+        """ Records the beginning of the step in real time and
+            prints the current step/number of cells.
+        """
+        # records when the step begins, used for measuring efficiency
+        self.step_start = time.perf_counter()  # time.perf_counter() is more accurate than time.time()
+
+        # prints the current step number and the number of cells
+        print("Step: " + str(self.current_step))
+        print("Number of cells: " + str(self.number_cells))
+
+    @record_time
     def cell_death(self):
         """ Marks the cell for removal if it meets
             the criteria for cell death.
@@ -29,7 +40,7 @@ class Functions(Base):
                 if self.death_counters[index] >= self.death_thresh:
                     self.cells_to_remove = np.append(self.cells_to_remove, index)
 
-    @backend.record_time
+    @record_time
     def cell_diff_surround(self):
         """ Simulates differentiated cells inducing the
             differentiation of a pluripotent cell.
@@ -54,7 +65,7 @@ class Functions(Base):
                         self.NANOG[index] = 0
                         break
 
-    @backend.record_time
+    @record_time
     def cell_division(self):
         """ Increases the cell division counter and if the
             cell meets criteria mark it for division.
@@ -78,7 +89,7 @@ class Functions(Base):
                     if len(self.neighbor_graph.neighbors(index)) < 6:
                         self.cells_to_divide = np.append(self.cells_to_divide, index)
 
-    @backend.record_time
+    @record_time
     def cell_growth(self):
         """ Simulates the growth of a cell currently linear,
             radius-based growth.
@@ -97,7 +108,7 @@ class Functions(Base):
                 # update the radius for the index
                 self.radii[index] = radius
 
-    @backend.record_time
+    @record_time
     def cell_stochastic_update(self):
         """ Stochastically updates the value for GATA6 and NANOG
             based on set probabilities.
@@ -113,7 +124,7 @@ class Functions(Base):
             #     if self.NANOG[index] != self.field - 1:
             #         self.NANOG[index] += 1
 
-    @backend.record_time
+    @record_time
     def cell_pathway(self):
         """ Updates finite dynamical system variables and
             extracellular conditions.
@@ -194,7 +205,7 @@ class Functions(Base):
                 # increase the finite dynamical system counter
                 self.fds_counters[index] += 1
 
-    @backend.record_time
+    @record_time
     def cell_differentiate(self):
         """ Based on GATA6 and NANOG values, stochastically increase
             differentiation counter and/or differentiate.
@@ -217,7 +228,7 @@ class Functions(Base):
                     # allow the cell to actively move again
                     self.motion[index] = True
 
-    @backend.record_time
+    @record_time
     def cell_motility(self):
         """ Gives the cells a motive force depending on
             set rules for the cell types.
@@ -348,7 +359,7 @@ class Functions(Base):
                     else:
                         self.motility_forces[index] += self.random_vector() * motility_force
 
-    @backend.record_time
+    @record_time
     def eunbi_motility(self):
         """ Gives the cells a motive force depending on
             set rules for the cell types where these rules
@@ -422,7 +433,7 @@ class Functions(Base):
                 else:
                     self.motion[index] = False
 
-    @backend.record_time
+    @record_time
     def get_neighbors(self, distance=0.00002):
         """ For all cells, determines which cells fall within a fixed
             radius to denote a neighbor then stores this information
@@ -475,9 +486,8 @@ class Functions(Base):
                 bpg = math.ceil(self.number_cells / tpb)
 
                 # call the cuda kernel with new gpu arrays
-                backend.get_neighbors_gpu[bpg, tpb](bin_locations_cuda, locations_cuda, bins_cuda, bins_help_cuda,
-                                                    distance_cuda, edge_holder_cuda, if_edge_cuda, edge_count_cuda,
-                                                    max_neighbors_cuda)
+                get_neighbors_gpu[bpg, tpb](bin_locations_cuda, locations_cuda, bins_cuda, bins_help_cuda, distance_cuda,
+                                            edge_holder_cuda, if_edge_cuda, edge_count_cuda, max_neighbors_cuda)
 
                 # return the only the following array(s) back from the gpu
                 edge_holder = edge_holder_cuda.copy_to_host()
@@ -486,10 +496,9 @@ class Functions(Base):
 
             # call the jit cpu version
             else:
-                edge_holder, if_edge, edge_count = backend.get_neighbors_cpu(self.number_cells, bin_locations,
-                                                                             self.locations, bins, bins_help, distance,
-                                                                             edge_holder, if_edge, edge_count,
-                                                                             Functions.get_neighbors.max_neighbors)
+                edge_holder, if_edge, edge_count = get_neighbors_cpu(self.number_cells, bin_locations, self.locations,
+                                                                     bins, bins_help, distance, edge_holder, if_edge,
+                                                                     edge_count, Functions.get_neighbors.max_neighbors)
 
             # either break the loop if all neighbors were accounted for or revalue the maximum number of neighbors
             # based on the output of the function call and double it for future calls
@@ -505,7 +514,7 @@ class Functions(Base):
         # add the edges to the neighbor graph
         self.neighbor_graph.add_edges(edge_holder)
 
-    @backend.record_time
+    @record_time
     def nearest(self, distance=0.00002):
         """ Determines the nearest GATA6 high, NANOG high, and
             differentiated cell within a fixed radius for each
@@ -566,7 +575,7 @@ class Functions(Base):
         self.nearest_nanog = nanog
         self.nearest_diff = diff
 
-    @backend.record_time
+    @record_time
     def apply_forces(self, one_step=False, motility=True):
         """ Calls multiple methods used to move the cells to a
             state of physical equilibrium between repulsive,
@@ -778,7 +787,7 @@ class Functions(Base):
             self.jkr_graph.delete_edges(delete_edges_indices)
             self.jkr_forces = forces
 
-    @backend.record_time
+    @record_time
     def update_diffusion(self, gradient_name, diffuse_const=None, diffuse_dt=None):
         """ Approximates the diffusion of the morphogen for the
             extracellular gradient specified.
@@ -814,7 +823,7 @@ class Functions(Base):
         # update the self gradient array
         self.__dict__[gradient_name][:, :, 0] = gradient
 
-    @backend.record_time
+    @record_time
     def update_queue(self):
         """ Adds and removes cells to and from the self
             either all at once or in "groups".
@@ -899,3 +908,212 @@ class Functions(Base):
         # clear the arrays for the next step
         self.cells_to_divide = np.array([], dtype=int)
         self.cells_to_remove = np.array([], dtype=int)
+
+    def assign_bins(self, distance, max_cells):
+        """ Generalizes cell locations to a bin within lattice imposed on
+            the cell space, used for a parallel fixed-radius neighbor search.
+        """
+        # If there is enough space for all cells that should be in a bin, break out of the loop. If there isn't
+        # update the amount of needed space and put all the cells in bins. This will run once if the prediction
+        # of max neighbors suffices, twice if it isn't right the first time.
+        while True:
+            # calculate the size of the array used to represent the bins and the bins helper array, include extra bins
+            # for cells that may fall outside of the space
+            bins_help_size = np.ceil(self.size / distance).astype(int) + 3
+            bins_size = np.append(bins_help_size, max_cells)
+
+            # create the arrays for "bins" and "bins_help"
+            bins_help = np.zeros(bins_help_size, dtype=int)  # holds the number of cells currently in a bin
+            bins = np.empty(bins_size, dtype=int)  # holds the indices of cells in a bin
+
+            # generalize the cell locations to bin indices and offset by 1 to prevent missing cells that fall out of the
+            # self space
+            bin_locations = np.floor_divide(self.locations, distance).astype(int)
+            bin_locations += 1
+
+            # use jit function to speed up placement of cells
+            bins, bins_help = assign_bins_jit(self.number_cells, bin_locations, bins, bins_help)
+
+            # either break the loop if all cells were accounted for or revalue the maximum number of cells based on
+            # the output of the function call and double it future calls
+            new_max_cells = np.amax(bins_help)
+            if max_cells >= new_max_cells:
+                break
+            else:
+                max_cells = new_max_cells * 2  # double to prevent continual updating
+
+        return bins, bins_help, bin_locations, max_cells
+
+    def get_concentration(self, gradient_name, index):
+        """ Get the concentration of a gradient for a cell's
+            location. Currently this uses the nearest method.
+        """
+        # get the gradient array from the Simulation instance
+        gradient = self.__dict__[gradient_name]
+
+        # find the nearest diffusion point
+        half_indices = np.floor(2 * self.locations[index] / self.spat_res)
+        indices = np.ceil(half_indices / 2).astype(int)
+        x, y, z = indices[0], indices[1], indices[2]
+
+        # return the value of the gradient at the diffusion point
+        return gradient[x][y][z]
+
+    def adjust_morphogens(self, gradient_name, index, amount, mode):
+        """ Adjust the concentration of the gradient based on
+            the amount, location of cell, and mode.
+        """
+        # get the gradient array from the Simulation instance
+        gradient = self.__dict__[gradient_name]
+
+        # use the nearest method similar to the get_concentration()
+        if mode == "nearest":
+            # find the nearest diffusion point
+            half_indices = np.floor(2 * self.locations[index] / self.spat_res)
+            indices = np.ceil(half_indices / 2).astype(int)
+            x, y, z = indices[0], indices[1], indices[2]
+
+            # add the specified amount to the nearest diffusion point
+            gradient[x][y][z] += amount
+
+        # use the distance dependent method for adding concentrations, not optimized yet...
+        elif mode == "distance":
+            # divide the location for a cell by the spatial resolution then take the floor function of it
+            indices = np.floor(self.locations[index] / self.spat_res).astype(int)
+            x, y, z = indices[0], indices[1], indices[2]
+
+            # get the four nearest points to the cell in 2D and make array for holding distances
+            diffusion_points = np.array([[x, y, 0], [x + 1, y, 0], [x, y + 1, 0], [x + 1, y + 1, 0]], dtype=int)
+            distances = -1 * np.ones(4, dtype=float)
+
+            # hold the sum of the reciprocals of the distances
+            total = 0
+
+            # get the gradient size and handle each of the four nearest points
+            gradient_size = self.gradient_size
+            for i in range(4):
+                # check that the diffusion point is not outside the space
+                if diffusion_points[i][0] < gradient_size[0] and diffusion_points[i][1] < gradient_size[1]:
+                    # if ok, calculate magnitude of the distance from the cell to it
+                    point_location = diffusion_points[i] * self.spat_res
+                    mag = np.linalg.norm(self.locations[index] - point_location)
+                    if mag <= self.max_radius:
+                        # save the distance and if the cell is not on top of the point add the reciprocal
+                        distances[i] = mag
+                        if mag != 0:
+                            total += 1 / mag
+
+            # add morphogen to each diffusion point that falls within the cell radius
+            for i in range(4):
+                x, y, z = diffusion_points[i][0], diffusion_points[i][1], 0
+                # if on top of diffusion point add all of the concentration
+                if distances[i] == 0:
+                    gradient[x][y][z] += amount
+                # if in radius add proportional amount
+                elif distances[i] != -1:
+                    gradient[x][y][z] += amount / (distances[i] * total)
+                else:
+                    pass
+
+        # if some other mode
+        else:
+            raise Exception("Unknown mode for the adjust_morphogens() method")
+
+    def add_cells(self, number, cell_type=None):
+        """ Add cells to the Simulation object and potentially add a cell type
+            with bounds for defining alternative initial parameters.
+
+                number (int): the number of cells being added to the Simulation object
+                cell_type (str): the name of a cell type that can be used by cell_array() to only apply
+                    initial parameters to these cells, instead of the entire array.
+        """
+        # add specified number of cells to each graph
+        for graph_name in self.graph_names:
+            self.__dict__[graph_name].add_vertices(number)
+
+        # update the running number of cells and determine bounds for slice if cell_type is used
+        begin = self.number_cells
+        self.number_cells += number
+
+        # if a cell type name is passed, hold the slice bounds for that particular cell type
+        if cell_type is not None:
+            self.cell_types[cell_type] = (begin, self.number_cells)
+
+    def cell_array(self, array_name, cell_type=None, dtype=float, vector=None, func=None, override=None):
+        """ Create a cell array in the Simulation object used to hold values
+            for all cells and optionally specify initial parameters.
+
+                array_name (str): the name of the variable made for the cell array in the Simulation object
+                cell_type (str): see add_cells()
+                dtype (object): the data type of the array, defaults to float
+                vector (int): the length of the vector for each cell in the array
+                func (object): a function called for each index of the array to specify initial parameters
+                override (array): use the array passed instead of generating a new array
+        """
+        # if using existing array for cell array
+        if override is not None:
+            # make sure array have correct length, otherwise raise error
+            if override.shape[0] != self.number_cells:
+                raise Exception("Length of override array does not match number of cells in simulation!")
+
+            # use the array and add to list of cell array names
+            else:
+                self.__dict__[array_name] = override
+                self.cell_array_names.append(array_name)
+
+        # otherwise make sure a default cell array exists for initial parameters
+        else:
+            # if no cell array in Simulation object, make one
+            if not hasattr(self, array_name):
+                # add the array name to a list for automatic addition/removal when cells divide/die
+                self.cell_array_names.append(array_name)
+
+                # get the dimensions of the array
+                if vector is None:
+                    size = self.number_cells  # 1-dimensional array
+                else:
+                    size = (self.number_cells, vector)  # 2-dimensional array (1-dimensional of vectors)
+
+                # if using python string data type, use object data type instead
+                if dtype == str or dtype == object:
+                    # create cell array in Simulation object with NoneType as default value
+                    self.__dict__[array_name] = np.empty(size, dtype=object)
+
+                else:
+                    # create cell array in Simulation object, with zeros as default values
+                    self.__dict__[array_name] = np.zeros(size, dtype=dtype)
+
+        # if no cell type parameter passed
+        if cell_type is None:
+            # if function is passed, apply initial parameter
+            if func is not None:
+                for i in range(self.number_cells):
+                    self.__dict__[array_name][i] = func()
+
+        # otherwise a cell type is passed
+        else:
+            # get the bounds of the slice
+            begin = self.cell_types[cell_type][0]
+            end = self.cell_types[cell_type][1]
+
+            # if function is passed, apply initial parameter to slice
+            if func is not None:
+                for i in range(begin, end):
+                    self.__dict__[array_name][i] = func()
+
+    def random_vector(self):
+        """ Computes a random vector on the unit sphere centered
+            at the origin.
+        """
+        # random angle on the cell
+        theta = r.random() * 2 * math.pi
+
+        # 2D vector: [x, y, 0]
+        if self.size[2] == 0:
+            return np.array([math.cos(theta), math.sin(theta), 0])
+
+        # 3D vector: [x, y, z]
+        else:
+            phi = r.random() * 2 * math.pi
+            radius = math.cos(phi)
+            return np.array([radius * math.cos(theta), radius * math.sin(theta), math.sin(phi)])
