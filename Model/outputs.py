@@ -349,8 +349,7 @@ def check_direct(path):
 
 
 def sort_naturally(file_list):
-    """ Key for sorting the file list based on the
-        step number.
+    """ Key for sorting the file list based on the step number.
     """
     return int(re.split('(\d+)', file_list)[-2])
 

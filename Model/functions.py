@@ -7,10 +7,13 @@ from backend import *
 
 
 class Functions:
-
+    """ The methods in this class are meant to be inherited by the Simulation
+        class so that Simulation objects can called these methods. Methods that
+        modify the cell values and the space can be placed here.
+    """
     def info(self):
         """ Records the beginning of the step in real time and
-            prints the current step/number of cells.
+            print out info about the simulation.
         """
         # records when the step begins, used for measuring efficiency
         self.step_start = time.perf_counter()  # time.perf_counter() is more accurate than time.time()
@@ -21,8 +24,7 @@ class Functions:
 
     @record_time
     def cell_death(self):
-        """ Marks the cell for removal if it meets
-            the criteria for cell death.
+        """ Marks the cell for removal if it meets the criteria for cell death.
         """
         for index in range(self.number_cells):
             # checks to see if cell is pluripotent
@@ -42,8 +44,8 @@ class Functions:
 
     @record_time
     def cell_diff_surround(self):
-        """ Simulates differentiated cells inducing the
-            differentiation of a pluripotent cell.
+        """ Simulates differentiated cells inducing the differentiation of a
+            pluripotent cell.
         """
         for index in range(self.number_cells):
             # checks to see if cell is pluripotent and GATA6 low/medium
@@ -67,8 +69,8 @@ class Functions:
 
     @record_time
     def cell_division(self):
-        """ Increases the cell division counter and if the
-            cell meets criteria mark it for division.
+        """ Increases the cell division counter and if the cell meets criteria
+            mark it for division.
         """
         for index in range(self.number_cells):
             # stochastically increase the division counter by either 0 or 1
@@ -91,8 +93,7 @@ class Functions:
 
     @record_time
     def cell_growth(self):
-        """ Simulates the growth of a cell currently linear,
-            radius-based growth.
+        """ Simulates the growth of a cell currently linear, radius-based growth.
         """
         for index in range(self.number_cells):
             # increase the cell radius based on the state and whether or not it has reached the max size
@@ -110,8 +111,8 @@ class Functions:
 
     @record_time
     def cell_stochastic_update(self):
-        """ Stochastically updates the value for GATA6 and NANOG
-            based on set probabilities.
+        """ Stochastically updates the value for GATA6 and NANOG based on set
+            probabilities.
         """
         for index in range(self.number_cells):
             # if falling under threshold, raise the GATA6 value to the highest
@@ -126,8 +127,7 @@ class Functions:
 
     @record_time
     def cell_pathway(self):
-        """ Updates finite dynamical system variables and
-            extracellular conditions.
+        """ Updates finite dynamical system variables and extracellular conditions.
         """
         for index in range(self.number_cells):
             # add FGF4 to the gradient based on the cell's value of NANOG
@@ -207,8 +207,8 @@ class Functions:
 
     @record_time
     def cell_differentiate(self):
-        """ Based on GATA6 and NANOG values, stochastically increase
-            differentiation counter and/or differentiate.
+        """ Based on GATA6 and NANOG values, stochastically increase differentiation
+            counter and/or differentiate.
         """
         for index in range(self.number_cells):
             # if the cell is GATA6 high and pluripotent
@@ -230,8 +230,8 @@ class Functions:
 
     @record_time
     def cell_motility(self):
-        """ Gives the cells a motive force depending on
-            set rules for the cell types.
+        """ Gives the cells a motive force depending on set rules for
+            the cell types.
         """
         # this is the motility force of the cells
         motility_force = 0.000000002
@@ -254,13 +254,12 @@ class Functions:
                         # if neighbor is nanog high, add vector to the cell to the holder
                         if self.NANOG[neighbors[i]] > self.GATA6[neighbors[i]]:
                             count += 1
-                            vector = self.locations[neighbors[i]] - self.locations[index]
-                            vector_holder += vector
+                            vector_holder += self.locations[neighbors[i]] - self.locations[index]
 
                     # if there is at least one nanog high cell move away from it
                     if count > 0:
                         # get the normalized vector
-                        normal = backend.normal_vector(vector_holder)
+                        normal = normal_vector(vector_holder)
 
                         # move in direction opposite to nanog high cells
                         random = self.random_vector()
@@ -285,13 +284,12 @@ class Functions:
                                 # if neighbor is differentiated, add vector to the cell to the holder
                                 if self.states[neighbors[i]] == 1:
                                     count += 1
-                                    vector = self.locations[neighbors[i]] - self.locations[index]
-                                    vector_holder += vector
+                                    vector_holder += self.locations[neighbors[i]] - self.locations[index]
 
                             # if there is at least differentiated cell move toward it
                             if count > 0:
                                 # get the normalized vector
-                                normal = backend.normal_vector(vector_holder)
+                                normal = normal_vector(vector_holder)
 
                                 # move in direction to differentiated cells
                                 random = self.random_vector()
@@ -312,13 +310,12 @@ class Functions:
                                 # if neighbor is nanog high, add vector to the cell to the holder
                                 if self.NANOG[neighbors[i]] > self.GATA6[neighbors[i]]:
                                     count += 1
-                                    vector = self.locations[neighbors[i]] - self.locations[index]
-                                    vector_holder += vector
+                                    vector_holder += self.locations[neighbors[i]] - self.locations[index]
 
                             # if there is at least one nanog high cell move away from it
                             if count > 0:
                                 # get the normalized vector
-                                normal = backend.normal_vector(vector_holder)
+                                normal = normal_vector(vector_holder)
 
                                 # move in direction opposite to nanog high cells
                                 random = self.random_vector()
@@ -339,13 +336,12 @@ class Functions:
                             # if neighbor is nanog high, add vector to the cell to the holder
                             if self.NANOG[neighbors[i]] > self.GATA6[neighbors[i]]:
                                 count += 1
-                                vector = self.locations[neighbors[i]] - self.locations[index]
-                                vector_holder += vector
+                                vector_holder += self.locations[neighbors[i]] - self.locations[index]
 
                         # if there is at least one nanog high cell move toward it
                         if count > 0:
                             # get the normalized vector
-                            normal = backend.normal_vector(vector_holder)
+                            normal = normal_vector(vector_holder)
 
                             # move in direction to nanog high cells
                             random = self.random_vector()
@@ -361,9 +357,8 @@ class Functions:
 
     @record_time
     def eunbi_motility(self):
-        """ Gives the cells a motive force depending on
-            set rules for the cell types where these rules
-            are closer to Eunbi's model.
+        """ Gives the cells a motive force depending on set rules for the
+            cell types where these rules are closer to Eunbi's model.
         """
         # this is the motility force of the cells
         motility_force = 0.000000008
@@ -382,8 +377,7 @@ class Functions:
                         # if there is a nanog high cell nearby, move away from it
                         if self.nearest_nanog[index] != -1:
                             nearest_index = self.nearest_nanog[index]
-                            vector = self.locations[nearest_index] - self.locations[index]
-                            normal = backend.normal_vector(vector)
+                            normal = normal_vector(self.locations[nearest_index] - self.locations[index])
                             random = self.random_vector()
                             self.motility_forces[index] += (normal * -0.8 + random * 0.2) * motility_force
 
@@ -395,9 +389,8 @@ class Functions:
                     elif self.GATA6[index] > self.NANOG[index]:
                         # if there is a differentiated cell nearby, move toward it
                         if self.nearest_diff[index] != -1:
-                            nearest_index = self.nearest_diff[index]
-                            vector = self.locations[nearest_index] - self.locations[index]
-                            normal = backend.normal_vector(vector)
+                            nearest_index = self.nearest_nanog[index]
+                            normal = normal_vector(self.locations[nearest_index] - self.locations[index])
                             random = self.random_vector()
                             self.motility_forces[index] += (normal * 0.8 + random * 0.2) * motility_force
 
@@ -410,16 +403,14 @@ class Functions:
                         # if there is a nanog high cell nearby, move toward it
                         if self.nearest_nanog[index] != -1:
                             nearest_index = self.nearest_nanog[index]
-                            vector = self.locations[nearest_index] - self.locations[index]
-                            normal = backend.normal_vector(vector)
+                            normal = normal_vector(self.locations[nearest_index] - self.locations[index])
                             random = self.random_vector()
                             self.motility_forces[index] += (normal * 0.8 + random * 0.2) * motility_force
 
                         # if there is a gata6 high cell nearby, move away from it
                         elif self.nearest_gata6[index] != -1:
-                            nearest_index = self.nearest_gata6[index]
-                            vector = self.locations[nearest_index] - self.locations[index]
-                            normal = backend.normal_vector(vector)
+                            nearest_index = self.nearest_nanog[index]
+                            normal = normal_vector(self.locations[nearest_index] - self.locations[index])
                             random = self.random_vector()
                             self.motility_forces[index] += (normal * -0.8 + random * 0.2) * motility_force
 
@@ -429,15 +420,14 @@ class Functions:
                     # if both gata6/nanog high or both low, move randomly
                     else:
                         self.motility_forces[index] += self.random_vector() * motility_force
-
                 else:
                     self.motion[index] = False
 
     @record_time
     def get_neighbors(self, distance=0.00002):
-        """ For all cells, determines which cells fall within a fixed
-            radius to denote a neighbor then stores this information
-            in a graph (uses a bin/bucket sorting method).
+        """ For all cells, determines which cells fall within a fixed radius to
+            denote a neighbor then stores this information in a graph (uses a bin/
+            bucket sorting method).
         """
         # if a static variable has not been created to hold the maximum number of neighbors for a cell, create one
         if not hasattr(Functions.get_neighbors, "max_neighbors"):
@@ -471,23 +461,23 @@ class Functions:
             # call the nvidia gpu version
             if self.parallel:
                 # send the following as arrays to the gpu
-                bin_locations_cuda = cuda.to_device(bin_locations)
-                locations_cuda = cuda.to_device(self.locations)
-                bins_cuda = cuda.to_device(bins)
-                bins_help_cuda = cuda.to_device(bins_help)
-                distance_cuda = cuda.to_device(distance)
-                edge_holder_cuda = cuda.to_device(edge_holder)
-                if_edge_cuda = cuda.to_device(if_edge)
-                edge_count_cuda = cuda.to_device(edge_count)
-                max_neighbors_cuda = cuda.to_device(Functions.get_neighbors.max_neighbors)
+                bin_locations = cuda.to_device(bin_locations)
+                locations = cuda.to_device(self.locations)
+                bins = cuda.to_device(bins)
+                bins_help = cuda.to_device(bins_help)
+                distance = cuda.to_device(distance)
+                edge_holder = cuda.to_device(edge_holder)
+                if_edge = cuda.to_device(if_edge)
+                edge_count = cuda.to_device(edge_count)
+                max_neighbors = cuda.to_device(Functions.get_neighbors.max_neighbors)
 
                 # allocate threads and blocks for gpu memory "threads per block" and "blocks per grid"
                 tpb = 72
                 bpg = math.ceil(self.number_cells / tpb)
 
                 # call the cuda kernel with new gpu arrays
-                get_neighbors_gpu[bpg, tpb](bin_locations_cuda, locations_cuda, bins_cuda, bins_help_cuda, distance_cuda,
-                                            edge_holder_cuda, if_edge_cuda, edge_count_cuda, max_neighbors_cuda)
+                get_neighbors_gpu[bpg, tpb](bin_locations, locations, bins, bins_help, distance, edge_holder, if_edge,
+                                            edge_count, max_neighbors)
 
                 # return the only the following array(s) back from the gpu
                 edge_holder = edge_holder_cuda.copy_to_host()
@@ -516,9 +506,8 @@ class Functions:
 
     @record_time
     def nearest(self, distance=0.00002):
-        """ Determines the nearest GATA6 high, NANOG high, and
-            differentiated cell within a fixed radius for each
-            cell.
+        """ Determines the nearest GATA6 high, NANOG high, and differentiated
+            cell within a fixed radius for each cell.
         """
         # if a static variable has not been created to hold the maximum number of cells in a bin, create one
         if not hasattr(Functions.nearest, "max_cells"):
@@ -538,37 +527,36 @@ class Functions:
         # call the nvidia gpu version
         if self.parallel:
             # send the following as arrays to the gpu
-            bin_locations_cuda = cuda.to_device(bin_locations)
-            locations_cuda = cuda.to_device(self.locations)
-            bins_cuda = cuda.to_device(bins)
-            bins_help_cuda = cuda.to_device(bins_help)
-            distance_cuda = cuda.to_device(distance)
-            if_diff_cuda = cuda.to_device(if_diff)
-            gata6_cuda = cuda.to_device(self.GATA6)
-            nanog_cuda = cuda.to_device(self.NANOG)
-            nearest_gata6_cuda = cuda.to_device(self.nearest_gata6)
-            nearest_nanog_cuda = cuda.to_device(self.nearest_nanog)
-            nearest_diff_cuda = cuda.to_device(self.nearest_diff)
+            bin_locations = cuda.to_device(bin_locations)
+            locations = cuda.to_device(self.locations)
+            bins = cuda.to_device(bins)
+            bins_help = cuda.to_device(bins_help)
+            distance = cuda.to_device(distance)
+            if_diff = cuda.to_device(if_diff)
+            gata6 = cuda.to_device(self.GATA6)
+            nanog = cuda.to_device(self.NANOG)
+            nearest_gata6 = cuda.to_device(self.nearest_gata6)
+            nearest_nanog = cuda.to_device(self.nearest_nanog)
+            nearest_diff = cuda.to_device(self.nearest_diff)
 
             # allocate threads and blocks for gpu memory "threads per block" and "blocks per grid"
             tpb = 72
             bpg = math.ceil(self.number_cells / tpb)
 
             # call the cuda kernel with new gpu arrays
-            backend.nearest_gpu[bpg, tpb](bin_locations_cuda, locations_cuda, bins_cuda, bins_help_cuda, distance_cuda,
-                                          if_diff_cuda, gata6_cuda, nanog_cuda, nearest_gata6_cuda, nearest_nanog_cuda,
-                                          nearest_diff_cuda)
+            nearest_gpu[bpg, tpb](bin_locations, locations, bins, bins_help, distance, if_diff, gata6, nanog,
+                                  nearest_gata6, nearest_nanog, nearest_diff)
 
             # return the only the following array(s) back from the gpu
-            gata6 = nearest_gata6_cuda.copy_to_host()
-            nanog = nearest_nanog_cuda.copy_to_host()
-            diff = nearest_diff_cuda.copy_to_host()
+            gata6 = nearest_gata6.copy_to_host()
+            nanog = nearest_nanog.copy_to_host()
+            diff = nearest_diff.copy_to_host()
 
         # call the cpu version
         else:
-            gata6, nanog, diff = backend.nearest_cpu(self.number_cells, bin_locations, self.locations, bins, bins_help,
-                                                     distance, if_diff, self.GATA6, self.NANOG, self.nearest_gata6,
-                                                     self.nearest_nanog, self.nearest_diff)
+            gata6, nanog, diff = nearest_cpu(self.number_cells, bin_locations, self.locations, bins, bins_help,
+                                             distance, if_diff, self.GATA6, self.NANOG, self.nearest_gata6,
+                                             self.nearest_nanog, self.nearest_diff)
 
         # revalue the array holding the indices of nearest cells of given type
         self.nearest_gata6 = gata6
@@ -577,9 +565,8 @@ class Functions:
 
     @record_time
     def apply_forces(self, one_step=False, motility=True):
-        """ Calls multiple methods used to move the cells to a
-            state of physical equilibrium between repulsive,
-            adhesive, and motility forces.
+        """ Calls multiple methods used to move the cells to a state of physical
+            equilibrium between repulsive, adhesive, and motility forces.
         """
         # the viscosity of the medium in Ns/m, used for stokes friction
         viscosity = 10000
@@ -606,7 +593,7 @@ class Functions:
             self.jkr_neighbors()
 
             # calculate the JKR forces based on the graph
-            self.jkr_forces_func()
+            self.calculate_jkr()
 
             # apply both the JKR forces and the motility forces
             # if on the last step use, that dt
@@ -618,30 +605,28 @@ class Functions:
             # send the following as arrays to the gpu
             if self.parallel:
                 # turn the following into arrays that can be interpreted by the gpu
-                jkr_forces_cuda = cuda.to_device(self.jkr_forces)
-                motility_forces_cuda = cuda.to_device(motility_forces)
-                locations_cuda = cuda.to_device(self.locations)
-                radii_cuda = cuda.to_device(self.radii)
-                viscosity_cuda = cuda.to_device(viscosity)
-                size_cuda = cuda.to_device(self.size)
-                move_dt_cuda = cuda.to_device(move_dt)
+                jkr_forces = cuda.to_device(self.jkr_forces)
+                motility_forces = cuda.to_device(motility_forces)
+                locations = cuda.to_device(self.locations)
+                radii = cuda.to_device(self.radii)
+                viscosity = cuda.to_device(viscosity)
+                size = cuda.to_device(self.size)
+                move_dt = cuda.to_device(move_dt)
 
                 # allocate threads and blocks for gpu memory "threads per block" and "blocks per grid"
                 tpb = 72
                 bpg = math.ceil(self.number_cells / tpb)
 
                 # call the cuda kernel with new gpu arrays
-                backend.apply_forces_gpu[bpg, tpb](jkr_forces_cuda, motility_forces_cuda, locations_cuda, radii_cuda,
-                                                   viscosity_cuda, size_cuda, move_dt_cuda)
+                apply_forces_gpu[bpg, tpb](jkr_forces, motility_forces, locations, radii, viscosity, size, move_dt)
 
                 # return the only the following array(s) back from the gpu
-                new_locations = locations_cuda.copy_to_host()
+                new_locations = locations.copy_to_host()
 
             # call the cpu version
             else:
-                new_locations = backend.apply_forces_cpu(self.number_cells, self.jkr_forces, motility_forces,
-                                                         self.locations, self.radii, viscosity, self.size,
-                                                         move_dt)
+                new_locations = apply_forces_cpu(self.number_cells, self.jkr_forces, motility_forces, self.locations,
+                                                 self.radii, viscosity, self.size, move_dt)
 
             # update the locations and reset the JKR forces back to zero
             self.locations = new_locations
@@ -651,9 +636,8 @@ class Functions:
         self.motility_forces[:, :] = 0
 
     def jkr_neighbors(self):
-        """ For all cells, determines which cells will have physical
-            interactions with other cells and puts this information
-            into a graph.
+        """ For all cells, determines which cells will have physical interactions
+            with other cells and puts this information into a graph.
         """
         # radius of search (meters) in which neighbors will have physical interactions, double the max cell radius
         jkr_distance = 2 * self.max_radius
@@ -687,37 +671,34 @@ class Functions:
             # send the following as arrays to the gpu
             if self.parallel:
                 # turn the following into arrays that can be interpreted by the gpu
-                bin_locations_cuda = cuda.to_device(bin_locations)
-                locations_cuda = cuda.to_device(self.locations)
-                radii_cuda = cuda.to_device(self.radii)
-                bins_cuda = cuda.to_device(bins)
-                bins_help_cuda = cuda.to_device(bins_help)
-                edge_holder_cuda = cuda.to_device(edge_holder)
-                if_edge_cuda = cuda.to_device(if_edge)
-                edge_count_cuda = cuda.to_device(edge_count)
-                max_neighbors_cuda = cuda.to_device(Functions.jkr_neighbors.max_neighbors)
+                bin_locations = cuda.to_device(bin_locations)
+                locations = cuda.to_device(self.locations)
+                radii = cuda.to_device(self.radii)
+                bins = cuda.to_device(bins)
+                bins_help = cuda.to_device(bins_help)
+                edge_holder = cuda.to_device(edge_holder)
+                if_edge = cuda.to_device(if_edge)
+                edge_count = cuda.to_device(edge_count)
+                max_neighbors = cuda.to_device(Functions.jkr_neighbors.max_neighbors)
 
                 # allocate threads and blocks for gpu memory "threads per block" and "blocks per grid"
                 tpb = 72
                 bpg = math.ceil(self.number_cells / tpb)
 
                 # call the cuda kernel with new gpu arrays
-                backend.jkr_neighbors_gpu[bpg, tpb](bin_locations_cuda, locations_cuda, radii_cuda, bins_cuda,
-                                                    bins_help_cuda, edge_holder_cuda, if_edge_cuda, edge_count_cuda,
-                                                    max_neighbors_cuda)
+                jkr_neighbors_gpu[bpg, tpb](bin_locations, locations, radii, bins, bins_help, edge_holder, if_edge,
+                                            edge_count, max_neighbors)
 
                 # return the only the following array(s) back from the gpu
-                edge_holder = edge_holder_cuda.copy_to_host()
-                if_edge = if_edge_cuda.copy_to_host()
-                edge_count = edge_count_cuda.copy_to_host()
+                edge_holder = edge_holder.copy_to_host()
+                if_edge = if_edge.copy_to_host()
+                edge_count = edge_count.copy_to_host()
 
             # call the jit cpu version
             else:
-                edge_holder, if_edge, edge_count = backend.jkr_neighbors_cpu(self.number_cells, bin_locations,
-                                                                             self.locations, self.radii, bins,
-                                                                             bins_help, edge_holder, if_edge,
-                                                                             edge_count,
-                                                                             Functions.jkr_neighbors.max_neighbors)
+                edge_holder, if_edge, edge_count = jkr_neighbors_cpu(self.number_cells, bin_locations, self.locations,
+                                                                     self.radii, bins, bins_help, edge_holder, if_edge,
+                                                                     edge_count, Functions.jkr_neighbors.max_neighbors)
 
             # either break the loop if all neighbors were accounted for or revalue the maximum number of neighbors
             # based on the output of the function call and double it
@@ -735,10 +716,9 @@ class Functions:
         self.jkr_graph.add_edges(edge_holder)
         self.jkr_graph.simplify()
 
-    def jkr_forces_func(self):
-        """ Goes through all of "JKR" edges and quantifies any
-            resulting adhesive or repulsion forces between
-            pairs of cells.
+    def calculate_jkr(self):
+        """ Goes through all of "JKR" edges and quantifies any resulting
+            adhesive or repulsion forces between pairs of cells.
         """
         # contact mechanics parameters that rarely change
         adhesion_const = 0.000107    # the adhesion constant in kg/s from P Pathmanathan et al.
@@ -755,32 +735,31 @@ class Functions:
             # send the following as arrays to the gpu
             if self.parallel:
                 # turn the following into arrays that can be interpreted by the gpu
-                jkr_edges_cuda = cuda.to_device(jkr_edges)
-                delete_edges_cuda = cuda.to_device(delete_edges)
-                locations_cuda = cuda.to_device(self.locations)
-                radii_cuda = cuda.to_device(self.radii)
-                forces_cuda = cuda.to_device(self.jkr_forces)
-                poisson_cuda = cuda.to_device(poisson)
-                youngs_cuda = cuda.to_device(youngs)
-                adhesion_const_cuda = cuda.to_device(adhesion_const)
+                jkr_edges = cuda.to_device(jkr_edges)
+                delete_edges = cuda.to_device(delete_edges)
+                locations = cuda.to_device(self.locations)
+                radii = cuda.to_device(self.radii)
+                forces = cuda.to_device(self.jkr_forces)
+                poisson = cuda.to_device(poisson)
+                youngs = cuda.to_device(youngs)
+                adhesion_const = cuda.to_device(adhesion_const)
 
                 # allocate threads and blocks for gpu memory "threads per block" and "blocks per grid"
                 tpb = 72
                 bpg = math.ceil(number_edges / tpb)
 
                 # call the cuda kernel with new gpu arrays
-                backend.jkr_forces_gpu[bpg, tpb](jkr_edges_cuda, delete_edges_cuda, locations_cuda, radii_cuda,
-                                                 forces_cuda, poisson_cuda, youngs_cuda, adhesion_const_cuda)
+                jkr_forces_gpu[bpg, tpb](jkr_edges, delete_edges, locations, radii, forces, poisson, youngs,
+                                         adhesion_const)
 
                 # return the only the following array(s) back from the gpu
-                forces = forces_cuda.copy_to_host()
-                delete_edges = delete_edges_cuda.copy_to_host()
+                forces = forces.copy_to_host()
+                delete_edges = delete_edges.copy_to_host()
 
             # call the cpu version
             else:
-                forces, delete_edges = backend.jkr_forces_cpu(number_edges, jkr_edges, delete_edges, self.locations,
-                                                              self.radii, self.jkr_forces, poisson, youngs,
-                                                              adhesion_const)
+                forces, delete_edges = jkr_forces_cpu(number_edges, jkr_edges, delete_edges, self.locations, self.radii,
+                                                      self.jkr_forces, poisson, youngs, adhesion_const)
 
             # update the jkr edges to remove any edges that have be broken and update the JKR forces array
             delete_edges_indices = np.arange(number_edges)[delete_edges]
@@ -815,7 +794,7 @@ class Functions:
         steps = int(steps) + 1   # make sure steps is an int, add extra step for the last dt if it's less
 
         # call the JIT diffusion function
-        gradient = backend.update_diffusion_jit(base, steps, diffuse_dt, last_dt, diffuse_const, self.spat_res2)
+        gradient = update_diffusion_jit(base, steps, diffuse_dt, last_dt, diffuse_const, self.spat_res2)
 
         # degrade the morphogen concentrations
         gradient *= 1 - self.degradation
