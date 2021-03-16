@@ -5,7 +5,7 @@ import shutil
 import getopt
 import psutil
 
-import output
+import outputs
 import backend
 import parameters
 
@@ -25,7 +25,7 @@ def start():
 
     # create path to simulation directory and make Paths object for storing important paths
     main_path = output_path + name + separator
-    paths = output.Paths(name, main_path, templates_path, separator)
+    paths = outputs.Paths(name, main_path, templates_path, separator)
 
     # -------------------------- new simulation ---------------------------
     if mode == 0:
@@ -61,7 +61,7 @@ def start():
         simulation = parameters.Simulation(paths, name)
 
         # make the video
-        output.create_video(simulation)
+        simulation.create_video()
 
     # --------------------- zip a simulation directory --------------------
     elif mode == 3:

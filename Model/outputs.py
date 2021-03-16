@@ -8,32 +8,39 @@ import os
 import math
 import re
 
-import backend
+from backend import record_time
 
 
 class Paths:
-    """ This object is primarily used to hold any important paths for a
-        simulation. For a continued simulation, this will update the Paths
-        object for the case that the computer and/or paths change(s).
+    """ Hold any important paths for a particular simulation. For a continued
+        simulation, this will update the Paths object in case the path(s) change.
     """
     def __init__(self, name, main, templates, separator):
-        # hold the following
         self.main = main    # the path to the main directory for this simulation
         self.templates = templates    # the path to the .txt template directory
         self.separator = separator    # file separator
 
         # these directories are sub-directories under the main simulation directory
-        self.images = main + name + "_images" + separator    # the images output directory
-        self.values = main + name + "_values" + separator    # the cell array values output directory
-        self.gradients = main + name + "_gradients" + separator    # the gradients output directory
-        self.tda = main + name + "_tda" + separator    # the topological data analysis output directory
+        general = main + name
+        self.images = general + "_images" + separator    # the images output directory
+        self.values = general + "_values" + separator    # the cell array values output directory
+        self.gradients = general + "_gradients" + separator    # the gradients output directory
+        self.tda = general + "_tda" + separator    # the topological data analysis output directory
 
 
 class Outputs:
-    @backend.record_time
+    """ The methods in this class are meant to be inherited by the Simulation
+        class so that Simulation objects can called these methods. All output
+        methods are placed here to organize the Simulation class a bit.
+    """
+    @record_time
     def step_image(self, background=(0, 0, 0), origin_bottom=True, fgf4_gradient=False):
-        """ Creates an image representation of the cell space. Note OpenCV
-            uses BGR instead of RGB.
+        """ Creates an image of the simulation space. Note the imaging library
+            OpenCV uses BGR instead of RGB.
+
+            background -> (tuple) The color of the background image as BGR
+            origin_bottom -> (bool) Location of origin True -> bottom/left, False -> top/left
+            fgf4_gradient -> (bool) If outputting image of FGF4 gradient alongside step image
         """
         # only continue if outputting images
         if self.output_images:
@@ -42,7 +49,7 @@ class Outputs:
 
             # get the size of the array used for imaging in addition to the scaling factor
             x_size = self.image_quality
-            scale = x_size/self.size[0]
+            scale = x_size / self.size[0]
             y_size = math.ceil(scale * self.size[1])
 
             # create the cell space background image and apply background color
@@ -112,10 +119,13 @@ class Outputs:
             file_name = f"{self.name}_image_{self.current_step}.png"
             cv2.imwrite(directory_path + file_name, image, [cv2.IMWRITE_PNG_COMPRESSION, image_compression])
 
-    @backend.record_time
+    @record_time
     def step_values(self, arrays=None):
-        """ Outputs a CSV file containing values from all cell
-            arrays.
+        """ Outputs a CSV file with value from the cell arrays with each
+            row corresponding to a particular cell index.
+
+            arrays -> (list) If arrays is None, all cell arrays are outputted otherwise only the
+                cell arrays named in the list will be outputted.
         """
         # only continue if outputting cell values
         if self.output_values:
@@ -166,9 +176,10 @@ class Outputs:
                 data = np.hstack(data)
                 csv_file.writerows(data)
 
-    @backend.record_time
+    @record_time
     def step_gradients(self):
-        """ Saves any 2D gradient arrays as a CSV file.
+        """ Saves each of the 2D gradients as a CSV at each step of the
+            simulation.
         """
         # only continue if outputting gradient CSVs
         if self.output_gradients:
@@ -190,10 +201,12 @@ class Outputs:
                 gradient = self.__dict__[gradient_name][:, :, 0]
                 np.savetxt(grad_direct + file_name, gradient, delimiter=",")
 
-    @backend.record_time
+    @record_time
     def step_tda(self, in_pixels=False):
-        """ Create CSV files for different types of cells. Each
-            cell type will have its own subdirectory.
+        """ Create CSV files for Topological Data Analysis (TDA) of different cell
+            types. Each type will have its own subdirectory.
+
+            in_pixels -> (bool) If the locations should be in pixels instead of meters
         """
         # only continue if outputting TDA files
         if self.output_tda:
@@ -233,9 +246,9 @@ class Outputs:
             file_name = f"{self.name}_tda_green_{self.current_step}.csv"
             np.savetxt(green_path + file_name, green_locations, delimiter=",")
 
-    @backend.record_time
-    def temporary(self):
-        """ Pickle a copy of the simulation class that can be used
+    @record_time
+    def temp(self):
+        """ Pickle the current state of the Simulation object which can be used
             to continue a past simulation without losing information.
         """
         # get file name, use f-string
@@ -247,9 +260,8 @@ class Outputs:
             pickle.dump(self, file, -1)
 
     def data(self):
-        """ Creates/adds a new line to the running CSV for data about
-            the simulation such as memory, step time, number of cells,
-            and run time of functions.
+        """ Creates/adds a new line to the running CSV for data about the simulation
+            such as memory, step time, number of cells and method profiling.
         """
         # get file name, use f-string
         file_name = f"{self.name}_data.csv"
@@ -281,8 +293,8 @@ class Outputs:
             csv_object.writerow(columns + function_times)
 
     def create_video(self):
-        """ Take all of the images outputted by a simulation and
-            write them to a video file in the main directory.
+        """ Write all of the step images from a simulation to video file in the
+            main simulation directory.
         """
         # continue if there is an image directory
         if os.path.isdir(self.paths.images):
@@ -294,7 +306,7 @@ class Outputs:
             if image_count > 0:
                 print("\nCreating video...")
 
-                # sort the file list so "2, 20, 3, 31..." becomes "2, 3,...,20,...,31"
+                # sort the file list so "2, 20, 3, 31..." becomes "2, 3, ..., 20, ..., 31"
                 file_list = sorted(file_list, key=sort_naturally)
 
                 # sample the first image to get the dimensions of the image, and then scale the image
@@ -312,31 +324,33 @@ class Outputs:
 
                 # go through sorted image list, reading and writing each image to the video object
                 for i in range(image_count):
-                    image = cv2.imread(self.paths.images + file_list[i])
-                    image = cv2.resize(image, new_size, interpolation=cv2.INTER_AREA)
-                    video_object.write(image)
+                    image = cv2.imread(self.paths.images + file_list[i])    # read image from directory
+                    if size != new_size:
+                        image = cv2.resize(image, new_size, interpolation=cv2.INTER_AREA)    # scale down if necessary
+                    video_object.write(image)    # write to video
                     progress_bar(i, image_count)    # show progress
 
                 # close the video file
                 video_object.release()
 
-        # print end statement...super important. Don't remove or model won't run!
+        # print end statement...super important...don't remove or model won't run!
         print("\n\nThe simulation is finished. May the force be with you.\n")
 
 
 def check_direct(path):
-    """ Checks that directory exists and if not, then make it.
+    """ Check directory for simulation outputs.
     """
+    # if it doesn't exist make directory
     if not os.path.isdir(path):
         os.mkdir(path)
 
-    # optionally return the path, can be used to make variable
+    # optionally return the path
     return path
 
 
 def sort_naturally(file_list):
-    """ Use a regular expression for sorting the file list
-        based on the appended step number in the file name.
+    """ Key for sorting the file list based on the
+        step number.
     """
     return int(re.split('(\d+)', file_list)[-2])
 
@@ -347,11 +361,11 @@ def progress_bar(progress, maximum):
     # length of the bar
     length = 60
 
-    # calculate the following
+    # calculate bar and percent
     progress += 1    # start at 1 not 0
     fill = int(length * progress / maximum)
     bar = '#' * fill + '.' * (length - fill)
     percent = int(100 * progress / maximum)
 
     # output the progress bar
-    print('\r[%s] %s%s' % (bar, percent, '%'), end="")
+    print(f"\r[{bar}] {percent}%", end="")

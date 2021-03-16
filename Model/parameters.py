@@ -5,7 +5,7 @@ import math
 
 from backend import Base, template_param, commandline_param
 from functions import Functions
-from output import Outputs
+from outputs import Outputs
 
 
 def setup_cells(simulation):
@@ -94,7 +94,7 @@ def run_steps(simulation):
                                        "div_counters"])
         simulation.step_gradients()
         simulation.step_tda(in_pixels=True)
-        simulation.temporary()
+        simulation.temp()
         simulation.data()
 
     # Ends the simulation by creating a video from all of the step images
