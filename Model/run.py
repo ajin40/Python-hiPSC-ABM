@@ -5,8 +5,8 @@ import shutil
 import getopt
 import psutil
 
+from backend import commandline_param
 import outputs
-import backend
 import parameters
 
 
@@ -119,8 +119,8 @@ def start_params(output_path, separator, possible_modes):
         either from the command line or a text-based GUI.
     """
     # try to get the name and mode from the command line
-    name = backend.commandline_param("-n", str)
-    mode = backend.commandline_param("-m", int)
+    name = commandline_param("-n", str)
+    mode = commandline_param("-m", int)
 
     # if the name variable has not been initialized by the command-line, run the text-based UI to get it
     if name is None:

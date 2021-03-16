@@ -480,9 +480,9 @@ class Functions:
                                             edge_count, max_neighbors)
 
                 # return the only the following array(s) back from the gpu
-                edge_holder = edge_holder_cuda.copy_to_host()
-                if_edge = if_edge_cuda.copy_to_host()
-                edge_count = edge_count_cuda.copy_to_host()
+                edge_holder = edge_holder.copy_to_host()
+                if_edge = if_edge.copy_to_host()
+                edge_count = edge_count.copy_to_host()
 
             # call the jit cpu version
             else:
