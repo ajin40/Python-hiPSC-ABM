@@ -30,9 +30,6 @@ class Base(ABC):
         self.cell_types = dict()  # hold the names of cell types defined in run.py
         self.method_times = dict()  # store the runtimes of selected methods, used by record_time() decorator
 
-        # suppresses IDE error, not necessary
-        self.graph_names = None
-
     @abstractmethod
     def cell_initials(self):
         """ Abstract method in which the Simulation class should override.

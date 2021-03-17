@@ -111,8 +111,16 @@ class Simulation(Functions, Outputs, Base):
         # self.gradient_names = ["fgf4_values", "fgf4_alt"]    # add names for automatic CSV output of gradients
 
     def steps(self):
-        """ Specify the functions/methods called before/during/after
-            a simulation's steps. See documentation for more info.
+        """ Specify any Simulation instance methods called before/during/after
+            the simulation, see example below.
+
+            Example:
+                self.before_steps()
+
+                for self.current_step in range(self.beginning_step, self.end_step + 1):
+                    self.during_steps()
+
+                self.after_steps()
         """
         # Iterate over all steps specified in the Simulation object
         for self.current_step in range(self.beginning_step, self.end_step + 1):
@@ -168,17 +176,17 @@ class Simulation(Functions, Outputs, Base):
         self.create_video()
 
     def cell_initials(self):
-        """ Indicate the cell arrays in the simulation and any initial
-            conditions of these arrays. See documentation for more info.
+        """ Add cells into the simulation and specify any values the cells should have.
+            The cell arrays will default to float64, 1-dim arrays of zeros. Use the
+            parameters to adjust the data type, 2-dim size, and initial conditions. The
+            "cell_type" keyword is used to apply initial conditions to the group of cells
+            marked with the same cell type in add_cells().
         """
-        # Add the specified number of NANOG/GATA6 high cells and create cell type GATA6_high for setting initial
-        # parameters with cell_array().
+        # Add the specified number of NANOG/GATA6 high cells and create cell type GATA6_high.
         self.add_cells(self.num_nanog)
         self.add_cells(self.num_gata6, cell_type="GATA6_high")
 
-        # Create the following cell arrays in the Simulation object. The instance variable simulation."array-name" will
-        # point to this array. The arrays default to float64, 1-dim arrays (length of # cells) with values of zero. Use
-        # the parameters to adjust the data type, 2-dim size, and initial condition for the entire array.
+        # Create the following cell arrays with initial conditions.
         self.cell_array("locations", override=np.random.rand(self.number_cells, 3) * self.size)
         self.cell_array("radii")
         self.cell_array("motion", dtype=bool, func=lambda: True)
