@@ -4,13 +4,14 @@ import math
 import time
 import sys
 
+from abc import ABC, abstractmethod
 from numba import jit, cuda, prange
 from functools import wraps
 
 
-class Base:
-    """ This object is the base class for the Simulation object. It's used to
-        make the Simulation class look a lot less intimidating.
+class Base(ABC):
+    """ This abstract class is the base for the Simulation object. It's used to
+        make sure that the Simulation object has certain attributes.
     """
     def __init__(self, paths, name):
         self.paths = paths    # the Paths object which holds any output paths
@@ -31,6 +32,18 @@ class Base:
 
         # suppresses IDE error, not necessary
         self.graph_names = None
+
+    @abstractmethod
+    def cell_initials(self):
+        """ Abstract method in which the Simulation class should override.
+        """
+        pass
+
+    @abstractmethod
+    def steps(self):
+        """ Abstract method in which the Simulation class should override.
+        """
+        pass
 
     def add_cells(self, number, cell_type=None):
         """ Add cells to the Simulation object and potentially add a cell type
@@ -425,7 +438,7 @@ def jkr_forces_cpu(number_edges, jkr_edges, delete_edges, locations, radii, jkr_
         method that performs the actual calculations.
     """
     # go through the edges array
-    for edge_index in range(number_edges):
+    for edge_index in prange(number_edges):
         # get the cell indices of the edge
         cell_1 = jkr_edges[edge_index][0]
         cell_2 = jkr_edges[edge_index][1]

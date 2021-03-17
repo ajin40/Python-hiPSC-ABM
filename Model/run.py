@@ -37,8 +37,8 @@ def start():
         simulation = parameters.Simulation(paths, name)
 
         # add cell arrays to Simulation object and run the model
-        parameters.setup_cells(simulation)
-        parameters.run_steps(simulation)
+        simulation.cell_initials()
+        simulation.steps()
 
     # ---------------- continuation of previous simulation ----------------
     elif mode == 1:
@@ -53,7 +53,7 @@ def start():
         simulation.end_step = final_step    # update final step
 
         # run the model
-        parameters.run_steps(simulation)
+        simulation.steps()
 
     # ------------------------- images to video ---------------------------
     elif mode == 2:
