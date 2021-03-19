@@ -3,10 +3,9 @@ import random as r
 import math
 from numba import cuda
 
-from backend import *
 
 
-class Functions:
+class CellMethods:
     """ The methods in this class are meant to be inherited by the Simulation
         class so that Simulation objects can called these methods. Methods that
         modify the cell values and the space can be placed here.

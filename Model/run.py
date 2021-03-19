@@ -5,10 +5,10 @@ import shutil
 import getopt
 import psutil
 
-import backend
-from backend import commandline_param
-import outputs
-import parameters
+import simulation
+from simulation import commandline_param
+import celloutputs
+import cellsimulation
 
 
 def start():
@@ -26,7 +26,7 @@ def start():
 
     # create path to simulation directory and make Paths object for storing important paths
     main_path = output_path + name + separator
-    paths = backend.Paths(name, main_path, templates_path, separator)
+    paths = simulation.Paths(name, main_path, templates_path, separator)
 
     # -------------------------- new simulation ---------------------------
     if mode == 0:
@@ -35,7 +35,7 @@ def start():
         shutil.copytree(os.getcwd(), copy_name, ignore=shutil.ignore_patterns("__pycache__"))
 
         # create Simulation object
-        simulation = parameters.Simulation(paths, name)
+        simulation = cellsimulation.Simulation(paths, name)
 
         # add cell arrays to Simulation object and run the model
         simulation.agent_initials()
@@ -59,7 +59,7 @@ def start():
     # ------------------------- images to video ---------------------------
     elif mode == 2:
         # create Simulation object used to get imaging and path information
-        simulation = parameters.Simulation(paths, name)
+        simulation = cellsimulation.Simulation(paths, name)
 
         # make the video
         simulation.create_video()

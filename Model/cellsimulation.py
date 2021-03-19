@@ -3,12 +3,12 @@ import random as r
 import igraph
 import math
 
-from backend import Base, template_param, commandline_param
-from functions import Functions
-from outputs import Outputs
+from simulation import Base, template_param, commandline_param
+from cellmethods import CellMethods
+from celloutputs import CellOutputs
 
 
-class Simulation(Base, Functions, Outputs):
+class CellSimulation(Base, Functions, Outputs):
     """ This object holds all of the important information about the simulation as it
         runs. Variables can be specified either directly or through the template files.
     """

@@ -1,14 +1,8 @@
 import numpy as np
 import cv2
-import csv
-import time
-import psutil
-import pickle
-import os
 import math
-import re
 
-from backend import record_time
+from simulation import record_time, check_direct
 
 
 class Outputs:
@@ -169,36 +163,3 @@ class Outputs:
             green_path = check_direct(directory_path + separator + "green" + separator)
             file_name = f"{self.name}_tda_green_{self.current_step}.csv"
             np.savetxt(green_path + file_name, green_locations, delimiter=",")
-
-
-def check_direct(path):
-    """ Check directory for simulation outputs.
-    """
-    # if it doesn't exist make directory
-    if not os.path.isdir(path):
-        os.mkdir(path)
-
-    # optionally return the path
-    return path
-
-
-def sort_naturally(file_list):
-    """ Key for sorting the file list based on the step number.
-    """
-    return int(re.split('(\d+)', file_list)[-2])
-
-
-def progress_bar(progress, maximum):
-    """ Make a progress bar because progress bars are cool.
-    """
-    # length of the bar
-    length = 60
-
-    # calculate bar and percent
-    progress += 1    # start at 1 not 0
-    fill = int(length * progress / maximum)
-    bar = '#' * fill + '.' * (length - fill)
-    percent = int(100 * progress / maximum)
-
-    # output the progress bar
-    print(f"\r[{bar}] {percent}%", end="")
