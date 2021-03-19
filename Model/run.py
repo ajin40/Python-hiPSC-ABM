@@ -33,34 +33,34 @@ def start():
         shutil.copytree(os.getcwd(), copy_name, ignore=shutil.ignore_patterns("__pycache__"))
 
         # create Simulation object
-        simulation = CellSimulation(paths, name)
+        sim = CellSimulation(paths, name)
 
         # add cell arrays to Simulation object and run the model
-        simulation.agent_initials()
-        simulation.steps()
+        sim.agent_initials()
+        sim.steps()
 
     # ---------------- continuation of previous simulation ----------------
     elif mode == 1:
         # load previous Simulation object instead of creating new Simulation object
         file_name = main_path + name + "_temp" + ".pkl"
         with open(file_name, "rb") as file:
-            simulation = pickle.load(file)
+            sim = pickle.load(file)
 
         # update the following instance variables
-        simulation.paths = paths  # change paths object for cross platform compatibility
-        simulation.beginning_step = simulation.current_step + 1    # start one step later
-        simulation.end_step = final_step    # update final step
+        sim.paths = paths  # change paths object for cross platform compatibility
+        sim.beginning_step = simulation.current_step + 1    # start one step later
+        sim.end_step = final_step    # update final step
 
         # run the model
-        simulation.steps()
+        sim.steps()
 
     # ------------------------- images to video ---------------------------
     elif mode == 2:
         # create Simulation object used to get imaging and path information
-        simulation = Simulation(paths, name)
+        sim = CellSimulation(paths, name)
 
         # make the video
-        simulation.create_video()
+        sim.create_video()
 
     # --------------------- zip a simulation directory --------------------
     elif mode == 3:
