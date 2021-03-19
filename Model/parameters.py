@@ -24,10 +24,10 @@ class Simulation(Functions, Outputs, Base):
             3
 
         Note: extraneous spaces before or after the pipes will not affect the interpretation of the
-        parameter. Use get_parameter(path-to-file, line number, data type) to read a specific line
+        parameter. Use template_param(path-to-file, line number, data type) to read a specific line
         of a template file and interpret the value as the desired data type.
 
-            self.fps = get_parameter(path, 2, float)
+            self.fps = template_param(path, 2, float)
         """
         # ------------- general template file ------------------------------
         general_path = paths.templates + "general.txt"    # path to general.txt template file
@@ -87,7 +87,6 @@ class Simulation(Functions, Outputs, Base):
 
         # the neighbor graph holds all nearby cells within a fixed radius, and the JKR graph is used for
         # storing adhesive bonds between cells
-        self.neighbor_graph = igraph.Graph()
         self.jkr_graph = igraph.Graph()
 
         # add the names of the graphs below for automatic cell addition and removal
@@ -175,7 +174,7 @@ class Simulation(Functions, Outputs, Base):
         # Ends the simulation by creating a video from all of the step images
         self.create_video()
 
-    def cell_initials(self):
+    def agent_initials(self):
         """ Add cells into the simulation and specify any values the cells should have.
             The cell arrays will default to float64, 1-dim arrays of zeros. Use the
             parameters to adjust the data type, 2-dim size, and initial conditions. The
@@ -183,28 +182,28 @@ class Simulation(Functions, Outputs, Base):
             marked with the same cell type in add_cells().
         """
         # Add the specified number of NANOG/GATA6 high cells and create cell type GATA6_high.
-        self.add_cells(self.num_nanog)
-        self.add_cells(self.num_gata6, cell_type="GATA6_high")
+        self.add_agents(self.num_nanog)
+        self.add_agents(self.num_gata6, agent_type="GATA6_high")
 
         # Create the following cell arrays with initial conditions.
-        self.cell_array("locations", override=np.random.rand(self.number_cells, 3) * self.size)
-        self.cell_array("radii")
-        self.cell_array("motion", dtype=bool, func=lambda: True)
-        self.cell_array("FGFR", dtype=int, func=lambda: r.randrange(0, self.field))
-        self.cell_array("ERK", dtype=int, func=lambda: r.randrange(0, self.field))
-        self.cell_array("GATA6", dtype=int)
-        self.cell_array("NANOG", dtype=int, func=lambda: r.randrange(0, self.field))
-        self.cell_array("states", dtype=int)
-        self.cell_array("death_counters", dtype=int, func=lambda: r.randrange(0, self.death_thresh))
-        self.cell_array("diff_counters", dtype=int, func=lambda: r.randrange(0, self.pluri_to_diff))
-        self.cell_array("div_counters", dtype=int, func=lambda: r.randrange(0, self.pluri_div_thresh))
-        self.cell_array("fds_counters", dtype=int, func=lambda: r.randrange(0, self.fds_thresh))
-        self.cell_array("motility_forces", vector=3)
-        self.cell_array("jkr_forces", vector=3)
-        # self.cell_array("nearest_nanog", dtype=int, func=lambda: -1)
-        # self.cell_array("nearest_gata6", dtype=int, func=lambda: -1)
-        # self.cell_array( "nearest_diff", dtype=int, func=lambda: -1)
+        self.agent_array("locations", override=np.random.rand(self.number_agents, 3) * self.size)
+        self.agent_array("radii")
+        self.agent_array("motion", dtype=bool, func=lambda: True)
+        self.agent_array("FGFR", dtype=int, func=lambda: r.randrange(0, self.field))
+        self.agent_array("ERK", dtype=int, func=lambda: r.randrange(0, self.field))
+        self.agent_array("GATA6", dtype=int)
+        self.agent_array("NANOG", dtype=int, func=lambda: r.randrange(0, self.field))
+        self.agent_array("states", dtype=int)
+        self.agent_array("death_counters", dtype=int, func=lambda: r.randrange(0, self.death_thresh))
+        self.agent_array("diff_counters", dtype=int, func=lambda: r.randrange(0, self.pluri_to_diff))
+        self.agent_array("div_counters", dtype=int, func=lambda: r.randrange(0, self.pluri_div_thresh))
+        self.agent_array("fds_counters", dtype=int, func=lambda: r.randrange(0, self.fds_thresh))
+        self.agent_array("motility_forces", vector=3)
+        self.agent_array("jkr_forces", vector=3)
+        # self.agent_array("nearest_nanog", dtype=int, func=lambda: -1)
+        # self.agent_array("nearest_gata6", dtype=int, func=lambda: -1)
+        # self.agent_array( "nearest_diff", dtype=int, func=lambda: -1)
 
         # Update the number of cells marked with the "GATA6_high" cell type with alternative initial conditions.
-        self.cell_array("GATA6", cell_type="GATA6_high", func=lambda: r.randrange(1, self.field))
-        self.cell_array("NANOG", cell_type="GATA6_high", func=lambda: 0)
+        self.agent_array("GATA6", agent_type="GATA6_high", func=lambda: r.randrange(1, self.field))
+        self.agent_array("NANOG", agent_type="GATA6_high", func=lambda: 0)

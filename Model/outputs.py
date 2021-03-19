@@ -70,7 +70,7 @@ class Outputs:
                 grad_image = cv2.transpose(grad_image)
 
             # go through all of the cells
-            for index in range(self.number_cells):
+            for index in range(self.number_agents):
                 # get xy coordinates and the axis lengths
                 x, y = int(scale * self.locations[index][0]), int(scale * self.locations[index][1])
                 major = int(scale * self.radii[index])
@@ -131,11 +131,11 @@ class Outputs:
         if self.output_values:
             # if arrays is None automatically output all cell arrays
             if arrays is None:
-                cell_array_names = self.cell_array_names
+                agent_array_names = self.agent_array_names
 
             # otherwise only output arrays specified in list
             else:
-                cell_array_names = arrays
+                agent_array_names = arrays
 
             # get path and make sure directory exists
             directory_path = check_direct(self.paths.values)
@@ -151,7 +151,7 @@ class Outputs:
                 data = list()    # holds the cell arrays
 
                 # go through each of the cell arrays
-                for array_name in cell_array_names:
+                for array_name in agent_array_names:
                     # get the cell array
                     cell_array = self.__dict__[array_name]
 
@@ -288,7 +288,7 @@ class Outputs:
             memory = process.memory_info()[0] / 1024 ** 2
 
             # write the row with the corresponding values
-            columns = [self.current_step, self.number_cells, step_time, memory]
+            columns = [self.current_step, self.number_agents, step_time, memory]
             function_times = list(self.method_times.values())
             csv_object.writerow(columns + function_times)
 

@@ -37,7 +37,7 @@ def start():
         simulation = parameters.Simulation(paths, name)
 
         # add cell arrays to Simulation object and run the model
-        simulation.cell_initials()
+        simulation.agent_initials()
         simulation.steps()
 
     # ---------------- continuation of previous simulation ----------------

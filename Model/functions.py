@@ -20,13 +20,13 @@ class Functions:
 
         # prints the current step number and the number of cells
         print("Step: " + str(self.current_step))
-        print("Number of cells: " + str(self.number_cells))
+        print("Number of cells: " + str(self.number_agents))
 
     @record_time
     def cell_death(self):
         """ Marks the cell for removal if it meets the criteria for cell death.
         """
-        for index in range(self.number_cells):
+        for index in range(self.number_agents):
             # checks to see if cell is pluripotent
             if self.states[index] == 0:
 
@@ -40,14 +40,14 @@ class Functions:
 
                 # add cell to removal array if it meets the parameters
                 if self.death_counters[index] >= self.death_thresh:
-                    self.cells_to_remove = np.append(self.cells_to_remove, index)
+                    self.agents_to_remove = np.append(self.agents_to_remove, index)
 
     @record_time
     def cell_diff_surround(self):
         """ Simulates differentiated cells inducing the differentiation of a
             pluripotent cell.
         """
-        for index in range(self.number_cells):
+        for index in range(self.number_agents):
             # checks to see if cell is pluripotent and GATA6 low/medium
             if self.states[index] == 0 and self.GATA6[index] < self.NANOG[index]:
 
@@ -72,7 +72,7 @@ class Functions:
         """ Increases the cell division counter and if the cell meets criteria
             mark it for division.
         """
-        for index in range(self.number_cells):
+        for index in range(self.number_agents):
             # stochastically increase the division counter by either 0 or 1
             self.div_counters[index] += r.randint(0, 1)
 
@@ -80,7 +80,7 @@ class Functions:
             if self.states[index] == 0:
                 # check the division counter against the threshold, add to array if dividing
                 if self.div_counters[index] >= self.pluri_div_thresh:
-                    self.cells_to_divide = np.append(self.cells_to_divide, index)
+                    self.agents_to_divide = np.append(self.agents_to_divide, index)
 
             # differentiated cell
             else:
@@ -89,13 +89,13 @@ class Functions:
 
                     # check for contact inhibition since differentiated
                     if len(self.neighbor_graph.neighbors(index)) < 6:
-                        self.cells_to_divide = np.append(self.cells_to_divide, index)
+                        self.agents_to_divide = np.append(self.agents_to_divide, index)
 
     @record_time
     def cell_growth(self):
         """ Simulates the growth of a cell currently linear, radius-based growth.
         """
-        for index in range(self.number_cells):
+        for index in range(self.number_agents):
             # increase the cell radius based on the state and whether or not it has reached the max size
             if self.radii[index] < self.max_radius:
                 # pluripotent growth
@@ -114,7 +114,7 @@ class Functions:
         """ Stochastically updates the value for GATA6 and NANOG based on set
             probabilities.
         """
-        for index in range(self.number_cells):
+        for index in range(self.number_agents):
             # if falling under threshold, raise the GATA6 value to the highest
             if r.random() < self.GATA6_prob:
                 if self.GATA6[index] != self.field - 1:
@@ -129,7 +129,7 @@ class Functions:
     def cell_pathway(self):
         """ Updates finite dynamical system variables and extracellular conditions.
         """
-        for index in range(self.number_cells):
+        for index in range(self.number_agents):
             # add FGF4 to the gradient based on the cell's value of NANOG
             if self.NANOG[index] > 0:
                 # get the amount
@@ -210,7 +210,7 @@ class Functions:
         """ Based on GATA6 and NANOG values, stochastically increase differentiation
             counter and/or differentiate.
         """
-        for index in range(self.number_cells):
+        for index in range(self.number_agents):
             # if the cell is GATA6 high and pluripotent
             if self.GATA6[index] > self.NANOG[index] and self.states[index] == 0:
 
@@ -237,7 +237,7 @@ class Functions:
         motility_force = 0.000000002
 
         # loop over all of the cells
-        for index in range(self.number_cells):
+        for index in range(self.number_agents):
             # get the neighbors of the cell
             neighbors = self.neighbor_graph.neighbors(index)
 
@@ -364,7 +364,7 @@ class Functions:
         motility_force = 0.000000008
 
         # loop over all of the cells
-        for index in range(self.number_cells):
+        for index in range(self.number_agents):
             # see if the cell is moving or not
             if self.motion[index]:
                 # get the neighbors of the cell if the cell is actively moving
@@ -424,87 +424,6 @@ class Functions:
                     self.motion[index] = False
 
     @record_time
-    def get_neighbors(self, distance=0.00002):
-        """ For all cells, determines which cells fall within a fixed radius to
-            denote a neighbor then stores this information in a graph (uses a bin/
-            bucket sorting method).
-        """
-        # if a static variable has not been created to hold the maximum number of neighbors for a cell, create one
-        if not hasattr(Functions.get_neighbors, "max_neighbors"):
-            # begin with a low number of neighbors that can be revalued if the max neighbors exceeds this value
-            Functions.get_neighbors.max_neighbors = 5
-
-        # if a static variable has not been created to hold the maximum number of cells in a bin, create one
-        if not hasattr(Functions.get_neighbors, "max_cells"):
-            # begin with a low number of cells that can be revalued if the max number of cells exceeds this value
-            Functions.get_neighbors.max_cells = 5
-
-        # clear all of the edges in the neighbor graph
-        self.neighbor_graph.delete_edges(None)
-
-        # calls the function that generates an array of bins that generalize the cell locations in addition to a
-        # creating a helper array that assists the search method in counting cells for a particular bin
-        bins, bins_help, bin_locations, max_cells = self.assign_bins(distance, Functions.get_neighbors.max_cells)
-
-        # update the value of the max number of cells in a bin
-        Functions.get_neighbors.max_cells = max_cells
-
-        # this will run once if all edges are included in edge_holder, breaking the loop. if not, this will
-        # run a second time with an updated value for the number of predicted neighbors such that all edges are included
-        while True:
-            # create array used to hold edges, array to say if edge exists, and array to count the edges per cell
-            length = self.number_cells * Functions.get_neighbors.max_neighbors
-            edge_holder = np.zeros((length, 2), dtype=int)
-            if_edge = np.zeros(length, dtype=bool)
-            edge_count = np.zeros(self.number_cells, dtype=int)
-
-            # call the nvidia gpu version
-            if self.parallel:
-                # send the following as arrays to the gpu
-                bin_locations = cuda.to_device(bin_locations)
-                locations = cuda.to_device(self.locations)
-                bins = cuda.to_device(bins)
-                bins_help = cuda.to_device(bins_help)
-                distance = cuda.to_device(distance)
-                edge_holder = cuda.to_device(edge_holder)
-                if_edge = cuda.to_device(if_edge)
-                edge_count = cuda.to_device(edge_count)
-                max_neighbors = cuda.to_device(Functions.get_neighbors.max_neighbors)
-
-                # allocate threads and blocks for gpu memory "threads per block" and "blocks per grid"
-                tpb = 72
-                bpg = math.ceil(self.number_cells / tpb)
-
-                # call the cuda kernel with new gpu arrays
-                get_neighbors_gpu[bpg, tpb](bin_locations, locations, bins, bins_help, distance, edge_holder, if_edge,
-                                            edge_count, max_neighbors)
-
-                # return the only the following array(s) back from the gpu
-                edge_holder = edge_holder.copy_to_host()
-                if_edge = if_edge.copy_to_host()
-                edge_count = edge_count.copy_to_host()
-
-            # call the jit cpu version
-            else:
-                edge_holder, if_edge, edge_count = get_neighbors_cpu(self.number_cells, bin_locations, self.locations,
-                                                                     bins, bins_help, distance, edge_holder, if_edge,
-                                                                     edge_count, Functions.get_neighbors.max_neighbors)
-
-            # either break the loop if all neighbors were accounted for or revalue the maximum number of neighbors
-            # based on the output of the function call and double it for future calls
-            max_neighbors = np.amax(edge_count)
-            if Functions.get_neighbors.max_neighbors >= max_neighbors:
-                break
-            else:
-                Functions.get_neighbors.max_neighbors = max_neighbors * 2
-
-        # reduce the edges to only edges that actually exist
-        edge_holder = edge_holder[if_edge]
-
-        # add the edges to the neighbor graph
-        self.neighbor_graph.add_edges(edge_holder)
-
-    @record_time
     def nearest(self, distance=0.00002):
         """ Determines the nearest GATA6 high, NANOG high, and differentiated
             cell within a fixed radius for each cell.
@@ -541,7 +460,7 @@ class Functions:
 
             # allocate threads and blocks for gpu memory "threads per block" and "blocks per grid"
             tpb = 72
-            bpg = math.ceil(self.number_cells / tpb)
+            bpg = math.ceil(self.number_agents / tpb)
 
             # call the cuda kernel with new gpu arrays
             nearest_gpu[bpg, tpb](bin_locations, locations, bins, bins_help, distance, if_diff, gata6, nanog,
@@ -554,7 +473,7 @@ class Functions:
 
         # call the cpu version
         else:
-            gata6, nanog, diff = nearest_cpu(self.number_cells, bin_locations, self.locations, bins, bins_help,
+            gata6, nanog, diff = nearest_cpu(self.number_agents, bin_locations, self.locations, bins, bins_help,
                                              distance, if_diff, self.GATA6, self.NANOG, self.nearest_gata6,
                                              self.nearest_nanog, self.nearest_diff)
 
@@ -615,7 +534,7 @@ class Functions:
 
                 # allocate threads and blocks for gpu memory "threads per block" and "blocks per grid"
                 tpb = 72
-                bpg = math.ceil(self.number_cells / tpb)
+                bpg = math.ceil(self.number_agents / tpb)
 
                 # call the cuda kernel with new gpu arrays
                 apply_forces_gpu[bpg, tpb](jkr_forces, motility_forces, locations, radii, viscosity, size, move_dt)
@@ -625,7 +544,7 @@ class Functions:
 
             # call the cpu version
             else:
-                new_locations = apply_forces_cpu(self.number_cells, self.jkr_forces, motility_forces, self.locations,
+                new_locations = apply_forces_cpu(self.number_agents, self.jkr_forces, motility_forces, self.locations,
                                                  self.radii, viscosity, self.size, move_dt)
 
             # update the locations and reset the JKR forces back to zero
@@ -663,10 +582,10 @@ class Functions:
         # run a second time with an updated value for number of predicted neighbors such that all edges are included
         while True:
             # create array used to hold edges, array to say where edges are, and array to count the edges per cell
-            length = self.number_cells * Functions.jkr_neighbors.max_neighbors
+            length = self.number_agents * Functions.jkr_neighbors.max_neighbors
             edge_holder = np.zeros((length, 2), dtype=int)
             if_edge = np.zeros(length, dtype=bool)
-            edge_count = np.zeros(self.number_cells, dtype=int)
+            edge_count = np.zeros(self.number_agents, dtype=int)
 
             # send the following as arrays to the gpu
             if self.parallel:
@@ -683,7 +602,7 @@ class Functions:
 
                 # allocate threads and blocks for gpu memory "threads per block" and "blocks per grid"
                 tpb = 72
-                bpg = math.ceil(self.number_cells / tpb)
+                bpg = math.ceil(self.number_agents / tpb)
 
                 # call the cuda kernel with new gpu arrays
                 jkr_neighbors_gpu[bpg, tpb](bin_locations, locations, radii, bins, bins_help, edge_holder, if_edge,
@@ -696,7 +615,7 @@ class Functions:
 
             # call the jit cpu version
             else:
-                edge_holder, if_edge, edge_count = jkr_neighbors_cpu(self.number_cells, bin_locations, self.locations,
+                edge_holder, if_edge, edge_count = jkr_neighbors_cpu(self.number_agents, bin_locations, self.locations,
                                                                      self.radii, bins, bins_help, edge_holder, if_edge,
                                                                      edge_count, Functions.jkr_neighbors.max_neighbors)
 
@@ -808,8 +727,8 @@ class Functions:
             either all at once or in "groups".
         """
         # get the number of cells being added and removed
-        num_added = len(self.cells_to_divide)
-        num_removed = len(self.cells_to_remove)
+        num_added = len(self.agents_to_divide)
+        num_removed = len(self.agents_to_remove)
 
         # print how many cells are being added/removed during a given step
         print("Adding " + str(num_added) + " cells...")
@@ -817,9 +736,9 @@ class Functions:
 
         # -------------------- Division --------------------
         # extend each of the arrays by how many cells being added
-        for name in self.cell_array_names:
+        for name in self.agent_array_names:
             # copy the indices of the cell array for the dividing cells
-            copies = self.__dict__[name][self.cells_to_divide]
+            copies = self.__dict__[name][self.agents_to_divide]
 
             # if the instance variable is 1-dimensional
             if self.__dict__[name].ndim == 1:
@@ -834,8 +753,8 @@ class Functions:
         # go through each of the dividing cells
         for i in range(num_added):
             # get the indices of the mother cell and the daughter cell
-            mother_index = self.cells_to_divide[i]
-            daughter_index = self.number_cells
+            mother_index = self.agents_to_divide[i]
+            daughter_index = self.number_agents
 
             # move the cells to new positions
             division_position = self.random_vector() * (self.max_radius - self.min_radius)
@@ -851,7 +770,7 @@ class Functions:
                 self.__dict__[graph_name].add_vertex()
 
             # update the number of cells in the self
-            self.number_cells += 1
+            self.number_agents += 1
 
             # if not adding all of the cells at once
             if self.group != 0:
@@ -868,10 +787,10 @@ class Functions:
 
         # -------------------- Death --------------------
         # get the indices of the cells leaving the self
-        indices = self.cells_to_remove
+        indices = self.agents_to_remove
 
         # go through the cell arrays remove the indices
-        for name in self.cell_array_names:
+        for name in self.agent_array_names:
             # if the array is 1-dimensional
             if self.__dict__[name].ndim == 1:
                 self.__dict__[name] = np.delete(self.__dict__[name], indices)
@@ -882,46 +801,11 @@ class Functions:
         # automatically update the graphs and change the number of cells
         for graph_name in self.graph_names:
             self.__dict__[graph_name].delete_vertices(indices)
-        self.number_cells -= num_removed
+        self.number_agents -= num_removed
 
         # clear the arrays for the next step
-        self.cells_to_divide = np.array([], dtype=int)
-        self.cells_to_remove = np.array([], dtype=int)
-
-    def assign_bins(self, distance, max_cells):
-        """ Generalizes cell locations to a bin within lattice imposed on
-            the cell space, used for a parallel fixed-radius neighbor search.
-        """
-        # If there is enough space for all cells that should be in a bin, break out of the loop. If there isn't
-        # update the amount of needed space and put all the cells in bins. This will run once if the prediction
-        # of max neighbors suffices, twice if it isn't right the first time.
-        while True:
-            # calculate the size of the array used to represent the bins and the bins helper array, include extra bins
-            # for cells that may fall outside of the space
-            bins_help_size = np.ceil(self.size / distance).astype(int) + 3
-            bins_size = np.append(bins_help_size, max_cells)
-
-            # create the arrays for "bins" and "bins_help"
-            bins_help = np.zeros(bins_help_size, dtype=int)  # holds the number of cells currently in a bin
-            bins = np.empty(bins_size, dtype=int)  # holds the indices of cells in a bin
-
-            # generalize the cell locations to bin indices and offset by 1 to prevent missing cells that fall out of the
-            # self space
-            bin_locations = np.floor_divide(self.locations, distance).astype(int)
-            bin_locations += 1
-
-            # use jit function to speed up placement of cells
-            bins, bins_help = assign_bins_jit(self.number_cells, bin_locations, bins, bins_help)
-
-            # either break the loop if all cells were accounted for or revalue the maximum number of cells based on
-            # the output of the function call and double it future calls
-            new_max_cells = np.amax(bins_help)
-            if max_cells >= new_max_cells:
-                break
-            else:
-                max_cells = new_max_cells * 2  # double to prevent continual updating
-
-        return bins, bins_help, bin_locations, max_cells
+        self.agents_to_divide = np.array([], dtype=int)
+        self.agents_to_remove = np.array([], dtype=int)
 
     def get_concentration(self, gradient_name, index):
         """ Get the concentration of a gradient for a cell's
@@ -997,20 +881,3 @@ class Functions:
         # if some other mode
         else:
             raise Exception("Unknown mode for the adjust_morphogens() method")
-
-    def random_vector(self):
-        """ Computes a random vector on the unit sphere centered
-            at the origin.
-        """
-        # random angle on the cell
-        theta = r.random() * 2 * math.pi
-
-        # 2D vector: [x, y, 0]
-        if self.size[2] == 0:
-            return np.array([math.cos(theta), math.sin(theta), 0])
-
-        # 3D vector: [x, y, z]
-        else:
-            phi = r.random() * 2 * math.pi
-            radius = math.cos(phi)
-            return np.array([radius * math.cos(theta), radius * math.sin(theta), math.sin(phi)])
