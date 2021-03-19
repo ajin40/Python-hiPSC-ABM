@@ -8,7 +8,22 @@ import igraph
 from abc import ABC, abstractmethod
 from numba import jit, cuda, prange
 from functools import wraps
-from outputs import record_time
+
+
+def record_time(function):
+    """ A decorator used to time individual methods.
+    """
+    @wraps(function)
+    def wrap(simulation, *args, **kwargs):  # args and kwargs are for additional arguments
+        # get the start/end time and call the method
+        start = time.perf_counter()
+        function(simulation, *args, **kwargs)
+        end = time.perf_counter()
+
+        # add the time to the dictionary holding these times
+        simulation.method_times[function.__name__] = end - start
+
+    return wrap
 
 
 class Base(ABC):
@@ -1043,6 +1058,39 @@ def normal_vector(vector):
         return np.zeros(3)
     else:
         return vector / mag
+
+
+def check_direct(path):
+    """ Check directory for simulation outputs.
+    """
+    # if it doesn't exist make directory
+    if not os.path.isdir(path):
+        os.mkdir(path)
+
+    # optionally return the path
+    return path
+
+
+def sort_naturally(file_list):
+    """ Key for sorting the file list based on the step number.
+    """
+    return int(re.split('(\d+)', file_list)[-2])
+
+
+def progress_bar(progress, maximum):
+    """ Make a progress bar because progress bars are cool.
+    """
+    # length of the bar
+    length = 60
+
+    # calculate bar and percent
+    progress += 1    # start at 1 not 0
+    fill = int(length * progress / maximum)
+    bar = '#' * fill + '.' * (length - fill)
+    percent = int(100 * progress / maximum)
+
+    # output the progress bar
+    print(f"\r[{bar}] {percent}%", end="")
 
 
 def commandline_param(flag, dtype):
