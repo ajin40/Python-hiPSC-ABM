@@ -1,19 +1,19 @@
 import numpy as np
 import random as r
 import igraph
-import math
 
-from simulation import Base, template_param, commandline_param
+from basesimulation import BaseSimulation, template_param, commandline_param
 from cellmethods import CellMethods
 from celloutputs import CellOutputs
 
 
-class CellSimulation(Base, Functions, Outputs):
-    """ This object holds all of the important information about the simulation as it
-        runs. Variables can be specified either directly or through the template files.
+class CellSimulation(BaseSimulation, CellMethods, CellOutputs):
+    """ This class inherits a base Simulation class with additional methods from CellMethods
+        and CellOutputs. More instance variables are specified below either directly or
+        through the template files.
     """
     def __init__(self, paths, name):
-        Base.__init__(self, paths, name)   # initialize the Base object instance variables
+        BaseSimulation.__init__(self, paths, name)   # initialize the Simulation object instance variables
         """
         The following instance variables can be updated through template files located in the "templates"
         directory under the "Model" directory. The values must be specified in the .txt files as follows.

@@ -2,10 +2,10 @@ import numpy as np
 import cv2
 import math
 
-from simulation import record_time, check_direct
+from backend import record_time, check_direct
 
 
-class Outputs:
+class CellOutputs:
     """ The methods in this class are meant to be inherited by the Simulation
         class so that Simulation objects can called these methods. All output
         methods are placed here to organize the Simulation class a bit.

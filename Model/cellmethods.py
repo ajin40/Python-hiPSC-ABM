@@ -3,6 +3,7 @@ import random as r
 import math
 from numba import cuda
 
+from backend import *
 
 
 class CellMethods:
@@ -417,16 +418,16 @@ class CellMethods:
             cell within a fixed radius for each cell.
         """
         # if a static variable has not been created to hold the maximum number of cells in a bin, create one
-        if not hasattr(Functions.nearest, "max_cells"):
+        if not hasattr(CellMethods.nearest, "max_cells"):
             # begin with a low number of cells that can be revalued if the max number of cells exceeds this value
-            Functions.nearest.max_cells = 5
+            CellMethods.nearest.max_cells = 5
 
         # calls the function that generates an array of bins that generalize the cell locations in addition to a
         # creating a helper array that assists the search method in counting cells for a particular bin
-        bins, bins_help, bin_locations, max_cells = self.assign_bins(distance, Functions.nearest.max_cells)
+        bins, bins_help, bin_locations, max_cells = self.assign_bins(distance, CellMethods.nearest.max_cells)
 
         # update the value of the max number of cells in a bin
-        Functions.nearest.max_cells = max_cells
+        CellMethods.nearest.max_cells = max_cells
 
         # turn the following array into True/False instead of strings
         if_diff = self.states == 1
@@ -550,27 +551,27 @@ class CellMethods:
         jkr_distance = 2 * self.max_radius
 
         # if a static variable has not been created to hold the maximum number of neighbors for a cell, create one
-        if not hasattr(Functions.jkr_neighbors, "max_neighbors"):
+        if not hasattr(CellMethods.jkr_neighbors, "max_neighbors"):
             # begin with a low number of neighbors that can be revalued if the max neighbors exceeds this value
-            Functions.jkr_neighbors.max_neighbors = 5
+            CellMethods.jkr_neighbors.max_neighbors = 5
 
         # if a static variable has not been created to hold the maximum number of cells in a bin, create one
-        if not hasattr(Functions.jkr_neighbors, "max_cells"):
+        if not hasattr(CellMethods.jkr_neighbors, "max_cells"):
             # begin with a low number of cells that can be revalued if the max number of cells exceeds this value
-            Functions.jkr_neighbors.max_cells = 5
+            CellMethods.jkr_neighbors.max_cells = 5
 
         # this will run once if all edges are included in edge_holder, breaking the loop. if not, this will
         # run a second time with an updated value for the number of predicted neighbors such that all edges are included
-        bins, bins_help, bin_locations, max_cells = self.assign_bins(jkr_distance, Functions.jkr_neighbors.max_cells)
+        bins, bins_help, bin_locations, max_cells = self.assign_bins(jkr_distance, CellMethods.jkr_neighbors.max_cells)
 
         # update the value of the max number of cells in a bin
-        Functions.jkr_neighbors.max_cells = max_cells
+        CellMethods.jkr_neighbors.max_cells = max_cells
 
         # this will run once and if all edges are included in edge_holder, the loop will break. if not this will
         # run a second time with an updated value for number of predicted neighbors such that all edges are included
         while True:
             # create array used to hold edges, array to say where edges are, and array to count the edges per cell
-            length = self.number_agents * Functions.jkr_neighbors.max_neighbors
+            length = self.number_agents * CellMethods.jkr_neighbors.max_neighbors
             edge_holder = np.zeros((length, 2), dtype=int)
             if_edge = np.zeros(length, dtype=bool)
             edge_count = np.zeros(self.number_agents, dtype=int)
@@ -586,7 +587,7 @@ class CellMethods:
                 edge_holder = cuda.to_device(edge_holder)
                 if_edge = cuda.to_device(if_edge)
                 edge_count = cuda.to_device(edge_count)
-                max_neighbors = cuda.to_device(Functions.jkr_neighbors.max_neighbors)
+                max_neighbors = cuda.to_device(CellMethods.jkr_neighbors.max_neighbors)
 
                 # allocate threads and blocks for gpu memory "threads per block" and "blocks per grid"
                 tpb = 72
@@ -605,15 +606,15 @@ class CellMethods:
             else:
                 edge_holder, if_edge, edge_count = jkr_neighbors_cpu(self.number_agents, bin_locations, self.locations,
                                                                      self.radii, bins, bins_help, edge_holder, if_edge,
-                                                                     edge_count, Functions.jkr_neighbors.max_neighbors)
+                                                                     edge_count, CellMethods.jkr_neighbors.max_neighbors)
 
             # either break the loop if all neighbors were accounted for or revalue the maximum number of neighbors
             # based on the output of the function call and double it
             max_neighbors = np.amax(edge_count)
-            if Functions.jkr_neighbors.max_neighbors >= max_neighbors:
+            if CellMethods.jkr_neighbors.max_neighbors >= max_neighbors:
                 break
             else:
-                Functions.jkr_neighbors.max_neighbors = max_neighbors * 2
+                CellMethods.jkr_neighbors.max_neighbors = max_neighbors * 2
 
         # reduce the edges to only nonzero edges
         edge_holder = edge_holder[if_edge]

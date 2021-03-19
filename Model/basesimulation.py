@@ -2,21 +2,19 @@ import numpy as np
 import random as r
 import math
 import time
-import sys
 import igraph
 import os
 import csv
 import cv2
 import pickle
 import psutil
-import re
-
 from abc import ABC, abstractmethod
-from numba import jit, cuda, prange
-from functools import wraps
+from numba import cuda
+
+from backend import *
 
 
-class Simulation(ABC):
+class BaseSimulation(ABC):
     """ This abstract class is the base for the Simulation object. It's used to
         make sure that the Simulation object has certain attributes.
     """
@@ -188,30 +186,30 @@ class Simulation(ABC):
             bucket sorting method).
         """
         # if a static variable has not been created to hold the maximum number of neighbors for a cell, create one
-        if not hasattr(Base.get_neighbors, "max_neighbors"):
+        if not hasattr(BaseSimulation.get_neighbors, "max_neighbors"):
             # begin with a low number of neighbors that can be revalued if the max neighbors exceeds this value
-            Base.get_neighbors.max_neighbors = 5
+            BaseSimulation.get_neighbors.max_neighbors = 5
 
         # if a static variable has not been created to hold the maximum number of cells in a bin, create one
-        if not hasattr(Base.get_neighbors, "max_cells"):
+        if not hasattr(BaseSimulation.get_neighbors, "max_cells"):
             # begin with a low number of cells that can be revalued if the max number of cells exceeds this value
-            Base.get_neighbors.max_cells = 5
+            BaseSimulation.get_neighbors.max_cells = 5
 
         # clear all of the edges in the neighbor graph
         self.neighbor_graph.delete_edges(None)
 
         # calls the function that generates an array of bins that generalize the cell locations in addition to a
         # creating a helper array that assists the search method in counting cells for a particular bin
-        bins, bins_help, bin_locations, max_cells = self.assign_bins(distance, Base.get_neighbors.max_cells)
+        bins, bins_help, bin_locations, max_cells = self.assign_bins(distance, BaseSimulation.get_neighbors.max_cells)
 
         # update the value of the max number of cells in a bin
-        Base.get_neighbors.max_cells = max_cells
+        BaseSimulation.get_neighbors.max_cells = max_cells
 
         # this will run once if all edges are included in edge_holder, breaking the loop. if not, this will
         # run a second time with an updated value for the number of predicted neighbors such that all edges are included
         while True:
             # create array used to hold edges, array to say if edge exists, and array to count the edges per cell
-            length = self.number_agents * Base.get_neighbors.max_neighbors
+            length = self.number_agents * BaseSimulation.get_neighbors.max_neighbors
             edge_holder = np.zeros((length, 2), dtype=int)
             if_edge = np.zeros(length, dtype=bool)
             edge_count = np.zeros(self.number_agents, dtype=int)
@@ -227,7 +225,7 @@ class Simulation(ABC):
                 edge_holder = cuda.to_device(edge_holder)
                 if_edge = cuda.to_device(if_edge)
                 edge_count = cuda.to_device(edge_count)
-                max_neighbors = cuda.to_device(Base.get_neighbors.max_neighbors)
+                max_neighbors = cuda.to_device(BaseSimulation.get_neighbors.max_neighbors)
 
                 # allocate threads and blocks for gpu memory "threads per block" and "blocks per grid"
                 tpb = 72
@@ -246,15 +244,16 @@ class Simulation(ABC):
             else:
                 edge_holder, if_edge, edge_count = get_neighbors_cpu(self.number_agents, bin_locations, self.locations,
                                                                      bins, bins_help, distance, edge_holder, if_edge,
-                                                                     edge_count, Base.get_neighbors.max_neighbors)
+                                                                     edge_count,
+                                                                     BaseSimulation.get_neighbors.max_neighbors)
 
             # either break the loop if all neighbors were accounted for or revalue the maximum number of neighbors
             # based on the output of the function call and double it for future calls
             max_neighbors = np.amax(edge_count)
-            if Base.get_neighbors.max_neighbors >= max_neighbors:
+            if BaseSimulation.get_neighbors.max_neighbors >= max_neighbors:
                 break
             else:
-                Base.get_neighbors.max_neighbors = max_neighbors * 2
+                BaseSimulation.get_neighbors.max_neighbors = max_neighbors * 2
 
         # reduce the edges to only edges that actually exist
         edge_holder = edge_holder[if_edge]
