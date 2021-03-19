@@ -6,9 +6,8 @@ from backend import record_time, check_direct
 
 
 class CellOutputs:
-    """ The methods in this class are meant to be inherited by the Simulation
-        class so that Simulation objects can called these methods. All output
-        methods are placed here to organize the Simulation class a bit.
+    """ The methods in this class are meant to be inherited by the CellSimulation
+        class so that CellSimulation objects can call these methods.
     """
     @record_time
     def step_image(self, background=(0, 0, 0), origin_bottom=True, fgf4_gradient=False):

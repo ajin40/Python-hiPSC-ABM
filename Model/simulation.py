@@ -15,8 +15,8 @@ from backend import *
 
 
 class Simulation(ABC):
-    """ This abstract class is the base for the Simulation object. It's used to
-        make sure that the Simulation object has certain attributes.
+    """ This abstract class is the base for the CellSimulation object. It's used to
+        make sure that the CellSimulation object has necessary attributes.
     """
     def __init__(self, paths, name):
         self.paths = paths    # the Paths object which holds any output paths

@@ -2,12 +2,13 @@ import numpy as np
 import random as r
 import igraph
 
-from simulation import Simulation, template_param, commandline_param
+from backend import template_param, commandline_param
+from simulation import Simulation
 from cellmethods import CellMethods
 from celloutputs import CellOutputs
 
 
-class CellSimulation(Simulation, CellMethods, CellOutputs):
+class CellSimulation(CellMethods, CellOutputs, Simulation):
     """ This class inherits a base Simulation class with additional methods from CellMethods
         and CellOutputs. More instance variables are specified below either directly or
         through the template files.

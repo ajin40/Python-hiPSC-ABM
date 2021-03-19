@@ -7,22 +7,6 @@ import os
 import sys
 
 
-def record_time(function):
-    """ A decorator used to time individual methods.
-    """
-    @wraps(function)
-    def wrap(simulation, *args, **kwargs):  # args and kwargs are for additional arguments
-        # get the start/end time and call the method
-        start = time.perf_counter()
-        function(simulation, *args, **kwargs)
-        end = time.perf_counter()
-
-        # add the time to the dictionary holding these times
-        simulation.method_times[function.__name__] = end - start
-
-    return wrap
-
-
 class Paths:
     """ Hold any important paths for a particular simulation. For a continued
         simulation, this will update the Paths object in case the path(s) change.
@@ -677,6 +661,22 @@ def normal_vector(vector):
         return np.zeros(3)
     else:
         return vector / mag
+
+
+def record_time(function):
+    """ A decorator used to time individual methods.
+    """
+    @wraps(function)
+    def wrap(simulation, *args, **kwargs):  # args and kwargs are for additional arguments
+        # get the start/end time and call the method
+        start = time.perf_counter()
+        function(simulation, *args, **kwargs)
+        end = time.perf_counter()
+
+        # add the time to the dictionary holding these times
+        simulation.method_times[function.__name__] = end - start
+
+    return wrap
 
 
 def commandline_param(flag, dtype):

@@ -7,9 +7,8 @@ from backend import *
 
 
 class CellMethods:
-    """ The methods in this class are meant to be inherited by the Simulation
-        class so that Simulation objects can called these methods. Methods that
-        modify the cell values and the space can be placed here.
+    """ The methods in this class are meant to be inherited by the CellSimulation
+        class so that CellSimulation objects can call these methods.
     """
     @record_time
     def cell_death(self):
