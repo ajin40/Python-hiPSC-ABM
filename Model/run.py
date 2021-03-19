@@ -25,7 +25,7 @@ def start():
 
     # create path to simulation directory and make Paths object for storing important paths
     main_path = output_path + name + separator
-    paths = outputs.Paths(name, main_path, templates_path, separator)
+    paths = backend.Paths(name, main_path, templates_path, separator)
 
     # -------------------------- new simulation ---------------------------
     if mode == 0:

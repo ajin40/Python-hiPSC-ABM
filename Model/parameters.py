@@ -85,12 +85,9 @@ class Simulation(Functions, Outputs, Base):
         self.pluri_growth = (self.max_radius - self.min_radius) / self.pluri_div_thresh
         self.diff_growth = (self.max_radius - self.min_radius) / self.diff_div_thresh
 
-        # the neighbor graph holds all nearby cells within a fixed radius, and the JKR graph is used for
-        # storing adhesive bonds between cells
+        # create graph with instance variable jkr_graph for holding adhesions between contacting cells
         self.jkr_graph = igraph.Graph()
-
-        # add the names of the graphs below for automatic cell addition and removal
-        self.graph_names = ["neighbor_graph", "jkr_graph"]
+        self.graph_names.append("jkr_graph")
 
         # the spatial resolution of the space, the diffusion constant for the molecule gradients, the radius of
         # search for diffusion points, and the max concentration at a diffusion point

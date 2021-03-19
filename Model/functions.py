@@ -4,6 +4,7 @@ import math
 from numba import cuda
 
 from backend import *
+from outputs import record_time
 
 
 class Functions:
@@ -11,17 +12,6 @@ class Functions:
         class so that Simulation objects can called these methods. Methods that
         modify the cell values and the space can be placed here.
     """
-    def info(self):
-        """ Records the beginning of the step in real time and
-            print out info about the simulation.
-        """
-        # records when the step begins, used for measuring efficiency
-        self.step_start = time.perf_counter()  # time.perf_counter() is more accurate than time.time()
-
-        # prints the current step number and the number of cells
-        print("Step: " + str(self.current_step))
-        print("Number of cells: " + str(self.number_agents))
-
     @record_time
     def cell_death(self):
         """ Marks the cell for removal if it meets the criteria for cell death.

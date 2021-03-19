@@ -8,23 +8,7 @@ import igraph
 from abc import ABC, abstractmethod
 from numba import jit, cuda, prange
 from functools import wraps
-
-
-def record_time(function):
-    """ A decorator used to time individual methods.
-    """
-
-    @wraps(function)
-    def wrap(simulation, *args, **kwargs):  # args and kwargs are for additional arguments
-        # get the start/end time and call the method
-        start = time.perf_counter()
-        function(simulation, *args, **kwargs)
-        end = time.perf_counter()
-
-        # add the time to the dictionary holding these times
-        simulation.method_times[function.__name__] = end - start
-
-    return wrap
+from outputs import record_time
 
 
 class Base(ABC):
@@ -41,6 +25,7 @@ class Base(ABC):
 
         # hold the neighbors within a fixed radius of all cells with a graph
         self.neighbor_graph = igraph.Graph()
+        self.graph_names = ["neighbor_graph"]
 
         # arrays to store the agents set to divide or to be removed
         self.agents_to_divide = np.array([], dtype=int)
@@ -144,6 +129,17 @@ class Base(ABC):
             if func is not None:
                 for i in range(begin, end):
                     self.__dict__[array_name][i] = func()
+
+    def info(self):
+        """ Records the beginning of the step in real time and
+            print out info about the simulation.
+        """
+        # records when the step begins, used for measuring efficiency
+        self.step_start = time.perf_counter()  # time.perf_counter() is more accurate than time.time()
+
+        # prints the current step number and the number of cells
+        print("Step: " + str(self.current_step))
+        print("Number of cells: " + str(self.number_agents))
 
     def assign_bins(self, distance, max_cells):
         """ Generalizes cell locations to a bin within lattice imposed on
@@ -277,6 +273,170 @@ class Base(ABC):
             phi = r.random() * 2 * math.pi
             radius = math.cos(phi)
             return np.array([radius * math.cos(theta), radius * math.sin(theta), math.sin(phi)])
+
+    @record_time
+    def temp(self):
+        """ Pickle the current state of the Simulation object which can be used
+            to continue a past simulation without losing information.
+        """
+        # get file name, use f-string
+        file_name = f"{self.name}_temp.pkl"
+
+        # open the file in binary mode
+        with open(self.paths.main + file_name, "wb") as file:
+            # use the highest protocol: -1 for pickling the instance
+            pickle.dump(self, file, -1)
+
+    @record_time
+    def step_values(self, arrays=None):
+        """ Outputs a CSV file with value from the cell arrays with each
+            row corresponding to a particular cell index.
+
+            arrays -> (list) If arrays is None, all cell arrays are outputted otherwise only the
+                cell arrays named in the list will be outputted.
+        """
+        # only continue if outputting cell values
+        if self.output_values:
+            # if arrays is None automatically output all cell arrays
+            if arrays is None:
+                agent_array_names = self.agent_array_names
+
+            # otherwise only output arrays specified in list
+            else:
+                agent_array_names = arrays
+
+            # get path and make sure directory exists
+            directory_path = check_direct(self.paths.values)
+
+            # get file name, use f-string
+            file_name = f"{self.name}_values_{self.current_step}.csv"
+
+            # open the file
+            with open(directory_path + file_name, "w", newline="") as file:
+                # create CSV object and the following lists
+                csv_file = csv.writer(file)
+                header = list()    # header of the CSV (first row)
+                data = list()    # holds the cell arrays
+
+                # go through each of the cell arrays
+                for array_name in agent_array_names:
+                    # get the cell array
+                    cell_array = self.__dict__[array_name]
+
+                    # if the array is one dimensional
+                    if cell_array.ndim == 1:
+                        header.append(array_name)    # add the array name to the header
+                        cell_array = np.reshape(cell_array, (-1, 1))  # resize array from 1D to 2D
+
+                    # if the array is not one dimensional
+                    else:
+                        # create name for column based on slice of array ex. locations[0], locations[1], locations[2]
+                        for i in range(cell_array.shape[1]):
+                            header.append(array_name + "[" + str(i) + "]")
+
+                    # add the array to the data holder
+                    data.append(cell_array)
+
+                # write header as the first row of the CSV
+                csv_file.writerow(header)
+
+                # stack the arrays to create rows for the CSV file and save to CSV
+                data = np.hstack(data)
+                csv_file.writerows(data)
+
+    def data(self):
+        """ Creates/adds a new line to the running CSV for data about the simulation
+            such as memory, step time, number of cells and method profiling.
+        """
+        # get file name, use f-string
+        file_name = f"{self.name}_data.csv"
+
+        # open the file
+        with open(self.paths.main + file_name, "a", newline="") as file_object:
+            # create CSV object
+            csv_object = csv.writer(file_object)
+
+            # create header if this is the beginning of a new simulation
+            if self.current_step == 1:
+                # header names
+                header = ["Step Number", "Number Cells", "Step Time", "Memory (MB)"]
+
+                # header with all the names of the functions with the "record_time" decorator
+                functions_header = list(self.method_times.keys())
+
+                # merge the headers together and write the row to the CSV
+                csv_object.writerow(header + functions_header)
+
+            # calculate the total step time and get memory of current python process in megabytes
+            step_time = time.perf_counter() - self.step_start
+            process = psutil.Process(os.getpid())
+            memory = process.memory_info()[0] / 1024 ** 2
+
+            # write the row with the corresponding values
+            columns = [self.current_step, self.number_agents, step_time, memory]
+            function_times = list(self.method_times.values())
+            csv_object.writerow(columns + function_times)
+
+    def create_video(self):
+        """ Write all of the step images from a simulation to video file in the
+            main simulation directory.
+        """
+        # continue if there is an image directory
+        if os.path.isdir(self.paths.images):
+            # get all of the images in the directory and the number of images
+            file_list = [file for file in os.listdir(self.paths.images) if file.endswith(".png")]
+            image_count = len(file_list)
+
+            # only continue if image directory has images in it
+            if image_count > 0:
+                print("\nCreating video...")
+
+                # sort the file list so "2, 20, 3, 31..." becomes "2, 3, ..., 20, ..., 31"
+                file_list = sorted(file_list, key=sort_naturally)
+
+                # sample the first image to get the dimensions of the image, and then scale the image
+                size = cv2.imread(self.paths.images + file_list[0]).shape[0:2]
+                scale = self.video_quality / size[1]
+                new_size = (self.video_quality, int(scale * size[0]))
+
+                # get the video file path, use f-string
+                file_name = f"{self.name}_video.mp4"
+                video_path = self.paths.main + file_name
+
+                # create the file object with parameters from simulation and above
+                codec = cv2.VideoWriter_fourcc(*"mp4v")
+                video_object = cv2.VideoWriter(video_path, codec, self.fps, new_size)
+
+                # go through sorted image list, reading and writing each image to the video object
+                for i in range(image_count):
+                    image = cv2.imread(self.paths.images + file_list[i])    # read image from directory
+                    if size != new_size:
+                        image = cv2.resize(image, new_size, interpolation=cv2.INTER_AREA)    # scale down if necessary
+                    video_object.write(image)    # write to video
+                    progress_bar(i, image_count)    # show progress
+
+                # close the video file
+                video_object.release()
+
+        # print end statement...super important...don't remove or model won't run!
+        print("\n\nThe simulation is finished. May the force be with you.\n")
+
+
+class Paths:
+    """ Hold any important paths for a particular simulation. For a continued
+        simulation, this will update the Paths object in case the path(s) change.
+    """
+    def __init__(self, name, main, templates, separator):
+        self.main = main    # the path to the main directory for this simulation
+        self.templates = templates    # the path to the .txt template directory
+        self.separator = separator    # file separator
+
+        # these directories are sub-directories under the main simulation directory
+        general = main + name
+        self.images = general + "_images" + separator    # the images output directory
+        self.values = general + "_values" + separator    # the cell array values output directory
+        self.gradients = general + "_gradients" + separator    # the gradients output directory
+        self.tda = general + "_tda" + separator    # the topological data analysis output directory
 
 
 @jit(nopython=True, cache=True)
@@ -883,22 +1043,6 @@ def normal_vector(vector):
         return np.zeros(3)
     else:
         return vector / mag
-
-
-# def record_time(function):
-#     """ A decorator used to time individual methods.
-#     """
-#     @wraps(function)
-#     def wrap(simulation, *args, **kwargs):    # args and kwargs are for additional arguments
-#         # get the start/end time and call the method
-#         start = time.perf_counter()
-#         function(simulation, *args, **kwargs)
-#         end = time.perf_counter()
-#
-#         # add the time to the dictionary holding these times
-#         simulation.method_times[function.__name__] = end - start
-#
-#     return wrap
 
 
 def commandline_param(flag, dtype):
