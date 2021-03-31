@@ -12,17 +12,21 @@ class Paths:
     """ Hold any important paths for a particular simulation. For a continued
         simulation, this will update the Paths object in case the path(s) change.
     """
-    def __init__(self, name, main, templates, separator):
-        self.main = main    # the path to the main directory for this simulation
-        self.templates = templates    # the path to the .txt template directory
-        self.separator = separator    # file separator
+    def __init__(self, name, output_path):
+        # how simulation name and file separator
+        self.name = name
+        self.separator = os.path.sep
+
+        # some paths
+        self.main_path = output_path + name + self.separator   # the path to the main directory for this simulation
+        self.templates = os.path.abspath("templates") + self.separator   # the path to the .txt template directory
 
         # these directories are sub-directories under the main simulation directory
-        general = main + name
-        self.images = general + "_images" + separator    # the images output directory
-        self.values = general + "_values" + separator    # the cell array values output directory
-        self.gradients = general + "_gradients" + separator    # the gradients output directory
-        self.tda = general + "_tda" + separator    # the topological data analysis output directory
+        general = self.main_path + self.name
+        self.images = general + "_images" + self.separator   # the images output directory
+        self.values = general + "_values" + self.separator   # the cell array values output directory
+        self.gradients = general + "_gradients" + self.separator    # the gradients output directory
+        self.tda = general + "_tda" + self.separator    # the topological data analysis output directory
 
 
 @jit(nopython=True, cache=True)

@@ -10,30 +10,24 @@ from cellsimulation import CellSimulation
 
 
 def start():
-    """ Based on the desired mode in which the model is to be
-        run, this start and setup the model.
+    """ Based on the desired mode, this will setup and run
+        a simulation.
     """
-    # get the path separator and the absolute path to the template file directory
-    separator = os.path.sep
-    templates_path = os.path.abspath("templates") + separator
+    # get the path to the directory where simulations are outputted and the name/mode/final_step for the simulation
+    output_path = output_dir()
+    name, mode, final_step = start_params(output_path, possible_modes=[0, 1, 2, 3])
 
-    # get the path to the directory where simulations are outputted and the name/mode for the simulation
-    output_path = output_dir(separator)
-    possible_modes = [0, 1, 2, 3]    # hold possible model modes
-    name, mode, final_step = start_params(output_path, separator, possible_modes)
-
-    # create path to simulation directory and make Paths object for storing important paths
-    main_path = output_path + name + separator
-    paths = Paths(name, main_path, templates_path, separator)
+    # create Paths object for storing important paths and name of simulation
+    paths = Paths(name, output_path)
 
     # -------------------------- new simulation ---------------------------
     if mode == 0:
         # copy model files to simulation output, ignore pycache files
-        copy_name = main_path + name + "_copy"
-        shutil.copytree(os.getcwd(), copy_name, ignore=shutil.ignore_patterns("__pycache__"))
+        copy_path = paths.main_path + name + "_copy"
+        shutil.copytree(os.getcwd(), copy_path, ignore=shutil.ignore_patterns("__pycache__"))
 
         # create Simulation object
-        sim = CellSimulation(paths, name)
+        sim = CellSimulation(paths)
 
         # add cell arrays to Simulation object and run the model
         sim.agent_initials()
@@ -41,14 +35,14 @@ def start():
 
     # ---------------- continuation of previous simulation ----------------
     elif mode == 1:
-        # load previous Simulation object instead of creating new Simulation object
-        file_name = main_path + name + "_temp" + ".pkl"
+        # load previous CellSimulation object from pickled file
+        file_name = paths.main_path + name + "_temp.pkl"
         with open(file_name, "rb") as file:
             sim = pickle.load(file)
 
-        # update the following instance variables
+        # update the following
         sim.paths = paths  # change paths object for cross platform compatibility
-        sim.beginning_step = simulation.current_step + 1    # start one step later
+        sim.beginning_step = sim.current_step + 1    # update starting step
         sim.end_step = final_step    # update final step
 
         # run the model
@@ -56,8 +50,8 @@ def start():
 
     # ------------------------- images to video ---------------------------
     elif mode == 2:
-        # create Simulation object used to get imaging and path information
-        sim = CellSimulation(paths, name)
+        # create CellSimulation object used to get imaging and path information
+        sim = CellSimulation(paths)
 
         # make the video
         sim.create_video()
@@ -66,17 +60,20 @@ def start():
     elif mode == 3:
         # print statement and remove the separator of the path to the simulation directory
         print('Compressing "' + name + '" simulation...')
-        simulation_dir = main_path[:-1]
+        simulation_dir = paths.main_path[:-1]
 
         # zip a copy of the directory and save it to the output directory
-        shutil.make_archive(simulation_dir, 'zip', root_dir=output_path, base_dir=str(name))
+        shutil.make_archive(simulation_dir, 'zip', root_dir=output_path, base_dir=name)
         print("Done!")
 
 
-def output_dir(separator):
+def output_dir():
     """ Get the path to the output directory. If this directory
         does not exist yet make it and update the paths.txt file.
     """
+    # file separator
+    separator = os.path.sep
+
     # read the paths.txt file which should be the path to the output directory
     with open("paths.txt", "r") as file:
         lines = file.readlines()
@@ -113,10 +110,17 @@ def output_dir(separator):
     return output_path
 
 
-def start_params(output_path, separator, possible_modes):
+def start_params(output_path, possible_modes):
     """ This function will get the name and mode for the simulation
         either from the command line or a text-based GUI.
     """
+    # file separator
+    separator = os.path.sep
+
+    # there should be at least these modes
+    if possible_modes is None:
+        possible_modes = [0, 1, 2, 3]
+
     # try to get the name and mode from the command line
     name = commandline_param("-n", str)
     mode = commandline_param("-m", int)

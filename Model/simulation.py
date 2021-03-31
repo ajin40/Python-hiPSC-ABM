@@ -18,9 +18,8 @@ class Simulation(ABC):
     """ This abstract class is the base for the CellSimulation object. It's used to
         make sure that any subclasses have necessary simulation attributes.
     """
-    def __init__(self, paths, name):
+    def __init__(self, paths):
         self.paths = paths    # the Paths object which holds any output paths
-        self.name = name    # the name of the simulation
 
         # the running number of agents and the step to begin at (altered by continuation mode)
         self.number_agents = 0
@@ -283,10 +282,10 @@ class Simulation(ABC):
             to continue a past simulation without losing information.
         """
         # get file name, use f-string
-        file_name = f"{self.name}_temp.pkl"
+        file_name = f"{self.paths.name}_temp.pkl"
 
         # open the file in binary mode
-        with open(self.paths.main + file_name, "wb") as file:
+        with open(self.paths.main_path + file_name, "wb") as file:
             # use the highest protocol: -1 for pickling the instance
             pickle.dump(self, file, -1)
 
@@ -312,7 +311,7 @@ class Simulation(ABC):
             directory_path = check_direct(self.paths.values)
 
             # get file name, use f-string
-            file_name = f"{self.name}_values_{self.current_step}.csv"
+            file_name = f"{self.paths.name}_values_{self.current_step}.csv"
 
             # open the file
             with open(directory_path + file_name, "w", newline="") as file:
@@ -352,10 +351,10 @@ class Simulation(ABC):
             such as memory, step time, number of agents and method profiling.
         """
         # get file name, use f-string
-        file_name = f"{self.name}_data.csv"
+        file_name = f"{self.paths.name}_data.csv"
 
         # open the file
-        with open(self.paths.main + file_name, "a", newline="") as file_object:
+        with open(self.paths.main_path + file_name, "a", newline="") as file_object:
             # create CSV object
             csv_object = csv.writer(file_object)
 
@@ -403,8 +402,8 @@ class Simulation(ABC):
                 new_size = (self.video_quality, int(scale * size[0]))
 
                 # get the video file path, use f-string
-                file_name = f"{self.name}_video.mp4"
-                video_path = self.paths.main + file_name
+                file_name = f"{self.paths.name}_video.mp4"
+                video_path = self.paths.main_path + file_name
 
                 # create the file object with parameters from simulation and above
                 codec = cv2.VideoWriter_fourcc(*"mp4v")

@@ -13,8 +13,8 @@ class CellSimulation(CellMethods, CellOutputs, Simulation):
         and CellOutputs. More instance variables are specified below either directly or
         through the template files.
     """
-    def __init__(self, paths, name):
-        Simulation.__init__(self, paths, name)   # initialize the Simulation object instance variables
+    def __init__(self, paths):
+        Simulation.__init__(self, paths)   # initialize the Simulation object instance variables
         """
         The following instance variables can be updated through template files located in the "templates"
         directory under the "Model" directory. The values must be specified in the .txt files as follows.
