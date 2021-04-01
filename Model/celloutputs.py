@@ -91,7 +91,7 @@ class CellOutputs:
 
             # save the image as a PNG
             image_compression = 4    # image compression of png (0: no compression, ..., 9: max compression)
-            file_name = f"{self.paths.name}_image_{self.current_step}.png"
+            file_name = f"{self.name}_image_{self.current_step}.png"
             cv2.imwrite(directory_path + file_name, image, [cv2.IMWRITE_PNG_COMPRESSION, image_compression])
 
     @record_time
@@ -113,7 +113,7 @@ class CellOutputs:
                 grad_direct = check_direct(directory_path + separator + gradient_name + separator)
 
                 # get file name, use f-string
-                file_name = f"{self.paths.name}_{gradient_name}_{self.current_step}.csv"
+                file_name = f"{self.name}_{gradient_name}_{self.current_step}.csv"
 
                 # convert gradient from 3D to 2D array and save it as CSV
                 gradient = self.__dict__[gradient_name][:, :, 0]
@@ -150,15 +150,15 @@ class CellOutputs:
 
             # save all cell locations to a CSV
             all_path = check_direct(directory_path + separator + "all" + separator)
-            file_name = f"{self.paths.name}_tda_all_{self.current_step}.csv"
+            file_name = f"{self.name}_tda_all_{self.current_step}.csv"
             np.savetxt(all_path + file_name, all_locations, delimiter=",")
 
             # save only GATA6 high cell locations to CSV
             red_path = check_direct(directory_path + separator + "red" + separator)
-            file_name = f"{self.paths.name}_tda_red_{self.current_step}.csv"
+            file_name = f"{self.name}_tda_red_{self.current_step}.csv"
             np.savetxt(red_path + file_name, red_locations, delimiter=",")
 
             # save only non-GATA6 high, pluripotent cells to a CSV
             green_path = check_direct(directory_path + separator + "green" + separator)
-            file_name = f"{self.paths.name}_tda_green_{self.current_step}.csv"
+            file_name = f"{self.name}_tda_green_{self.current_step}.csv"
             np.savetxt(green_path + file_name, green_locations, delimiter=",")

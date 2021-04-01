@@ -24,7 +24,7 @@ class Paths:
         self.templates = os.path.abspath("templates") + self.separator   # the path to the .txt template directory
 
         # these directories are sub-directories under the main simulation directory
-        general = self.main_path + self.name
+        general = self.main_path + name
         self.images = general + "_images" + self.separator   # the images output directory
         self.values = general + "_values" + self.separator   # the cell array values output directory
         self.gradients = general + "_gradients" + self.separator    # the gradients output directory

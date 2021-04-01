@@ -13,8 +13,8 @@ class CellSimulation(CellMethods, CellOutputs, Simulation):
         and CellOutputs. More instance variables are specified below either directly or
         through the template files.
     """
-    def __init__(self, paths):
-        Simulation.__init__(self, paths)   # initialize the Simulation object instance variables
+    def __init__(self, paths, name):
+        Simulation.__init__(self, paths, name)   # initialize the Simulation object instance variables
         """
         The following instance variables can be updated through template files located in the "templates"
         directory under the "Model" directory. The values must be specified in the .txt files as follows.
@@ -92,9 +92,10 @@ class CellSimulation(CellMethods, CellOutputs, Simulation):
 
         # the spatial resolution of the space, the diffusion constant for the molecule gradients, the radius of
         # search for diffusion points, and the max concentration at a diffusion point
-        self.spat_res = 0.00000707106
-        self.spat_res2 = self.spat_res ** 2
+        # self.spat_res = 0.00000707106
         # self.diffuse_const = 0.00000000005    # 50 um^2/s
+        self.spat_res = 0.00001
+        self.spat_res2 = self.spat_res ** 2
         self.diffuse_const = 0.000000000002  # 2 um^2/s
         self.max_concentration = 2
 

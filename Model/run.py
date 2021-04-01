@@ -25,7 +25,7 @@ def start():
         shutil.copytree(os.getcwd(), copy_path, ignore=shutil.ignore_patterns("__pycache__"))
 
         # create Simulation object
-        sim = CellSimulation(paths)
+        sim = CellSimulation(paths, name)
 
         # add cell arrays to Simulation object and run the model
         sim.agent_initials()
@@ -49,7 +49,7 @@ def start():
     # ------------------------- images to video ---------------------------
     elif mode == 2:
         # create CellSimulation object used to get imaging and path information
-        sim = CellSimulation(paths)
+        sim = CellSimulation(paths, name)
 
         # make the video
         sim.create_video()
