@@ -1,16 +1,16 @@
 =======================================================================================================================
-Before starting the model, update the following path(s)
+Before starting the model, update the following path(s).
 =======================================================================================================================
 
-Specify where the model will output the folders containing the outputs for each simulation. If this directory does not
-exist, please make it as the model will not make it automatically.
+Specify where the model will place the folders containing the outputs for each simulation. If this directory does not
+exist, the model will automatically make it (asking you first).
 
-This should be an absolute path so it should look something like the following examples.
-    Windows -> C:\Outputs
-    Linux -> /home/(user)/Outputs
-    MacOS -> /Users/(user)/Outputs
+It's best to use an absolute path so it should look something like the following examples.
+    Windows -> C:\Gordon\Lightfoot
+    Linux -> /home/(user)/Simon/Garfunkel
+    MacOS -> /Users/(user)/Jim/Croce
 
-Put the path below. Note: "Outputs" is not necessary in the path
+Put the path below:
 -----------------------------------------------------------------------------------------------------------------------
 C:\Research\Outputs
 -----------------------------------------------------------------------------------------------------------------------
