@@ -124,8 +124,7 @@ class CellMethods:
                 amount = self.NANOG[index]
 
                 # add it to the normal FGF4 gradient and the alternative FGF4 gradient
-                self.adjust_morphogens("fgf4_values", index, amount, "nearest")
-                # self.adjust_morphogens("fgf4_alt", index, amount, "distance")
+                self.adjust_morphogens("fgf4_values", index, amount)
 
             # activate the following pathway based on if doxycycline  has been induced yet (after 24 hours/48 steps)
             if self.current_step >= self.dox_step:
@@ -182,7 +181,7 @@ class CellMethods:
                     # if the amount of FGFR has increased, subtract that much FGF4 from the gradient
                     fgfr_change = new_fgfr - temp_fgfr
                     if fgfr_change > 0:
-                        self.adjust_morphogens("fgf4_values", index, -1 * fgfr_change, "nearest")
+                        self.adjust_morphogens("fgf4_values", index, -1 * fgfr_change)
 
                     # update the FDS values of the cell
                     self.FGFR[index] = new_fgfr
@@ -810,62 +809,39 @@ class CellMethods:
         # return the value of the gradient at the diffusion point
         return gradient[x][y][z]
 
-    def adjust_morphogens(self, gradient_name, index, amount, mode):
+    def adjust_morphogens(self, gradient_name, index, amount):
         """ Adjust the concentration of the gradient based on
-            the amount, location of cell, and mode.
+            the amount and the location of the cell.
         """
         # get the gradient array from the Simulation instance
         gradient = self.__dict__[gradient_name]
 
-        # use the nearest method similar to the get_concentration()
-        if mode == "nearest":
-            # find the nearest diffusion point
-            half_indices = np.floor(2 * self.locations[index] / self.spat_res)
-            indices = np.ceil(half_indices / 2).astype(int)
-            x, y, z = indices[0], indices[1], indices[2]
+        # divide the location for a cell by the spatial resolution then take the floor function of it
+        indices = np.floor(self.locations[index] / self.spat_res).astype(int)
+        x, y, z = indices[0], indices[1], indices[2]
 
-            # add the specified amount to the nearest diffusion point
-            gradient[x][y][z] += amount
+        # get the four nearest points to the cell in 2D and make array for holding distances
+        points = np.array([[x, y, 0], [x + 1, y, 0], [x, y + 1, 0], [x + 1, y + 1, 0]], dtype=int)
+        if_nearby = np.zeros(4, dtype=bool)
 
-        # use the distance dependent method for adding concentrations, not optimized yet...
-        elif mode == "distance":
-            # divide the location for a cell by the spatial resolution then take the floor function of it
-            indices = np.floor(self.locations[index] / self.spat_res).astype(int)
-            x, y, z = indices[0], indices[1], indices[2]
+        # go through potential nearby diffusion points
+        for i in range(4):
+            # get point and make sure it's in bounds
+            point = points[i]
+            if point[0] < self.gradient_size[0] and point[1] < self.gradient_size[1]:
+                # get location of point
+                point_location = point * self.spat_res
 
-            # get the four nearest points to the cell in 2D and make array for holding distances
-            diffusion_points = np.array([[x, y, 0], [x + 1, y, 0], [x, y + 1, 0], [x + 1, y + 1, 0]], dtype=int)
-            distances = -1 * np.ones(4, dtype=float)
+                # see if point is in diffuse radius, if so update if_nearby index to True
+                if np.linalg.norm(self.locations[index] - point_location) < self.spat_res:
+                    if_nearby[i] = 1
 
-            # hold the sum of the reciprocals of the distances
-            total = 0
+        # get the number of points within diffuse radius
+        total_nearby = np.sum(if_nearby)
+        point_amount = amount / total_nearby
 
-            # get the gradient size and handle each of the four nearest points
-            gradient_size = self.gradient_size
-            for i in range(4):
-                # check that the diffusion point is not outside the space
-                if diffusion_points[i][0] < gradient_size[0] and diffusion_points[i][1] < gradient_size[1]:
-                    # if ok, calculate magnitude of the distance from the cell to it
-                    point_location = diffusion_points[i] * self.spat_res
-                    mag = np.linalg.norm(self.locations[index] - point_location)
-                    if mag <= self.max_radius:
-                        # save the distance and if the cell is not on top of the point add the reciprocal
-                        distances[i] = mag
-                        if mag != 0:
-                            total += 1 / mag
-
-            # add morphogen to each diffusion point that falls within the cell radius
-            for i in range(4):
-                x, y, z = diffusion_points[i][0], diffusion_points[i][1], 0
-                # if on top of diffusion point add all of the concentration
-                if distances[i] == 0:
-                    gradient[x][y][z] += amount
-                # if in radius add proportional amount
-                elif distances[i] != -1:
-                    gradient[x][y][z] += amount / (distances[i] * total)
-                else:
-                    pass
-
-        # if some other mode
-        else:
-            raise Exception("Unknown mode for the adjust_morphogens() method")
+        # go back through points adding morphogen
+        for i in range(4):
+            if if_nearby[i]:
+                x, y, z = points[i][0], points[i][1], 0
+                gradient[x][y][z] += point_amount
