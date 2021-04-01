@@ -19,8 +19,8 @@ class Simulation(ABC):
         make sure that any subclasses have necessary simulation attributes.
     """
     def __init__(self, paths, name):
+        self.name = name    # name of the simulation
         self.paths = paths    # the Paths object which holds any output paths
-        self.name = name    # the name of the simulation
 
         # the running number of agents and the step to begin at (altered by continuation mode)
         self.number_agents = 0
@@ -286,7 +286,7 @@ class Simulation(ABC):
         file_name = f"{self.name}_temp.pkl"
 
         # open the file in binary mode
-        with open(self.paths.main + file_name, "wb") as file:
+        with open(self.paths.main_path + file_name, "wb") as file:
             # use the highest protocol: -1 for pickling the instance
             pickle.dump(self, file, -1)
 
@@ -355,7 +355,7 @@ class Simulation(ABC):
         file_name = f"{self.name}_data.csv"
 
         # open the file
-        with open(self.paths.main + file_name, "a", newline="") as file_object:
+        with open(self.paths.main_path + file_name, "a", newline="") as file_object:
             # create CSV object
             csv_object = csv.writer(file_object)
 
@@ -404,7 +404,7 @@ class Simulation(ABC):
 
                 # get the video file path, use f-string
                 file_name = f"{self.name}_video.mp4"
-                video_path = self.paths.main + file_name
+                video_path = self.paths.main_path + file_name
 
                 # create the file object with parameters from simulation and above
                 codec = cv2.VideoWriter_fourcc(*"mp4v")
