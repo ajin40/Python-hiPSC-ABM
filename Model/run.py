@@ -3,7 +3,7 @@ import pickle
 import shutil
 import psutil
 
-from backend import output_dir, Paths, start_params
+from backend import output_dir, start_params, Paths
 from cellsimulation import CellSimulation
 
 
@@ -14,11 +14,11 @@ def start():
     # read paths.txt to get the output directory where simulation folders are outputted
     output_path = output_dir()
 
-    # create Paths object for storing important output paths
-    paths = Paths(name, output_path)
-
     # get the name/mode of the simulation and make sure there is a output directory named after this simulation
     name, mode, final_step = start_params(output_path, possible_modes=[0, 1, 2, 3])
+
+    # create Paths object for storing important output paths
+    paths = Paths(name, output_path)
 
     # -------------------------- new simulation ---------------------------
     if mode == 0:
@@ -59,7 +59,7 @@ def start():
     # --------------------- zip a simulation folder -----------------------
     elif mode == 3:
         # remove the separator of the path to the simulation directory
-        print('Compressing "' + name + '" simulation...')
+        print("Compressing \"" + name + "\" simulation...")
         simulation_dir = paths.main_path[:-1]
 
         # zip a copy of the folder and save it to the output directory

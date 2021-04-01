@@ -11,8 +11,7 @@ from functools import wraps
 
 
 class Paths:
-    """ Hold any important paths for a particular simulation. For a continued
-        simulation, this will update the Paths object in case the path(s) change.
+    """ Hold any important paths for a particular simulation.
     """
     def __init__(self, name, output_path):
         # how simulation name and file separator
@@ -686,6 +685,7 @@ def record_time(function):
     return wrap
 
 
+# ---------------------------------------- helper methods for user-interface ------------------------------------------
 def commandline_param(flag, dtype):
     """ Returns the value for option passed at the
         command line.
@@ -754,22 +754,24 @@ def template_param(path, line_number, dtype):
 
 
 def output_dir():
-    """ Get the path to the output directory. If this directory
-        does not exist yet make it and update the paths.txt file.
+    """ Read the output path from paths.txt and if this directory
+        does not exist yet, make it.
     """
-    # file separator
+    # get file separator
     separator = os.path.sep
 
-    # read the paths.txt file which should be the path to the output directory
+    # read the paths.txt file
     with open("paths.txt", "r") as file:
         lines = file.readlines()
-    output_path = lines[14].strip()   # remove whitespace
+
+    # remove whitespace from the 15th line, which should be the path
+    output_path = lines[14].strip()
 
     # keep running until output directory exists
     while not os.path.isdir(output_path):
         # prompt user input
         print("Simulation output directory: \"" + output_path + "\" does not exist!")
-        user = input('Do you want to make this directory? If "n" you can specify the correct path (y/n): ')
+        user = input("Do you want to make this directory? If \"n\", you can specify the correct path (y/n): ")
 
         # if not making this directory
         if user == "n":
@@ -787,20 +789,21 @@ def output_dir():
             break
 
         else:
-            print('Either type "y" or "n"')
+            print("Either type \"y\" or \"n\"")
 
     # if path doesn't end with separator, add it
     if output_path[-1] != separator:
         output_path += separator
 
+    # return correct path to output directory
     return output_path
 
 
 def start_params(output_path, possible_modes):
     """ This function will get the name and mode for the simulation
-        either from the command line or a text-based GUI.
+        either from the command line or a text-based UI.
     """
-    # file separator
+    # get file separator
     separator = os.path.sep
 
     # there should be at least these modes
@@ -848,7 +851,7 @@ def start_params(output_path, possible_modes):
                     print("Input: \"mode\" should be an integer.\n")
 
     # if the final_step variable has not been initialized by the command-line, run the text-based GUI to get it
-    if 'final_step' not in locals():
+    if "final_step" not in locals():
         # if continuation mode
         if mode == 1:
             while True:
@@ -906,7 +909,7 @@ def start_params(output_path, possible_modes):
                     break
                 else:
                     # inputs should either be "y" or "n"
-                    print('Either type "y" or "n"')
+                    print("Either type \"y\" or \"n\"")
             else:
                 # if does not exist, make directory
                 os.mkdir(output_path + name)
@@ -925,4 +928,5 @@ def start_params(output_path, possible_modes):
                 if name == "exit":
                     exit()
 
+    # return the simulation name, mode, and final step (for continuation mode)
     return name, mode, final_step
