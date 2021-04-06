@@ -64,7 +64,7 @@ class CellSimulation(CellMethods, CellOutputs, Simulation):
         self.step_dt = 1800  # dt of each simulation step (1800 sec)
         self.move_dt = 180  # dt for incremental movement (180 sec)
         # self.diffuse_dt = 0.24  # dt for stable diffusion model (0.24 sec)
-        self.diffuse_dt = 6.24  # dt for stable diffusion model (6 sec)
+        # self.diffuse_dt = 6.24  # dt for stable diffusion model (6 sec)
 
         # the field for the finite dynamical system
         self.field = 2
@@ -91,19 +91,19 @@ class CellSimulation(CellMethods, CellOutputs, Simulation):
         self.graph_names.append("jkr_graph")
 
         # the spatial resolution of the space, the diffusion constant for the molecule gradients, the radius of
-        # search for diffusion points, and the max concentration at a diffusion point
+        # search for diffusion points, and the max concentration at a diffusion point (not currently in use)
         # self.spat_res = 0.00000707106
         # self.diffuse_const = 0.00000000005    # 50 um^2/s
-        self.spat_res = 0.00001
-        self.spat_res2 = self.spat_res ** 2
-        self.diffuse_const = 0.000000000002  # 2 um^2/s
-        self.max_concentration = 2
+        # self.spat_res = 0.00001
+        # self.spat_res2 = self.spat_res ** 2
+        # self.diffuse_const = 0.000000000002  # 2 um^2/s
+        # self.max_concentration = 2
 
-        # calculate the size of the array for the diffusion points and create gradient array(s)
-        self.gradient_size = np.ceil(self.size / self.spat_res).astype(int) + 1
-        self.fgf4_values = np.zeros(self.gradient_size, dtype=float)
-        self.gradient_names = ["fgf4_values"]  # add names for automatic CSV output of gradients
-        self.degradation = 0.1    # this will degrade the morphogen by this much at each step
+        # calculate the size of the array for the diffusion points and create gradient array(s) (not currently in use)
+        # self.gradient_size = np.ceil(self.size / self.spat_res).astype(int) + 1
+        # self.fgf4_values = np.zeros(self.gradient_size, dtype=float)
+        # self.gradient_names = ["fgf4_values"]  # add names for automatic CSV output of gradients
+        # self.degradation = 0.1    # this will degrade the morphogen by this much at each step
 
         # self.fgf4_alt = np.zeros(self.gradient_size, dtype=float)    # for testing morphogen release methods
         # self.gradient_names = ["fgf4_values", "fgf4_alt"]    # add names for automatic CSV output of gradients
@@ -139,7 +139,7 @@ class CellSimulation(CellMethods, CellOutputs, Simulation):
             self.cell_differentiate()
 
             # Simulates diffusion the specified extracellular gradient via the forward time centered space method.
-            self.update_diffusion("fgf4_values")
+            # self.update_diffusion("fgf4_values")
             # self.update_diffusion("fgf4_alt")    # for testing morphogen release methods
 
             # Adds/removes cells to/from the simulation either all together or in desired groups of cells. If done in
@@ -163,9 +163,9 @@ class CellSimulation(CellMethods, CellOutputs, Simulation):
             # space, CSVs with values of the cells, a temporary pickle of the Simulation object, and performance stats.
             # See the outputs.txt template file for turning off certain outputs.
             self.step_image()
-            self.step_values(arrays=["locations", "FGFR", "ERK", "GATA6", "NANOG", "states", "diff_counters",
+            self.step_values(arrays=["locations", "FGF4", "FGFR", "ERK", "GATA6", "NANOG", "states", "diff_counters",
                                      "div_counters"])
-            self.step_gradients()
+            # self.step_gradients()
             self.step_tda(in_pixels=True)
             self.temp()
             self.data()
@@ -188,6 +188,7 @@ class CellSimulation(CellMethods, CellOutputs, Simulation):
         self.agent_array("locations", override=np.random.rand(self.number_agents, 3) * self.size)
         self.agent_array("radii")
         self.agent_array("motion", dtype=bool, func=lambda: True)
+        self.agent_array("FGF4", dtype=int, func=lambda: r.randrange(0, self.field))
         self.agent_array("FGFR", dtype=int, func=lambda: r.randrange(0, self.field))
         self.agent_array("ERK", dtype=int, func=lambda: r.randrange(0, self.field))
         self.agent_array("GATA6", dtype=int)

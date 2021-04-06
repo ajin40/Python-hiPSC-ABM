@@ -115,81 +115,53 @@ class CellMethods:
 
     @record_time
     def cell_pathway(self):
-        """ Updates finite dynamical system variables and extracellular conditions.
+        """ Updates finite dynamical system variables.
         """
         for index in range(self.number_agents):
-            # add FGF4 to the gradient based on the cell's value of NANOG
-            if self.NANOG[index] > 0:
-                # get the amount
-                amount = self.NANOG[index]
-
-                # add it to the normal FGF4 gradient and the alternative FGF4 gradient
-                self.adjust_morphogens("fgf4_values", index, amount)
-
-            # activate the following pathway based on if doxycycline  has been induced yet (after 24 hours/48 steps)
+            # activate the following pathway based on if doxycycline has been induced yet (after 24 hours/48 steps)
             if self.current_step >= self.dox_step:
-                # get an FGF4 value for the FDS based on the concentration of FGF4
-                fgf4_value = self.get_concentration("fgf4_values", index)
+                # get the list of neighbors for the cell and the number of neighbors
+                neighbors = self.neighbor_graph.neighbors(index)
+                num_neighbors = len(neighbors)
 
-                # if FDS is boolean
-                if self.field == 2:
-                    # base thresholds on the maximum concentrations
-                    if fgf4_value < 0.5 * self.max_concentration:
-                        fgf4_fds = 0   # FGF4 low
-                    else:
-                        fgf4_fds = 1    # FGF4 high
+                # go through neighbors to get perceived FGF4 morphogen
+                perceived_FGF4 = (1 + r.gauss(0, 1)) * (self.FGF4[index] / num_neighbors)    # FGF4 for self
+                for i in range(num_neighbors):
+                    # include gaussian noise
+                    perceived_FGF4 += (1 + r.gauss(0, 1)) * (self.FGF4[neighbors[i]] / num_neighbors)
 
-                # otherwise assume ternary for now
-                else:
-                    # base thresholds on the maximum concentrations
-                    if fgf4_value < 1/3 * self.max_concentration:
-                        fgf4_fds = 0    # FGF4 low
-                    elif fgf4_value < 2/3 * self.max_concentration:
-                        fgf4_fds = 1    # FGF4 medium
-                    else:
-                        fgf4_fds = 2    # FGF4 high
+                # floor perceived FGF4 to nearest int, make sure it's max is field - 1
+                perceived_FGF4 = int(perceived_FGF4)
+                if perceived_FGF4 > self.field - 1:
+                    perceived_FGF4 = self.field - 1
 
-                # temporarily hold the FGFR value
-                temp_fgfr = self.FGFR[index]
-
-                # if updating the FDS values this step
+                # if updating the DDS values this step
                 if self.fds_counters[index] % self.fds_thresh == 0:
-                    # get the current FDS values of the cell
-                    x1 = fgf4_fds
+                    # get the current DDS values of the cell
+                    x1 = self.perceived_FGF4
                     x2 = self.FGFR[index]
                     x3 = self.ERK[index]
                     x4 = self.GATA6[index]
                     x5 = self.NANOG[index]
 
-                    # if the FDS is boolean
+                    # if the DDS is boolean
                     if self.field == 2:
-                        # update boolean values based on FDS functions
-                        new_fgfr = (x1 * x4) % 2
-                        new_erk = x2 % 2
-                        new_gata6 = (1 + x5 + x5 * x4) % 2
-                        new_nanog = ((x3 + 1) * (x4 + 1)) % 2
+                        self.FGF4[index] = x5
+                        self.FGFR[index] = (x1 * x4) % 2
+                        self.ERK[index] = x2 % 2
+                        self.GATA6[index] = (1 + x5 + x5 * x4) % 2
+                        self.NANOG[index] = ((x3 + 1) * (x4 + 1)) % 2
 
                     # otherwise assume ternary
                     else:
-                        # update ternary values based on FDS functions
-                        new_fgfr = (x1 * x4 * ((2*x1 + 1) * (2*x4 + 1) + x1 * x4)) % 3
-                        new_erk = x2 % 3
-                        new_gata6 = ((x4**2) * (x5 + 1) + (x5**2) * (x4 + 1) + 2*x5 + 1) % 3
-                        new_nanog = (x5**2 + x5 * (x5 + 1) * (x3 * (2*x4**2 + 2*x3 + 1) + x4*(2*x3**2 + 2*x4 + 1)) +
-                                     (2*x3**2 + 1) * (2*x4**2 + 1)) % 3
+                        self.FGF4[index] = x5
+                        self.FGFR[index] = (x1 * x4 * ((2*x1 + 1) * (2*x4 + 1) + x1 * x4)) % 3
+                        self.ERK[index] = x2 % 3
+                        self.GATA6[index] = ((x4**2) * (x5 + 1) + (x5**2) * (x4 + 1) + 2*x5 + 1) % 3
+                        self.NANOG[index] = (x5**2 + x5 * (x5 + 1) * (x3 * (2*x4**2 + 2*x3 + 1) +
+                                             x4*(2*x3**2 + 2*x4 + 1)) + (2*x3**2 + 1) * (2*x4**2 + 1)) % 3
 
-                    # if the amount of FGFR has increased, subtract that much FGF4 from the gradient
-                    fgfr_change = new_fgfr - temp_fgfr
-                    if fgfr_change > 0:
-                        self.adjust_morphogens("fgf4_values", index, -1 * fgfr_change)
-
-                    # update the FDS values of the cell
-                    self.FGFR[index] = new_fgfr
-                    self.ERK[index] = new_erk
-                    self.GATA6[index] = new_gata6
-                    self.NANOG[index] = new_nanog
-
-                # increase the finite dynamical system counter
+                # increase the discrete dynamical system counter
                 self.fds_counters[index] += 1
 
     @record_time
