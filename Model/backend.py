@@ -14,8 +14,7 @@ class Paths:
     """ Hold any important paths for a particular simulation.
     """
     def __init__(self, name, output_path):
-        # how simulation name and file separator
-        self.name = name
+        # how file separator
         self.separator = os.path.sep
 
         # some paths
