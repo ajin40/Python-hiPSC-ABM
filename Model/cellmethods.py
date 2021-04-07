@@ -124,8 +124,12 @@ class CellMethods:
                 neighbors = self.neighbor_graph.neighbors(index)
                 num_neighbors = len(neighbors)
 
+                # get perceived FGF4 for self
+                perceived_FGF4 = 0
+                if num_neighbors != 0:
+                    perceived_FGF4 += (1 + r.gauss(0, 1)) * (self.FGF4[index] / num_neighbors)    # FGF4 for self
+
                 # go through neighbors to get perceived FGF4 morphogen
-                perceived_FGF4 = (1 + r.gauss(0, 1)) * (self.FGF4[index] / num_neighbors)    # FGF4 for self
                 for i in range(num_neighbors):
                     # include gaussian noise
                     perceived_FGF4 += (1 + r.gauss(0, 1)) * (self.FGF4[neighbors[i]] / num_neighbors)
@@ -138,7 +142,7 @@ class CellMethods:
                 # if updating the DDS values this step
                 if self.fds_counters[index] % self.fds_thresh == 0:
                     # get the current DDS values of the cell
-                    x1 = self.perceived_FGF4
+                    x1 = perceived_FGF4
                     x2 = self.FGFR[index]
                     x3 = self.ERK[index]
                     x4 = self.GATA6[index]
