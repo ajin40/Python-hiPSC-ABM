@@ -11,7 +11,7 @@ def start():
     """ Configures/runs the model based on the specified
         simulation mode.
     """
-    # read paths.txt to get the output directory where simulation folders are outputted
+    # read paths.yaml to get the output directory where simulation folders are outputted
     output_path = output_dir()
 
     # get the name/mode of the simulation and make sure there is a output directory named after this simulation
