@@ -134,10 +134,12 @@ class CellMethods:
                     # include gaussian noise
                     perceived_FGF4 += (1 + r.gauss(0, 1)) * (self.FGF4[neighbors[i]] / num_neighbors)
 
-                # floor perceived FGF4 to nearest int, make sure it's max is field - 1
+                # floor perceived FGF4 to nearest int, make sure it's max is field - 1 and >= 0
                 perceived_FGF4 = int(perceived_FGF4)
                 if perceived_FGF4 > self.field - 1:
                     perceived_FGF4 = self.field - 1
+                elif perceived_FGF4 < 0:
+                    perceived_FGF4 = 0
 
                 # if updating the DDS values this step
                 if self.fds_counters[index] % self.fds_thresh == 0:
