@@ -31,32 +31,32 @@ class CellSimulation(CellMethods, CellOutputs, Simulation):
             self.fps = template_param(path, 2, float)
         """
         # ------------- general template file ------------------------------
-        general_path = paths.templates + "general.txt"    # path to general.txt template file
-        self.parallel = template_param(general_path, 5, bool)
-        self.end_step = template_param(general_path, 8, int)
-        self.num_nanog = template_param(general_path, 11, int)
-        self.num_gata6 = template_param(general_path, 14, int)
-        self.size = np.array(template_param(general_path, 17, tuple))
-        self.order_66 = template_param(general_path, 20, str)
+        general_path = paths.templates + "general.yaml"    # path to general.txt template file
+        self.parallel = template_param(general_path, "parallel")
+        self.end_step = template_param(general_path, "end_step")
+        self.num_nanog = template_param(general_path, "num_nanog")
+        self.num_gata6 = template_param(general_path, "num_gata6")
+        self.size = np.array(template_param(general_path, "size"))
+        self.order_66 = template_param(general_path, "order_66")
         # self.order_66 = commandline_param("-o", bool)
 
         # ------------- outputs template file ------------------------------
-        outputs_path = paths.templates + "outputs.txt"    # path to outputs.txt template file
-        self.output_values = template_param(outputs_path, 5, bool)
-        self.output_tda = template_param(outputs_path, 9, bool)
-        self.output_gradients = template_param(outputs_path, 12, bool)
-        self.output_images = template_param(outputs_path, 15, bool)
-        self.image_quality = template_param(outputs_path, 19, int)
-        self.video_quality = template_param(outputs_path, 23, int)
-        self.fps = template_param(outputs_path, 26, float)
-        self.color_mode = template_param(outputs_path, 30, bool)
+        outputs_path = paths.templates + "outputs.yaml"    # path to outputs.txt template file
+        self.output_values = template_param(outputs_path, "output_values")
+        self.output_tda = template_param(outputs_path, "output_tda")
+        self.output_gradients = template_param(outputs_path, "output_gradients")
+        self.output_images = template_param(outputs_path, "output_images")
+        self.image_quality = template_param(outputs_path, "image_quality")
+        self.video_quality = template_param(outputs_path, "video_quality")
+        self.fps = template_param(outputs_path, "fps")
+        self.color_mode = template_param(outputs_path, "color_mode")
 
         # ------------- experimental template file -------------------------
-        experimental_path = paths.templates + "experimental.txt"    # path to experimental.txt template file
-        self.group = template_param(experimental_path, 5, int)
-        self.dox_step = template_param(experimental_path, 9, int)
-        self.guye_move = template_param(experimental_path, 13, bool)
-        self.lonely_thresh = template_param(experimental_path, 17, int)
+        experimental_path = paths.templates + "experimental.yaml"    # path to experimental.txt template file
+        self.group = template_param(experimental_path, "group")
+        self.dox_step = template_param(experimental_path, "dox_step")
+        self.guye_move = template_param(experimental_path, "guye_move")
+        self.lonely_thresh = template_param(experimental_path, "lonely_thresh")
 
         # define any other instance variables that are not part of the template files
 
