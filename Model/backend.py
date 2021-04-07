@@ -720,6 +720,12 @@ def template_param(path, key):
     return keys[key]
 
 
+def template_params(path):
+    # open the file and load the keys
+    with open(path, "r") as file:
+        return yaml.safe_load(file)
+
+
 def output_dir():
     """ Read the output path from paths.txt and if this directory
         does not exist yet, make it.

@@ -2,7 +2,7 @@ import numpy as np
 import random as r
 import igraph
 
-from backend import template_param, commandline_param
+from backend import template_params, commandline_param
 from simulation import Simulation
 from cellmethods import CellMethods
 from celloutputs import CellOutputs
@@ -17,48 +17,44 @@ class CellSimulation(CellMethods, CellOutputs, Simulation):
         Simulation.__init__(self, paths, name)   # initialize the Simulation object instance variables
         """
         The following instance variables can be updated through template files located in the "templates"
-        directory under the "Model" directory. The values must be specified in the .txt files as follows.
+        directory. The values must be specified using YAML syntax.
 
-            (outputs.txt)
-            1   How many frames per second of the output video that collects all step images? Ex. 6
-            2   | 6 |
+            (outputs.yaml)
+            1   # How many frames per second of the output video that collects all step images? Ex. 6
+            2   fps: 6
             3
 
-        Note: extraneous spaces before or after the pipes will not affect the interpretation of the
-        parameter. Use template_param(path-to-file, line number, data type) to read a specific line
-        of a template file and interpret the value as the desired data type.
-
-            self.fps = template_param(path, 2, float)
+            (cellsimulation.py)
+            keys = template_params(paths.templates + "outputs.yaml")
+            self.fps = keys["fps"]
         """
         # ------------- general template file ------------------------------
-        general_path = paths.templates + "general.yaml"    # path to general.yaml template file
-        self.parallel = template_param(general_path, "parallel")
-        self.end_step = template_param(general_path, "end_step")
-        self.num_nanog = template_param(general_path, "num_nanog")
-        self.num_gata6 = template_param(general_path, "num_gata6")
-        self.size = np.array(template_param(general_path, "size"))
-        self.order_66 = template_param(general_path, "order_66")
+        keys = template_params(paths.templates + "general.yaml")    # read keys from general.yaml
+        self.parallel = keys["parallel"]
+        self.end_step = keys["end_step"]
+        self.num_nanog = keys["num_nanog"]
+        self.num_gata6 = keys["num_gata6"]
+        self.size = np.array(keys["size"])
+        self.order_66 = keys["order_66"]
         # self.order_66 = commandline_param("-o", bool)
 
         # ------------- outputs template file ------------------------------
-        outputs_path = paths.templates + "outputs.yaml"    # path to outputs.yaml template file
-        self.output_values = template_param(outputs_path, "output_values")
-        self.output_tda = template_param(outputs_path, "output_tda")
-        self.output_gradients = template_param(outputs_path, "output_gradients")
-        self.output_images = template_param(outputs_path, "output_images")
-        self.image_quality = template_param(outputs_path, "image_quality")
-        self.video_quality = template_param(outputs_path, "video_quality")
-        self.fps = template_param(outputs_path, "fps")
-        self.color_mode = template_param(outputs_path, "color_mode")
+        keys = template_params(paths.templates + "outputs.yaml")    # read keys from outputs.yaml
+        self.output_values = keys["output_values"]
+        self.output_tda = keys["output_tda"]
+        self.output_gradients = keys["output_gradients"]
+        self.output_images = keys["output_images"]
+        self.image_quality = keys["image_quality"]
+        self.video_quality = keys["video_quality"]
+        self.fps = keys["fps"]
+        self.color_mode = keys["color_mode"]
 
         # ------------- experimental template file -------------------------
-        experimental_path = paths.templates + "experimental.yaml"    # path to experimental.yaml template file
-        self.group = template_param(experimental_path, "group")
-        self.dox_step = template_param(experimental_path, "dox_step")
-        self.guye_move = template_param(experimental_path, "guye_move")
-        self.lonely_thresh = template_param(experimental_path, "lonely_thresh")
-
-        # define any other instance variables that are not part of the template files
+        keys = template_params(paths.templates + "experimental.yaml")    # read keys from experimental.yaml
+        self.group = keys["group"]
+        self.dox_step = keys["dox_step"]
+        self.guye_move = keys["guye_move"]
+        self.lonely_thresh = keys["lonely_thresh"]
 
         # the temporal resolution for the simulation
         self.step_dt = 1800  # dt of each simulation step (1800 sec)
