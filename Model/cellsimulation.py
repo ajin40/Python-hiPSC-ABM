@@ -31,7 +31,7 @@ class CellSimulation(CellMethods, CellOutputs, Simulation):
             self.fps = template_param(path, 2, float)
         """
         # ------------- general template file ------------------------------
-        general_path = paths.templates + "general.yaml"    # path to general.txt template file
+        general_path = paths.templates + "general.yaml"    # path to general.yaml template file
         self.parallel = template_param(general_path, "parallel")
         self.end_step = template_param(general_path, "end_step")
         self.num_nanog = template_param(general_path, "num_nanog")
@@ -41,7 +41,7 @@ class CellSimulation(CellMethods, CellOutputs, Simulation):
         # self.order_66 = commandline_param("-o", bool)
 
         # ------------- outputs template file ------------------------------
-        outputs_path = paths.templates + "outputs.yaml"    # path to outputs.txt template file
+        outputs_path = paths.templates + "outputs.yaml"    # path to outputs.yaml template file
         self.output_values = template_param(outputs_path, "output_values")
         self.output_tda = template_param(outputs_path, "output_tda")
         self.output_gradients = template_param(outputs_path, "output_gradients")
@@ -52,7 +52,7 @@ class CellSimulation(CellMethods, CellOutputs, Simulation):
         self.color_mode = template_param(outputs_path, "color_mode")
 
         # ------------- experimental template file -------------------------
-        experimental_path = paths.templates + "experimental.yaml"    # path to experimental.txt template file
+        experimental_path = paths.templates + "experimental.yaml"    # path to experimental.yaml template file
         self.group = template_param(experimental_path, "group")
         self.dox_step = template_param(experimental_path, "dox_step")
         self.guye_move = template_param(experimental_path, "guye_move")
