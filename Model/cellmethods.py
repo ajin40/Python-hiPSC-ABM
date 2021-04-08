@@ -126,9 +126,9 @@ class CellMethods:
 
                 # get perceived FGF4 for self
                 if num_neighbors != 0:
-                    perceived_FGF4 += (1 + r.gauss(0, 1)) * (self.FGF4[index] / num_neighbors)
+                    perceived_FGF4 = (1 + r.gauss(0, 1)) * (self.FGF4[index] / num_neighbors)
                 else:
-                    perceived_FGF4 += (1 + r.gauss(0, 1)) * self.FGF4[index]
+                    perceived_FGF4 = (1 + r.gauss(0, 1)) * self.FGF4[index]
 
                 # go through neighbors to get perceived FGF4 morphogen
                 for i in range(num_neighbors):
