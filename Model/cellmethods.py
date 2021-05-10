@@ -151,13 +151,13 @@ class CellMethods:
                     x4 = self.GATA6[index]
                     x5 = self.NANOG[index]
 
-                    # if the DDS is boolean
+                    # if the DDS is boolean (BN_9)
                     if self.field == 2:
                         self.FGF4[index] = x5
-                        self.FGFR[index] = (x1 * x4) % 2
-                        self.ERK[index] = x2 % 2
-                        self.GATA6[index] = (1 + x5 + x5 * x4) % 2
-                        self.NANOG[index] = ((x3 + 1) * (x4 + 1)) % 2
+                        self.FGFR[index] = (1 + x5 + (x4 * x5)) % 2
+                        self.ERK[index] = (x1 * x2) % 2
+                        self.GATA6[index] = (x3 + x4 + (x3 * x4) + (x3 * x5) + (x4 * x5) + (x3 * x4 * x5)) % 2
+                        self.NANOG[index] = (x5 + (x3 * x5) + (x4 * x5) + (x3 * x4 * x5)) % 2
 
                     # otherwise assume ternary
                     else:
@@ -728,7 +728,7 @@ class CellMethods:
             self.locations[daughter_index] -= division_position
 
             # reduce both radii to minimum size (representative of a divided cell) and set the division counters to zero
-            self.radii[mother_index] = self.radii[daughter_index] = self.min_radius
+            # self.radii[mother_index] = self.radii[daughter_index] = self.min_radius
             self.div_counters[mother_index] = self.div_counters[daughter_index] = 0
 
             # go through each graph adding the number of dividing cells

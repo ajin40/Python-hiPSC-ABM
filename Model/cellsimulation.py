@@ -72,7 +72,7 @@ class CellSimulation(CellMethods, CellOutputs, Simulation):
         # the rates (in steps) of division, differentiation, death, and finite dynamical system updating
         self.pluri_div_thresh = 36
         self.diff_div_thresh = 72
-        self.pluri_to_diff = 72
+        self.pluri_to_diff = 36
         self.death_thresh = 144
         self.fds_thresh = 1
 
@@ -126,11 +126,11 @@ class CellSimulation(CellMethods, CellOutputs, Simulation):
 
             # Updates cells by adjusting trackers for differentiation, division, growth, etc. based on intracellular,
             # intercellular, and extracellular conditions through a series of separate methods.
-            # functions.cell_death(self)
+            # self.cell_death()
+            # self.cell_growth()
+            # self.cell_stochastic_update()
             self.cell_diff_surround()
             self.cell_division()
-            self.cell_growth()
-            # self.cell_stochastic_update()
             self.cell_pathway()
             self.cell_differentiate()
 
@@ -182,7 +182,7 @@ class CellSimulation(CellMethods, CellOutputs, Simulation):
 
         # Create the following cell arrays with initial conditions.
         self.agent_array("locations", override=np.random.rand(self.number_agents, 3) * self.size)
-        self.agent_array("radii")
+        self.agent_array("radii", func=lambda: self.max_radius)
         self.agent_array("motion", dtype=bool, func=lambda: True)
         self.agent_array("FGF4", dtype=int, func=lambda: r.randrange(0, self.field))
         self.agent_array("FGFR", dtype=int, func=lambda: r.randrange(0, self.field))
