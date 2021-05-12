@@ -2,7 +2,7 @@ import numpy as np
 import random as r
 import igraph
 
-from backend import template_param, commandline_param
+from backend import template_params, commandline_param
 from simulation import Simulation
 from cellmethods import CellMethods
 from celloutputs import CellOutputs
@@ -17,54 +17,50 @@ class CellSimulation(CellMethods, CellOutputs, Simulation):
         Simulation.__init__(self, paths, name)   # initialize the Simulation object instance variables
         """
         The following instance variables can be updated through template files located in the "templates"
-        directory under the "Model" directory. The values must be specified in the .txt files as follows.
+        directory. The values must be specified using YAML syntax.
 
-            (outputs.txt)
-            1   How many frames per second of the output video that collects all step images? Ex. 6
-            2   | 6 |
+            (outputs.yaml)
+            1   # How many frames per second of the output video that collects all step images? Ex. 6
+            2   fps: 6
             3
 
-        Note: extraneous spaces before or after the pipes will not affect the interpretation of the
-        parameter. Use template_param(path-to-file, line number, data type) to read a specific line
-        of a template file and interpret the value as the desired data type.
-
-            self.fps = template_param(path, 2, float)
+            (cellsimulation.py)
+            keys = template_params(paths.templates + "outputs.yaml")
+            self.fps = keys["fps"]
         """
         # ------------- general template file ------------------------------
-        general_path = paths.templates + "general.txt"    # path to general.txt template file
-        self.parallel = template_param(general_path, 5, bool)
-        self.end_step = template_param(general_path, 8, int)
-        self.num_nanog = template_param(general_path, 11, int)
-        self.num_gata6 = template_param(general_path, 14, int)
-        self.size = np.array(template_param(general_path, 17, tuple))
-        self.order_66 = template_param(general_path, 20, str)
+        keys = template_params(paths.templates + "general.yaml")    # read keys from general.yaml
+        self.parallel = keys["parallel"]
+        self.end_step = keys["end_step"]
+        self.num_nanog = keys["num_nanog"]
+        self.num_gata6 = keys["num_gata6"]
+        self.size = np.array(keys["size"])
+        self.order_66 = keys["order_66"]
         # self.order_66 = commandline_param("-o", bool)
 
         # ------------- outputs template file ------------------------------
-        outputs_path = paths.templates + "outputs.txt"    # path to outputs.txt template file
-        self.output_values = template_param(outputs_path, 5, bool)
-        self.output_tda = template_param(outputs_path, 9, bool)
-        self.output_gradients = template_param(outputs_path, 12, bool)
-        self.output_images = template_param(outputs_path, 15, bool)
-        self.image_quality = template_param(outputs_path, 19, int)
-        self.video_quality = template_param(outputs_path, 23, int)
-        self.fps = template_param(outputs_path, 26, float)
-        self.color_mode = template_param(outputs_path, 30, bool)
+        keys = template_params(paths.templates + "outputs.yaml")    # read keys from outputs.yaml
+        self.output_values = keys["output_values"]
+        self.output_tda = keys["output_tda"]
+        self.output_gradients = keys["output_gradients"]
+        self.output_images = keys["output_images"]
+        self.image_quality = keys["image_quality"]
+        self.video_quality = keys["video_quality"]
+        self.fps = keys["fps"]
+        self.color_mode = keys["color_mode"]
 
         # ------------- experimental template file -------------------------
-        experimental_path = paths.templates + "experimental.txt"    # path to experimental.txt template file
-        self.group = template_param(experimental_path, 5, int)
-        self.dox_step = template_param(experimental_path, 9, int)
-        self.guye_move = template_param(experimental_path, 13, bool)
-        self.lonely_thresh = template_param(experimental_path, 17, int)
-
-        # define any other instance variables that are not part of the template files
+        keys = template_params(paths.templates + "experimental.yaml")    # read keys from experimental.yaml
+        self.group = keys["group"]
+        self.dox_step = keys["dox_step"]
+        self.guye_move = keys["guye_move"]
+        self.lonely_thresh = keys["lonely_thresh"]
 
         # the temporal resolution for the simulation
         self.step_dt = 1800  # dt of each simulation step (1800 sec)
         self.move_dt = 180  # dt for incremental movement (180 sec)
         # self.diffuse_dt = 0.24  # dt for stable diffusion model (0.24 sec)
-        self.diffuse_dt = 6.24  # dt for stable diffusion model (6 sec)
+        # self.diffuse_dt = 6.24  # dt for stable diffusion model (6 sec)
 
         # the field for the finite dynamical system
         self.field = 2
@@ -76,7 +72,7 @@ class CellSimulation(CellMethods, CellOutputs, Simulation):
         # the rates (in steps) of division, differentiation, death, and finite dynamical system updating
         self.pluri_div_thresh = 36
         self.diff_div_thresh = 72
-        self.pluri_to_diff = 72
+        self.pluri_to_diff = 36
         self.death_thresh = 144
         self.fds_thresh = 1
 
@@ -91,19 +87,19 @@ class CellSimulation(CellMethods, CellOutputs, Simulation):
         self.graph_names.append("jkr_graph")
 
         # the spatial resolution of the space, the diffusion constant for the molecule gradients, the radius of
-        # search for diffusion points, and the max concentration at a diffusion point
+        # search for diffusion points, and the max concentration at a diffusion point (not currently in use)
         # self.spat_res = 0.00000707106
         # self.diffuse_const = 0.00000000005    # 50 um^2/s
-        self.spat_res = 0.00001
-        self.spat_res2 = self.spat_res ** 2
-        self.diffuse_const = 0.000000000002  # 2 um^2/s
-        self.max_concentration = 2
+        # self.spat_res = 0.00001
+        # self.spat_res2 = self.spat_res ** 2
+        # self.diffuse_const = 0.000000000002  # 2 um^2/s
+        # self.max_concentration = 2
 
-        # calculate the size of the array for the diffusion points and create gradient array(s)
-        self.gradient_size = np.ceil(self.size / self.spat_res).astype(int) + 1
-        self.fgf4_values = np.zeros(self.gradient_size, dtype=float)
-        self.gradient_names = ["fgf4_values"]  # add names for automatic CSV output of gradients
-        self.degradation = 0.1    # this will degrade the morphogen by this much at each step
+        # calculate the size of the array for the diffusion points and create gradient array(s) (not currently in use)
+        # self.gradient_size = np.ceil(self.size / self.spat_res).astype(int) + 1
+        # self.fgf4_values = np.zeros(self.gradient_size, dtype=float)
+        # self.gradient_names = ["fgf4_values"]  # add names for automatic CSV output of gradients
+        # self.degradation = 0.1    # this will degrade the morphogen by this much at each step
 
         # self.fgf4_alt = np.zeros(self.gradient_size, dtype=float)    # for testing morphogen release methods
         # self.gradient_names = ["fgf4_values", "fgf4_alt"]    # add names for automatic CSV output of gradients
@@ -130,16 +126,16 @@ class CellSimulation(CellMethods, CellOutputs, Simulation):
 
             # Updates cells by adjusting trackers for differentiation, division, growth, etc. based on intracellular,
             # intercellular, and extracellular conditions through a series of separate methods.
-            # functions.cell_death(self)
+            # self.cell_death()
+            # self.cell_growth()
+            # self.cell_stochastic_update()
             self.cell_diff_surround()
             self.cell_division()
-            self.cell_growth()
-            # self.cell_stochastic_update()
             self.cell_pathway()
             self.cell_differentiate()
 
             # Simulates diffusion the specified extracellular gradient via the forward time centered space method.
-            self.update_diffusion("fgf4_values")
+            # self.update_diffusion("fgf4_values")
             # self.update_diffusion("fgf4_alt")    # for testing morphogen release methods
 
             # Adds/removes cells to/from the simulation either all together or in desired groups of cells. If done in
@@ -163,9 +159,9 @@ class CellSimulation(CellMethods, CellOutputs, Simulation):
             # space, CSVs with values of the cells, a temporary pickle of the Simulation object, and performance stats.
             # See the outputs.txt template file for turning off certain outputs.
             self.step_image()
-            self.step_values(arrays=["locations", "FGFR", "ERK", "GATA6", "NANOG", "states", "diff_counters",
+            self.step_values(arrays=["locations", "FGF4", "FGFR", "ERK", "GATA6", "NANOG", "states", "diff_counters",
                                      "div_counters"])
-            self.step_gradients()
+            # self.step_gradients()
             self.step_tda(in_pixels=True)
             self.temp()
             self.data()
@@ -186,8 +182,9 @@ class CellSimulation(CellMethods, CellOutputs, Simulation):
 
         # Create the following cell arrays with initial conditions.
         self.agent_array("locations", override=np.random.rand(self.number_agents, 3) * self.size)
-        self.agent_array("radii")
+        self.agent_array("radii", func=lambda: self.max_radius)
         self.agent_array("motion", dtype=bool, func=lambda: True)
+        self.agent_array("FGF4", dtype=int, func=lambda: r.randrange(0, self.field))
         self.agent_array("FGFR", dtype=int, func=lambda: r.randrange(0, self.field))
         self.agent_array("ERK", dtype=int, func=lambda: r.randrange(0, self.field))
         self.agent_array("GATA6", dtype=int)

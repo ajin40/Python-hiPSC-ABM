@@ -3,6 +3,7 @@ import time
 import math
 import os
 import sys
+import yaml
 import shutil
 import re
 import getopt
@@ -707,80 +708,45 @@ def commandline_param(flag, dtype):
     return None
 
 
-def template_param(path, line_number, dtype):
-    """ Gets the parameter as a string from the lines of the
-        template file. Used for Simulation instance variables.
+def template_params(path):
+    """ Get parameters from YAML template file. Used
+        for Simulation instance variables.
     """
-    # make an attribute with name as template file path and value as a list of the file lines (reduces file opening)
-    if not hasattr(template_param, path):
-        with open(path) as file:
-            template_param.path = file.readlines()
-
-    # get the right line based on the line numbers not Python indexing
-    line = template_param.path[line_number - 1]
-
-    # find the indices of the pipe characters
-    begin = line.find("|")
-    end = line.find("|", begin + 1)
-
-    # raise error if not a pair of pipe characters
-    if begin == -1 or end == -1:
-        raise Exception("Please use pipe characters to specify template file parameters. Example: | (value) |")
-
-    # return a slice of the line that is the string representation of the parameter and remove any whitespace
-    parameter = line[(begin + 1):end].strip()
-
-    # convert the parameter from string to desired data type
-    if dtype == str:
-        pass
-    elif dtype == tuple or dtype == list or dtype == dict:
-        # tuple() list() dict() will not produce desired result, use eval() instead
-        parameter = eval(parameter)
-    elif dtype == bool:
-        # handle potential inputs for booleans
-        if parameter in ["True", "true", "T", "t", "1"]:
-            parameter = True
-        elif parameter in ["False", "false", "F", "f", "0"]:
-            parameter = False
-        else:
-            raise Exception("Invalid value for bool type")
-    else:
-        # for float and int type
-        parameter = dtype(parameter)
-
-    # get the parameter by removing the pipe characters and any whitespace
-    return parameter
+    # open the file and load the keys
+    with open(path, "r") as file:
+        return yaml.safe_load(file)
 
 
 def output_dir():
-    """ Read the output path from paths.txt and if this directory
+    """ Read the output path from paths.yaml and if this directory
         does not exist yet, make it.
     """
     # get file separator
     separator = os.path.sep
 
-    # read the paths.txt file
-    with open("paths.txt", "r") as file:
-        lines = file.readlines()
+    # open the file and load the keys
+    with open("paths.yaml", "r") as file:
+        keys = yaml.safe_load(file)
 
-    # remove whitespace from the 15th line, which should be the path
-    output_path = lines[14].strip()
+    # get output_path key
+    output_path = keys["output_path"]
 
     # keep running until output directory exists
     while not os.path.isdir(output_path):
         # prompt user input
-        print("Simulation output directory: \"" + output_path + "\" does not exist!")
+        print("\nSimulation output directory: \"" + output_path + "\" does not exist!")
         user = input("Do you want to make this directory? If \"n\", you can specify the correct path (y/n): ")
+        print()
 
         # if not making this directory
         if user == "n":
             # get new path to output directory
             output_path = input("Correct path (absolute) to output directory: ")
 
-            # update paths.txt file with new output directory path
-            with open("paths.txt", "w") as file:
-                lines[14] = output_path + "\n"
-                file.writelines(lines)
+            # update paths.yaml file with new output directory path
+            keys["output_path"] = output_path
+            with open("paths.yaml", "w") as file:
+                keys = yaml.dump(keys, file)
 
         # if yes, make the directory
         elif user == "y":
