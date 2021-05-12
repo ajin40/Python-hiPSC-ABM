@@ -134,14 +134,9 @@ class CellSimulation(CellMethods, CellOutputs, Simulation):
             # self.update_diffusion("fgf4_values")
             # self.update_diffusion("fgf4_alt")    # for testing morphogen release methods
 
-            # Finds the nearest NANOG high, GATA6 high, and differentiated cells within a fixed radius. This provides
-            # information that can be used for approximating cell motility.
-            # self.nearest(distance=0.000015)    # triple max cell radius
-
             # Calculates the direction/magnitude of a cell's movement depending on a variety of factors such as state
             # and presence of neighbors.
             self.cell_motility()
-            # self.eunbi_motility()
 
             # Through the series of methods, attempt to move the cells to a state of physical equilibrium between
             # adhesive and repulsive forces acting on the cells, while applying active motility forces.
@@ -188,9 +183,6 @@ class CellSimulation(CellMethods, CellOutputs, Simulation):
         self.agent_array("fds_counters", dtype=int, func=lambda: r.randrange(0, self.fds_thresh))
         self.agent_array("motility_forces", vector=3)
         self.agent_array("jkr_forces", vector=3)
-        # self.agent_array("nearest_nanog", dtype=int, func=lambda: -1)
-        # self.agent_array("nearest_gata6", dtype=int, func=lambda: -1)
-        # self.agent_array( "nearest_diff", dtype=int, func=lambda: -1)
 
         # Update the number of cells marked with the "GATA6_high" cell type with alternative initial conditions.
         self.agent_array("GATA6", agent_type="GATA6_high", func=lambda: r.randrange(1, self.field))
