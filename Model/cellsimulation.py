@@ -199,4 +199,3 @@ class CellSimulation(CellMethods, CellOutputs, Simulation):
         # Create graphs for holding cell neighbors
         self.agent_graph("neighbor_graph")
         self.agent_graph("jkr_graph")
-        self.agent_graph("jkr_graph2")
