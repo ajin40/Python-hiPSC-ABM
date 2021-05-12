@@ -560,7 +560,7 @@ class CellMethods:
         # go through all move steps, calculating the physical interactions and applying the forces
         for step in range(total_steps):
             # update graph for pairs of contacting cells
-            self.jkr_neighbors()
+            self.get_neighbors("jkr_graph", 2 * self.max_radius, clear=False)
 
             # calculate the JKR forces based on the graph
             self.calculate_jkr()
@@ -604,87 +604,6 @@ class CellMethods:
 
         # reset motility forces back to zero
         self.motility_forces[:, :] = 0
-
-    def jkr_neighbors(self):
-        """ For all cells, determines which cells will have physical interactions
-            with other cells and puts this information into a graph.
-        """
-        # radius of search (meters) in which neighbors will have physical interactions, double the max cell radius
-        jkr_distance = 2 * self.max_radius
-
-        # if a static variable has not been created to hold the maximum number of neighbors for a cell, create one
-        if not hasattr(self, "jkr_max_neighbors"):
-            # begin with a low number of neighbors that can be revalued if the max neighbors exceeds this value
-            self.jkr_max_neighbors = 5
-
-        # if a static variable has not been created to hold the maximum number of cells in a bin, create one
-        if not hasattr(self, "jkr_max_cells"):
-            # begin with a low number of cells that can be revalued if the max number of cells exceeds this value
-            self.jkr_max_cells = 5
-
-        # this will run once if all edges are included in edge_holder, breaking the loop. if not, this will
-        # run a second time with an updated value for the number of predicted neighbors such that all edges are included
-        bins, bins_help, bin_locations, max_cells = self.assign_bins(jkr_distance, self.jkr_max_cells)
-
-        # update the value of the max number of cells in a bin
-        self.jkr_max_cells = max_cells
-
-        # this will run once and if all edges are included in edge_holder, the loop will break. if not this will
-        # run a second time with an updated value for number of predicted neighbors such that all edges are included
-        while True:
-            # create array used to hold edges, array to say where edges are, and array to count the edges per cell
-            length = self.number_agents * self.jkr_max_neighbors
-            edge_holder = np.zeros((length, 2), dtype=int)
-            if_edge = np.zeros(length, dtype=bool)
-            edge_count = np.zeros(self.number_agents, dtype=int)
-
-            # send the following as arrays to the gpu
-            if self.parallel:
-                # turn the following into arrays that can be interpreted by the gpu
-                bin_locations = cuda.to_device(bin_locations)
-                locations = cuda.to_device(self.locations)
-                radii = cuda.to_device(self.radii)
-                bins = cuda.to_device(bins)
-                bins_help = cuda.to_device(bins_help)
-                edge_holder = cuda.to_device(edge_holder)
-                if_edge = cuda.to_device(if_edge)
-                edge_count = cuda.to_device(edge_count)
-                max_neighbors = cuda.to_device(self.jkr_max_neighbors)
-
-                # allocate threads and blocks for gpu memory "threads per block" and "blocks per grid"
-                tpb = 72
-                bpg = math.ceil(self.number_agents / tpb)
-
-                # call the cuda kernel with new gpu arrays
-                jkr_neighbors_gpu[bpg, tpb](bin_locations, locations, radii, bins, bins_help, edge_holder, if_edge,
-                                            edge_count, max_neighbors)
-
-                # return the only the following array(s) back from the gpu
-                edge_holder = edge_holder.copy_to_host()
-                if_edge = if_edge.copy_to_host()
-                edge_count = edge_count.copy_to_host()
-
-            # call the jit cpu version
-            else:
-                edge_holder, if_edge, edge_count = jkr_neighbors_cpu(self.number_agents, bin_locations, self.locations,
-                                                                     self.radii, bins, bins_help, edge_holder, if_edge,
-                                                                     edge_count, self.jkr_max_neighbors)
-
-            # either break the loop if all neighbors were accounted for or revalue the maximum number of neighbors
-            # based on the output of the function call and double it
-            max_neighbors = np.amax(edge_count)
-            if self.jkr_max_neighbors >= max_neighbors:
-                break
-            else:
-                self.jkr_max_neighbors = max_neighbors * 2
-
-        # reduce the edges to only nonzero edges
-        edge_holder = edge_holder[if_edge]
-
-        # add the edges and simplify the graph as this graph is never cleared due to its use for holding adhesive JKR
-        # bonds from step to step
-        self.jkr_graph.add_edges(edge_holder)
-        self.jkr_graph.simplify()
 
     def calculate_jkr(self):
         """ Goes through all of "JKR" edges and quantifies any resulting

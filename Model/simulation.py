@@ -26,9 +26,8 @@ class Simulation(ABC):
         self.number_agents = 0
         self.beginning_step = 1
 
-        # hold the neighbors within a fixed radius of all agents with a graph
-        self.neighbor_graph = igraph.Graph()
-        self.graph_names = ["neighbor_graph"]
+        # hold the names of any graphs for the simulation
+        self.graph_names = list()
 
         # various other holders
         self.agent_array_names = list()  # store the variable names of each agent array
@@ -55,10 +54,6 @@ class Simulation(ABC):
                 agent_type (str): the name of a agent type that can be used by agent_array() to only apply
                     initial parameters to these agents, instead of the entire array.
         """
-        # add specified number of agents to each graph
-        for graph_name in self.graph_names:
-            self.__dict__[graph_name].add_vertices(number)
-
         # update the running number of agents and determine bounds for slice if agent_type is used
         begin = self.number_agents
         self.number_agents += number
@@ -129,6 +124,13 @@ class Simulation(ABC):
                 for i in range(begin, end):
                     self.__dict__[array_name][i] = func()
 
+    def agent_graph(self, name):
+        """ Adds graph to the simulation.
+        """
+        # create instance variable for graph and add graph name to holder
+        self.__dict__[name] = Graph(self.number_agents)
+        self.graph_names.append(name)
+
     def info(self):
         """ Records the beginning of the step in real time and
             print out info about the simulation.
@@ -140,7 +142,7 @@ class Simulation(ABC):
         print("Step: " + str(self.current_step))
         print("Number of agents: " + str(self.number_agents))
 
-    def assign_bins(self, distance, max_agents):
+    def assign_bins(self, graph, distance):
         """ Generalizes agent locations to a bin within lattice imposed on
             the agent space, used for a parallel fixed-radius neighbor search.
         """
@@ -151,7 +153,7 @@ class Simulation(ABC):
             # calculate the size of the array used to represent the bins and the bins helper array, include extra bins
             # for agents that may fall outside of the space
             bins_help_size = np.ceil(self.size / distance).astype(int) + 3
-            bins_size = np.append(bins_help_size, max_agents)
+            bins_size = np.append(bins_help_size, graph.max_agents)
 
             # create the arrays for "bins" and "bins_help"
             bins_help = np.zeros(bins_help_size, dtype=int)  # holds the number of agents currently in a bin
@@ -168,70 +170,54 @@ class Simulation(ABC):
             # either break the loop if all agents were accounted for or revalue the maximum number of agents based on
             # the output of the function call and double it future calls
             new_max_agents = np.amax(bins_help)
-            if max_agents >= new_max_agents:
+            if graph.max_agents >= new_max_agents:
                 break
             else:
-                max_agents = new_max_agents * 2  # double to prevent continual updating
+                graph.max_agents = new_max_agents * 2  # double to prevent continual updating
 
-        return bins, bins_help, bin_locations, max_agents
+        return bins, bins_help, bin_locations
 
     @record_time
-    def get_neighbors(self, distance=0.00002):
-        """ For all agents, determines which agents fall within a fixed radius to
-            denote a neighbor then stores this information in a graph (uses a bin/
-            bucket sorting method).
+    def get_neighbors(self, name, distance, clear=True):
         """
-        # if a static variable has not been created to hold the maximum number of neighbors for a agent, create one
-        if not hasattr(self, "gn_max_neighbors"):
-            # begin with a low number of neighbors that can be revalued if the max neighbors exceeds this value
-            self.gn_max_neighbors = 5
+        """
+        # get graph object reference
+        graph = self.__dict__[name]
 
-        # if a static variable has not been created to hold the maximum number of agents in a bin, create one
-        if not hasattr(self, "gn_max_agents"):
-            # begin with a low number of agents that can be revalued if the max number of agents exceeds this value
-            self.gn_max_agents = 5
-
-        # clear all of the edges in the neighbor graph
-        self.neighbor_graph.delete_edges(None)
+        # if True, remove all of the edges in the graph
+        if clear:
+            graph.delete_edges(None)
 
         # calls the function that generates an array of bins that generalize the agent locations in addition to a
         # creating a helper array that assists the search method in counting agents for a particular bin
-        bins, bins_help, bin_locations, max_agents = self.assign_bins(distance, self.gn_max_agents)
-
-        # update the value of the max number of agents in a bin
-        self.gn_max_agents = max_agents
+        bins, bins_help, bin_locations = self.assign_bins(graph, distance)
 
         # this will run once if all edges are included in edge_holder, breaking the loop. if not, this will
         # run a second time with an updated value for the number of predicted neighbors such that all edges are included
         while True:
             # create array used to hold edges, array to say if edge exists, and array to count the edges per agent
-            length = self.number_agents * self.gn_max_neighbors
+            length = self.number_agents * graph.max_neighbors
             edge_holder = np.zeros((length, 2), dtype=int)
             if_edge = np.zeros(length, dtype=bool)
             edge_count = np.zeros(self.number_agents, dtype=int)
 
             # call the nvidia gpu version
             if self.parallel:
-                # send the following as arrays to the gpu
-                bin_locations = cuda.to_device(bin_locations)
-                locations = cuda.to_device(self.locations)
-                bins = cuda.to_device(bins)
-                bins_help = cuda.to_device(bins_help)
-                distance = cuda.to_device(distance)
+                # allow the following arrays to be sent/returned by the CUDA kernel
                 edge_holder = cuda.to_device(edge_holder)
                 if_edge = cuda.to_device(if_edge)
                 edge_count = cuda.to_device(edge_count)
-                max_neighbors = cuda.to_device(self.gn_max_neighbors)
 
                 # allocate threads and blocks for gpu memory "threads per block" and "blocks per grid"
                 tpb = 72
                 bpg = math.ceil(self.number_agents / tpb)
 
                 # call the cuda kernel with new gpu arrays
-                get_neighbors_gpu[bpg, tpb](bin_locations, locations, bins, bins_help, distance, edge_holder, if_edge,
-                                            edge_count, max_neighbors)
+                get_neighbors_gpu[bpg, tpb](cuda.to_device(bin_locations), cuda.to_device(self.locations),
+                                            cuda.to_device(bins), cuda.to_device(bins_help), cuda.to_device(distance),
+                                            edge_holder, if_edge, edge_count, cuda.to_device(graph.max_neighbors))
 
-                # return the only the following array(s) back from the gpu
+                # return the following arrays back from the gpu
                 edge_holder = edge_holder.copy_to_host()
                 if_edge = if_edge.copy_to_host()
                 edge_count = edge_count.copy_to_host()
@@ -240,21 +226,25 @@ class Simulation(ABC):
             else:
                 edge_holder, if_edge, edge_count = get_neighbors_cpu(self.number_agents, bin_locations, self.locations,
                                                                      bins, bins_help, distance, edge_holder, if_edge,
-                                                                     edge_count, self.gn_max_neighbors)
+                                                                     edge_count, graph.max_neighbors)
 
             # either break the loop if all neighbors were accounted for or revalue the maximum number of neighbors
             # based on the output of the function call and double it for future calls
             max_neighbors = np.amax(edge_count)
-            if self.gn_max_neighbors >= max_neighbors:
+            if graph.max_neighbors >= max_neighbors:
                 break
             else:
-                self.gn_max_neighbors = max_neighbors * 2
+                graph.max_neighbors = max_neighbors * 2
 
         # reduce the edges to only edges that actually exist
         edge_holder = edge_holder[if_edge]
 
         # add the edges to the neighbor graph
-        self.neighbor_graph.add_edges(edge_holder)
+        graph.add_edges(edge_holder)
+
+        # if not clearing the graph each time the method is called, simplify the graph's edges
+        if not clear:
+            graph.simplify()
 
     def random_vector(self):
         """ Computes a random vector on the unit sphere centered

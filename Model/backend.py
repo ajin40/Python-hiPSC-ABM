@@ -7,8 +7,22 @@ import yaml
 import shutil
 import re
 import getopt
+import igraph
 from numba import jit, cuda, prange
 from functools import wraps
+
+
+class Graph(igraph.Graph):
+    """ This class extends the Graph class from igraph adding
+        additional instance variables for the bin/bucket sort.
+    """
+    def __init__(self, *args, **kwargs):
+        # call constructor for igraph
+        igraph.Graph.__init__(self, *args, **kwargs)
+
+        # these values are used in the bin/bucket sort for finding neighbors and are frequently updated
+        self.max_neighbors = 5    # the current number of neighbors that can be stored in a holder array
+        self.max_agents = 5     # the current number of agents that can be stored in a bin
 
 
 class Paths:
@@ -137,121 +151,6 @@ def get_neighbors_cpu(number_agents, bin_locations, locations, bins, bins_help, 
                         # check to see if that cell is within the search radius and only continue if the current cell
                         # has a higher index to prevent double counting edges
                         if np.linalg.norm(locations[current] - locations[focus]) <= distance and focus < current:
-                            # if less than the max edges, add the edge
-                            if cell_edge_count < max_neighbors:
-                                # get the index for the edge
-                                index = start + cell_edge_count
-
-                                # update the edge array and identify that this edge exists
-                                edge_holder[index][0] = focus
-                                edge_holder[index][1] = current
-                                if_edge[index] = 1
-
-                            # increase the count of edges for a cell and the index for the next edge
-                            cell_edge_count += 1
-
-        # update the array with number of edges for the cell
-        edge_count[focus] = cell_edge_count
-
-    return edge_holder, if_edge, edge_count
-
-
-@cuda.jit
-def jkr_neighbors_gpu(bin_locations, locations, radii, bins, bins_help, edge_holder, if_edge, edge_count,
-                      max_neighbors):
-    """ A just-in-time compiled cuda kernel for the jkr_neighbors()
-        method that performs the actual calculations.
-    """
-    # get the index in the array
-    focus = cuda.grid(1)
-
-    # get the starting index for writing to the edge holder array
-    start = focus * max_neighbors[0]
-
-    # double check that focus index is within the array
-    if focus < locations.shape[0]:
-        # holds the total amount of edges for a given cell
-        cell_edge_count = 0
-
-        # get the bin location of the cell
-        x, y, z = bin_locations[focus]
-
-        # go through the surrounding bins including the bin the cell is in
-        for i in range(-1, 2):
-            for j in range(-1, 2):
-                for k in range(-1, 2):
-                    # get the count of cells for the current bin
-                    bin_count = bins_help[x + i][y + j][z + k]
-
-                    # go through the bin determining if a cell is a neighbor
-                    for l in range(bin_count):
-                        # get the index of the current potential neighbor
-                        current = bins[x + i][y + j][z + k][l]
-
-                        # get the magnitude of the distance vector between the cell locations
-                        mag = magnitude(locations[focus], locations[current])
-
-                        # calculate the overlap of the cells
-                        overlap = radii[focus] + radii[current] - mag
-
-                        # if there is 0 or more overlap and if the current cell has a higher index to prevent double
-                        # counting edges
-                        if overlap >= 0 and focus < current:
-                            # if less than the max edges, add the edge
-                            if cell_edge_count < max_neighbors[0]:
-                                # get the index for the edge
-                                index = start + cell_edge_count
-
-                                # update the edge array and identify that this edge exists
-                                edge_holder[index][0] = focus
-                                edge_holder[index][1] = current
-                                if_edge[index] = 1
-
-                            # increase the count of edges for a cell and the index for the next edge
-                            cell_edge_count += 1
-
-        # update the array with number of edges for the cell
-        edge_count[focus] = cell_edge_count
-
-
-@jit(nopython=True, parallel=True, cache=True)
-def jkr_neighbors_cpu(number_agents, bin_locations, locations, radii, bins, bins_help, edge_holder,
-                      if_edge, edge_count, max_neighbors):
-    """ A just-in-time compiled function for the jkr_neighbors()
-        method that performs the actual calculations.
-    """
-    # loops over all cells, with the current cell index being the focus
-    for focus in prange(number_agents):
-        # get the starting index for writing to the edge holder array
-        start = focus * max_neighbors
-
-        # holds the total amount of edges for a given cell
-        cell_edge_count = 0
-
-        # get the bin location of the cell
-        x, y, z = bin_locations[focus]
-
-        # go through the surrounding bins including the bin the cell is in
-        for i in range(-1, 2):
-            for j in range(-1, 2):
-                for k in range(-1, 2):
-                    # get the count of cells for the current bin
-                    bin_count = bins_help[x + i][y + j][z + k]
-
-                    # go through the bin determining if a cell is a neighbor
-                    for l in range(bin_count):
-                        # get the index of the current potential neighbor
-                        current = bins[x + i][y + j][z + k][l]
-
-                        # get the magnitude of the distance vector between the cell locations
-                        mag = np.linalg.norm(locations[current] - locations[focus])
-
-                        # calculate the overlap of the cells
-                        overlap = radii[current] + radii[focus] - mag
-
-                        # if there is 0 or more overlap and if the current cell has a higher index to prevent double
-                        # counting edges
-                        if overlap >= 0 and focus < current:
                             # if less than the max edges, add the edge
                             if cell_edge_count < max_neighbors:
                                 # get the index for the edge

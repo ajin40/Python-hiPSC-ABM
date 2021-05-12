@@ -82,10 +82,6 @@ class CellSimulation(CellMethods, CellOutputs, Simulation):
         self.pluri_growth = (self.max_radius - self.min_radius) / self.pluri_div_thresh
         self.diff_growth = (self.max_radius - self.min_radius) / self.diff_div_thresh
 
-        # create graph with instance variable jkr_graph for holding adhesions between contacting cells
-        self.jkr_graph = igraph.Graph()
-        self.graph_names.append("jkr_graph")
-
         # the spatial resolution of the space, the diffusion constant for the molecule gradients, the radius of
         # search for diffusion points, and the max concentration at a diffusion point (not currently in use)
         # self.spat_res = 0.00000707106
@@ -122,7 +118,7 @@ class CellSimulation(CellMethods, CellOutputs, Simulation):
             self.info()
 
             # Finds the neighbors of each cell that are within a fixed radius and store this info in a graph.
-            self.get_neighbors(distance=0.00001)    # double max cell radius
+            self.get_neighbors("neighbor_graph", 0.00001)  # double max cell radius
 
             # Updates cells by adjusting trackers for differentiation, division, growth, etc. based on intracellular,
             # intercellular, and extracellular conditions through a series of separate methods.
@@ -199,3 +195,8 @@ class CellSimulation(CellMethods, CellOutputs, Simulation):
         # Update the number of cells marked with the "GATA6_high" cell type with alternative initial conditions.
         self.agent_array("GATA6", agent_type="GATA6_high", func=lambda: r.randrange(1, self.field))
         self.agent_array("NANOG", agent_type="GATA6_high", func=lambda: 0)
+
+        # Create graphs for holding cell neighbors
+        self.agent_graph("neighbor_graph")
+        self.agent_graph("jkr_graph")
+        self.agent_graph("jkr_graph2")
