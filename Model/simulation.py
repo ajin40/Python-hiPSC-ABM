@@ -30,10 +30,6 @@ class Simulation(ABC):
         self.neighbor_graph = igraph.Graph()
         self.graph_names = ["neighbor_graph"]
 
-        # arrays to store the agents set to divide or to be removed
-        self.agents_to_divide = np.array([], dtype=int)
-        self.agents_to_remove = np.array([], dtype=int)
-
         # various other holders
         self.agent_array_names = list()  # store the variable names of each agent array
         self.agent_types = dict()  # hold the names of agent types defined in cellsimulation.py

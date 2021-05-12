@@ -12,12 +12,15 @@ class CellMethods:
     """
     @record_time
     def cell_death(self):
-        """ Marks the cell for removal if it meets the criteria for cell death.
+        """ Remove any cells that meet the criteria for cell death.
         """
+        # create boolean array to mark cells to be removed
+        agents_to_remove = np.zeros(self.number_agents, dtype=bool)
+
+        # determine which cells are being removed
         for index in range(self.number_agents):
             # checks to see if cell is pluripotent
             if self.states[index] == 0:
-
                 # gets the number of neighbors for a cell, increasing the death counter if not enough neighbors
                 if len(self.neighbor_graph.neighbors(index)) < self.lonely_thresh:
                     self.death_counters[index] += 1
@@ -26,9 +29,115 @@ class CellMethods:
                 else:
                     self.death_counters[index] = 0
 
-                # add cell to removal array if it meets the parameters
+                # mark the cell for removal if it meets the parameters
                 if self.death_counters[index] >= self.death_thresh:
-                    self.agents_to_remove = np.append(self.agents_to_remove, index)
+                    agents_to_remove[index] = 1
+
+        # get indices of cells to remove with Boolean mask
+        indices = np.arange(self.number_agents)[agents_to_remove]
+
+        # get the number of cells being removed, subtract from count, and print out to terminal
+        num_removed = len(indices)
+        self.number_agents -= num_removed
+        print("Removing " + str(num_removed) + " agents...")
+
+        # go through the cell arrays and remove the indices
+        for name in self.agent_array_names:
+            # if the array is 1-dimensional
+            if self.__dict__[name].ndim == 1:
+                self.__dict__[name] = np.delete(self.__dict__[name], indices)
+
+            # if the array is 2-dimensional
+            else:
+                self.__dict__[name] = np.delete(self.__dict__[name], indices, axis=0)
+
+        # remove the indices from each graph
+        for graph_name in self.graph_names:
+            self.__dict__[graph_name].delete_vertices(indices)
+
+    @record_time
+    def cell_division(self):
+        """ Increases the cell division counter and if the cell meets criteria
+            mark it for division.
+        """
+        # create boolean array to mark dividing cells
+        agents_to_divide = np.zeros(self.number_agents, dtype=bool)
+
+        # determine which cells are dividing
+        for index in range(self.number_agents):
+            # stochastically increase the division counter by either 0 or 1
+            self.div_counters[index] += r.randint(0, 1)
+
+            # pluripotent cell
+            if self.states[index] == 0:
+                # check the division counter against the threshold, add to array if dividing
+                if self.div_counters[index] >= self.pluri_div_thresh:
+                    agents_to_divide[index] = 1
+
+            # differentiated cell
+            else:
+                # check the division counter against the threshold, add to array if dividing
+                if self.div_counters[index] >= self.diff_div_thresh:
+                    # check for contact inhibition since differentiated
+                    if len(self.neighbor_graph.neighbors(index)) < 6:
+                        agents_to_divide[index] = 1
+
+        # get indices of the dividing cells with Boolean mask
+        indices = np.arange(self.number_agents)[agents_to_divide]
+
+        # get the number of cells being added and print out to terminal
+        num_added = len(indices)
+        print("Adding " + str(num_added) + " agents...")
+
+        # go through the cell arrays and add indices
+        for name in self.agent_array_names:
+            # copy the indices of the cell array data for the dividing cells
+            copies = self.__dict__[name][indices]
+
+            # if the instance variable is 1-dimensional
+            if self.__dict__[name].ndim == 1:
+                # add the copies to the end of the array
+                self.__dict__[name] = np.concatenate((self.__dict__[name], copies))
+
+            # if the instance variable is 2-dimensional
+            else:
+                # add the copies to the end of the array
+                self.__dict__[name] = np.concatenate((self.__dict__[name], copies), axis=0)
+
+        # go through each of the dividing cells, updating values for the mother and daughter cell
+        for i in range(num_added):
+            # get the indices of mother cell and daughter cell
+            mother_index = indices[i]
+            daughter_index = self.number_agents
+
+            # move the cells to new positions
+            division_position = self.random_vector() * (self.max_radius - self.min_radius)
+            self.locations[mother_index] += division_position
+            self.locations[daughter_index] -= division_position
+
+            # set division counters to zero
+            self.div_counters[mother_index] = 0
+            self.div_counters[daughter_index] = 0
+
+            # go through each graph, adding one new vertex at a time
+            for graph_name in self.graph_names:
+                self.__dict__[graph_name].add_vertex()
+
+            # update the number of cells, adding one new agent at a time
+            self.number_agents += 1
+
+            # if not adding all of the cells at once
+            if self.group != 0:
+                # Cannot add all of the new cells, otherwise several cells are likely to be added in
+                #   close proximity to each other at later time steps. Such addition, coupled with
+                #   handling collisions, make give rise to sudden changes in overall positions of
+                #   cells within the self. Instead, collisions are handled after 'group' number
+                #   of cells are added. - Daniel Cruz
+
+                # if the current number added is divisible by the group number
+                if (i + 1) % self.group == 0:
+                    # run the following once to better simulate asynchronous division
+                    self.apply_forces(one_step=True, motility=False)
 
     @record_time
     def cell_diff_surround(self):
@@ -54,30 +163,6 @@ class CellMethods:
                         self.GATA6[index] = self.field - 1
                         self.NANOG[index] = 0
                         break
-
-    @record_time
-    def cell_division(self):
-        """ Increases the cell division counter and if the cell meets criteria
-            mark it for division.
-        """
-        for index in range(self.number_agents):
-            # stochastically increase the division counter by either 0 or 1
-            self.div_counters[index] += r.randint(0, 1)
-
-            # pluripotent cell
-            if self.states[index] == 0:
-                # check the division counter against the threshold, add to array if dividing
-                if self.div_counters[index] >= self.pluri_div_thresh:
-                    self.agents_to_divide = np.append(self.agents_to_divide, index)
-
-            # differentiated cell
-            else:
-                # check the division counter against the threshold, add to array if dividing
-                if self.div_counters[index] >= self.diff_div_thresh:
-
-                    # check for contact inhibition since differentiated
-                    if len(self.neighbor_graph.neighbors(index)) < 6:
-                        self.agents_to_divide = np.append(self.agents_to_divide, index)
 
     @record_time
     def cell_growth(self):
@@ -686,92 +771,6 @@ class CellMethods:
 
         # update the self gradient array
         self.__dict__[gradient_name][:, :, 0] = gradient
-
-    @record_time
-    def update_queue(self):
-        """ Adds and removes cells to and from the self
-            either all at once or in "groups".
-        """
-        # get the number of cells being added and removed
-        num_added = len(self.agents_to_divide)
-        num_removed = len(self.agents_to_remove)
-
-        # print how many cells are being added/removed during a given step
-        print("Adding " + str(num_added) + " cells...")
-        print("Removing " + str(num_removed) + " cells...")
-
-        # -------------------- Division --------------------
-        # extend each of the arrays by how many cells being added
-        for name in self.agent_array_names:
-            # copy the indices of the cell array for the dividing cells
-            copies = self.__dict__[name][self.agents_to_divide]
-
-            # if the instance variable is 1-dimensional
-            if self.__dict__[name].ndim == 1:
-                # add the copies to the end of the array
-                self.__dict__[name] = np.concatenate((self.__dict__[name], copies))
-
-            # if the instance variable is 2-dimensional
-            else:
-                # add the copies to the end of the array
-                self.__dict__[name] = np.concatenate((self.__dict__[name], copies), axis=0)
-
-        # go through each of the dividing cells
-        for i in range(num_added):
-            # get the indices of the mother cell and the daughter cell
-            mother_index = self.agents_to_divide[i]
-            daughter_index = self.number_agents
-
-            # move the cells to new positions
-            division_position = self.random_vector() * (self.max_radius - self.min_radius)
-            self.locations[mother_index] += division_position
-            self.locations[daughter_index] -= division_position
-
-            # reduce both radii to minimum size (representative of a divided cell) and set the division counters to zero
-            # self.radii[mother_index] = self.radii[daughter_index] = self.min_radius
-            self.div_counters[mother_index] = self.div_counters[daughter_index] = 0
-
-            # go through each graph adding the number of dividing cells
-            for graph_name in self.graph_names:
-                self.__dict__[graph_name].add_vertex()
-
-            # update the number of cells in the self
-            self.number_agents += 1
-
-            # if not adding all of the cells at once
-            if self.group != 0:
-                # Cannot add all of the new cells, otherwise several cells are likely to be added in
-                #   close proximity to each other at later time steps. Such addition, coupled with
-                #   handling collisions, make give rise to sudden changes in overall positions of
-                #   cells within the self. Instead, collisions are handled after 'group' number
-                #   of cells are added. - Daniel Cruz
-
-                # if the current number added is divisible by the group number
-                if (i + 1) % self.group == 0:
-                    # run the following once to better simulate asynchronous division
-                    self.apply_forces(one_step=True, motility=False)
-
-        # -------------------- Death --------------------
-        # get the indices of the cells leaving the self
-        indices = self.agents_to_remove
-
-        # go through the cell arrays remove the indices
-        for name in self.agent_array_names:
-            # if the array is 1-dimensional
-            if self.__dict__[name].ndim == 1:
-                self.__dict__[name] = np.delete(self.__dict__[name], indices)
-            # if the array is 2-dimensional
-            else:
-                self.__dict__[name] = np.delete(self.__dict__[name], indices, axis=0)
-
-        # automatically update the graphs and change the number of cells
-        for graph_name in self.graph_names:
-            self.__dict__[graph_name].delete_vertices(indices)
-        self.number_agents -= num_removed
-
-        # clear the arrays for the next step
-        self.agents_to_divide = np.array([], dtype=int)
-        self.agents_to_remove = np.array([], dtype=int)
 
     def get_concentration(self, gradient_name, index):
         """ Get the concentration of a gradient for a cell's

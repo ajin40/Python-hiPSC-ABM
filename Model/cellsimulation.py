@@ -126,21 +126,17 @@ class CellSimulation(CellMethods, CellOutputs, Simulation):
 
             # Updates cells by adjusting trackers for differentiation, division, growth, etc. based on intracellular,
             # intercellular, and extracellular conditions through a series of separate methods.
-            # self.cell_death()
-            # self.cell_growth()
-            # self.cell_stochastic_update()
-            self.cell_diff_surround()
             self.cell_division()
+            self.cell_death()
             self.cell_pathway()
             self.cell_differentiate()
+            # self.cell_growth()
+            # self.cell_stochastic_update()
+            # self.cell_diff_surround()
 
             # Simulates diffusion the specified extracellular gradient via the forward time centered space method.
             # self.update_diffusion("fgf4_values")
             # self.update_diffusion("fgf4_alt")    # for testing morphogen release methods
-
-            # Adds/removes cells to/from the simulation either all together or in desired groups of cells. If done in
-            # groups, the apply_forces() function will be used to better represent asynchronous division and death.
-            self.update_queue()
 
             # Finds the nearest NANOG high, GATA6 high, and differentiated cells within a fixed radius. This provides
             # information that can be used for approximating cell motility.
