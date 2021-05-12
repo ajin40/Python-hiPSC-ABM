@@ -137,7 +137,7 @@ class CellMethods:
                 # if the current number added is divisible by the group number
                 if (i + 1) % self.group == 0:
                     # run the following once to better simulate asynchronous division
-                    self.apply_forces(one_step=True, motility=False)
+                    self.apply_forces(group_add=True)
 
     @record_time
     def cell_diff_surround(self):
@@ -534,28 +534,25 @@ class CellMethods:
         self.nearest_diff = diff
 
     @record_time
-    def apply_forces(self, one_step=False, motility=True):
+    def apply_forces(self, group_add=False):
         """ Calls multiple methods used to move the cells to a state of physical
             equilibrium between repulsive, adhesive, and motility forces.
         """
         # the viscosity of the medium in Ns/m, used for stokes friction
         viscosity = 10000
 
-        # this method can be called by update_queue() to better represent asynchronous division
-        if one_step:
-            total_steps, last_dt = 1, self.move_dt    # move once based on move_dt
+        # if this method is being used by cell_division(), move the cells slightly without motility forces
+        if group_add:
+            total_steps = 1
+            last_dt = self.move_dt
+            motility_forces = np.zeros_like(self.motility_forces)
 
-        # otherwise run normally
+        # otherwise apply motility forces and iteratively move the cells
         else:
             # calculate the number of steps and the last step time if it doesn't divide nicely
             steps, last_dt = divmod(self.step_dt, self.move_dt)
             total_steps = int(steps) + 1    # add extra step for the last dt, if divides nicely last_dt will equal zero
-
-        # if motility parameter is False, an array of zeros will be used for the motility forces
-        if motility:
             motility_forces = self.motility_forces
-        else:
-            motility_forces = np.zeros_like(self.motility_forces)
 
         # go through all move steps, calculating the physical interactions and applying the forces
         for step in range(total_steps):
@@ -572,23 +569,19 @@ class CellMethods:
             else:
                 move_dt = self.move_dt
 
-            # send the following as arrays to the gpu
+            # call the nvidia gpu version
             if self.parallel:
-                # turn the following into arrays that can be interpreted by the gpu
-                jkr_forces = cuda.to_device(self.jkr_forces)
-                motility_forces = cuda.to_device(motility_forces)
+                # allow the following arrays to be sent/returned by the CUDA kernel
                 locations = cuda.to_device(self.locations)
-                radii = cuda.to_device(self.radii)
-                viscosity = cuda.to_device(viscosity)
-                size = cuda.to_device(self.size)
-                move_dt = cuda.to_device(move_dt)
 
                 # allocate threads and blocks for gpu memory "threads per block" and "blocks per grid"
                 tpb = 72
                 bpg = math.ceil(self.number_agents / tpb)
 
                 # call the cuda kernel with new gpu arrays
-                apply_forces_gpu[bpg, tpb](jkr_forces, motility_forces, locations, radii, viscosity, size, move_dt)
+                apply_forces_gpu[bpg, tpb](cuda.to_device(self.jkr_forces), cuda.to_device(motility_forces), locations,
+                                           cuda.to_device(self.radii), cuda.to_device(viscosity),
+                                           cuda.to_device(self.size), cuda.to_device(move_dt))
 
                 # return the only the following array(s) back from the gpu
                 new_locations = locations.copy_to_host()
@@ -624,22 +617,17 @@ class CellMethods:
             # send the following as arrays to the gpu
             if self.parallel:
                 # turn the following into arrays that can be interpreted by the gpu
-                jkr_edges = cuda.to_device(jkr_edges)
                 delete_edges = cuda.to_device(delete_edges)
-                locations = cuda.to_device(self.locations)
-                radii = cuda.to_device(self.radii)
                 forces = cuda.to_device(self.jkr_forces)
-                poisson = cuda.to_device(poisson)
-                youngs = cuda.to_device(youngs)
-                adhesion_const = cuda.to_device(adhesion_const)
 
                 # allocate threads and blocks for gpu memory "threads per block" and "blocks per grid"
                 tpb = 72
                 bpg = math.ceil(number_edges / tpb)
 
                 # call the cuda kernel with new gpu arrays
-                jkr_forces_gpu[bpg, tpb](jkr_edges, delete_edges, locations, radii, forces, poisson, youngs,
-                                         adhesion_const)
+                jkr_forces_gpu[bpg, tpb](cuda.to_device(jkr_edges), delete_edges, cuda.to_device(self.locations),
+                                         cuda.to_device(self.radii), forces, cuda.to_device(poisson),
+                                         cuda.to_device(youngs), cuda.to_device(adhesion_const))
 
                 # return the only the following array(s) back from the gpu
                 forces = forces.copy_to_host()

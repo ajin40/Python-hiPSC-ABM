@@ -179,7 +179,9 @@ class Simulation(ABC):
 
     @record_time
     def get_neighbors(self, name, distance, clear=True):
-        """
+        """ Finds all neighbors for each cell within the specified radius and
+            add this data to the specified graph. The clear parameter will
+            remove all edges from the graph, otherwise they're saved.
         """
         # get graph object reference
         graph = self.__dict__[name]
