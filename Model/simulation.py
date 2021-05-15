@@ -8,13 +8,12 @@ import csv
 import cv2
 import pickle
 import psutil
-from abc import ABC, abstractmethod
 from numba import cuda
 
 from backend import *
 
 
-class Simulation(ABC):
+class Simulation:
     """ This abstract class makes sure any subclasses have the necessary
         simulation attributes.
     """
@@ -33,15 +32,76 @@ class Simulation(ABC):
         # store the runtimes of methods with @record_time decorator
         self.method_times = dict()
 
-    @abstractmethod
-    def agent_initials(self):
-        """ Make sure subclass has agent_initials method. """
-        pass
+        """
+        The following instance variables can be updated through template files located in the "templates"
+        directory. The values must be specified using YAML syntax.
 
-    @abstractmethod
+            (general.yaml)
+            1   # How many frames per second of the output video that collects all step images? Ex. 6
+            2   fps: 6
+            3
+
+            (simulation.py)
+            keys = template_params(paths.templates + "general.yaml")
+            self.fps = keys["fps"]
+        """
+        # get values from general YAML file
+        keys = template_params(paths.templates + "general.yaml")  # read keys from general.yaml
+        self.agents_to_start = keys["agents_to_start"]
+        self.cuda = keys["cuda"]
+        self.end_step = keys["end_step"]
+        self.size = np.array(keys["size"])
+        self.output_values = keys["output_values"]
+        self.output_images = keys["output_images"]
+        self.image_quality = keys["image_quality"]
+        self.video_quality = keys["video_quality"]
+        self.fps = keys["fps"]
+
+    def agent_initials(self):
+        """ Add agents into the simulation and specify any values the agents should have.
+            The agent arrays will default to float64, 1-dim arrays of zeros. Use the
+            parameters to adjust the data type, 2-dim size, and initial conditions. The
+            "agent_type" keyword is used to apply initial conditions to the group of agents
+            marked with the same agent type in add_agents().
+        """
+        # add agents to the simulation
+        self.add_agents(self.agents_to_start)
+
+        # create the following agent arrays with initial conditions.
+        self.agent_array("locations", override=np.random.rand(self.number_agents, 3) * self.size)
+        self.agent_array("radii", func=lambda: 5)
+
+        # create graph for holding agent neighbors
+        self.agent_graph("neighbor_graph")
+
     def steps(self):
-        """ Make sure subclass has steps method. """
-        pass
+        """ Specify any Simulation instance methods called before/during/after
+            the simulation, see example below.
+
+            Example:
+                self.before_steps()
+
+                for self.current_step in range(self.beginning_step, self.end_step + 1):
+                    self.during_steps()
+
+                self.after_steps()
+        """
+        # iterate over all steps specified
+        for self.current_step in range(self.beginning_step, self.end_step + 1):
+            # records step run time and prints the current step and number of agents
+            self.info()
+
+            # finds the neighbors of each agent within fixed radius
+            self.get_neighbors("neighbor_graph", 15)
+
+            # save multiple forms of information about the simulation at the current step
+            self.step_image()
+            self.step_values(arrays=["locations", "radii"])
+            self.temp()
+            self.data()
+
+        # ends the simulation by creating a video from all of the step images
+        self.create_video()
 
     def add_agents(self, number, agent_type=None):
         """ Adds number of agents to the simulation potentially with agent_type marker.
@@ -284,6 +344,49 @@ class Simulation(ABC):
                 # stack the arrays to create rows for the CSV file and save to CSV
                 data = np.hstack(data)
                 csv_file.writerows(data)
+
+    @record_time
+    def step_image(self, background=(0, 0, 0), origin_bottom=True):
+        """ Creates an image of the simulation space. Note the imaging library
+            OpenCV uses BGR instead of RGB.
+
+            - background: the color of the background image as BGR
+            - origin_bottom: location of origin True -> bottom/left, False -> top/left
+        """
+        # only continue if outputting images
+        if self.output_images:
+            # get path and make sure directory exists
+            check_direct(self.paths.images)
+
+            # get the size of the array used for imaging in addition to the scaling factor
+            x_size = self.image_quality
+            scale = x_size / self.size[0]
+            y_size = math.ceil(scale * self.size[1])
+
+            # create the agent space background image and apply background color
+            image = np.zeros((y_size, x_size, 3), dtype=np.uint8)
+            image[:, :] = background
+
+            # go through all of the agents
+            for index in range(self.number_agents):
+                # get xy coordinates, the axis lengths, and color of agent
+                x, y = int(scale * self.locations[index][0]), int(scale * self.locations[index][1])
+                major = int(scale * self.radii[index])
+                minor = int(scale * self.radii[index])
+                color = (255, 50, 50)
+
+                # draw the agent and a black outline to distinguish overlapping agents
+                image = cv2.ellipse(image, (x, y), (major, minor), 0, 0, 360, color, -1)
+                image = cv2.ellipse(image, (x, y), (major, minor), 0, 0, 360, (0, 0, 0), 1)
+
+            # if the origin should be bottom-left flip it, otherwise it will be top-left
+            if origin_bottom:
+                image = cv2.flip(image, 0)
+
+            # save the image as a PNG
+            image_compression = 4  # image compression of png (0: no compression, ..., 9: max compression)
+            file_name = f"{self.name}_image_{self.current_step}.png"
+            cv2.imwrite(self.paths.images + file_name, image, [cv2.IMWRITE_PNG_COMPRESSION, image_compression])
 
     def data(self):
         """ Adds a new line to a running CSV holding data about the simulation

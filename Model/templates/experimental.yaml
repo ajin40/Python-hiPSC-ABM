@@ -1,3 +1,16 @@
+# How many NANOG high cells to begin the simulation? Ex. 1000
+num_nanog: 5000
+
+# How many GATA6 high cells to begin the simulation? Ex. 1000
+num_gata6: 0
+
+# Do you want topological data analysis (TDA) files produced at each step? These files are CSVs with the 2D
+# locations of cells with basic color labeling. Ex. True
+output_tda: True
+
+# Do you want the 2D extracellular gradients saved as CSVs at each step? Ex. True
+output_gradients: True
+
 # How many cells are added to the simulation at once, per time step? Type 0 if all at once. Ex. 5
 group: 0
 

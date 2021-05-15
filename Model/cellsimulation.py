@@ -13,41 +13,15 @@ class CellSimulation(CellMethods, CellOutputs, Simulation):
         through the template files.
     """
     def __init__(self, paths, name):
-        Simulation.__init__(self, paths, name)   # initialize the Simulation object instance variables
-        """
-        The following instance variables can be updated through template files located in the "templates"
-        directory. The values must be specified using YAML syntax.
+        # initialize the Simulation object
+        Simulation.__init__(self, paths, name)
 
-            (outputs.yaml)
-            1   # How many frames per second of the output video that collects all step images? Ex. 6
-            2   fps: 6
-            3
-
-            (cellsimulation.py)
-            keys = template_params(paths.templates + "outputs.yaml")
-            self.fps = keys["fps"]
-        """
-        # ------------- general template file ------------------------------
-        keys = template_params(paths.templates + "general.yaml")    # read keys from general.yaml
-        self.cuda = keys["cuda"]
-        self.end_step = keys["end_step"]
+        # get parameters from experimental template file
+        keys = template_params(paths.templates + "experimental.yaml")
         self.num_nanog = keys["num_nanog"]
         self.num_gata6 = keys["num_gata6"]
-        self.size = np.array(keys["size"])
-
-        # ------------- outputs template file ------------------------------
-        keys = template_params(paths.templates + "outputs.yaml")    # read keys from outputs.yaml
-        self.output_values = keys["output_values"]
         self.output_tda = keys["output_tda"]
         self.output_gradients = keys["output_gradients"]
-        self.output_images = keys["output_images"]
-        self.image_quality = keys["image_quality"]
-        self.video_quality = keys["video_quality"]
-        self.fps = keys["fps"]
-        self.color_mode = keys["color_mode"]
-
-        # ------------- experimental template file -------------------------
-        keys = template_params(paths.templates + "experimental.yaml")    # read keys from experimental.yaml
         self.group = keys["group"]
         self.dox_step = keys["dox_step"]
         self.guye_move = keys["guye_move"]
@@ -98,17 +72,6 @@ class CellSimulation(CellMethods, CellOutputs, Simulation):
         # self.gradient_names = ["fgf4_values", "fgf4_alt"]    # add names for automatic CSV output of gradients
 
     def steps(self):
-        """ Specify any Simulation instance methods called before/during/after
-            the simulation, see example below.
-
-            Example:
-                self.before_steps()
-
-                for self.current_step in range(self.beginning_step, self.end_step + 1):
-                    self.during_steps()
-
-                self.after_steps()
-        """
         # Iterate over all steps specified in the Simulation object
         for self.current_step in range(self.beginning_step, self.end_step + 1):
             # Records model run time for the step and prints the current step/number of cells.
@@ -154,14 +117,8 @@ class CellSimulation(CellMethods, CellOutputs, Simulation):
         self.create_video()
 
     def agent_initials(self):
-        """ Add cells into the simulation and specify any values the cells should have.
-            The cell arrays will default to float64, 1-dim arrays of zeros. Use the
-            parameters to adjust the data type, 2-dim size, and initial conditions. The
-            "cell_type" keyword is used to apply initial conditions to the group of cells
-            marked with the same cell type in add_cells().
-        """
         # Add the specified number of NANOG/GATA6 high cells and create cell type GATA6_high.
-        self.add_agents(self.num_nanog)
+        self.add_agents(self.agents_to_start)
         self.add_agents(self.num_gata6, agent_type="GATA6_high")
 
         # Create the following cell arrays with initial conditions.
