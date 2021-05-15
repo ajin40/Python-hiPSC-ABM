@@ -1,6 +1,3 @@
-# How many NANOG high cells to begin the simulation? Ex. 1000
-num_nanog: 5000
-
 # How many GATA6 high cells to begin the simulation? Ex. 1000
 num_gata6: 0
 
@@ -25,3 +22,7 @@ guye_move: True
 # What is the threshold for designating a cell lonely and increasing the death counter? If the cell has less neighbors
 # than this value the death counter will be increased by one. Ex. 3
 lonely_thresh: 2
+
+# What mode of coloring for step images? True for coloring based on whether a cell pluripotent or
+# differentiated, False for coloring based on GATA6/NANOG levels? Ex. False
+color_mode: True

@@ -18,7 +18,6 @@ class CellSimulation(CellMethods, CellOutputs, Simulation):
 
         # get parameters from experimental template file
         keys = template_params(paths.templates + "experimental.yaml")
-        self.num_nanog = keys["num_nanog"]
         self.num_gata6 = keys["num_gata6"]
         self.output_tda = keys["output_tda"]
         self.output_gradients = keys["output_gradients"]
@@ -26,6 +25,7 @@ class CellSimulation(CellMethods, CellOutputs, Simulation):
         self.dox_step = keys["dox_step"]
         self.guye_move = keys["guye_move"]
         self.lonely_thresh = keys["lonely_thresh"]
+        self.color_mode = keys["color_mode"]
 
         # the temporal resolution for the simulation
         self.step_dt = 1800  # dt of each simulation step (1800 sec)
@@ -96,7 +96,7 @@ class CellSimulation(CellMethods, CellOutputs, Simulation):
 
             # Calculates the direction/magnitude of a cell's movement depending on a variety of factors such as state
             # and presence of neighbors.
-            # self.cell_motility()
+            self.cell_motility()
 
             # Through the series of methods, attempt to move the cells to a state of physical equilibrium between
             # adhesive and repulsive forces acting on the cells, while applying active motility forces.
@@ -118,7 +118,7 @@ class CellSimulation(CellMethods, CellOutputs, Simulation):
 
     def agent_initials(self):
         # Add the specified number of NANOG/GATA6 high cells and create cell type GATA6_high.
-        self.add_agents(self.agents_to_start)
+        self.add_agents(self.num_to_start)
         self.add_agents(self.num_gata6, agent_type="GATA6_high")
 
         # Create the following cell arrays with initial conditions.
