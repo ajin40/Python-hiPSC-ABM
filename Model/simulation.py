@@ -47,7 +47,8 @@ class Simulation(ABC):
         """ Adds number of agents to the simulation potentially with agent_type marker.
 
             - number: the number of agents being added
-            - agent_type: string marker used to apply initial conditions to only these agents
+            - agent_type: string marker used to apply initial conditions to only these
+              agents
         """
         # determine bounds for array slice and increase total agents
         begin = self.number_agents
@@ -69,7 +70,8 @@ class Simulation(ABC):
             - agent_type: string marker from add_agents()
             - dtype: the data type of the array
             - vector: if 2-dimensional, the length of the vector for each agent
-            - func: a function called for each index of the array to specify initial parameters
+            - func: a function called for each index of the array to specify initial
+              parameters
             - override: pass existing array instead of generating a new array
         """
         # if using existing array
@@ -123,186 +125,144 @@ class Simulation(ABC):
         self.__dict__[graph_name] = Graph(self.number_agents)
         self.graph_names.append(graph_name)
 
-    def info(self):
-        """ Records the beginning of the step in real time and
-            print out info about the simulation.
-        """
-        # records when the step begins, used for measuring efficiency
-        self.step_start = time.perf_counter()  # time.perf_counter() is more accurate than time.time()
+    def assign_bins(self, max_agents, distance):
+        """ Generalizes agent locations to a bins within lattice imposed on
+            the agent space, used for accelerating neighbor searches.
 
-        # prints the current step number and the number of agents
-        print("Step: " + str(self.current_step))
-        print("Number of agents: " + str(self.number_agents))
-
-    def assign_bins(self, graph, distance):
-        """ Generalizes agent locations to a bin within lattice imposed on
-            the agent space, used for a parallel fixed-radius neighbor search.
+            - max_agents: the current maximum number of agents that can fit
+              into a bin
+            - distance: the radius of search length
         """
-        # If there is enough space for all agents that should be in a bin, break out of the loop. If there isn't
-        # update the amount of needed space and put all the agents in bins. This will run once if the prediction
-        # of max neighbors suffices, twice if it isn't right the first time.
+        # run until all agents have been put into bins
         while True:
-            # calculate the size of the array used to represent the bins and the bins helper array, include extra bins
-            # for agents that may fall outside of the space
-            bins_help_size = np.ceil(self.size / distance).astype(int) + 3
-            bins_size = np.append(bins_help_size, graph.max_agents)
+            # calculate the dimensions of the bins array and the bins helper array, include extra bins for agents that
+            # may fall outside of the simulation space
+            bins_help_size = np.ceil(self.size / distance).astype(int) + 2
+            bins_size = np.append(bins_help_size, max_agents)
 
-            # create the arrays for "bins" and "bins_help"
-            bins_help = np.zeros(bins_help_size, dtype=int)  # holds the number of agents currently in a bin
-            bins = np.empty(bins_size, dtype=int)  # holds the indices of agents in a bin
+            # create the bins arrays
+            bins_help = np.zeros(bins_help_size, dtype=int)  # holds the number of agents in each bin
+            bins = np.zeros(bins_size, dtype=int)  # holds the indices of each agent in a bin
 
-            # generalize the agent locations to bin indices and offset by 1 to prevent missing agents that fall out of
-            # the self space
-            bin_locations = np.floor_divide(self.locations, distance).astype(int)
-            bin_locations += 1
+            # generalize the agent locations to bin indices and offset by 1 to prevent missing agents outside space
+            bin_locations = np.floor_divide(self.locations, distance).astype(int) + 1
 
-            # use jit function to speed up placement of agents
+            # use JIT function from backend.py to speed up placement of agents
             bins, bins_help = assign_bins_jit(self.number_agents, bin_locations, bins, bins_help)
 
-            # either break the loop if all agents were accounted for or revalue the maximum number of agents based on
-            # the output of the function call and double it future calls
-            new_max_agents = np.amax(bins_help)
-            if graph.max_agents >= new_max_agents:
+            # break the loop if all agents were accounted for or revalue the maximum number of agents based on and run
+            # one more time
+            current_max_agents = np.amax(bins_help)
+            if max_agents >= current_max_agents:
                 break
             else:
-                graph.max_agents = new_max_agents * 2  # double to prevent continual updating
+                max_agents = current_max_agents * 2  # double to prevent continual updating
 
-        return bins, bins_help, bin_locations
+        return bins, bins_help, bin_locations, max_agents
 
     @record_time
-    def get_neighbors(self, name, distance, clear=True):
-        """ Finds all neighbors for each cell within the specified radius and
-            add this data to the specified graph. The clear parameter will
-            remove all edges from the graph, otherwise they're saved.
-        """
-        # get graph object reference
-        graph = self.__dict__[name]
+    def get_neighbors(self, graph_name, distance, clear=True):
+        """ Finds all neighbors, within fixed radius, for each each agent.
 
-        # if True, remove all of the edges in the graph
+            - graph_name: name of the instance variable pointing to the graph
+            - distance: the radius of search length
+            - clear: if removing existing edges, otherwise all edges are saved
+        """
+        # get graph object reference and if desired, remove all existing edges in the graph
+        graph = self.__dict__[graph_name]
         if clear:
             graph.delete_edges(None)
 
-        # calls the function that generates an array of bins that generalize the agent locations in addition to a
-        # creating a helper array that assists the search method in counting agents for a particular bin
-        bins, bins_help, bin_locations = self.assign_bins(graph, distance)
+        # assign each of the agents to bins, updating the max agents in a bin (if necessary)
+        bins, bins_help, bin_locations, graph.max_agents = self.assign_bins(graph.max_agents, distance)
 
-        # this will run once if all edges are included in edge_holder, breaking the loop. if not, this will
-        # run a second time with an updated value for the number of predicted neighbors such that all edges are included
+        # run until all edges are accounted for
         while True:
-            # create array used to hold edges, array to say if edge exists, and array to count the edges per agent
+            # get the total amount of edges able to be stored and make the following arrays
             length = self.number_agents * graph.max_neighbors
-            edge_holder = np.zeros((length, 2), dtype=int)
-            if_edge = np.zeros(length, dtype=bool)
-            edge_count = np.zeros(self.number_agents, dtype=int)
+            edge_holder = np.zeros((length, 2), dtype=int)         # hold all edges
+            if_edge = np.zeros(length, dtype=bool)                 # say if each edge exists
+            edge_count = np.zeros(self.number_agents, dtype=int)   # hold count of edges per agent
 
-            # call the nvidia gpu version
+            # if using CUDA GPU
             if self.cuda:
-                # allow the following arrays to be sent/returned by the CUDA kernel
+                # allow the following arrays to be passed to the GPU
                 edge_holder = cuda.to_device(edge_holder)
                 if_edge = cuda.to_device(if_edge)
                 edge_count = cuda.to_device(edge_count)
 
-                # allocate threads and blocks for gpu memory "threads per block" and "blocks per grid"
+                # specify threads-per-block and blocks-per-grid values
                 tpb = 72
                 bpg = math.ceil(self.number_agents / tpb)
 
-                # call the cuda kernel with new gpu arrays
+                # call the CUDA kernel, sending arrays to GPU
                 get_neighbors_gpu[bpg, tpb](cuda.to_device(bin_locations), cuda.to_device(self.locations),
                                             cuda.to_device(bins), cuda.to_device(bins_help), cuda.to_device(distance),
                                             edge_holder, if_edge, edge_count, cuda.to_device(graph.max_neighbors))
 
-                # return the following arrays back from the gpu
+                # return the following arrays back from the GPU
                 edge_holder = edge_holder.copy_to_host()
                 if_edge = if_edge.copy_to_host()
                 edge_count = edge_count.copy_to_host()
 
-            # call the jit cpu version
+            # otherwise use parallelized JIT function
             else:
                 edge_holder, if_edge, edge_count = get_neighbors_cpu(self.number_agents, bin_locations, self.locations,
                                                                      bins, bins_help, distance, edge_holder, if_edge,
                                                                      edge_count, graph.max_neighbors)
 
-            # either break the loop if all neighbors were accounted for or revalue the maximum number of neighbors
-            # based on the output of the function call and double it for future calls
+            # break the loop if all neighbors were accounted for or revalue the maximum number of neighbors
             max_neighbors = np.amax(edge_count)
             if graph.max_neighbors >= max_neighbors:
                 break
             else:
                 graph.max_neighbors = max_neighbors * 2
 
-        # reduce the edges to only edges that actually exist
+        # reduce the edges to edges that actually exist and add those edges to graph
         edge_holder = edge_holder[if_edge]
-
-        # add the edges to the neighbor graph
         graph.add_edges(edge_holder)
 
-        # if not clearing the graph each time the method is called, simplify the graph's edges
+        # simplify the graph's edges if not clearing the graph at the start
         if not clear:
             graph.simplify()
 
-    def random_vector(self):
-        """ Computes a random vector on the unit sphere centered
-            at the origin.
-        """
-        # random angle on the agent
-        theta = r.random() * 2 * math.pi
-
-        # 2D vector: [x, y, 0]
-        if self.size[2] == 0:
-            return np.array([math.cos(theta), math.sin(theta), 0])
-
-        # 3D vector: [x, y, z]
-        else:
-            phi = r.random() * 2 * math.pi
-            radius = math.cos(phi)
-            return np.array([radius * math.cos(theta), radius * math.sin(theta), math.sin(phi)])
-
     @record_time
     def temp(self):
-        """ Pickle the current state of the Simulation object which can be used
+        """ Pickle the current state of the simulation which can be used
             to continue a past simulation without losing information.
         """
-        # get file name, use f-string
+        # get file name and save in binary mode
         file_name = f"{self.name}_temp.pkl"
-
-        # open the file in binary mode
         with open(self.paths.main_path + file_name, "wb") as file:
-            # use the highest protocol: -1 for pickling the instance
-            pickle.dump(self, file, -1)
+            pickle.dump(self, file, -1)    # use the highest protocol -1 for pickling
 
     @record_time
     def step_values(self, arrays=None):
-        """ Outputs a CSV file with value from the agent arrays with each
+        """ Outputs a CSV file containing values from the agent arrays with each
             row corresponding to a particular agent index.
 
-            arrays -> (list) If arrays is None, all agent arrays are outputted otherwise only the
-                agent arrays named in the list will be outputted.
+            - arrays: a list of agent array names to output, if None then all
+              arrays are outputted
         """
         # only continue if outputting agent values
         if self.output_values:
             # if arrays is None automatically output all agent arrays
             if arrays is None:
-                agent_array_names = self.agent_array_names
+                arrays = self.agent_array_names
 
-            # otherwise only output arrays specified in list
-            else:
-                agent_array_names = arrays
-
-            # get path and make sure directory exists
-            directory_path = check_direct(self.paths.values)
-
-            # get file name, use f-string
+            # make sure directory exists and get file name
+            check_direct(self.paths.values)
             file_name = f"{self.name}_values_{self.current_step}.csv"
 
             # open the file
-            with open(directory_path + file_name, "w", newline="") as file:
+            with open(self.paths.values + file_name, "w", newline="") as file:
                 # create CSV object and the following lists
                 csv_file = csv.writer(file)
                 header = list()    # header of the CSV (first row)
                 data = list()    # holds the agent arrays
 
                 # go through each of the agent arrays
-                for array_name in agent_array_names:
+                for array_name in arrays:
                     # get the agent array
                     agent_array = self.__dict__[array_name]
 
@@ -310,8 +270,6 @@ class Simulation(ABC):
                     if agent_array.ndim == 1:
                         header.append(array_name)    # add the array name to the header
                         agent_array = np.reshape(agent_array, (-1, 1))  # resize array from 1D to 2D
-
-                    # if the array is not one dimensional
                     else:
                         # create name for column based on slice of array ex. locations[0], locations[1], locations[2]
                         for i in range(agent_array.shape[1]):
@@ -328,29 +286,25 @@ class Simulation(ABC):
                 csv_file.writerows(data)
 
     def data(self):
-        """ Creates/adds a new line to the running CSV for data about the simulation
+        """ Adds a new line to a running CSV holding data about the simulation
             such as memory, step time, number of agents and method profiling.
         """
-        # get file name, use f-string
+        # get file name and open the file
         file_name = f"{self.name}_data.csv"
-
-        # open the file
         with open(self.paths.main_path + file_name, "a", newline="") as file_object:
             # create CSV object
             csv_object = csv.writer(file_object)
 
             # create header if this is the beginning of a new simulation
             if self.current_step == 1:
-                # header names
-                header = ["Step Number", "Number Cells", "Step Time", "Memory (MB)"]
-
-                # header with all the names of the functions with the "record_time" decorator
-                functions_header = list(self.method_times.keys())
+                # get list of column names for non-method values and method values
+                main_header = ["Step Number", "Number Cells", "Step Time", "Memory (MB)"]
+                methods_header = list(self.method_times.keys())
 
                 # merge the headers together and write the row to the CSV
-                csv_object.writerow(header + functions_header)
+                csv_object.writerow(main_header + methods_header)
 
-            # calculate the total step time and get memory of current python process in megabytes
+            # calculate the total step time and get memory of process in megabytes
             step_time = time.perf_counter() - self.step_start
             process = psutil.Process(os.getpid())
             memory = process.memory_info()[0] / 1024 ** 2
@@ -361,34 +315,30 @@ class Simulation(ABC):
             csv_object.writerow(columns + function_times)
 
     def create_video(self):
-        """ Write all of the step images from a simulation to video file in the
+        """ Write all of the step images from a simulation to a video file in the
             main simulation directory.
         """
         # continue if there is an image directory
         if os.path.isdir(self.paths.images):
-            # get all of the images in the directory and the number of images
+            # get all of the images in the directory and count images
             file_list = [file for file in os.listdir(self.paths.images) if file.endswith(".png")]
             image_count = len(file_list)
 
             # only continue if image directory has images in it
             if image_count > 0:
+                # print statement and sort the file list so "2, 20, 3, 31..." becomes "2, 3, ..., 20, ..., 31"
                 print("\nCreating video...")
-
-                # sort the file list so "2, 20, 3, 31..." becomes "2, 3, ..., 20, ..., 31"
                 file_list = sorted(file_list, key=sort_naturally)
 
-                # sample the first image to get the dimensions of the image, and then scale the image
+                # sample the first image to get the dimensions of the image and then scale the image
                 size = cv2.imread(self.paths.images + file_list[0]).shape[0:2]
                 scale = self.video_quality / size[1]
                 new_size = (self.video_quality, int(scale * size[0]))
 
-                # get the video file path, use f-string
+                # get file name and create the video object
                 file_name = f"{self.name}_video.mp4"
-                video_path = self.paths.main_path + file_name
-
-                # create the file object with parameters from simulation and above
                 codec = cv2.VideoWriter_fourcc(*"mp4v")
-                video_object = cv2.VideoWriter(video_path, codec, self.fps, new_size)
+                video_object = cv2.VideoWriter(self.paths.main_path + file_name, codec, self.fps, new_size)
 
                 # go through sorted image list, reading and writing each image to the video object
                 for i in range(image_count):
@@ -403,3 +353,29 @@ class Simulation(ABC):
 
         # end statement
         print("\n\nDone!\n")
+
+    def info(self):
+        """ Records start time of the step for measuring efficiency and
+            prints out info about the simulation.
+        """
+        # time.perf_counter() is more accurate than time.time()
+        self.step_start = time.perf_counter()
+
+        # current step and number of agents
+        print("Step: " + str(self.current_step))
+        print("Number of agents: " + str(self.number_agents))
+
+    def random_vector(self):
+        """ Computes a random vector on the unit sphere centered
+            at the origin.
+        """
+        # random angle on the agent
+        theta = r.random() * 2 * math.pi
+
+        # if 2-dimensional set z=0
+        if self.size[2] == 0:
+            return np.array([math.cos(theta), math.sin(theta), 0])
+        else:
+            phi = r.random() * 2 * math.pi
+            radius = math.cos(phi)
+            return np.array([radius * math.cos(theta), radius * math.sin(theta), math.sin(phi)])
