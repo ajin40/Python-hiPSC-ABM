@@ -16,7 +16,7 @@ class CellSimulation(CellMethods, CellOutputs, Simulation):
         # initialize the Simulation object
         Simulation.__init__(self, paths, name)
 
-        # get parameters from experimental template file
+        # get parameters from experimental template file (example in simulation.py)
         keys = template_params(paths.templates + "experimental.yaml")
         self.num_gata6 = keys["num_gata6"]
         self.output_tda = keys["output_tda"]
@@ -72,6 +72,8 @@ class CellSimulation(CellMethods, CellOutputs, Simulation):
         # self.gradient_names = ["fgf4_values", "fgf4_alt"]    # add names for automatic CSV output of gradients
 
     def steps(self):
+        """ Overrides the steps method from the Simulation class.
+        """
         # Iterate over all steps specified in the Simulation object
         for self.current_step in range(self.beginning_step, self.end_step + 1):
             # Records model run time for the step and prints the current step/number of cells.
@@ -117,6 +119,8 @@ class CellSimulation(CellMethods, CellOutputs, Simulation):
         self.create_video()
 
     def agent_initials(self):
+        """ Overrides the agent_initials method from the Simulation class.
+        """
         # Add the specified number of NANOG/GATA6 high cells and create cell type GATA6_high.
         self.add_agents(self.num_to_start)
         self.add_agents(self.num_gata6, agent_type="GATA6_high")

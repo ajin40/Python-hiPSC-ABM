@@ -535,17 +535,10 @@ def output_dir():
     return output_path
 
 
-def start_params(output_path, possible_modes):
+def get_name_mode():
     """ This function will get the name and mode for the simulation
         either from the command line or a text-based UI.
     """
-    # get file separator
-    separator = os.path.sep
-
-    # there should be at least these modes
-    if possible_modes is None:
-        possible_modes = [0, 1, 2, 3]
-
     # try to get the name and mode from the command line
     name = commandline_param("-n", str)
     mode = commandline_param("-m", int)
@@ -563,7 +556,7 @@ def start_params(output_path, possible_modes):
                 break
 
     # if the mode variable has not been initialized by the command-line, run the text-based UI to get it
-    if mode is None or mode not in possible_modes:
+    if mode is None:
         while True:
             # prompt for the mode
             mode = input("What is the \"mode\" of the simulation? Type \"help\" for more information: ")
@@ -577,92 +570,97 @@ def start_params(output_path, possible_modes):
                 try:
                     # get the mode as an integer make sure mode exists, break the loop if it does
                     mode = int(mode)
-                    if mode in possible_modes:
-                        break
-                    else:
-                        print("Mode does not exist, see possible modes: " + str(possible_modes) + "\n")
 
                 # if not an integer
                 except ValueError:
                     print("Input: \"mode\" should be an integer.\n")
 
-    # if the final_step variable has not been initialized by the command-line, run the text-based GUI to get it
-    if "final_step" not in locals():
-        # if continuation mode
-        if mode == 1:
-            while True:
-                # prompt for the final step number
-                final_step = input("What is the final step of this continued simulation? Type \"help\" for more"
-                                   " information: ")
-                print()
+    # return the simulation name and mode
+    return name, mode
 
-                # keep running if "help" is typed
-                if final_step == "help":
-                    print("Enter the new step number that will be the last step of the simulation.\n")
-                else:
-                    try:
-                        # get the final step as an integer, break the loop if conversion is successful
-                        final_step = int(final_step)
-                        break
 
-                    # if not an integer
-                    except ValueError:
-                        print("Input: \"final step\" should be an integer.\n")
+def check_new_sim(output_path, name):
+    """ Check that a new simulation can be made. """
+    # get file separator
+    separator = os.path.sep
 
-        # if not continuation mode, give final_step default value
-        else:
-            final_step = None
-
-    # check that the simulation name is valid based on the mode
     while True:
-        # if a new simulation
-        if mode == 0:
-            # see if the directory exists
-            if os.path.isdir(output_path + name):
-                # get user input for overwriting previous simulation
-                print("Simulation already exists with name: " + name)
-                user = input("Would you like to overwrite that simulation? (y/n): ")
+        # see if the directory exists
+        if os.path.isdir(output_path + name):
+            # get user input for overwriting previous simulation
+            print("Simulation already exists with name: " + name)
+            user = input("Would you like to overwrite that simulation? (y/n): ")
+            print()
+
+            # if no overwrite, get new simulation name
+            if user == "n":
+                name = input("New name: ")
                 print()
 
-                # if no overwrite, get new simulation name
-                if user == "n":
-                    name = input("New name: ")
-                    print()
+            # overwrite by deleting all files/folders in previous directory
+            elif user == "y":
+                # clear current directory to prevent another possible future errors
+                files = os.listdir(output_path + name)
+                for file in files:
+                    # path to each file/folder
+                    path = output_path + name + separator + file
 
-                # overwrite by deleting all files/folders in previous directory
-                elif user == "y":
-                    # clear current directory to prevent another possible future errors
-                    files = os.listdir(output_path + name)
-                    for file in files:
-                        # path to each file/folder
-                        path = output_path + name + separator + file
-
-                        # delete the file/folder
-                        if os.path.isfile(path):
-                            os.remove(path)
-                        else:
-                            shutil.rmtree(path)
-                    break
-                else:
-                    # inputs should either be "y" or "n"
-                    print("Either type \"y\" or \"n\"")
-            else:
-                # if does not exist, make directory
-                os.mkdir(output_path + name)
+                    # delete the file/folder
+                    if os.path.isfile(path):
+                        os.remove(path)
+                    else:
+                        shutil.rmtree(path)
                 break
-
-        # previous simulation output directory modes
+            else:
+                # inputs should either be "y" or "n"
+                print("Either type \"y\" or \"n\"")
         else:
-            # if the directory exists, break loop
-            if os.path.isdir(output_path + name):
-                break
+            # if does not exist, make directory
+            os.mkdir(output_path + name)
+            break
 
+
+def check_previous_sim(output_path, name):
+    """ Makes sure that a previous simulation exists. """
+    while True:
+        # if the directory exists, break loop
+        if os.path.isdir(output_path + name):
+            break
+        else:
+            # try to get correct name
+            print("No directory exists with name/path: " + output_path + name)
+            name = input("Please type the correct name of the simulation or type \"exit\" to exit: ")
+            print()
+            if name == "exit":
+                exit()
+
+
+def get_final_step():
+    """ Gets the new last step of the simulation if using continuation
+        mode.
+    """
+    # try get step number from commandline
+    final_step = commandline_param("-fs", int)
+
+    # if no value, then run UI until found
+    if final_step is None:
+        while True:
+            # prompt for the final step number
+            final_step = input("What is the final step of this continued simulation? Type \"help\" for more"
+                               " information: ")
+            print()
+
+            # keep running if "help" is typed
+            if final_step == "help":
+                print("Enter the new step number that will be the last step of the simulation.\n")
             else:
-                print("No directory exists with name/path: " + output_path + name)
-                name = input("Please type the correct name of the simulation or type \"exit\" to exit: ")
-                print()
-                if name == "exit":
-                    exit()
+                try:
+                    # get the final step as an integer, break the loop if conversion is successful
+                    final_step = int(final_step)
+                    break
 
-    # return the simulation name, mode, and final step (for continuation mode)
-    return name, mode, final_step
+                # if not an integer
+                except ValueError:
+                    print("Input: \"final step\" should be an integer.\n")
+
+    return final_step

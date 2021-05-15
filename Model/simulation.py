@@ -489,17 +489,15 @@ class Simulation:
         """ Configures/runs the model based on the specified
             simulation mode.
         """
-        # read paths.yaml to get the output directory where simulation folders are outputted
-        output_path = output_dir()
+        output_path = output_dir()    # read paths.yaml to get/make the output directory
+        name, mode = get_name_mode()    # get the name/mode of the simulation
+        paths = Paths(name, output_path)   # create Paths object for storing important output paths
 
-        # get the name/mode of the simulation and make sure there is a output directory named after this simulation
-        name, mode, final_step = start_params(output_path, possible_modes=[0, 1, 2, 3])
-
-        # create Paths object for storing important output paths
-        paths = Paths(name, output_path)
-
-        # -------------------------- new simulation ---------------------------
+        # new simulation
         if mode == 0:
+            # check that new simulation can be made
+            check_new_sim(output_path, name)
+
             # copy model files to simulation directory, ignoring __pycache__ files
             copy_path = paths.main_path + name + "_copy"
             shutil.copytree(os.getcwd(), copy_path, ignore=shutil.ignore_patterns("__pycache__"))
@@ -511,35 +509,35 @@ class Simulation:
             sim.agent_initials()
             sim.steps()
 
-        # ---------------- continuation of previous simulation ----------------
-        elif mode == 1:
-            # load previous CellSimulation object from pickled file
-            file_name = paths.main_path + name + "_temp.pkl"
-            with open(file_name, "rb") as file:
-                sim = pickle.load(file)
+        # previous simulation
+        else:
+            # check that previous simulation exists
+            check_previous_sim(output_path, name)
 
-            # update the following
-            sim.paths = paths  # change paths object in case of system changing
-            sim.beginning_step = sim.current_step + 1  # update starting step
-            sim.end_step = final_step  # update new final step from start_params()
+            # continuation
+            if mode == 1:
+                # load previous simulation object from pickled file
+                file_name = paths.main_path + name + "_temp.pkl"
+                with open(file_name, "rb") as file:
+                    sim = pickle.load(file)
 
-            # run the simulation steps
-            sim.steps()
+                # update the following
+                sim.paths = paths  # change paths object in case of system changing
+                sim.beginning_step = sim.current_step + 1  # update starting step
+                sim.end_step = get_final_step()   # update final step
 
-        # ------------------------- images to video ---------------------------
-        elif mode == 2:
-            # create CellSimulation object for video and path information
-            sim = cls(paths, name)
+                # run the simulation steps
+                sim.steps()
 
-            # make the video with images from past simulation
-            sim.create_video()
+            # images to video
+            elif mode == 2:
+                # create instance for video/path information and make video
+                sim = cls(paths, name)
+                sim.create_video()
 
-        # --------------------- zip a simulation folder -----------------------
-        elif mode == 3:
-            # remove the separator of the path to the simulation directory
-            print("Compressing \"" + name + "\" simulation...")
-            simulation_dir = paths.main_path[:-1]
-
-            # zip a copy of the folder and save it to the output directory
-            shutil.make_archive(simulation_dir, "zip", root_dir=output_path, base_dir=name)
-            print("Done!")
+            # zip simulation output
+            elif mode == 3:
+                # zip a copy of the folder and save it to the output directory
+                print("Compressing \"" + name + "\" simulation...")
+                shutil.make_archive(paths.main_path[:-1], "zip", root_dir=output_path, base_dir=name)
+                print("Done!")
