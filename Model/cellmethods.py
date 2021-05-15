@@ -411,7 +411,7 @@ class CellMethods:
         """ Calls multiple methods used to move the cells to a state of physical
             equilibrium between repulsive, adhesive, and motility forces.
         """
-        # the viscosity of the medium in Ns/m, used for stokes friction
+        # the viscosity of the medium in Ns/m, used for stokes friction dynamic viscosity
         viscosity = 10000
 
         # if this method is being used by cell_division(), move the cells slightly without motility forces
@@ -443,7 +443,7 @@ class CellMethods:
                 move_dt = self.move_dt
 
             # call the nvidia gpu version
-            if self.parallel:
+            if self.cuda:
                 # allow the following arrays to be sent/returned by the CUDA kernel
                 locations = cuda.to_device(self.locations)
 
@@ -488,7 +488,7 @@ class CellMethods:
         # only continue if edges exist, if no edges compiled functions will raise errors
         if number_edges > 0:
             # send the following as arrays to the gpu
-            if self.parallel:
+            if self.cuda:
                 # turn the following into arrays that can be interpreted by the gpu
                 delete_edges = cuda.to_device(delete_edges)
                 forces = cuda.to_device(self.jkr_forces)

@@ -15,51 +15,51 @@ from backend import *
 
 
 class Simulation(ABC):
-    """ This abstract class is the base for the CellSimulation object. It's used to
-        make sure that any subclasses have necessary simulation attributes.
+    """ This abstract class makes sure any subclasses have the necessary
+        simulation attributes.
     """
     def __init__(self, paths, name):
+        self.paths = paths  # the Paths object which holds any output paths
         self.name = name    # name of the simulation
-        self.paths = paths    # the Paths object which holds any output paths
 
-        # the running number of agents and the step to begin at (altered by continuation mode)
+        # the running number of agents and the step to begin at (updated by continuation mode)
         self.number_agents = 0
         self.beginning_step = 1
 
-        # hold the names of any graphs for the simulation
+        # hold the names of the agent arrays and the names of any graphs (each agent is a node)
+        self.agent_array_names = list()
         self.graph_names = list()
 
-        # various other holders
-        self.agent_array_names = list()  # store the variable names of each agent array
-        self.agent_types = dict()  # hold the names of agent types defined in cellsimulation.py
-        self.method_times = dict()  # store the runtimes of selected methods, used by record_time() decorator
+        # store the runtimes of methods with @record_time decorator
+        self.method_times = dict()
 
     @abstractmethod
     def agent_initials(self):
-        """ Abstract method in which the Simulation class should override.
-        """
+        """ Make sure subclass has agent_initials method."""
         pass
 
     @abstractmethod
     def steps(self):
-        """ Abstract method in which the Simulation class should override.
-        """
+        """ Make sure subclass has steps method."""
         pass
 
     def add_agents(self, number, agent_type=None):
-        """ Add agents to the Simulation object and potentially add a agent type
-            with bounds for defining alternative initial parameters.
+        """ Add number of agents to the simulation potentially with agent_type marker.
 
-                number (int): the number of agents being added to the Simulation object
-                agent_type (str): the name of a agent type that can be used by agent_array() to only apply
-                    initial parameters to these agents, instead of the entire array.
+            - number: the number of agents being added
+            - agent_type: string marker used to apply initial conditions to only these agents
         """
-        # update the running number of agents and determine bounds for slice if agent_type is used
+        # determine bounds for array slice and increase total agents
         begin = self.number_agents
         self.number_agents += number
 
-        # if a agent type name is passed, hold the slice bounds for that particular agent type
+        # if an agent type is passed
         if agent_type is not None:
+            # make sure holder for types exists
+            if not hasattr(self, "agent_types"):
+                self.agent_types = dict()
+
+            # set key value to tuple of the array slice
             self.agent_types[agent_type] = (begin, self.number_agents)
 
     def agent_array(self, array_name, agent_type=None, dtype=float, vector=None, func=None, override=None):
@@ -204,7 +204,7 @@ class Simulation(ABC):
             edge_count = np.zeros(self.number_agents, dtype=int)
 
             # call the nvidia gpu version
-            if self.parallel:
+            if self.cuda:
                 # allow the following arrays to be sent/returned by the CUDA kernel
                 edge_holder = cuda.to_device(edge_holder)
                 if_edge = cuda.to_device(if_edge)
@@ -409,5 +409,5 @@ class Simulation(ABC):
                 # close the video file
                 video_object.release()
 
-        # print end statement...super important...don't remove or model won't run!
-        print("\n\nThe simulation is finished. May the force be with you.\n")
+        # end statement
+        print("\n\nDone!\n")

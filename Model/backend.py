@@ -249,11 +249,11 @@ def jkr_forces_cpu(number_edges, jkr_edges, delete_edges, locations, radii, jkr_
         mag = np.linalg.norm(vector)
 
         # get the overlap of the cells
-        overlap = radii[cell_1] + radii[cell_2] - mag
+        overlap = (radii[cell_1] + radii[cell_2] - mag) / 1000000
 
         # get two values used for JKR calculation
         e_hat = (((1 - poisson ** 2) / youngs) + ((1 - poisson ** 2) / youngs)) ** -1
-        r_hat = ((1 / radii[cell_1]) + (1 / radii[cell_2])) ** -1
+        r_hat = ((1000000 / radii[cell_1]) + (1000000 / radii[cell_2])) ** -1
 
         # value used to calculate the max adhesive distance after bond has been already formed
         overlap_ = (((math.pi * adhesion_const) / e_hat) ** (2 / 3)) * (r_hat ** (1 / 3))
@@ -324,13 +324,14 @@ def apply_forces_cpu(number_agents, jkr_force, motility_force, locations, radii,
     # loop over all cells
     for i in prange(number_agents):
         # stokes law for velocity based on force and fluid viscosity (friction)
-        stokes_friction = 6 * math.pi * viscosity * radii[i]
+        stokes_friction = 6 * math.pi * viscosity * radii[i] / 1000000
 
         # update the velocity of the cell based on stokes
+        # velocity = (motility_force[i] + jkr_force[i]) / stokes_friction
         velocity = (motility_force[i] + jkr_force[i]) / stokes_friction
 
         # set the new location
-        new_location = locations[i] + velocity * move_dt
+        new_location = locations[i] + velocity * move_dt * 1000000
 
         # loop over all directions of space
         for j in range(0, 3):
@@ -481,10 +482,8 @@ def commandline_param(flag, dtype):
 
 
 def template_params(path):
-    """ Get parameters from YAML template file. Used
-        for Simulation instance variables.
+    """ Return parameters as dict from YAML template file.
     """
-    # open the file and load the keys
     with open(path, "r") as file:
         return yaml.safe_load(file)
 

@@ -1,7 +1,7 @@
-psutil
-numba
 numpy<=1.19.3
+numba
 opencv-python
+psutil
 python-igraph
 pyyaml
 scipy

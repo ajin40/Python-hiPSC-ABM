@@ -1,6 +1,5 @@
 import numpy as np
 import random as r
-import igraph
 
 from backend import template_params, commandline_param
 from simulation import Simulation
@@ -30,13 +29,11 @@ class CellSimulation(CellMethods, CellOutputs, Simulation):
         """
         # ------------- general template file ------------------------------
         keys = template_params(paths.templates + "general.yaml")    # read keys from general.yaml
-        self.parallel = keys["parallel"]
+        self.cuda = keys["cuda"]
         self.end_step = keys["end_step"]
         self.num_nanog = keys["num_nanog"]
         self.num_gata6 = keys["num_gata6"]
         self.size = np.array(keys["size"])
-        self.order_66 = keys["order_66"]
-        # self.order_66 = commandline_param("-o", bool)
 
         # ------------- outputs template file ------------------------------
         keys = template_params(paths.templates + "outputs.yaml")    # read keys from outputs.yaml
@@ -77,7 +74,7 @@ class CellSimulation(CellMethods, CellOutputs, Simulation):
         self.fds_thresh = 1
 
         # min and max radius lengths are used to calculate linear growth of the radius over time
-        self.max_radius = 0.000005    # 5 um
+        self.max_radius = 5    # 5 um
         self.min_radius = self.max_radius / 2 ** 0.5    # half the area for max radius cell in 2D
         self.pluri_growth = (self.max_radius - self.min_radius) / self.pluri_div_thresh
         self.diff_growth = (self.max_radius - self.min_radius) / self.diff_div_thresh
@@ -118,7 +115,7 @@ class CellSimulation(CellMethods, CellOutputs, Simulation):
             self.info()
 
             # Finds the neighbors of each cell that are within a fixed radius and store this info in a graph.
-            self.get_neighbors("neighbor_graph", 0.00001)  # double max cell radius
+            self.get_neighbors("neighbor_graph", 15)  # double max cell radius
 
             # Updates cells by adjusting trackers for differentiation, division, growth, etc. based on intracellular,
             # intercellular, and extracellular conditions through a series of separate methods.
@@ -136,7 +133,7 @@ class CellSimulation(CellMethods, CellOutputs, Simulation):
 
             # Calculates the direction/magnitude of a cell's movement depending on a variety of factors such as state
             # and presence of neighbors.
-            self.cell_motility()
+            # self.cell_motility()
 
             # Through the series of methods, attempt to move the cells to a state of physical equilibrium between
             # adhesive and repulsive forces acting on the cells, while applying active motility forces.
