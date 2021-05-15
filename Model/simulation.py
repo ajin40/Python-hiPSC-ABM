@@ -35,16 +35,16 @@ class Simulation(ABC):
 
     @abstractmethod
     def agent_initials(self):
-        """ Make sure subclass has agent_initials method."""
+        """ Make sure subclass has agent_initials method. """
         pass
 
     @abstractmethod
     def steps(self):
-        """ Make sure subclass has steps method."""
+        """ Make sure subclass has steps method. """
         pass
 
     def add_agents(self, number, agent_type=None):
-        """ Add number of agents to the simulation potentially with agent_type marker.
+        """ Adds number of agents to the simulation potentially with agent_type marker.
 
             - number: the number of agents being added
             - agent_type: string marker used to apply initial conditions to only these agents
@@ -63,73 +63,65 @@ class Simulation(ABC):
             self.agent_types[agent_type] = (begin, self.number_agents)
 
     def agent_array(self, array_name, agent_type=None, dtype=float, vector=None, func=None, override=None):
-        """ Create a agent array in the Simulation object used to hold values
-            for all agents and optionally specify initial parameters.
+        """ Adds an agent array to the simulation used to hold values for all agents.
 
-                array_name (str): the name of the variable made for the agent array in the Simulation object
-                agent_type (str): see add_agents()
-                dtype (object): the data type of the array, defaults to float
-                vector (int): the length of the vector for each agent in the array
-                func (object): a function called for each index of the array to specify initial parameters
-                override (array): use the array passed instead of generating a new array
+            - array_name: the name of the variable made for the agent array
+            - agent_type: string marker from add_agents()
+            - dtype: the data type of the array
+            - vector: if 2-dimensional, the length of the vector for each agent
+            - func: a function called for each index of the array to specify initial parameters
+            - override: pass existing array instead of generating a new array
         """
-        # if using existing array for agent array
+        # if using existing array
         if override is not None:
-            # make sure array have correct length, otherwise raise error
+            # make sure array has correct length
             if override.shape[0] != self.number_agents:
                 raise Exception("Length of override array does not match number of agents in simulation!")
 
-            # use the array and add to list of agent array names
+            # create instance variable and add array name to holder
             else:
                 self.__dict__[array_name] = override
                 self.agent_array_names.append(array_name)
 
-        # otherwise make sure a default agent array exists for initial parameters
-        else:
-            # if no agent array in Simulation object, make one
-            if not hasattr(self, array_name):
-                # add the array name to a list for automatic addition/removal when agents divide/die
-                self.agent_array_names.append(array_name)
+        # otherwise check if instance variable exists and try to make new array
+        elif not hasattr(self, array_name):
+            # add array name to holder
+            self.agent_array_names.append(array_name)
 
-                # get the dimensions of the array
-                if vector is None:
-                    size = self.number_agents  # 1-dimensional array
-                else:
-                    size = (self.number_agents, vector)  # 2-dimensional array (1-dimensional of vectors)
+            # get the dimensions of the array
+            if vector is None:
+                size = self.number_agents  # 1-dimensional array
+            else:
+                size = (self.number_agents, vector)  # 2-dimensional array (1-dimensional of vectors)
 
-                # if using python string data type, use object data type instead
-                if dtype == str or dtype == object:
-                    # create agent array in Simulation object with NoneType as default value
-                    self.__dict__[array_name] = np.empty(size, dtype=object)
+            # if using object types, make NoneType array, otherwise make array of zeros
+            if dtype == str or dtype == object:
+                self.__dict__[array_name] = np.empty(size, dtype=object)
+            else:
+                self.__dict__[array_name] = np.zeros(size, dtype=dtype)
 
-                else:
-                    # create agent array in Simulation object, with zeros as default values
-                    self.__dict__[array_name] = np.zeros(size, dtype=dtype)
+        # only apply initial condition if not NoneType
+        if func is not None:
+            # get bounds for applying initial conditions to array
+            if agent_type is None:
+                begin = 0
+                end = self.number_agents
+            else:
+                begin = self.agent_types[agent_type][0]
+                end = self.agent_types[agent_type][1]
 
-        # if no agent type parameter passed
-        if agent_type is None:
-            # if function is passed, apply initial parameter
-            if func is not None:
-                for i in range(self.number_agents):
-                    self.__dict__[array_name][i] = func()
+            # iterate through array applying function
+            for i in range(begin, end):
+                self.__dict__[array_name][i] = func()
 
-        # otherwise a agent type is passed
-        else:
-            # get the bounds of the slice
-            begin = self.agent_types[agent_type][0]
-            end = self.agent_types[agent_type][1]
-
-            # if function is passed, apply initial parameter to slice
-            if func is not None:
-                for i in range(begin, end):
-                    self.__dict__[array_name][i] = func()
-
-    def agent_graph(self, name):
+    def agent_graph(self, graph_name):
         """ Adds graph to the simulation.
+
+            - graph_name: the name of the instance variable made for the graph
         """
         # create instance variable for graph and add graph name to holder
-        self.__dict__[name] = Graph(self.number_agents)
-        self.graph_names.append(name)
+        self.__dict__[graph_name] = Graph(self.number_agents)
+        self.graph_names.append(graph_name)
 
     def info(self):
         """ Records the beginning of the step in real time and
