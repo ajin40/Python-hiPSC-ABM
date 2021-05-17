@@ -11,35 +11,16 @@ from functools import wraps
 
 
 class Graph(igraph.Graph):
-    """ This class extends the Graph class from igraph adding
-        additional instance variables for the bin/bucket sort.
+    """ This class extends the Graph class from iGraph adding
+        instance variables for the bin/bucket sort algorithm.
     """
     def __init__(self, *args, **kwargs):
-        # call constructor for igraph
-        igraph.Graph.__init__(self, *args, **kwargs)
+        # call the origin constructor from iGraph
+        super().__init__(*args, **kwargs)
 
-        # these values are used in the bin/bucket sort for finding neighbors and are frequently updated
-        self.max_neighbors = 5    # the current number of neighbors that can be stored in a holder array
-        self.max_agents = 5     # the current number of agents that can be stored in a bin
-
-
-class Paths:
-    """ Hold any important paths for a particular simulation.
-    """
-    def __init__(self, name, output_path):
-        # how file separator
-        self.separator = os.path.sep
-
-        # some paths
-        self.main_path = output_path + name + self.separator   # the path to the main directory for this simulation
-        self.templates = os.path.abspath("templates") + self.separator   # the path to the .txt template directory
-
-        # these directories are sub-directories under the main simulation directory
-        general = self.main_path + name
-        self.images = general + "_images" + self.separator   # the images output directory
-        self.values = general + "_values" + self.separator   # the cell array values output directory
-        self.gradients = general + "_gradients" + self.separator    # the gradients output directory
-        self.tda = general + "_tda" + self.separator    # the topological data analysis output directory
+        # these variables are used in the bin/bucket sort for finding neighbors (values change frequently)
+        self.max_neighbors = 1    # the current number of neighbors that can be stored in a holder array
+        self.max_agents = 1     # the current number of agents that can be stored in a bin
 
 
 @jit(nopython=True, cache=True)
@@ -367,7 +348,7 @@ def get_name_mode():
     return name, mode
 
 
-def check_new_sim(output_path, name):
+def check_new_sim(name, output_path):
     """ Check that a new simulation can be made. """
     # get file separator
     separator = os.path.sep
@@ -408,7 +389,7 @@ def check_new_sim(output_path, name):
             break
 
 
-def check_previous_sim(output_path, name):
+def check_previous_sim(name, output_path):
     """ Makes sure that a previous simulation exists. """
     while True:
         # if the directory exists, break loop

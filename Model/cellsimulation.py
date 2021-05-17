@@ -12,12 +12,16 @@ class CellSimulation(CellMethods, CellOutputs, Simulation):
         and CellOutputs. More instance variables are specified below either directly or
         through the template files.
     """
-    def __init__(self, paths, name):
+    def __init__(self, name, output_path):
         # initialize the Simulation object
-        Simulation.__init__(self, paths, name)
+        Simulation.__init__(self, name, output_path)
+
+        # hold these paths
+        self.gradients_path = self.main_path + name + "_gradients" + self.separator  # gradients output directory
+        self.tda_path = self.main_path + name + "_tda" + self.separator # topological data analysis output directory
 
         # get parameters from experimental template file (example in simulation.py)
-        keys = template_params(paths.templates + "experimental.yaml")
+        keys = template_params(self.templates_path + "experimental.yaml")
         self.num_gata6 = keys["num_gata6"]
         self.output_tda = keys["output_tda"]
         self.output_gradients = keys["output_gradients"]

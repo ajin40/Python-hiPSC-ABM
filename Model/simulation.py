@@ -12,9 +12,18 @@ class Simulation:
     """ This abstract class makes sure any subclasses have the necessary
         simulation attributes.
     """
-    def __init__(self, paths, name):
-        self.paths = paths  # the Paths object which holds any output paths
-        self.name = name    # name of the simulation
+    def __init__(self, name, output_path):
+        # set name and separator
+        self.name = name
+        self.separator = os.path.sep
+
+        # get path to the main directory for this simulation and the path to the YAML template directory
+        self.main_path = output_path + self.name + self.separator
+        self.templates_path = os.path.abspath("templates") + self.separator
+
+        # these directories are sub-directories under the main simulation directory
+        self.images_path = self.main_path + name + "_images" + self.separator  # the images output directory
+        self.values_path = self.main_path + name + "_values" + self.separator  # the cell array values output directory
 
         # the running number of agents and the step to begin at (updated by continuation mode)
         self.number_agents = 0
@@ -41,7 +50,7 @@ class Simulation:
             self.fps = keys["fps"]
         """
         # get values from general YAML file
-        keys = template_params(paths.templates + "general.yaml")  # read keys from general.yaml
+        keys = template_params(self.templates_path + "general.yaml")  # read keys from general.yaml
         self.num_to_start = keys["num_to_start"]
         self.cuda = keys["cuda"]
         self.end_step = keys["end_step"]
@@ -288,7 +297,7 @@ class Simulation:
         """
         # get file name and save in binary mode
         file_name = f"{self.name}_temp.pkl"
-        with open(self.paths.main_path + file_name, "wb") as file:
+        with open(self.main_path + file_name, "wb") as file:
             pickle.dump(self, file, -1)    # use the highest protocol -1 for pickling
 
     @record_time
@@ -306,11 +315,11 @@ class Simulation:
                 arrays = self.agent_array_names
 
             # make sure directory exists and get file name
-            check_direct(self.paths.values)
+            check_direct(self.values_path)
             file_name = f"{self.name}_values_{self.current_step}.csv"
 
             # open the file
-            with open(self.paths.values + file_name, "w", newline="") as file:
+            with open(self.values_path + file_name, "w", newline="") as file:
                 # create CSV object and the following lists
                 csv_file = csv.writer(file)
                 header = list()    # header of the CSV (first row)
@@ -351,7 +360,7 @@ class Simulation:
         # only continue if outputting images
         if self.output_images:
             # get path and make sure directory exists
-            check_direct(self.paths.images)
+            check_direct(self.images_path)
 
             # get the size of the array used for imaging in addition to the scaling factor
             x_size = self.image_quality
@@ -381,7 +390,7 @@ class Simulation:
             # save the image as a PNG
             image_compression = 4  # image compression of png (0: no compression, ..., 9: max compression)
             file_name = f"{self.name}_image_{self.current_step}.png"
-            cv2.imwrite(self.paths.images + file_name, image, [cv2.IMWRITE_PNG_COMPRESSION, image_compression])
+            cv2.imwrite(self.images_path + file_name, image, [cv2.IMWRITE_PNG_COMPRESSION, image_compression])
 
     def data(self):
         """ Adds a new line to a running CSV holding data about the simulation
@@ -389,7 +398,7 @@ class Simulation:
         """
         # get file name and open the file
         file_name = f"{self.name}_data.csv"
-        with open(self.paths.main_path + file_name, "a", newline="") as file_object:
+        with open(self.main_path + file_name, "a", newline="") as file_object:
             # create CSV object
             csv_object = csv.writer(file_object)
 
@@ -417,9 +426,9 @@ class Simulation:
             main simulation directory.
         """
         # continue if there is an image directory
-        if os.path.isdir(self.paths.images):
+        if os.path.isdir(self.images_path):
             # get all of the images in the directory and count images
-            file_list = [file for file in os.listdir(self.paths.images) if file.endswith(".png")]
+            file_list = [file for file in os.listdir(self.images_path) if file.endswith(".png")]
             image_count = len(file_list)
 
             # only continue if image directory has images in it
@@ -429,18 +438,18 @@ class Simulation:
                 file_list = sorted(file_list, key=sort_naturally)
 
                 # sample the first image to get the dimensions of the image and then scale the image
-                size = cv2.imread(self.paths.images + file_list[0]).shape[0:2]
+                size = cv2.imread(self.images_path + file_list[0]).shape[0:2]
                 scale = self.video_quality / size[1]
                 new_size = (self.video_quality, int(scale * size[0]))
 
                 # get file name and create the video object
                 file_name = f"{self.name}_video.mp4"
                 codec = cv2.VideoWriter_fourcc(*"mp4v")
-                video_object = cv2.VideoWriter(self.paths.main_path + file_name, codec, self.fps, new_size)
+                video_object = cv2.VideoWriter(self.main_path + file_name, codec, self.fps, new_size)
 
                 # go through sorted image list, reading and writing each image to the video object
                 for i in range(image_count):
-                    image = cv2.imread(self.paths.images + file_list[i])    # read image from directory
+                    image = cv2.imread(self.images_path + file_list[i])    # read image from directory
                     if size != new_size:
                         image = cv2.resize(image, new_size, interpolation=cv2.INTER_AREA)    # scale down if necessary
                     video_object.write(image)    # write to video
@@ -485,21 +494,19 @@ class Simulation:
         """
         output_path = output_dir()    # read paths.yaml to get/make the output directory
         name, mode = get_name_mode()    # get the name/mode of the simulation
-        paths = Paths(name, output_path)   # create Paths object for storing important output paths
 
         # new simulation
         if mode == 0:
             # check that new simulation can be made
-            check_new_sim(output_path, name)
+            check_new_sim(name, output_path)
+
+            # create simulation object
+            sim = cls(name, output_path)
 
             # copy model files to simulation directory, ignoring __pycache__ files
-            copy_path = paths.main_path + name + "_copy"
-            shutil.copytree(os.getcwd(), copy_path, ignore=shutil.ignore_patterns("__pycache__"))
+            shutil.copytree(os.getcwd(), sim.main_path + name + "_copy", ignore=shutil.ignore_patterns("__pycache__"))
 
-            # create CellSimulation object
-            sim = cls(paths, name)
-
-            # add agent arrays to CellSimulation object and run the simulation steps
+            # add agent arrays to object and run the simulation steps
             sim.agent_initials()
             sim.steps()
 
@@ -516,7 +523,6 @@ class Simulation:
                     sim = pickle.load(file)
 
                 # update the following
-                sim.paths = paths  # change paths object in case of system changing
                 sim.beginning_step = sim.current_step + 1  # update starting step
                 sim.end_step = get_final_step()   # update final step
 
@@ -526,12 +532,12 @@ class Simulation:
             # images to video
             elif mode == 2:
                 # create instance for video/path information and make video
-                sim = cls(paths, name)
+                sim = cls(name, output_path)
                 sim.create_video()
 
             # zip simulation output
             elif mode == 3:
                 # zip a copy of the folder and save it to the output directory
                 print("Compressing \"" + name + "\" simulation...")
-                shutil.make_archive(paths.main_path[:-1], "zip", root_dir=output_path, base_dir=name)
+                shutil.make_archive(output_path + name, "zip", root_dir=output_path, base_dir=name)
                 print("Done!")
