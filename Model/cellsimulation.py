@@ -1,7 +1,7 @@
 import numpy as np
 import random as r
 
-from backend import template_params, commandline_param
+from backend import template_params
 from simulation import Simulation
 from cellmethods import CellMethods
 from celloutputs import CellOutputs

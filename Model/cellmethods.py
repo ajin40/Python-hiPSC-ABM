@@ -1,9 +1,7 @@
-import numpy as np
 import random as r
-import math
-from numba import cuda
 
-from backend import *
+from cellbackend import *
+from backend import record_time, normal_vector
 
 
 class CellMethods:

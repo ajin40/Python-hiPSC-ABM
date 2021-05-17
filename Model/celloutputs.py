@@ -10,12 +10,11 @@ class CellOutputs:
         class so that CellSimulation objects can call these methods.
     """
     @record_time
-    def step_image(self, background=(0, 0, 0), origin_bottom=True, fgf4_gradient=False):
+    def step_image(self, background=(0, 0, 0), origin_bottom=True):
         """ Creates an image of the simulation space. Note the imaging library
             OpenCV uses BGR instead of RGB.
             background -> (tuple) The color of the background image as BGR
             origin_bottom -> (bool) Location of origin True -> bottom/left, False -> top/left
-            fgf4_gradient -> (bool) If outputting image of FGF4 gradient alongside step image
         """
         # only continue if outputting images
         if self.output_images:
@@ -30,19 +29,6 @@ class CellOutputs:
             # create the cell space background image and apply background color
             image = np.zeros((y_size, x_size, 3), dtype=np.uint8)
             image[:, :] = background
-
-            # if outputting gradient image, create it
-            if fgf4_gradient:
-                # normalize the concentration values and multiple by 255
-                grad_image = 255 * self.fgf4_values[:, :, 0] / self.max_concentration
-                grad_image = grad_image.astype(np.uint8)    # use unsigned int8
-
-                # recolor the grayscale image into a colormap and resize to match the cell space image
-                grad_image = cv2.applyColorMap(grad_image, cv2.COLORMAP_OCEAN)
-                grad_image = cv2.resize(grad_image, (y_size, x_size), interpolation=cv2.INTER_NEAREST)
-
-                # transpose the array to match the point location of OpenCV: (x, y) with origin top left
-                grad_image = cv2.transpose(grad_image)
 
             # go through all of the cells
             for index in range(self.number_agents):
@@ -76,14 +62,6 @@ class CellOutputs:
                 # draw the cell and a black outline to distinguish overlapping cells
                 image = cv2.ellipse(image, (x, y), (major, minor), 0, 0, 360, color, -1)
                 image = cv2.ellipse(image, (x, y), (major, minor), 0, 0, 360, (0, 0, 0), 1)
-
-                # draw a black outline of the cell on the gradient image
-                if fgf4_gradient:
-                    grad_image = cv2.ellipse(grad_image, (x, y), (major, minor), 0, 0, 360, (255, 255, 255), 1)
-
-            # if including gradient image, combine the to images side by side with gradient image on the right
-            if fgf4_gradient:
-                image = np.concatenate((image, grad_image), axis=1)
 
             # if the origin should be bottom-left flip it, otherwise it will be top-left
             if origin_bottom:
