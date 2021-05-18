@@ -20,168 +20,155 @@ class Graph(igraph.Graph):
 
         # these variables are used in the bin/bucket sort for finding neighbors (values change frequently)
         self.max_neighbors = 1    # the current number of neighbors that can be stored in a holder array
-        self.max_agents = 1     # the current number of agents that can be stored in a bin
+        self.max_agents = 1    # the current number of agents that can be stored in a bin
+
+    def num_neighbors(self, index):
+        """ Returns the number of neighbors for the index.
+        """
+        return len(self.neighbors(index))
 
 
 @jit(nopython=True, cache=True)
-def assign_bins_jit(number_agents, bin_locations, bins, bins_help):
-    """ A just-in-time compiled function for assign_bins() that places
-        the cells in their respective bins.
+def assign_bins_jit(number_agents, bin_locations, bins, bins_help, max_agents):
+    """ This just-in-time compiled method performs the actual
+        calculations for the assign_bins() method.
     """
-    # go through all cells
     for index in range(number_agents):
-        # get the indices of the generalized cell location
+        # get the indices of the bin location
         x, y, z = bin_locations[index]
 
-        # use the help array to get the new index for the cell in the bin
+        # get the place in the bin to put the agent index
         place = bins_help[x][y][z]
 
-        # adds the index in the cell array to the bin
-        bins[x][y][z][place] = index
+        # if there is room in the bin, place the agent's index
+        if place < max_agents:
+            bins[x][y][z][place] = index
 
-        # update the number of cells in a bin
+        # update the number of agents that should be in a bin (regardless of if they're placed there)
         bins_help[x][y][z] += 1
 
-    # return the arrays now filled with cell indices
     return bins, bins_help
-
-
-@cuda.jit
-def get_neighbors_gpu(bin_locations, locations, bins, bins_help, distance, edge_holder, if_edge, edge_count,
-                      max_neighbors):
-    """ A just-in-time compiled cuda kernel for the get_neighbors()
-        method that performs the actual calculations.
-    """
-    # get the index in the array
-    focus = cuda.grid(1)
-
-    # get the starting index for writing to the edge holder array
-    start = focus * max_neighbors[0]
-
-    # double check that focus index is within the array
-    if focus < bin_locations.shape[0]:
-        # holds the total amount of edges for a given cell
-        cell_edge_count = 0
-
-        # get the bin location of the cell
-        x, y, z = bin_locations[focus]
-
-        # go through the surrounding bins including the bin the cell is in
-        for i in range(-1, 2):
-            for j in range(-1, 2):
-                for k in range(-1, 2):
-                    # get the count of cells for the current bin
-                    bin_count = bins_help[x + i][y + j][z + k]
-
-                    # go through the bin determining if a cell is a neighbor
-                    for l in range(bin_count):
-                        # get the index of the current potential neighbor
-                        current = bins[x + i][y + j][z + k][l]
-
-                        # check to see if that cell is within the search radius and only continue if the current cell
-                        # has a higher index to prevent double counting edges
-                        if magnitude(locations[focus], locations[current]) <= distance[0] and focus < current:
-                            # if less than the max edges, add the edge
-                            if cell_edge_count < max_neighbors[0]:
-                                # get the index for the edge
-                                index = start + cell_edge_count
-
-                                # update the edge array and identify that this edge exists
-                                edge_holder[index][0] = focus
-                                edge_holder[index][1] = current
-                                if_edge[index] = 1
-
-                            # increase the count of edges for a cell and the index for the next edge
-                            cell_edge_count += 1
-
-        # update the array with number of edges for the cell
-        edge_count[focus] = cell_edge_count
-
-
-@jit(nopython=True, parallel=True, cache=True)
-def get_neighbors_cpu(number_agents, bin_locations, locations, bins, bins_help, distance, edge_holder, if_edge,
-                      edge_count, max_neighbors):
-    """ A just-in-time compiled function for the get_neighbors()
-        method that performs the actual calculations.
-    """
-    # loops over all cells, with the current cell index being the focus
-    for focus in prange(number_agents):
-        # get the starting index for writing to the edge holder array
-        start = focus * max_neighbors
-
-        # holds the total amount of edges for a given cell
-        cell_edge_count = 0
-
-        # get the bin location of the cell
-        x, y, z = bin_locations[focus]
-
-        # go through the surrounding bins including the bin the cell is in
-        for i in range(-1, 2):
-            for j in range(-1, 2):
-                for k in range(-1, 2):
-                    # get the count of cells for the current bin
-                    bin_count = bins_help[x + i][y + j][z + k]
-
-                    # go through the bin determining if a cell is a neighbor
-                    for l in range(bin_count):
-                        # get the index of the current potential neighbor
-                        current = bins[x + i][y + j][z + k][l]
-
-                        # check to see if that cell is within the search radius and only continue if the current cell
-                        # has a higher index to prevent double counting edges
-                        if np.linalg.norm(locations[current] - locations[focus]) <= distance and focus < current:
-                            # if less than the max edges, add the edge
-                            if cell_edge_count < max_neighbors:
-                                # get the index for the edge
-                                index = start + cell_edge_count
-
-                                # update the edge array and identify that this edge exists
-                                edge_holder[index][0] = focus
-                                edge_holder[index][1] = current
-                                if_edge[index] = 1
-
-                            # increase the count of edges for a cell and the index for the next edge
-                            cell_edge_count += 1
-
-        # update the array with number of edges for the cell
-        edge_count[focus] = cell_edge_count
-
-    return edge_holder, if_edge, edge_count
 
 
 @cuda.jit(device=True)
 def magnitude(vector_1, vector_2):
-    """ A just-in-time compiled cuda kernel device function
-        for getting the distance between two vectors.
+    """ This just-in-time compiled CUDA kernel is a device
+        function for calculating the distance between vectors.
     """
-    # loop over the axes add the squared difference
     total = 0
     for i in range(0, 3):
         total += (vector_1[i] - vector_2[i]) ** 2
-
-    # return the sqrt of the total
     return total ** 0.5
 
 
-def check_direct(path):
-    """ Check directory for simulation outputs.
+@cuda.jit
+def get_neighbors_gpu(locations, bin_locations, bins, bins_help, distance, edges, if_edge, edge_count, max_neighbors):
+    """ This just-in-time compiled CUDA kernel performs the actual
+        calculations for the get_neighbors() method.
     """
-    # if it doesn't exist make directory
+    # get the agent index in the array
+    index = cuda.grid(1)
+
+    # double check that the index is within bounds
+    if focus < bin_locations.shape[0]:
+        # get the starting index for writing edges to the holder array
+        start = index * max_neighbors[0]
+
+        # hold the total amount of edges for the agent
+        agent_edge_count = 0
+
+        # get the indices of the bin location
+        x, y, z = bin_locations[focus]
+
+        # go through the 9 bins that could all potential neighbors
+        for i in range(-1, 2):
+            for j in range(-1, 2):
+                for k in range(-1, 2):
+                    # get the count of agents for the current bin
+                    bin_count = bins_help[x + i][y + j][z + k]
+
+                    # go through the current bin determining if an agent is a neighbor
+                    for l in range(bin_count):
+                        # get the index of the current potential neighbor
+                        current = bins[x + i][y + j][z + k][l]
+
+                        # check to see if the agent is a neighbor and prevent duplicates with index condition
+                        if magnitude(locations[focus], locations[current]) <= distance[0] and index < current:
+                            # if there is room, add the edge
+                            if agent_edge_count < max_neighbors[0]:
+                                # get the index for the edge
+                                edge_index = start + agent_edge_count
+
+                                # update the edge array and identify that this edge exists
+                                edges[edge_index][0] = index
+                                edges[edge_index][1] = current
+                                if_edge[index] = 1
+
+                            # increase the count of edges for an agent
+                            agent_edge_count += 1
+
+        # update the array with number of edges for the agent
+        edge_count[focus] = agent_edge_count
+
+
+@jit(nopython=True, parallel=True, cache=True)
+def get_neighbors_cpu(number_agents, locations, bin_locations, bins, bins_help, distance, edges, if_edge, edge_count,
+                      max_neighbors):
+    """ This just-in-time compiled method performs the actual
+        calculations for the get_neighbors() method.
+    """
+    for index in prange(number_agents):
+        # get the starting index for writing edges to the holder array
+        start = focus * max_neighbors
+
+        # hold the total amount of edges for the agent
+        agent_edge_count = 0
+
+        # get the indices of the bin location
+        x, y, z = bin_locations[focus]
+
+        # go through the 9 bins that could all potential neighbors
+        for i in range(-1, 2):
+            for j in range(-1, 2):
+                for k in range(-1, 2):
+                    # get the count of agents for the current bin
+                    bin_count = bins_help[x + i][y + j][z + k]
+
+                    # go through the current bin determining if an agent is a neighbor
+                    for l in range(bin_count):
+                        # get the index of the current potential neighbor
+                        current = bins[x + i][y + j][z + k][l]
+
+                        # check to see if the agent is a neighbor and prevent duplicates with index condition
+                        if np.linalg.norm(locations[current] - locations[focus]) <= distance and focus < current:
+                            # if there is room, add the edge
+                            if agent_edge_count < max_neighbors[0]:
+                                # get the index for the edge
+                                edge_index = start + agent_edge_count
+
+                                # update the edge array and identify that this edge exists
+                                edges[edge_index][0] = index
+                                edges[edge_index][1] = current
+                                if_edge[index] = 1
+
+                            # increase the count of edges for an agent
+                            agent_edge_count += 1
+
+        # update the array with number of edges for the agent
+        edge_count[focus] = agent_edge_count
+
+    return edges, if_edge, edge_count
+
+
+def check_direct(path):
+    """ Makes sure directory exists.
+    """
     if not os.path.isdir(path):
         os.mkdir(path)
 
-    # optionally return the path
-    return path
-
-
-def sort_naturally(file_list):
-    """ Key for sorting the file list based on the step number.
-    """
-    return int(re.split('(\d+)', file_list)[-2])
-
 
 def progress_bar(progress, maximum):
-    """ Make a progress bar because progress bars are cool.
+    """ Makes a progress bar to show progress of output.
     """
     # length of the bar
     length = 60
@@ -197,8 +184,7 @@ def progress_bar(progress, maximum):
 
 
 def normal_vector(vector):
-    """ Returns the normalized vector, sadly this does not
-        exist in NumPy.
+    """ Normalizes the vector.
     """
     # get the magnitude of the vector
     mag = np.linalg.norm(vector)
@@ -211,16 +197,16 @@ def normal_vector(vector):
 
 
 def record_time(function):
-    """ A decorator used to time individual methods.
+    """ This is a decorator used to time individual methods.
     """
     @wraps(function)
-    def wrap(simulation, *args, **kwargs):  # args and kwargs are for additional arguments
-        # get the start/end time and call the method
+    def wrap(simulation, *args, **kwargs):    # args and kwargs are for additional arguments
+        # call the method and get the start/end time
         start = time.perf_counter()
         function(simulation, *args, **kwargs)
         end = time.perf_counter()
 
-        # add the time to the dictionary holding these times
+        # add the method time to the dictionary holding these times
         simulation.method_times[function.__name__] = end - start
 
     return wrap

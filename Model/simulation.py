@@ -212,7 +212,7 @@ class Simulation:
             bin_locations = np.floor_divide(self.locations, distance).astype(int) + 1
 
             # use JIT function from backend.py to speed up placement of agents
-            bins, bins_help = assign_bins_jit(self.number_agents, bin_locations, bins, bins_help)
+            bins, bins_help = assign_bins_jit(self.number_agents, bin_locations, bins, bins_help, max_agents)
 
             # break the loop if all agents were accounted for or revalue the maximum number of agents based on and run
             # one more time
@@ -244,14 +244,14 @@ class Simulation:
         while True:
             # get the total amount of edges able to be stored and make the following arrays
             length = self.number_agents * graph.max_neighbors
-            edge_holder = np.zeros((length, 2), dtype=int)         # hold all edges
+            edges = np.zeros((length, 2), dtype=int)         # hold all edges
             if_edge = np.zeros(length, dtype=bool)                 # say if each edge exists
             edge_count = np.zeros(self.number_agents, dtype=int)   # hold count of edges per agent
 
             # if using CUDA GPU
             if self.cuda:
                 # allow the following arrays to be passed to the GPU
-                edge_holder = cuda.to_device(edge_holder)
+                edges = cuda.to_device(edges)
                 if_edge = cuda.to_device(if_edge)
                 edge_count = cuda.to_device(edge_count)
 
@@ -260,20 +260,20 @@ class Simulation:
                 bpg = math.ceil(self.number_agents / tpb)
 
                 # call the CUDA kernel, sending arrays to GPU
-                get_neighbors_gpu[bpg, tpb](cuda.to_device(bin_locations), cuda.to_device(self.locations),
+                get_neighbors_gpu[bpg, tpb](cuda.to_device(self.locations), cuda.to_device(bin_locations),
                                             cuda.to_device(bins), cuda.to_device(bins_help), cuda.to_device(distance),
-                                            edge_holder, if_edge, edge_count, cuda.to_device(graph.max_neighbors))
+                                            edges, if_edge, edge_count, cuda.to_device(graph.max_neighbors))
 
                 # return the following arrays back from the GPU
-                edge_holder = edge_holder.copy_to_host()
+                edges = edges.copy_to_host()
                 if_edge = if_edge.copy_to_host()
                 edge_count = edge_count.copy_to_host()
 
             # otherwise use parallelized JIT function
             else:
-                edge_holder, if_edge, edge_count = get_neighbors_cpu(self.number_agents, bin_locations, self.locations,
-                                                                     bins, bins_help, distance, edge_holder, if_edge,
-                                                                     edge_count, graph.max_neighbors)
+                edges, if_edge, edge_count = get_neighbors_cpu(self.number_agents,  self.locations, bin_locations, bins,
+                                                               bins_help, distance, edge_holder, if_edge, edge_count,
+                                                               graph.max_neighbors)
 
             # break the loop if all neighbors were accounted for or revalue the maximum number of neighbors
             max_neighbors = np.amax(edge_count)
@@ -283,8 +283,7 @@ class Simulation:
                 graph.max_neighbors = max_neighbors * 2
 
         # reduce the edges to edges that actually exist and add those edges to graph
-        edge_holder = edge_holder[if_edge]
-        graph.add_edges(edge_holder)
+        graph.add_edges(edges[if_edge])
 
         # simplify the graph's edges if not clearing the graph at the start
         if not clear:
@@ -435,7 +434,8 @@ class Simulation:
             if image_count > 0:
                 # print statement and sort the file list so "2, 20, 3, 31..." becomes "2, 3, ..., 20, ..., 31"
                 print("\nCreating video...")
-                file_list = sorted(file_list, key=sort_naturally)
+                # file_list = sorted(file_list, key=sort_naturally)
+                file_list = sorted(file_list, key=lambda x: int(re.split('(\d+)', x)[-2]))
 
                 # sample the first image to get the dimensions of the image and then scale the image
                 size = cv2.imread(self.images_path + file_list[0]).shape[0:2]
@@ -513,7 +513,7 @@ class Simulation:
         # previous simulation
         else:
             # check that previous simulation exists
-            check_previous_sim(output_path, name)
+            check_previous_sim(name, output_path)
 
             # continuation
             if mode == 1:

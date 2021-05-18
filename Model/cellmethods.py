@@ -20,7 +20,7 @@ class CellMethods:
             # checks to see if cell is pluripotent
             if self.states[index] == 0:
                 # gets the number of neighbors for a cell, increasing the death counter if not enough neighbors
-                if len(self.neighbor_graph.neighbors(index)) < self.lonely_thresh:
+                if self.neighbor_graph.num_neighbors(index) < self.lonely_thresh:
                     self.death_counters[index] += 1
 
                 # if not, reset the death counter back to zero
