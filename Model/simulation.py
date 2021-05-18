@@ -272,7 +272,7 @@ class Simulation:
             # otherwise use parallelized JIT function
             else:
                 edges, if_edge, edge_count = get_neighbors_cpu(self.number_agents,  self.locations, bin_locations, bins,
-                                                               bins_help, distance, edge_holder, if_edge, edge_count,
+                                                               bins_help, distance, edges, if_edge, edge_count,
                                                                graph.max_neighbors)
 
             # break the loop if all neighbors were accounted for or revalue the maximum number of neighbors
@@ -492,16 +492,16 @@ class Simulation:
         """ Configures/runs the model based on the specified
             simulation mode.
         """
-        output_path = output_dir()    # read paths.yaml to get/make the output directory
+        output_dir = check_output_dir()    # read paths.yaml to get/make the output directory
         name, mode = get_name_mode()    # get the name/mode of the simulation
 
         # new simulation
         if mode == 0:
             # check that new simulation can be made
-            check_new_sim(name, output_path)
+            name = check_new_sim(name, output_dir)
 
             # create simulation object
-            sim = cls(name, output_path)
+            sim = cls(name, output_dir)
 
             # copy model files to simulation directory, ignoring __pycache__ files
             shutil.copytree(os.getcwd(), sim.main_path + name + "_copy", ignore=shutil.ignore_patterns("__pycache__"))
@@ -513,7 +513,7 @@ class Simulation:
         # previous simulation
         else:
             # check that previous simulation exists
-            check_previous_sim(name, output_path)
+            check_previous_sim(name, output_dir)
 
             # continuation
             if mode == 1:
@@ -532,12 +532,12 @@ class Simulation:
             # images to video
             elif mode == 2:
                 # create instance for video/path information and make video
-                sim = cls(name, output_path)
+                sim = cls(name, output_dir)
                 sim.create_video()
 
             # zip simulation output
             elif mode == 3:
                 # zip a copy of the folder and save it to the output directory
                 print("Compressing \"" + name + "\" simulation...")
-                shutil.make_archive(output_path + name, "zip", root_dir=output_path, base_dir=name)
+                shutil.make_archive(output_dir + name, "zip", root_dir=output_dir, base_dir=name)
                 print("Done!")

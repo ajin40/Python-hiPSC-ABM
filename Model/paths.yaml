@@ -8,4 +8,4 @@
 #    MacOS -> /Users/(user)/Jim/Croce
 
 # Put output path below
-output_path: C:\Research\Outputs
+output_dir: C:\Research\Outputs

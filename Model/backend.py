@@ -119,13 +119,13 @@ def get_neighbors_cpu(number_agents, locations, bin_locations, bins, bins_help, 
     """
     for index in prange(number_agents):
         # get the starting index for writing edges to the holder array
-        start = focus * max_neighbors
+        start = index * max_neighbors
 
         # hold the total amount of edges for the agent
         agent_edge_count = 0
 
         # get the indices of the bin location
-        x, y, z = bin_locations[focus]
+        x, y, z = bin_locations[index]
 
         # go through the 9 bins that could all potential neighbors
         for i in range(-1, 2):
@@ -140,9 +140,9 @@ def get_neighbors_cpu(number_agents, locations, bin_locations, bins, bins_help, 
                         current = bins[x + i][y + j][z + k][l]
 
                         # check to see if the agent is a neighbor and prevent duplicates with index condition
-                        if np.linalg.norm(locations[current] - locations[focus]) <= distance and focus < current:
+                        if np.linalg.norm(locations[current] - locations[index]) <= distance and index < current:
                             # if there is room, add the edge
-                            if agent_edge_count < max_neighbors[0]:
+                            if agent_edge_count < max_neighbors:
                                 # get the index for the edge
                                 edge_index = start + agent_edge_count
 
@@ -155,7 +155,7 @@ def get_neighbors_cpu(number_agents, locations, bin_locations, bins, bins_help, 
                             agent_edge_count += 1
 
         # update the array with number of edges for the agent
-        edge_count[focus] = agent_edge_count
+        edge_count[index] = agent_edge_count
 
     return edges, if_edge, edge_count
 
@@ -212,133 +212,144 @@ def record_time(function):
     return wrap
 
 
-# ---------------------------------------- helper methods for user-interface ------------------------------------------
+# -------------------------------------------- methods for user-interface ---------------------------------------------
 def commandline_param(flag, dtype):
     """ Returns the value for option passed at the
         command line.
     """
-    # get list of command line arguments
+    # go through list of commandline arguments
     args = sys.argv
-
-    # go through the arguments
     for i in range(len(args)):
-        # if argument matches flag
+        # if argument matches flag, try to return value
         if args[i] == flag:
-            # try to return value of
             try:
                 return dtype(args[i + 1])
-            # otherwise raise error
             except IndexError:
                 raise Exception(f"No value for option: {args[i]}")
 
-    # return NoneType if no value passed
-    return None
+    # raise exception if option not found
+    raise Exception(f"Option: {args[i]} not found")
 
 
 def template_params(path):
-    """ Return parameters as dict from YAML template file.
+    """ Return parameters as dict from a YAML template file.
     """
     with open(path, "r") as file:
         return yaml.safe_load(file)
 
 
-def output_dir():
-    """ Read the output path from paths.yaml and if this directory
-        does not exist yet, make it.
+def check_output_dir():
+    """ Reads the path to the main output directory and makes sure
+        this directory exists.
     """
-    # get file separator
-    separator = os.path.sep
-
-    # open the file and load the keys
+    # open the YAML file and get the path
     with open("paths.yaml", "r") as file:
         keys = yaml.safe_load(file)
+    output_dir = keys["output_dir"]
 
-    # get output_path key
-    output_path = keys["output_path"]
-
-    # keep running until output directory exists
-    while not os.path.isdir(output_path):
+    # run until directory exists
+    while not os.path.isdir(output_dir):
         # prompt user input
-        print("\nSimulation output directory: \"" + output_path + "\" does not exist!")
+        print("\nSimulation output directory: \"" + output_dir + "\" does not exist!")
         user = input("Do you want to make this directory? If \"n\", you can specify the correct path (y/n): ")
         print()
 
-        # if not making this directory
-        if user == "n":
-            # get new path to output directory
-            output_path = input("Correct path (absolute) to output directory: ")
+        # if making this directory
+        if user == "y":
+            os.makedirs(output_dir)
+            break
+
+        # otherwise get correct path to directory
+        elif user == "n":
+            output_dir = input("Correct path (absolute) to output directory: ")
 
             # update paths.yaml file with new output directory path
-            keys["output_path"] = output_path
+            keys["output_dir"] = output_dir
             with open("paths.yaml", "w") as file:
                 keys = yaml.dump(keys, file)
-
-        # if yes, make the directory
-        elif user == "y":
-            os.makedirs(output_path)
-            break
 
         else:
             print("Either type \"y\" or \"n\"")
 
     # if path doesn't end with separator, add it
-    if output_path[-1] != separator:
-        output_path += separator
+    separator = os.path.sep
+    if output_dir[-1] != separator:
+        output_dir += separator
 
-    # return correct path to output directory
-    return output_path
+    # return correct path
+    return output_dir
 
 
 def get_name_mode():
-    """ This function will get the name and mode for the simulation
-        either from the command line or a text-based UI.
+    """ Returns the name and mode for the simulation either from
+        the commandline or a text-based UI.
     """
-    # try to get the name and mode from the command line
-    name = commandline_param("-n", str)
-    mode = commandline_param("-m", int)
-
-    # if the name variable has not been initialized by the command-line, run the text-based UI to get it
-    if name is None:
+    # try to get the name from the commandline, otherwise run the text-based UI
+    try:
+        name = commandline_param("-n", str)
+    except Exception:
         while True:
-            # prompt for the name
+            # prompt user for name
             name = input("What is the \"name\" of the simulation? Type \"help\" for more information: ")
-
-            # keep running if "help" is typed
             if name == "help":
                 print("\nType the name of the simulation (not a path).\n")
             else:
                 break
 
-    # if the mode variable has not been initialized by the command-line, run the text-based UI to get it
-    if mode is None:
+    # try to get the mode from the commandline, otherwise run the text-based UI
+    try:
+        mode = commandline_param("-m", int)
+    except Exception:
         while True:
-            # prompt for the mode
+            # prompt user for mode
             mode = input("What is the \"mode\" of the simulation? Type \"help\" for more information: ")
-            print()
-
-            # keep running if "help" is typed
             if mode == "help":
-                print("Here are the following modes:\n0: New simulation\n1: Continuation of past simulation\n"
+                print("\nHere are the following modes:\n0: New simulation\n1: Continuation of past simulation\n"
                       "2: Turn simulation images to video\n3: Zip previous simulation\n")
             else:
+                # make sure mode is an integer
                 try:
-                    # get the mode as an integer make sure mode exists, break the loop if it does
                     mode = int(mode)
+                    print()
                     break
-
-                # if not an integer
                 except ValueError:
-                    print("Input: \"mode\" should be an integer.\n")
+                    print("\nInput: \"mode\" should be an integer.\n")
 
-    # return the simulation name and mode
     return name, mode
 
 
-def check_new_sim(name, output_path):
-    """ Check that a new simulation can be made. """
-    # get file separator
-    separator = os.path.sep
+def get_final_step():
+    """ Gets the new last step of the simulation if using continuation
+        mode for the simulation.
+    """
+    # try to get the final step from the commandline, otherwise run the text-based UI
+    try:
+        final_step = commandline_param("-fs", int)
+    except Exception:
+        while True:
+            # prompt user for final step
+            final_step = input("What is the final step of this continued simulation? Type \"help\" for more"
+                               " information: ")
 
+            # keep running if "help" is typed
+            if final_step == "help":
+                print("\nEnter the new step number that will be the last step of the simulation.\n")
+            else:
+                # make sure final step is an integer
+                try:
+                    final_step = int(final_step)
+                    print()
+                    break
+                except ValueError:
+                    print("Input: \"final step\" should be an integer.\n")
+
+    return final_step
+
+
+def check_new_sim(name, output_path):
+    """ Makes sure a new simulation doesn't overwrite existing
+        simulation.
+    """
     while True:
         # see if the directory exists
         if os.path.isdir(output_path + name):
@@ -347,20 +358,18 @@ def check_new_sim(name, output_path):
             user = input("Would you like to overwrite that simulation? (y/n): ")
             print()
 
-            # if no overwrite, get new simulation name
+            # if not overwriting, get new name
             if user == "n":
                 name = input("New name: ")
                 print()
 
-            # overwrite by deleting all files/folders in previous directory
+            # otherwise delete all files/folders in previous directory
             elif user == "y":
                 # clear current directory to prevent another possible future errors
                 files = os.listdir(output_path + name)
                 for file in files:
                     # path to each file/folder
-                    path = output_path + name + separator + file
-
-                    # delete the file/folder
+                    path = output_path + name + os.path.sep + file
                     if os.path.isfile(path):
                         os.remove(path)
                     else:
@@ -369,53 +378,25 @@ def check_new_sim(name, output_path):
             else:
                 # inputs should either be "y" or "n"
                 print("Either type \"y\" or \"n\"")
+
+        # if does not exist, make directory
         else:
-            # if does not exist, make directory
             os.mkdir(output_path + name)
             break
 
+    return name
+
 
 def check_previous_sim(name, output_path):
-    """ Makes sure that a previous simulation exists. """
+    """ Makes sure that a previous simulation exists.
+    """
     while True:
-        # if the directory exists, break loop
+        # break the loop if the simulation exists, otherwise try to get correct name
         if os.path.isdir(output_path + name):
             break
         else:
-            # try to get correct name
             print("No directory exists with name/path: " + output_path + name)
             name = input("Please type the correct name of the simulation or type \"exit\" to exit: ")
             print()
             if name == "exit":
                 exit()
-
-
-def get_final_step():
-    """ Gets the new last step of the simulation if using continuation
-        mode.
-    """
-    # try get step number from commandline
-    final_step = commandline_param("-fs", int)
-
-    # if no value, then run UI until found
-    if final_step is None:
-        while True:
-            # prompt for the final step number
-            final_step = input("What is the final step of this continued simulation? Type \"help\" for more"
-                               " information: ")
-            print()
-
-            # keep running if "help" is typed
-            if final_step == "help":
-                print("Enter the new step number that will be the last step of the simulation.\n")
-            else:
-                try:
-                    # get the final step as an integer, break the loop if conversion is successful
-                    final_step = int(final_step)
-                    break
-
-                # if not an integer
-                except ValueError:
-                    print("Input: \"final step\" should be an integer.\n")
-
-    return final_step
