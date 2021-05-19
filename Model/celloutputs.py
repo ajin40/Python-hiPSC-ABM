@@ -6,15 +6,16 @@ from backend import record_time, check_direct
 
 
 class CellOutputs:
-    """ The methods in this class are meant to be inherited by the CellSimulation
-        class so that CellSimulation objects can call these methods.
+    """ The methods in this class are meant to provide output
+        functionality to the CellSimulation class.
     """
     @record_time
     def step_image(self, background=(0, 0, 0), origin_bottom=True):
         """ Creates an image of the simulation space. Note the imaging library
             OpenCV uses BGR instead of RGB.
-            background -> (tuple) The color of the background image as BGR
-            origin_bottom -> (bool) Location of origin True -> bottom/left, False -> top/left
+
+            - background: the color of the background image as BGR
+            - origin_bottom: location of origin True -> bottom/left, False -> top/left
         """
         # only continue if outputting images
         if self.output_images:
@@ -87,60 +88,40 @@ class CellOutputs:
 
             # go through all gradient arrays
             for gradient_name in self.gradient_names:
-                # get directory to specific gradient
-                check_direct(self.gradients_path + separator + gradient_name + separator)
+                # get directory to specific gradient and check that it exists
+                path = self.gradients_path + separator + gradient_name + separator
+                check_direct(path)
 
                 # get file name, use f-string
                 file_name = f"{self.name}_{gradient_name}_{self.current_step}.csv"
 
                 # convert gradient from 3D to 2D array and save it as CSV
                 gradient = self.__dict__[gradient_name][:, :, 0]
-                direct = self.gradients_path + separator + gradient_name + separator
-                np.savetxt(direct + file_name, gradient, delimiter=",")
+                np.savetxt(path + file_name, gradient, delimiter=",")
 
     @record_time
-    def step_tda(self, in_pixels=False):
-        """ Create CSV files for Topological Data Analysis (TDA) of different cell
-            types. Each type will have its own subdirectory.
-            in_pixels -> (bool) If the locations should be in pixels instead of meters
+    def step_tda(self):
+        """ Creates separate CSV files (based on cell type) for Topological
+            Data Analysis (TDA).
         """
         # only continue if outputting TDA files
         if self.output_tda:
-            # get path and make sure directory exists
+            # make sure directory exists
             check_direct(self.tda_path)
 
             # get the indices as an array of True/False of gata6 high cells and the non gata6 high cells
             red_indices = self.GATA6 > self.NANOG
             green_indices = np.invert(red_indices)
 
-            # if TDA locations should be based on pixel location
-            if in_pixels:
-                scale = self.image_quality / self.size[0]
-            else:
-                scale = 1    # use meters
+            # get the locations of the cells by applying Boolean mask
+            locations_holder = dict()
+            locations_holder["red"] = self.locations[red_indices, 0:2]
+            locations_holder["green"] = self.locations[green_indices, 0:2]
+            locations_holder["all"] = self.locations[:, 0:2]
 
-            # get the locations of the cells
-            red_locations = self.locations[red_indices, 0:2] * scale
-            green_locations = self.locations[green_indices, 0:2] * scale
-            all_locations = self.locations[:, 0:2] * scale
-
-            # get the separator and save the following TDA outputs each to separate directories
-            separator = self.separator
-
-            # save all cell locations to a CSV
-            all_path = self.tda_path + separator + "all" + separator
-            check_direct(all_path)
-            file_name = f"{self.name}_tda_all_{self.current_step}.csv"
-            np.savetxt(all_path + file_name, all_locations, delimiter=",")
-
-            # save only GATA6 high cell locations to CSV
-            red_path = self.tda_path + separator + "red" + separator
-            check_direct(red_path)
-            file_name = f"{self.name}_tda_red_{self.current_step}.csv"
-            np.savetxt(red_path + file_name, red_locations, delimiter=",")
-
-            # save only non-GATA6 high, pluripotent cells to a CSV
-            green_path = self.tda_path + separator + "green" + separator
-            check_direct(green_path)
-            file_name = f"{self.name}_tda_green_{self.current_step}.csv"
-            np.savetxt(green_path + file_name, green_locations, delimiter=",")
+            # save the following TDA outputs each to separate directories
+            for key in locations_holder.keys():
+                path = self.tda_path + self.separator + key + self.separator
+                check_direct(path)
+                file_name = f"{self.name}_tda_{key}_{self.current_step}.csv"
+                np.savetxt(path + file_name, locations_holder[key], delimiter=",")

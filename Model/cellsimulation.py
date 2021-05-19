@@ -114,7 +114,7 @@ class CellSimulation(CellMethods, CellOutputs, Simulation):
             self.step_values(arrays=["locations", "FGF4", "FGFR", "ERK", "GATA6", "NANOG", "states", "diff_counters",
                                      "div_counters"])
             # self.step_gradients()
-            self.step_tda(in_pixels=True)
+            self.step_tda()
             self.temp()
             self.data()
 
