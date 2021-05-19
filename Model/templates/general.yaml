@@ -5,7 +5,7 @@ num_to_start: 5000
 cuda: False
 
 # What will the final step number be? Use for when you are beginning a new simulation (mode: 0). Ex. 192
-end_step: 10
+end_step: 192
 
 # What are the dimensions (xyz) of the space? Ex. [4000, 4000, 0]
 size: [2000, 2000, 0]
@@ -25,4 +25,4 @@ image_quality: 2000
 video_quality: 1000
 
 # What should the frames-per-second (FPS) of the resulting video comprised of step images be? Ex. 10.0
-fps: 1
+fps: 10

@@ -9,23 +9,21 @@ from backend import *
 
 
 class Simulation:
-    """ This abstract class makes sure any subclasses have the necessary
-        simulation attributes.
+    """ This class makes sure any subclasses have the necessary
+        attributes to run a simulation.
     """
     def __init__(self, name, output_path):
         # set name and separator
         self.name = name
         self.separator = os.path.sep
 
-        # get path to the main directory for this simulation and the path to the YAML template directory
-        self.main_path = output_path + self.name + self.separator
-        self.templates_path = os.path.abspath("templates") + self.separator
+        # make the following paths
+        self.main_path = output_path + self.name + self.separator    # path to main simulation directory
+        self.templates_path = os.path.abspath("templates") + self.separator    # path to the YAML template directory
+        self.images_path = self.main_path + name + "_images" + self.separator    # path to images output directory
+        self.values_path = self.main_path + name + "_values" + self.separator    # path to CSV output directory
 
-        # these directories are sub-directories under the main simulation directory
-        self.images_path = self.main_path + name + "_images" + self.separator  # the images output directory
-        self.values_path = self.main_path + name + "_values" + self.separator  # the cell array values output directory
-
-        # the running number of agents and the step to begin at (updated by continuation mode)
+        # hold the running number of agents and the step to begin at (updated by continuation mode)
         self.number_agents = 0
         self.beginning_step = 1
 
@@ -62,7 +60,7 @@ class Simulation:
         self.fps = keys["fps"]
 
     def agent_initials(self):
-        """ Add agents into the simulation and specify any values the agents should have.
+        """ Adds agents into the simulation and specify any values the agents should have.
             The agent arrays will default to float64, 1-dim arrays of zeros. Use the
             parameters to adjust the data type, 2-dim size, and initial conditions. The
             "agent_type" keyword is used to apply initial conditions to the group of agents
@@ -74,9 +72,6 @@ class Simulation:
         # create the following agent arrays with initial conditions.
         self.agent_array("locations", override=np.random.rand(self.number_agents, 3) * self.size)
         self.agent_array("radii", func=lambda: 5)
-
-        # create graph for holding agent neighbors
-        self.agent_graph("neighbor_graph")
 
     def steps(self):
         """ Specify any Simulation instance methods called before/during/after
@@ -95,12 +90,9 @@ class Simulation:
             # records step run time and prints the current step and number of agents
             self.info()
 
-            # finds the neighbors of each agent within fixed radius
-            self.get_neighbors("neighbor_graph", 15)
-
             # save multiple forms of information about the simulation at the current step
             self.step_image()
-            self.step_values(arrays=["locations", "radii"])
+            self.step_values()
             self.temp()
             self.data()
 
@@ -513,7 +505,7 @@ class Simulation:
         # previous simulation
         else:
             # check that previous simulation exists
-            check_previous_sim(name, output_dir)
+            name = check_previous_sim(name, output_dir)
 
             # continuation
             if mode == 1:

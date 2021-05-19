@@ -8,17 +8,12 @@ from celloutputs import CellOutputs
 
 
 class CellSimulation(CellMethods, CellOutputs, Simulation):
-    """ This class inherits a base Simulation class with additional methods from CellMethods
-        and CellOutputs. More instance variables are specified below either directly or
-        through the template files.
+    """ This class inherits the Simulation class and adds methods from the CellMethods
+        and CellOutputs mixins.
     """
     def __init__(self, name, output_path):
         # initialize the Simulation object
         Simulation.__init__(self, name, output_path)
-
-        # hold these paths
-        self.gradients_path = self.main_path + name + "_gradients" + self.separator  # gradients output directory
-        self.tda_path = self.main_path + name + "_tda" + self.separator # topological data analysis output directory
 
         # get parameters from experimental template file (example in simulation.py)
         keys = template_params(self.templates_path + "experimental.yaml")
@@ -30,6 +25,10 @@ class CellSimulation(CellMethods, CellOutputs, Simulation):
         self.guye_move = keys["guye_move"]
         self.lonely_thresh = keys["lonely_thresh"]
         self.color_mode = keys["color_mode"]
+
+        # hold these additional paths
+        self.gradients_path = self.main_path + name + "_gradients" + self.separator  # gradients output directory
+        self.tda_path = self.main_path + name + "_tda" + self.separator  # topological data analysis output directory
 
         # the temporal resolution for the simulation
         self.step_dt = 1800  # dt of each simulation step (1800 sec)
@@ -76,7 +75,7 @@ class CellSimulation(CellMethods, CellOutputs, Simulation):
         # self.gradient_names = ["fgf4_values", "fgf4_alt"]    # add names for automatic CSV output of gradients
 
     def steps(self):
-        """ Overrides the steps method from the Simulation class.
+        """ Overrides the steps() method from the Simulation class.
         """
         # Iterate over all steps specified in the Simulation object
         for self.current_step in range(self.beginning_step, self.end_step + 1):
@@ -123,7 +122,7 @@ class CellSimulation(CellMethods, CellOutputs, Simulation):
         self.create_video()
 
     def agent_initials(self):
-        """ Overrides the agent_initials method from the Simulation class.
+        """ Overrides the agent_initials() method from the Simulation class.
         """
         # Add the specified number of NANOG/GATA6 high cells and create cell type GATA6_high.
         self.add_agents(self.num_to_start)

@@ -396,7 +396,9 @@ def check_previous_sim(name, output_path):
             break
         else:
             print("No directory exists with name/path: " + output_path + name)
-            name = input("Please type the correct name of the simulation or type \"exit\" to exit: ")
+            name = input("\nPlease type the correct name of the simulation or type \"exit\" to exit: ")
             print()
             if name == "exit":
                 exit()
+
+    return name
