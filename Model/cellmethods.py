@@ -10,7 +10,7 @@ class CellMethods:
     """
     @record_time
     def cell_death(self):
-        """ Remove any cells that meet the criteria for cell death.
+        """ Removes any cells that meet the criteria for cell death.
         """
         # create boolean array to mark cells to be removed
         agents_to_remove = np.zeros(self.number_agents, dtype=bool)
@@ -23,7 +23,7 @@ class CellMethods:
                 if self.neighbor_graph.num_neighbors(index) < self.lonely_thresh:
                     self.death_counters[index] += 1
 
-                # if not, reset the death counter back to zero
+                # if sufficient neighbors, reset the death counter back to zero
                 else:
                     self.death_counters[index] = 0
 
@@ -31,21 +31,15 @@ class CellMethods:
                 if self.death_counters[index] >= self.death_thresh:
                     agents_to_remove[index] = 1
 
-        # get indices of cells to remove with Boolean mask
+        # get indices of cells to remove with a Boolean mask and count how many removed
         indices = np.arange(self.number_agents)[agents_to_remove]
-
-        # get the number of cells being removed, subtract from count, and print out to terminal
         num_removed = len(indices)
-        self.number_agents -= num_removed
-        print("Removing " + str(num_removed) + " agents...")
 
         # go through the cell arrays and remove the indices
         for name in self.agent_array_names:
-            # if the array is 1-dimensional
+            # if the array is 1-dimensional, otherwise 2-dimensional
             if self.__dict__[name].ndim == 1:
                 self.__dict__[name] = np.delete(self.__dict__[name], indices)
-
-            # if the array is 2-dimensional
             else:
                 self.__dict__[name] = np.delete(self.__dict__[name], indices, axis=0)
 
@@ -53,10 +47,14 @@ class CellMethods:
         for graph_name in self.graph_names:
             self.__dict__[graph_name].delete_vertices(indices)
 
+        # change total number of cells and print to terminal
+        self.number_agents -= num_removed
+        print("\tRemoved " + str(num_removed) + " agents")
+
     @record_time
     def cell_division(self):
-        """ Increases the cell division counter and if the cell meets criteria
-            mark it for division.
+        """ Adjusts the cell division counters and if a cell meets
+            the criteria for division, add a new cell.
         """
         # create boolean array to mark dividing cells
         agents_to_divide = np.zeros(self.number_agents, dtype=bool)
@@ -66,47 +64,40 @@ class CellMethods:
             # stochastically increase the division counter by either 0 or 1
             self.div_counters[index] += r.randint(0, 1)
 
-            # pluripotent cell
+            # if the cell is pluripotent
             if self.states[index] == 0:
-                # check the division counter against the threshold, add to array if dividing
+                # check the division counter against the threshold, mark cell if it is
                 if self.div_counters[index] >= self.pluri_div_thresh:
                     agents_to_divide[index] = 1
 
-            # differentiated cell
+            # otherwise the cell is differentiated
             else:
-                # check the division counter against the threshold, add to array if dividing
+                # check the division counter against the threshold
                 if self.div_counters[index] >= self.diff_div_thresh:
-                    # check for contact inhibition since differentiated
-                    if len(self.neighbor_graph.neighbors(index)) < 6:
+                    # check for division contact inhibition if ok, mark cell for division
+                    if self.neighbor_graph.num_neighbors(index) < 6:
                         agents_to_divide[index] = 1
 
-        # get indices of the dividing cells with Boolean mask
+        # get indices of the dividing cells with Boolean mask and count how many added
         indices = np.arange(self.number_agents)[agents_to_divide]
-
-        # get the number of cells being added and print out to terminal
         num_added = len(indices)
-        print("Adding " + str(num_added) + " agents...")
 
         # go through the cell arrays and add indices
         for name in self.agent_array_names:
             # copy the indices of the cell array data for the dividing cells
             copies = self.__dict__[name][indices]
 
-            # if the instance variable is 1-dimensional
+            # add the copies to the end of the array, handle if the array is 1-dimensional or 2-dimensional
             if self.__dict__[name].ndim == 1:
-                # add the copies to the end of the array
                 self.__dict__[name] = np.concatenate((self.__dict__[name], copies))
-
-            # if the instance variable is 2-dimensional
             else:
-                # add the copies to the end of the array
                 self.__dict__[name] = np.concatenate((self.__dict__[name], copies), axis=0)
 
         # go through each of the dividing cells, updating values for the mother and daughter cell
         for i in range(num_added):
             # get the indices of mother cell and daughter cell
             mother_index = indices[i]
-            daughter_index = self.number_agents
+            daughter_index = self.number_agents + i
 
             # move the cells to new positions
             division_position = self.random_vector() * (self.max_radius - self.min_radius)
@@ -121,59 +112,45 @@ class CellMethods:
             for graph_name in self.graph_names:
                 self.__dict__[graph_name].add_vertex()
 
-            # update the number of cells, adding one new agent at a time
-            self.number_agents += 1
-
-            # if not adding all of the cells at once
-            if self.group != 0:
-                # Cannot add all of the new cells, otherwise several cells are likely to be added in
-                #   close proximity to each other at later time steps. Such addition, coupled with
-                #   handling collisions, make give rise to sudden changes in overall positions of
-                #   cells within the self. Instead, collisions are handled after 'group' number
-                #   of cells are added. - Daniel Cruz
-
-                # if the current number added is divisible by the group number
-                if (i + 1) % self.group == 0:
-                    # run the following once to better simulate asynchronous division
-                    self.apply_forces(group_add=True)
+        # change total number of cells and print to terminal
+        self.number_agents += num_added
+        print("\tAdded " + str(num_added) + " agents")
 
     @record_time
     def cell_diff_surround(self):
-        """ Simulates differentiated cells inducing the differentiation of a
-            pluripotent cell.
+        """ Simulates differentiated cells inducing the differentiation
+            of a pluripotent cell.
         """
         for index in range(self.number_agents):
-            # checks to see if cell is pluripotent and GATA6 low/medium
+            # checks to see if cell is pluripotent and GATA6 low
             if self.states[index] == 0 and self.GATA6[index] < self.NANOG[index]:
-
                 # get the list of neighbors for the cell
                 neighbors = self.neighbor_graph.neighbors(index)
 
-                # loop over neighbors, counting the ones that are differentiated
-                diff_neighbors = 0
-                for neighbor_index in neighbors:
-                    # checks to see if current neighbor is differentiated and if so add to the counter
-                    if self.states[neighbor_index] == 1:
-                        diff_neighbors += 1
+                # hold the number of differentiated neighbors
+                num_diff = 0
 
-                    # if the number of differentiated meets the threshold, set the cell as gata6 high and nanog low
-                    if diff_neighbors >= 6:
+                # if the number of differentiated neighbors is 6 or greater, set the cell to GATA6 high
+                for neighbor_index in neighbors:
+                    if self.states[neighbor_index] == 1:
+                        num_diff += 1
+
+                    if num_diff >= 6:
                         self.GATA6[index] = self.field - 1
                         self.NANOG[index] = 0
                         break
 
     @record_time
     def cell_growth(self):
-        """ Simulates the growth of a cell currently linear, radius-based growth.
+        """ Simulates the growth of a cell currently linear, radius-based
+            growth.
         """
         for index in range(self.number_agents):
             # increase the cell radius based on the state and whether or not it has reached the max size
             if self.radii[index] < self.max_radius:
-                # pluripotent growth
+                # pluripotent otherwise differentiated
                 if self.states[index] == 0:
                     radius = self.pluri_growth * self.div_counters[index] + self.min_radius
-
-                # differentiated growth
                 else:
                     radius = self.diff_growth * self.div_counters[index] + self.min_radius
 
@@ -182,8 +159,8 @@ class CellMethods:
 
     @record_time
     def cell_stochastic_update(self):
-        """ Stochastically updates the value for GATA6 and NANOG based on set
-            probabilities.
+        """ Stochastically updates the value for GATA6 and NANOG based on
+            set probabilities.
         """
         for index in range(self.number_agents):
             # if falling under threshold, raise the GATA6 value to the highest
@@ -198,20 +175,15 @@ class CellMethods:
 
     @record_time
     def cell_pathway(self):
-        """ Updates finite dynamical system variables.
+        """ Updates the discrete dynamical system variables for each cell.
         """
         for index in range(self.number_agents):
-            # activate the following pathway based on if doxycycline has been induced yet (after 24 hours/48 steps)
+            # only activate the pathway if doxycycline has been induced yet (after 24 hours/48 steps)
             if self.current_step >= self.dox_step:
-                # get the list of neighbors for the cell and the number of neighbors
+                # get the list of neighbors for the cell and add cell to this list
                 neighbors = self.neighbor_graph.neighbors(index)
+                neighbors.append(index)
                 num_neighbors = len(neighbors)
-
-                # get perceived FGF4 for self
-                if num_neighbors != 0:
-                    perceived_FGF4 = (1 + r.gauss(0, 1)) * (self.FGF4[index] / num_neighbors)
-                else:
-                    perceived_FGF4 = (1 + r.gauss(0, 1)) * self.FGF4[index]
 
                 # go through neighbors to get perceived FGF4 morphogen
                 for i in range(num_neighbors):
@@ -256,26 +228,20 @@ class CellMethods:
 
     @record_time
     def cell_differentiate(self):
-        """ Based on GATA6 and NANOG values, stochastically increase differentiation
-            counter and/or differentiate.
+        """ Based on GATA6 and NANOG values, stochastically increase
+            differentiation counter and potentially differentiate.
         """
         for index in range(self.number_agents):
             # if the cell is GATA6 high and pluripotent
             if self.GATA6[index] > self.NANOG[index] and self.states[index] == 0:
-
                 # increase the differentiation counter by 0 or 1
                 self.diff_counters[index] += r.randint(0, 1)
 
                 # if the differentiation counter is greater than or equal to the threshold, differentiate
                 if self.diff_counters[index] >= self.pluri_to_diff:
-                    # change the state to differentiated
-                    self.states[index] = 1
-
-                    # make sure NANOG is low
-                    self.NANOG[index] = 0
-
-                    # allow the cell to actively move again
-                    self.motion[index] = True
+                    self.states[index] = 1    # set state to differentiated
+                    self.NANOG[index] = 0    # set NANOG to low
+                    self.motion[index] = True    # allow the cell to move
 
     @record_time
     def cell_motility(self):
@@ -405,25 +371,17 @@ class CellMethods:
                         self.motility_forces[index] += self.random_vector() * motility_force
 
     @record_time
-    def apply_forces(self, group_add=False):
+    def apply_forces(self):
         """ Calls multiple methods used to move the cells to a state of physical
             equilibrium between repulsive, adhesive, and motility forces.
         """
         # the viscosity of the medium in Ns/m, used for stokes friction dynamic viscosity
         viscosity = 10000
 
-        # if this method is being used by cell_division(), move the cells slightly without motility forces
-        if group_add:
-            total_steps = 1
-            last_dt = self.move_dt
-            motility_forces = np.zeros_like(self.motility_forces)
-
-        # otherwise apply motility forces and iteratively move the cells
-        else:
-            # calculate the number of steps and the last step time if it doesn't divide nicely
-            steps, last_dt = divmod(self.step_dt, self.move_dt)
-            total_steps = int(steps) + 1    # add extra step for the last dt, if divides nicely last_dt will equal zero
-            motility_forces = self.motility_forces
+        # calculate the number of steps and the last step time if it doesn't divide nicely
+        steps, last_dt = divmod(self.step_dt, self.move_dt)
+        total_steps = int(steps) + 1    # add extra step for the last dt, if divides nicely last_dt will equal zero
+        motility_forces = self.motility_forces
 
         # go through all move steps, calculating the physical interactions and applying the forces
         for step in range(total_steps):
