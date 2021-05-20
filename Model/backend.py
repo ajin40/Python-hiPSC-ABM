@@ -70,7 +70,7 @@ def get_neighbors_gpu(locations, bin_locations, bins, bins_help, distance, edges
     index = cuda.grid(1)
 
     # double check that the index is within bounds
-    if focus < bin_locations.shape[0]:
+    if index < bin_locations.shape[0]:
         # get the starting index for writing edges to the holder array
         start = index * max_neighbors[0]
 
@@ -78,7 +78,7 @@ def get_neighbors_gpu(locations, bin_locations, bins, bins_help, distance, edges
         agent_edge_count = 0
 
         # get the indices of the bin location
-        x, y, z = bin_locations[focus]
+        x, y, z = bin_locations[index]
 
         # go through the 9 bins that could all potential neighbors
         for i in range(-1, 2):
@@ -93,7 +93,7 @@ def get_neighbors_gpu(locations, bin_locations, bins, bins_help, distance, edges
                         current = bins[x + i][y + j][z + k][l]
 
                         # check to see if the agent is a neighbor and prevent duplicates with index condition
-                        if magnitude(locations[focus], locations[current]) <= distance[0] and index < current:
+                        if magnitude(locations[index], locations[current]) <= distance[0] and index < current:
                             # if there is room, add the edge
                             if agent_edge_count < max_neighbors[0]:
                                 # get the index for the edge
@@ -108,7 +108,7 @@ def get_neighbors_gpu(locations, bin_locations, bins, bins_help, distance, edges
                             agent_edge_count += 1
 
         # update the array with number of edges for the agent
-        edge_count[focus] = agent_edge_count
+        edge_count[index] = agent_edge_count
 
 
 @jit(nopython=True, parallel=True, cache=True)

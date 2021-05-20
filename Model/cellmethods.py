@@ -251,8 +251,9 @@ class CellMethods:
         motility_force = 0.000000002
 
         for index in range(self.number_agents):
-            # if not surrounded 6 or more cells, calculate motility forces
-            if self.neigbor_graph.num_neighbors(index) < 6:
+            # get neighbors and if not surrounded 6 or more cells, calculate motility forces
+            neighbors = self.neighbor_graph.neighbors(index)
+            if len(neighbors) < 6:
                 # if the cell is differentiated
                 if self.states[index] == 1:
                     # add all displacement vectors of nearby NANOG high cells
