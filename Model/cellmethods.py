@@ -241,46 +241,34 @@ class CellMethods:
                 if self.diff_counters[index] >= self.pluri_to_diff:
                     self.states[index] = 1    # set state to differentiated
                     self.NANOG[index] = 0    # set NANOG to low
-                    self.motion[index] = True    # allow the cell to move
 
     @record_time
     def cell_motility(self):
-        """ Gives the cells a motive force depending on set rules for
-            the cell types.
+        """ Gives the cells a motive force depending on set rules
+            for the cell types.
         """
-        # this is the motility force of the cells
+        # motility force for each cell
         motility_force = 0.000000002
 
-        # loop over all of the cells
         for index in range(self.number_agents):
-            # get the neighbors of the cell
-            neighbors = self.neighbor_graph.neighbors(index)
-
             # if not surrounded 6 or more cells, calculate motility forces
-            if len(neighbors) < 6:
+            if self.neigbor_graph.num_neighbors(index) < 6:
                 # if the cell is differentiated
                 if self.states[index] == 1:
-                    # create a vector to hold the sum of normal vectors between a cell and its neighbors
-                    vector_holder = np.array([0.0, 0.0, 0.0])
-
-                    # loop over the neighbors
+                    # add all displacement vectors of nearby NANOG high cells
                     count = 0
+                    vector_holder = np.array([0.0, 0.0, 0.0])
                     for i in range(len(neighbors)):
-                        # if neighbor is nanog high, add vector to the cell to the holder
                         if self.NANOG[neighbors[i]] > self.GATA6[neighbors[i]]:
                             count += 1
                             vector_holder += self.locations[neighbors[i]] - self.locations[index]
 
-                    # if there is at least one nanog high cell move away from it
+                    # if there is at least one nanog high cell move away from it, otherwise move randomly
                     if count > 0:
-                        # get the normalized vector
+                        # get the normalized vector and move in direction opposite
                         normal = normal_vector(vector_holder)
-
-                        # move in direction opposite to nanog high cells
                         random = self.random_vector()
                         self.motility_forces[index] += (normal * -0.8 + random * 0.2) * motility_force
-
-                    # if no nanog high cells around, move randomly
                     else:
                         self.motility_forces[index] += self.random_vector() * motility_force
 
@@ -290,135 +278,156 @@ class CellMethods:
                     if self.GATA6[index] > self.NANOG[index]:
                         # if guye movement, move toward differentiated cells
                         if self.guye_move:
-                            # create a vector to hold the sum of normal vectors between a cell and its neighbors
-                            vector_holder = np.array([0.0, 0.0, 0.0])
-
-                            # loop over the neighbors
+                            # add all displacement vectors of nearby differentiated cells
                             count = 0
+                            vector_holder = np.array([0.0, 0.0, 0.0])
                             for i in range(len(neighbors)):
-                                # if neighbor is differentiated, add vector to the cell to the holder
-                                if self.states[neighbors[i]] == 1:
+                                if self.states[index] == 1:
                                     count += 1
                                     vector_holder += self.locations[neighbors[i]] - self.locations[index]
 
-                            # if there is at least differentiated cell move toward it
+                            # if there is at least one differentiated cell move toward it, otherwise move randomly
                             if count > 0:
                                 # get the normalized vector
                                 normal = normal_vector(vector_holder)
-
-                                # move in direction to differentiated cells
                                 random = self.random_vector()
                                 self.motility_forces[index] += (normal * 0.8 + random * 0.2) * motility_force
-
-                            # if no differentiated cells around, move randomly
                             else:
                                 self.motility_forces[index] += self.random_vector() * motility_force
 
                         # otherwise move away from nanog high cells
                         else:
-                            # create a vector to hold the sum of normal vectors between a cell and its neighbors
-                            vector_holder = np.array([0.0, 0.0, 0.0])
-
-                            # loop over the neighbors
+                            # add all displacement vectors of nearby NANOG high cells
                             count = 0
+                            vector_holder = np.array([0.0, 0.0, 0.0])
                             for i in range(len(neighbors)):
-                                # if neighbor is nanog high, add vector to the cell to the holder
                                 if self.NANOG[neighbors[i]] > self.GATA6[neighbors[i]]:
                                     count += 1
                                     vector_holder += self.locations[neighbors[i]] - self.locations[index]
 
-                            # if there is at least one nanog high cell move away from it
+                            # if there is at least one nanog high cell move away from it otherwise move randomly
                             if count > 0:
-                                # get the normalized vector
+                                # get the normalized vector and move in direction opposite
                                 normal = normal_vector(vector_holder)
-
-                                # move in direction opposite to nanog high cells
                                 random = self.random_vector()
                                 self.motility_forces[index] += (normal * -0.8 + random * 0.2) * motility_force
-
-                            # if no nanog high cells around, move randomly
                             else:
                                 self.motility_forces[index] += self.random_vector() * motility_force
 
                     # if the cell is nanog high and gata6 low
                     elif self.GATA6[index] < self.NANOG[index]:
-                        # create a vector to hold the sum of normal vectors between a cell and its neighbors
-                        vector_holder = np.array([0.0, 0.0, 0.0])
-
-                        # loop over the neighbors
+                        # add all displacement vectors of nearby NANOG high cells
                         count = 0
+                        vector_holder = np.array([0.0, 0.0, 0.0])
                         for i in range(len(neighbors)):
-                            # if neighbor is nanog high, add vector to the cell to the holder
                             if self.NANOG[neighbors[i]] > self.GATA6[neighbors[i]]:
                                 count += 1
                                 vector_holder += self.locations[neighbors[i]] - self.locations[index]
 
-                        # if there is at least one nanog high cell move toward it
+                        # if there is at least one nanog high cell move toward it, otherwise move randomly
                         if count > 0:
-                            # get the normalized vector
+                            # get the normalized vector and move in direction opposite
                             normal = normal_vector(vector_holder)
-
-                            # move in direction to nanog high cells
                             random = self.random_vector()
                             self.motility_forces[index] += (normal * 0.8 + random * 0.2) * motility_force
-
-                        # if no nanog high cells around, move randomly
                         else:
                             self.motility_forces[index] += self.random_vector() * motility_force
 
-                    # if same value, move randomly
+                    # otherwise move randomly
                     else:
                         self.motility_forces[index] += self.random_vector() * motility_force
 
+    def calculate_jkr(self):
+        """ Goes through all contacting cells and quantifies any resulting
+            adhesive or repulsion forces.
+        """
+        # contact mechanics parameter
+        adhesion_const = 0.000107    # the adhesion constant in kg/s from P Pathmanathan et al.
+        poisson = 0.5    # Poisson's ratio for the cells, 0.5 means incompressible
+        youngs = 1000    # Young's modulus for the cells in Pa
+
+        # get the edges as an array, count them, and create holder used to delete edges
+        jkr_edges = np.array(self.jkr_graph.get_edgelist())
+        number_edges = len(jkr_edges)
+        delete_edges = np.zeros(number_edges, dtype=bool)
+
+        # only continue if edges exist
+        if number_edges > 0:
+            # if using CUDA GPU
+            if self.cuda:
+                # allow the following arrays to be passed to the GPU
+                delete_edges = cuda.to_device(delete_edges)
+                forces = cuda.to_device(self.jkr_forces)
+
+                # specify threads-per-block and blocks-per-grid values
+                tpb = 72
+                bpg = math.ceil(number_edges / tpb)
+
+                # call the CUDA kernel, sending arrays to GPU
+                jkr_forces_gpu[bpg, tpb](cuda.to_device(jkr_edges), delete_edges, cuda.to_device(self.locations),
+                                         cuda.to_device(self.radii), forces, cuda.to_device(poisson),
+                                         cuda.to_device(youngs), cuda.to_device(adhesion_const))
+
+                # return the following arrays back from the GPU
+                forces = forces.copy_to_host()
+                delete_edges = delete_edges.copy_to_host()
+
+            # otherwise use parallelized JIT function
+            else:
+                forces, delete_edges = jkr_forces_cpu(number_edges, jkr_edges, delete_edges, self.locations, self.radii,
+                                                      self.jkr_forces, poisson, youngs, adhesion_const)
+
+            # update the graph to remove any edges that have be broken and update the JKR forces array
+            self.jkr_graph.delete_edges(np.arange(number_edges)[delete_edges])
+            self.jkr_forces = forces
+
     @record_time
     def apply_forces(self):
-        """ Calls multiple methods used to move the cells to a state of physical
+        """ Calls multiple methods in an attempt to move the cells to an
             equilibrium between repulsive, adhesive, and motility forces.
         """
-        # the viscosity of the medium in Ns/m, used for stokes friction dynamic viscosity
-        viscosity = 10000
+        # constant for calculating stokes friction
+        stokes = 10000
 
         # calculate the number of steps and the last step time if it doesn't divide nicely
         steps, last_dt = divmod(self.step_dt, self.move_dt)
-        total_steps = int(steps) + 1    # add extra step for the last dt, if divides nicely last_dt will equal zero
-        motility_forces = self.motility_forces
+        total_steps = int(steps) + 1  # add extra step for the last dt, if divides nicely last_dt will equal zero
 
         # go through all move steps, calculating the physical interactions and applying the forces
         for step in range(total_steps):
             # update graph for pairs of contacting cells
             self.get_neighbors("jkr_graph", 2 * self.max_radius, clear=False)
 
-            # calculate the JKR forces based on the graph
+            # calculate the JKR forces based on the JKR graph edges
             self.calculate_jkr()
 
-            # apply both the JKR forces and the motility forces
             # if on the last step use, that dt
             if step == total_steps - 1:
                 move_dt = last_dt
             else:
                 move_dt = self.move_dt
 
-            # call the nvidia gpu version
+            # if using CUDA GPU
             if self.cuda:
-                # allow the following arrays to be sent/returned by the CUDA kernel
+                # allow the following arrays to be passed to the GPU
                 locations = cuda.to_device(self.locations)
 
-                # allocate threads and blocks for gpu memory "threads per block" and "blocks per grid"
+                # specify threads-per-block and blocks-per-grid values
                 tpb = 72
                 bpg = math.ceil(self.number_agents / tpb)
 
-                # call the cuda kernel with new gpu arrays
-                apply_forces_gpu[bpg, tpb](cuda.to_device(self.jkr_forces), cuda.to_device(motility_forces), locations,
-                                           cuda.to_device(self.radii), cuda.to_device(viscosity),
+                # call the CUDA kernel, sending arrays to GPU
+                apply_forces_gpu[bpg, tpb](cuda.to_device(self.jkr_forces), cuda.to_device(self.motility_forces),
+                                           locations, cuda.to_device(self.radii), cuda.to_device(stokes),
                                            cuda.to_device(self.size), cuda.to_device(move_dt))
 
-                # return the only the following array(s) back from the gpu
+                # return the following arrays back from the GPU
                 new_locations = locations.copy_to_host()
 
-            # call the cpu version
+            # otherwise use parallelized JIT function
             else:
-                new_locations = apply_forces_cpu(self.number_agents, self.jkr_forces, motility_forces, self.locations,
-                                                 self.radii, viscosity, self.size, move_dt)
+                new_locations = apply_forces_cpu(self.number_agents, self.jkr_forces, self.motility_forces,
+                                                 self.locations, self.radii, stokes, self.size, move_dt)
 
             # update the locations and reset the JKR forces back to zero
             self.locations = new_locations
@@ -427,65 +436,16 @@ class CellMethods:
         # reset motility forces back to zero
         self.motility_forces[:, :] = 0
 
-    def calculate_jkr(self):
-        """ Goes through all of "JKR" edges and quantifies any resulting
-            adhesive or repulsion forces between pairs of cells.
-        """
-        # contact mechanics parameters that rarely change
-        adhesion_const = 0.000107    # the adhesion constant in kg/s from P Pathmanathan et al.
-        poisson = 0.5    # Poisson's ratio for the cells, 0.5 means incompressible
-        youngs = 1000    # Young's modulus for the cells in Pa
-
-        # get the edges as a numpy array, count them, and create an array used to delete edges from the JKR graph
-        jkr_edges = np.array(self.jkr_graph.get_edgelist())
-        number_edges = len(jkr_edges)
-        delete_edges = np.zeros(number_edges, dtype=bool)
-
-        # only continue if edges exist, if no edges compiled functions will raise errors
-        if number_edges > 0:
-            # send the following as arrays to the gpu
-            if self.cuda:
-                # turn the following into arrays that can be interpreted by the gpu
-                delete_edges = cuda.to_device(delete_edges)
-                forces = cuda.to_device(self.jkr_forces)
-
-                # allocate threads and blocks for gpu memory "threads per block" and "blocks per grid"
-                tpb = 72
-                bpg = math.ceil(number_edges / tpb)
-
-                # call the cuda kernel with new gpu arrays
-                jkr_forces_gpu[bpg, tpb](cuda.to_device(jkr_edges), delete_edges, cuda.to_device(self.locations),
-                                         cuda.to_device(self.radii), forces, cuda.to_device(poisson),
-                                         cuda.to_device(youngs), cuda.to_device(adhesion_const))
-
-                # return the only the following array(s) back from the gpu
-                forces = forces.copy_to_host()
-                delete_edges = delete_edges.copy_to_host()
-
-            # call the cpu version
-            else:
-                forces, delete_edges = jkr_forces_cpu(number_edges, jkr_edges, delete_edges, self.locations, self.radii,
-                                                      self.jkr_forces, poisson, youngs, adhesion_const)
-
-            # update the jkr edges to remove any edges that have be broken and update the JKR forces array
-            delete_edges_indices = np.arange(number_edges)[delete_edges]
-            self.jkr_graph.delete_edges(delete_edges_indices)
-            self.jkr_forces = forces
-
     @record_time
-    def update_diffusion(self, gradient_name, diffuse_const=None, diffuse_dt=None):
+    def update_diffusion(self, gradient_name):
         """ Approximates the diffusion of the morphogen for the
             extracellular gradient specified.
         """
-        # if no parameter specified for diffusion constant use the one in self object
-        if diffuse_const is None:
-            diffuse_const = self.diffuse_const
+        # calculate the number of steps and the last step time if it doesn't divide nicely
+        steps, last_dt = divmod(self.step_dt, self.diffuse_dt)
+        steps = int(steps) + 1  # make sure steps is an int, add extra step for the last dt if it's less
 
-        # if no parameter specified for diffusion time step use the one in self object
-        if diffuse_dt is None:
-            diffuse_dt = self.diffuse_dt
-
-        # the self holds all gradients are 3D arrays for simplicity, get the gradient as a 2D array
+        # all gradients are held as 3D arrays for simplicity, get the gradient as a 2D array
         gradient = self.__dict__[gradient_name][:, :, 0]
 
         # set max and min concentration values
@@ -495,24 +455,21 @@ class CellMethods:
         # pad the sides of the array with zeros for holding ghost points
         base = np.pad(gradient, 1)
 
-        # calculate the number of steps and the last step time if it doesn't divide nicely
-        steps, last_dt = divmod(self.step_dt, self.diffuse_dt)
-        steps = int(steps) + 1   # make sure steps is an int, add extra step for the last dt if it's less
-
-        # call the JIT diffusion function
-        gradient = update_diffusion_jit(base, steps, diffuse_dt, last_dt, diffuse_const, self.spat_res2)
+        # call the JIT diffusion function, remove ghost points
+        base = update_diffusion_jit(base, steps, self.diffuse_dt, last_dt, self.diffuse_const, self.spat_res2)
+        gradient = base[1:-1, 1:-1]
 
         # degrade the morphogen concentrations
         gradient *= 1 - self.degradation
 
-        # update the self gradient array
+        # update the simulation with the updated gradient
         self.__dict__[gradient_name][:, :, 0] = gradient
 
     def get_concentration(self, gradient_name, index):
         """ Get the concentration of a gradient for a cell's
-            location. Currently this uses the nearest method.
+            location from the nearest diffusion point.
         """
-        # get the gradient array from the Simulation instance
+        # get the gradient array
         gradient = self.__dict__[gradient_name]
 
         # find the nearest diffusion point
@@ -527,7 +484,7 @@ class CellMethods:
         """ Adjust the concentration of the gradient based on
             the amount and the location of the cell.
         """
-        # get the gradient array from the Simulation instance
+        # get the gradient array
         gradient = self.__dict__[gradient_name]
 
         # divide the location for a cell by the spatial resolution then take the floor function of it
@@ -552,10 +509,11 @@ class CellMethods:
 
         # get the number of points within diffuse radius
         total_nearby = np.sum(if_nearby)
-        point_amount = amount / total_nearby
 
-        # go back through points adding morphogen
-        for i in range(4):
-            if if_nearby[i]:
-                x, y, z = points[i][0], points[i][1], 0
-                gradient[x][y][z] += point_amount
+        # if at least one diffusion point nearby, go back through points adding morphogen
+        if total_nearby > 0:
+            point_amount = amount / total_nearby
+            for i in range(4):
+                if if_nearby[i]:
+                    x, y, z = points[i][0], points[i][1], 0
+                    gradient[x][y][z] += point_amount

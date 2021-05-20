@@ -120,7 +120,7 @@ def jkr_forces_cpu(number_edges, jkr_edges, delete_edges, locations, radii, jkr_
 
 
 @cuda.jit
-def apply_forces_gpu(jkr_force, motility_force, locations, radii, viscosity, size, move_dt):
+def apply_forces_gpu(jkr_force, motility_force, locations, radii, stokes, size, move_dt):
     """ A just-in-time compiled cuda kernel for the apply_forces()
         method that performs the actual calculations.
     """
@@ -130,7 +130,7 @@ def apply_forces_gpu(jkr_force, motility_force, locations, radii, viscosity, siz
     # double check that index is within the array
     if index < locations.shape[0]:
         # stokes law for velocity based on force and fluid viscosity (friction)
-        stokes_friction = 6 * math.pi * viscosity[0] * radii[index]
+        stokes_friction = 6 * math.pi * stokes[0] * radii[index]
 
         # loop over all directions of space
         for i in range(3):
@@ -150,14 +150,14 @@ def apply_forces_gpu(jkr_force, motility_force, locations, radii, viscosity, siz
 
 
 @jit(nopython=True, parallel=True, cache=True)
-def apply_forces_cpu(number_agents, jkr_force, motility_force, locations, radii, viscosity, size, move_dt):
+def apply_forces_cpu(number_agents, jkr_force, motility_force, locations, radii, stokes, size, move_dt):
     """ A just-in-time compiled function for the apply_forces()
         method that performs the actual calculations.
     """
     # loop over all cells
     for i in prange(number_agents):
         # stokes law for velocity based on force and fluid viscosity (friction)
-        stokes_friction = 6 * math.pi * viscosity * radii[i] / 1000000
+        stokes_friction = 6 * math.pi * stokes * radii[i] / 1000000
 
         # update the velocity of the cell based on stokes
         # velocity = (motility_force[i] + jkr_force[i]) / stokes_friction
@@ -211,4 +211,4 @@ def update_diffusion_jit(base, steps, diffuse_dt, last_dt, diffuse_const, spat_r
         base[1:-1, 1:-1] += temp
 
     # return the gradient back without the edges
-    return base[1:-1, 1:-1]
+    return base

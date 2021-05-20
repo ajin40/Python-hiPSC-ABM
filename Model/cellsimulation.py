@@ -131,7 +131,6 @@ class CellSimulation(CellMethods, CellOutputs, Simulation):
         # Create the following cell arrays with initial conditions.
         self.agent_array("locations", override=np.random.rand(self.number_agents, 3) * self.size)
         self.agent_array("radii", func=lambda: self.max_radius)
-        self.agent_array("motion", dtype=bool, func=lambda: True)
         self.agent_array("FGF4", dtype=int, func=lambda: r.randrange(0, self.field))
         self.agent_array("FGFR", dtype=int, func=lambda: r.randrange(0, self.field))
         self.agent_array("ERK", dtype=int, func=lambda: r.randrange(0, self.field))
