@@ -1,3 +1,13 @@
+# How many GATA6 high cells to begin the simulation? Ex. 1000
+num_gata6: 0
+
+# Do you want topological data analysis (TDA) files produced at each step? These files are CSVs with the 2D
+# locations of cells with basic color labeling. Ex. True
+output_tda: True
+
+# Do you want the 2D extracellular gradients saved as CSVs at each step? Ex. True
+output_gradients: True
+
 # How many cells are added to the simulation at once, per time step? Type 0 if all at once. Ex. 5
 group: 0
 
@@ -12,3 +22,7 @@ guye_move: True
 # What is the threshold for designating a cell lonely and increasing the death counter? If the cell has less neighbors
 # than this value the death counter will be increased by one. Ex. 3
 lonely_thresh: 2
+
+# What mode of coloring for step images? True for coloring based on whether a cell pluripotent or
+# differentiated, False for coloring based on GATA6/NANOG levels? Ex. False
+color_mode: True

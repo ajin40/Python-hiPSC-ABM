@@ -1,646 +1,174 @@
 import numpy as np
 import time
-import math
 import os
 import sys
 import yaml
 import shutil
 import re
-import getopt
+import igraph
 from numba import jit, cuda, prange
 from functools import wraps
 
 
-class Paths:
-    """ Hold any important paths for a particular simulation.
+class Graph(igraph.Graph):
+    """ This class extends the Graph class from iGraph adding
+        instance variables for the bin/bucket sort algorithm.
     """
-    def __init__(self, name, output_path):
-        # how file separator
-        self.separator = os.path.sep
+    def __init__(self, *args, **kwargs):
+        # call the origin constructor from iGraph
+        super().__init__(*args, **kwargs)
 
-        # some paths
-        self.main_path = output_path + name + self.separator   # the path to the main directory for this simulation
-        self.templates = os.path.abspath("templates") + self.separator   # the path to the .txt template directory
+        # these variables are used in the bin/bucket sort for finding neighbors (values change frequently)
+        self.max_neighbors = 1    # the current number of neighbors that can be stored in a holder array
+        self.max_agents = 1    # the current number of agents that can be stored in a bin
 
-        # these directories are sub-directories under the main simulation directory
-        general = self.main_path + name
-        self.images = general + "_images" + self.separator   # the images output directory
-        self.values = general + "_values" + self.separator   # the cell array values output directory
-        self.gradients = general + "_gradients" + self.separator    # the gradients output directory
-        self.tda = general + "_tda" + self.separator    # the topological data analysis output directory
+    def num_neighbors(self, index):
+        """ Returns the number of neighbors for the index.
+        """
+        return len(self.neighbors(index))
 
 
 @jit(nopython=True, cache=True)
-def assign_bins_jit(number_agents, bin_locations, bins, bins_help):
-    """ A just-in-time compiled function for assign_bins() that places
-        the cells in their respective bins.
+def assign_bins_jit(number_agents, bin_locations, bins, bins_help, max_agents):
+    """ This just-in-time compiled method performs the actual
+        calculations for the assign_bins() method.
     """
-    # go through all cells
     for index in range(number_agents):
-        # get the indices of the generalized cell location
+        # get the indices of the bin location
         x, y, z = bin_locations[index]
 
-        # use the help array to get the new index for the cell in the bin
+        # get the place in the bin to put the agent index
         place = bins_help[x][y][z]
 
-        # adds the index in the cell array to the bin
-        bins[x][y][z][place] = index
+        # if there is room in the bin, place the agent's index
+        if place < max_agents:
+            bins[x][y][z][place] = index
 
-        # update the number of cells in a bin
+        # update the number of agents that should be in a bin (regardless of if they're placed there)
         bins_help[x][y][z] += 1
 
-    # return the arrays now filled with cell indices
     return bins, bins_help
-
-
-@cuda.jit
-def get_neighbors_gpu(bin_locations, locations, bins, bins_help, distance, edge_holder, if_edge, edge_count,
-                      max_neighbors):
-    """ A just-in-time compiled cuda kernel for the get_neighbors()
-        method that performs the actual calculations.
-    """
-    # get the index in the array
-    focus = cuda.grid(1)
-
-    # get the starting index for writing to the edge holder array
-    start = focus * max_neighbors[0]
-
-    # double check that focus index is within the array
-    if focus < bin_locations.shape[0]:
-        # holds the total amount of edges for a given cell
-        cell_edge_count = 0
-
-        # get the bin location of the cell
-        x, y, z = bin_locations[focus]
-
-        # go through the surrounding bins including the bin the cell is in
-        for i in range(-1, 2):
-            for j in range(-1, 2):
-                for k in range(-1, 2):
-                    # get the count of cells for the current bin
-                    bin_count = bins_help[x + i][y + j][z + k]
-
-                    # go through the bin determining if a cell is a neighbor
-                    for l in range(bin_count):
-                        # get the index of the current potential neighbor
-                        current = bins[x + i][y + j][z + k][l]
-
-                        # check to see if that cell is within the search radius and only continue if the current cell
-                        # has a higher index to prevent double counting edges
-                        if magnitude(locations[focus], locations[current]) <= distance[0] and focus < current:
-                            # if less than the max edges, add the edge
-                            if cell_edge_count < max_neighbors[0]:
-                                # get the index for the edge
-                                index = start + cell_edge_count
-
-                                # update the edge array and identify that this edge exists
-                                edge_holder[index][0] = focus
-                                edge_holder[index][1] = current
-                                if_edge[index] = 1
-
-                            # increase the count of edges for a cell and the index for the next edge
-                            cell_edge_count += 1
-
-        # update the array with number of edges for the cell
-        edge_count[focus] = cell_edge_count
-
-
-@jit(nopython=True, parallel=True, cache=True)
-def get_neighbors_cpu(number_agents, bin_locations, locations, bins, bins_help, distance, edge_holder, if_edge,
-                      edge_count, max_neighbors):
-    """ A just-in-time compiled function for the get_neighbors()
-        method that performs the actual calculations.
-    """
-    # loops over all cells, with the current cell index being the focus
-    for focus in prange(number_agents):
-        # get the starting index for writing to the edge holder array
-        start = focus * max_neighbors
-
-        # holds the total amount of edges for a given cell
-        cell_edge_count = 0
-
-        # get the bin location of the cell
-        x, y, z = bin_locations[focus]
-
-        # go through the surrounding bins including the bin the cell is in
-        for i in range(-1, 2):
-            for j in range(-1, 2):
-                for k in range(-1, 2):
-                    # get the count of cells for the current bin
-                    bin_count = bins_help[x + i][y + j][z + k]
-
-                    # go through the bin determining if a cell is a neighbor
-                    for l in range(bin_count):
-                        # get the index of the current potential neighbor
-                        current = bins[x + i][y + j][z + k][l]
-
-                        # check to see if that cell is within the search radius and only continue if the current cell
-                        # has a higher index to prevent double counting edges
-                        if np.linalg.norm(locations[current] - locations[focus]) <= distance and focus < current:
-                            # if less than the max edges, add the edge
-                            if cell_edge_count < max_neighbors:
-                                # get the index for the edge
-                                index = start + cell_edge_count
-
-                                # update the edge array and identify that this edge exists
-                                edge_holder[index][0] = focus
-                                edge_holder[index][1] = current
-                                if_edge[index] = 1
-
-                            # increase the count of edges for a cell and the index for the next edge
-                            cell_edge_count += 1
-
-        # update the array with number of edges for the cell
-        edge_count[focus] = cell_edge_count
-
-    return edge_holder, if_edge, edge_count
-
-
-@cuda.jit
-def jkr_neighbors_gpu(bin_locations, locations, radii, bins, bins_help, edge_holder, if_edge, edge_count,
-                      max_neighbors):
-    """ A just-in-time compiled cuda kernel for the jkr_neighbors()
-        method that performs the actual calculations.
-    """
-    # get the index in the array
-    focus = cuda.grid(1)
-
-    # get the starting index for writing to the edge holder array
-    start = focus * max_neighbors[0]
-
-    # double check that focus index is within the array
-    if focus < locations.shape[0]:
-        # holds the total amount of edges for a given cell
-        cell_edge_count = 0
-
-        # get the bin location of the cell
-        x, y, z = bin_locations[focus]
-
-        # go through the surrounding bins including the bin the cell is in
-        for i in range(-1, 2):
-            for j in range(-1, 2):
-                for k in range(-1, 2):
-                    # get the count of cells for the current bin
-                    bin_count = bins_help[x + i][y + j][z + k]
-
-                    # go through the bin determining if a cell is a neighbor
-                    for l in range(bin_count):
-                        # get the index of the current potential neighbor
-                        current = bins[x + i][y + j][z + k][l]
-
-                        # get the magnitude of the distance vector between the cell locations
-                        mag = magnitude(locations[focus], locations[current])
-
-                        # calculate the overlap of the cells
-                        overlap = radii[focus] + radii[current] - mag
-
-                        # if there is 0 or more overlap and if the current cell has a higher index to prevent double
-                        # counting edges
-                        if overlap >= 0 and focus < current:
-                            # if less than the max edges, add the edge
-                            if cell_edge_count < max_neighbors[0]:
-                                # get the index for the edge
-                                index = start + cell_edge_count
-
-                                # update the edge array and identify that this edge exists
-                                edge_holder[index][0] = focus
-                                edge_holder[index][1] = current
-                                if_edge[index] = 1
-
-                            # increase the count of edges for a cell and the index for the next edge
-                            cell_edge_count += 1
-
-        # update the array with number of edges for the cell
-        edge_count[focus] = cell_edge_count
-
-
-@jit(nopython=True, parallel=True, cache=True)
-def jkr_neighbors_cpu(number_agents, bin_locations, locations, radii, bins, bins_help, edge_holder,
-                      if_edge, edge_count, max_neighbors):
-    """ A just-in-time compiled function for the jkr_neighbors()
-        method that performs the actual calculations.
-    """
-    # loops over all cells, with the current cell index being the focus
-    for focus in prange(number_agents):
-        # get the starting index for writing to the edge holder array
-        start = focus * max_neighbors
-
-        # holds the total amount of edges for a given cell
-        cell_edge_count = 0
-
-        # get the bin location of the cell
-        x, y, z = bin_locations[focus]
-
-        # go through the surrounding bins including the bin the cell is in
-        for i in range(-1, 2):
-            for j in range(-1, 2):
-                for k in range(-1, 2):
-                    # get the count of cells for the current bin
-                    bin_count = bins_help[x + i][y + j][z + k]
-
-                    # go through the bin determining if a cell is a neighbor
-                    for l in range(bin_count):
-                        # get the index of the current potential neighbor
-                        current = bins[x + i][y + j][z + k][l]
-
-                        # get the magnitude of the distance vector between the cell locations
-                        mag = np.linalg.norm(locations[current] - locations[focus])
-
-                        # calculate the overlap of the cells
-                        overlap = radii[current] + radii[focus] - mag
-
-                        # if there is 0 or more overlap and if the current cell has a higher index to prevent double
-                        # counting edges
-                        if overlap >= 0 and focus < current:
-                            # if less than the max edges, add the edge
-                            if cell_edge_count < max_neighbors:
-                                # get the index for the edge
-                                index = start + cell_edge_count
-
-                                # update the edge array and identify that this edge exists
-                                edge_holder[index][0] = focus
-                                edge_holder[index][1] = current
-                                if_edge[index] = 1
-
-                            # increase the count of edges for a cell and the index for the next edge
-                            cell_edge_count += 1
-
-        # update the array with number of edges for the cell
-        edge_count[focus] = cell_edge_count
-
-    return edge_holder, if_edge, edge_count
-
-
-@cuda.jit
-def jkr_forces_gpu(jkr_edges, delete_edges, locations, radii, jkr_forces, poisson, youngs, adhesion_const):
-    """ A just-in-time compiled cuda kernel for the jkr_forces()
-        method that performs the actual calculations.
-    """
-    # get the index in the edges array
-    edge_index = cuda.grid(1)
-
-    # double check that index is within the array
-    if edge_index < jkr_edges.shape[0]:
-        # get the cell indices of the edge
-        cell_1 = jkr_edges[edge_index][0]
-        cell_2 = jkr_edges[edge_index][1]
-
-        # get the locations of the two cells
-        location_1 = locations[cell_1]
-        location_2 = locations[cell_2]
-
-        # get the magnitude of the distance between the cells
-        mag = magnitude(location_1, location_2)
-
-        # get the overlap of the cells
-        overlap = radii[cell_1] + radii[cell_2] - mag
-
-        # get two values used for JKR calculation
-        e_hat = (((1 - poisson[0] ** 2) / youngs[0]) + ((1 - poisson[0] ** 2) / youngs[0])) ** -1
-        r_hat = ((1 / radii[cell_1]) + (1 / radii[cell_2])) ** -1
-
-        # value used to calculate the max adhesive distance after bond has been already formed
-        overlap_ = (((math.pi * adhesion_const[0]) / e_hat) ** (2 / 3)) * (r_hat ** (1 / 3))
-
-        # get the nondimensionalized overlap
-        d = overlap / overlap_
-
-        # check to see if the cells will have a force interaction based on the nondimensionalized distance
-        if d > -0.360562:
-            # plug the value of d into polynomial approximation for nondimensionalized force
-            f = (-0.0204 * d ** 3) + (0.4942 * d ** 2) + (1.0801 * d) - 1.324
-
-            # convert from the nondimensionalized force to find the JKR force
-            jkr_force = f * math.pi * adhesion_const[0] * r_hat
-
-            # loops over all directions of space
-            for i in range(3):
-                # get the vector by axis between the two cells
-                vector = location_1[i] - location_2[i]
-
-                # if the magnitude is 0 use the zero vector, otherwise find the normalized vector for each axis
-                if mag != 0:
-                    normal = vector / mag
-                else:
-                    normal = 0
-
-                # adds the adhesive force as a vector in opposite directions to each cell's force holder
-                jkr_forces[cell_1][i] += jkr_force * normal
-                jkr_forces[cell_2][i] -= jkr_force * normal
-
-        # remove the edge if the it fails to meet the criteria for distance, simulating that the bond is broken
-        else:
-            delete_edges[edge_index] = 1
-
-
-@jit(nopython=True, parallel=True, cache=True)
-def jkr_forces_cpu(number_edges, jkr_edges, delete_edges, locations, radii, jkr_forces, poisson, youngs,
-                   adhesion_const):
-    """ A just-in-time compiled function for the jkr_forces()
-        method that performs the actual calculations.
-    """
-    # go through the edges array
-    for edge_index in prange(number_edges):
-        # get the cell indices of the edge
-        cell_1 = jkr_edges[edge_index][0]
-        cell_2 = jkr_edges[edge_index][1]
-
-        # get the vector between the centers of the cells and the magnitude of this vector
-        vector = locations[cell_1] - locations[cell_2]
-        mag = np.linalg.norm(vector)
-
-        # get the overlap of the cells
-        overlap = radii[cell_1] + radii[cell_2] - mag
-
-        # get two values used for JKR calculation
-        e_hat = (((1 - poisson ** 2) / youngs) + ((1 - poisson ** 2) / youngs)) ** -1
-        r_hat = ((1 / radii[cell_1]) + (1 / radii[cell_2])) ** -1
-
-        # value used to calculate the max adhesive distance after bond has been already formed
-        overlap_ = (((math.pi * adhesion_const) / e_hat) ** (2 / 3)) * (r_hat ** (1 / 3))
-
-        # get the nondimensionalized overlap
-        d = overlap / overlap_
-
-        # check to see if the cells will have a force interaction based on the nondimensionalized distance
-        if d > -0.360562:
-            # plug the value of d into polynomial approximation for nondimensionalized force
-            f = (-0.0204 * d ** 3) + (0.4942 * d ** 2) + (1.0801 * d) - 1.324
-
-            # convert from the nondimensionalized force to find the JKR force
-            jkr_force = f * math.pi * adhesion_const * r_hat
-
-            # if the magnitude is 0 use the zero vector, otherwise find the normalized vector for each axis. numba's
-            # jit prefers a reduction instead of generating a new normalized array
-            normal = np.array([0.0, 0.0, 0.0])
-            if mag != 0:
-                normal += vector / mag
-
-            # adds the adhesive force as a vector in opposite directions to each cell's force holder
-            jkr_forces[cell_1] += jkr_force * normal
-            jkr_forces[cell_2] -= jkr_force * normal
-
-        # remove the edge if the it fails to meet the criteria for distance, simulating that the bond is broken
-        else:
-            delete_edges[edge_index] = 1
-
-    return jkr_forces, delete_edges
-
-
-@cuda.jit
-def apply_forces_gpu(jkr_force, motility_force, locations, radii, viscosity, size, move_dt):
-    """ A just-in-time compiled cuda kernel for the apply_forces()
-        method that performs the actual calculations.
-    """
-    # get the index in the array
-    index = cuda.grid(1)
-
-    # double check that index is within the array
-    if index < locations.shape[0]:
-        # stokes law for velocity based on force and fluid viscosity (friction)
-        stokes_friction = 6 * math.pi * viscosity[0] * radii[index]
-
-        # loop over all directions of space
-        for i in range(3):
-            # update the velocity of the cell based on stokes
-            velocity = (jkr_force[index][i] + motility_force[index][i]) / stokes_friction
-
-            # set the new location
-            new_location = locations[index][i] + velocity * move_dt[0]
-
-            # check if new location is in the simulation space, if not set values at space limits
-            if new_location > size[i]:
-                locations[index][i] = size[i]
-            elif new_location < 0:
-                locations[index][i] = 0
-            else:
-                locations[index][i] = new_location
-
-
-@jit(nopython=True, parallel=True, cache=True)
-def apply_forces_cpu(number_agents, jkr_force, motility_force, locations, radii, viscosity, size, move_dt):
-    """ A just-in-time compiled function for the apply_forces()
-        method that performs the actual calculations.
-    """
-    # loop over all cells
-    for i in prange(number_agents):
-        # stokes law for velocity based on force and fluid viscosity (friction)
-        stokes_friction = 6 * math.pi * viscosity * radii[i]
-
-        # update the velocity of the cell based on stokes
-        velocity = (motility_force[i] + jkr_force[i]) / stokes_friction
-
-        # set the new location
-        new_location = locations[i] + velocity * move_dt
-
-        # loop over all directions of space
-        for j in range(0, 3):
-            # check if new location is in the space, if not return it to the space limits
-            if new_location[j] > size[j]:
-                locations[i][j] = size[j]
-            elif new_location[j] < 0:
-                locations[i][j] = 0
-            else:
-                locations[i][j] = new_location[j]
-
-    return locations
-
-
-@cuda.jit
-def nearest_gpu(bin_locations, locations, bins, bins_help, distance, if_diff, gata6, nanog, nearest_gata6,
-                nearest_nanog, nearest_diff):
-    """ A just-in-time compiled cuda kernel for the nearest()
-        method that performs the actual calculations.
-    """
-    # get the index in the array
-    focus = cuda.grid(1)
-
-    # double check that the index is within the array
-    if focus < locations.shape[0]:
-        # get the bin location of the cell
-        x, y, z = bin_locations[focus]
-
-        # initialize the nearest indices with -1 which will be interpreted as no cell by the motility function
-        nearest_gata6_index, nearest_nanog_index, nearest_diff_index = -1, -1, -1
-
-        # initialize the distance for each with double the search radius to provide a starting point
-        nearest_gata6_dist, nearest_nanog_dist, nearest_diff_dist = distance[0] * 2, distance[0] * 2, distance[0] * 2
-
-        # go through the surrounding bins including the bin the cell is in
-        for i in range(-1, 2):
-            for j in range(-1, 2):
-                for k in range(-1, 2):
-                    # get the count of cells for the current bin
-                    bin_count = bins_help[x + i][y + j][z + k]
-
-                    # go through the bin
-                    for l in range(bin_count):
-                        # get the index of the current potential nearest cell
-                        current = bins[x + i][y + j][z + k][l]
-
-                        # get the magnitude of the distance vector between the cells
-                        mag = magnitude(locations[focus], locations[current])
-
-                        # check to see if the current cell is within the search radius and not the same cell
-                        if mag <= distance[0] and focus != current:
-                            # if the current cell is differentiated
-                            if if_diff[current]:
-                                # if it's closer than the last cell, update the distance and index
-                                if mag < nearest_diff_dist:
-                                    nearest_diff_index = current
-                                    nearest_diff_dist = mag
-
-                            # if the current cell is gata6 high
-                            elif gata6[current] > nanog[current]:
-                                # if it's closer than the last cell, update the distance and index
-                                if mag < nearest_gata6_dist:
-                                    nearest_gata6_index = current
-                                    nearest_gata6_dist = mag
-
-                            # if the current cell is nanog high
-                            elif gata6[current] < nanog[current]:
-                                # if it's closer than the last cell, update the distance and index
-                                if mag < nearest_nanog_dist:
-                                    nearest_nanog_index = current
-                                    nearest_nanog_dist = mag
-
-        # update the arrays
-        nearest_gata6[focus] = nearest_gata6_index
-        nearest_nanog[focus] = nearest_nanog_index
-        nearest_diff[focus] = nearest_diff_index
-
-
-@jit(nopython=True, parallel=True, cache=True)
-def nearest_cpu(number_agents, bin_locations, locations, bins, bins_help, distance, if_diff, gata6, nanog,
-                nearest_gata6, nearest_nanog, nearest_diff):
-    """ A just-in-time compiled function for the nearest()
-        method that performs the actual calculations.
-    """
-    # loop over all cells
-    for focus in prange(number_agents):
-        # get the bin location of the cell
-        x, y, z = bin_locations[focus]
-
-        # initialize the nearest indices with -1 which will be interpreted as no cell by the motility function
-        nearest_gata6_index, nearest_nanog_index, nearest_diff_index = -1, -1, -1
-
-        # initialize the distance for each with double the search radius to provide a starting point
-        nearest_gata6_dist, nearest_nanog_dist, nearest_diff_dist = distance * 2, distance * 2, distance * 2
-
-        # go through the surrounding bins including the bin the cell is in
-        for i in range(-1, 2):
-            for j in range(-1, 2):
-                for k in range(-1, 2):
-                    # get the count of cells for the current bin
-                    bin_count = bins_help[x + i][y + j][z + k]
-
-                    # go through the bin
-                    for l in range(bin_count):
-                        # get the index of the current potential nearest cell
-                        current = bins[x + i][y + j][z + k][l]
-
-                        # get the magnitude of the distance vector between the cells
-                        mag = np.linalg.norm(locations[current] - locations[focus])
-
-                        # check to see if the current cell is within the search radius and not the same cell
-                        if mag <= distance and focus != current:
-                            # if the current cell is differentiated
-                            if if_diff[current]:
-                                # if it's closer than the last cell, update the distance and index
-                                if mag < nearest_diff_dist:
-                                    nearest_diff_index = current
-                                    nearest_diff_dist = mag
-
-                            # if the current cell is gata6 high
-                            elif gata6[current] > nanog[current]:
-                                # if it's closer than the last cell, update the distance and index
-                                if mag < nearest_gata6_dist:
-                                    nearest_gata6_index = current
-                                    nearest_gata6_dist = mag
-
-                            # if the current cell is nanog high
-                            elif gata6[current] < nanog[current]:
-                                # if it's closer than the last cell, update the distance and index
-                                if mag < nearest_nanog_dist:
-                                    nearest_nanog_index = current
-                                    nearest_nanog_dist = mag
-
-        # update the arrays
-        nearest_gata6[focus] = nearest_gata6_index
-        nearest_nanog[focus] = nearest_nanog_index
-        nearest_diff[focus] = nearest_diff_index
-
-    return nearest_gata6, nearest_nanog, nearest_diff
-
-
-@jit(nopython=True, cache=True)
-def update_diffusion_jit(base, steps, diffuse_dt, last_dt, diffuse_const, spat_res2):
-    """ A just-in-time compiled function for update_diffusion()
-        that performs the actual diffusion calculation.
-    """
-    # holder the following constant for faster computation, given that dx and dy match
-    a = diffuse_dt * diffuse_const / spat_res2
-    b = 1 - 4 * a
-
-    # finite difference to solve laplacian diffusion equation, currently 2D
-    for i in range(steps):
-        # on the last step apply smaller diffuse dt if step dt doesn't divide nicely
-        if i == steps - 1:
-            a = last_dt * diffuse_const / spat_res2
-            b = 1 - 4 * a
-
-        # set the initial conditions by reflecting the edges of the gradient
-        base[:, 0] = base[:, 1]
-        base[:, -1] = base[:, -2]
-        base[0, :] = base[1, :]
-        base[-1, :] = base[-2, :]
-
-        # get the morphogen addition for the diffusion points, based on other points and hold this
-        temp = a * (base[2:, 1:-1] + base[:-2, 1:-1] + base[1:-1, 2:] + base[1:-1, :-2])
-
-        # get the diffusion loss for the diffusion points
-        base[1:-1, 1:-1] *= b
-
-        # add morphogen change from the temporary array
-        base[1:-1, 1:-1] += temp
-
-    # return the gradient back without the edges
-    return base[1:-1, 1:-1]
 
 
 @cuda.jit(device=True)
 def magnitude(vector_1, vector_2):
-    """ A just-in-time compiled cuda kernel device function
-        for getting the distance between two vectors.
+    """ This just-in-time compiled CUDA kernel is a device
+        function for calculating the distance between vectors.
     """
-    # loop over the axes add the squared difference
     total = 0
     for i in range(0, 3):
         total += (vector_1[i] - vector_2[i]) ** 2
-
-    # return the sqrt of the total
     return total ** 0.5
 
 
-def check_direct(path):
-    """ Check directory for simulation outputs.
+@cuda.jit
+def get_neighbors_gpu(locations, bin_locations, bins, bins_help, distance, edges, if_edge, edge_count, max_neighbors):
+    """ This just-in-time compiled CUDA kernel performs the actual
+        calculations for the get_neighbors() method.
     """
-    # if it doesn't exist make directory
+    # get the agent index in the array
+    index = cuda.grid(1)
+
+    # double check that the index is within bounds
+    if index < bin_locations.shape[0]:
+        # get the starting index for writing edges to the holder array
+        start = index * max_neighbors[0]
+
+        # hold the total amount of edges for the agent
+        agent_edge_count = 0
+
+        # get the indices of the bin location
+        x, y, z = bin_locations[index]
+
+        # go through the 9 bins that could all potential neighbors
+        for i in range(-1, 2):
+            for j in range(-1, 2):
+                for k in range(-1, 2):
+                    # get the count of agents for the current bin
+                    bin_count = bins_help[x + i][y + j][z + k]
+
+                    # go through the current bin determining if an agent is a neighbor
+                    for l in range(bin_count):
+                        # get the index of the current potential neighbor
+                        current = bins[x + i][y + j][z + k][l]
+
+                        # check to see if the agent is a neighbor and prevent duplicates with index condition
+                        if magnitude(locations[index], locations[current]) <= distance[0] and index < current:
+                            # if there is room, add the edge
+                            if agent_edge_count < max_neighbors[0]:
+                                # get the index for the edge
+                                edge_index = start + agent_edge_count
+
+                                # update the edge array and identify that this edge exists
+                                edges[edge_index][0] = index
+                                edges[edge_index][1] = current
+                                if_edge[index] = 1
+
+                            # increase the count of edges for an agent
+                            agent_edge_count += 1
+
+        # update the array with number of edges for the agent
+        edge_count[index] = agent_edge_count
+
+
+@jit(nopython=True, parallel=True, cache=True)
+def get_neighbors_cpu(number_agents, locations, bin_locations, bins, bins_help, distance, edges, if_edge, edge_count,
+                      max_neighbors):
+    """ This just-in-time compiled method performs the actual
+        calculations for the get_neighbors() method.
+    """
+    for index in prange(number_agents):
+        # get the starting index for writing edges to the holder array
+        start = index * max_neighbors
+
+        # hold the total amount of edges for the agent
+        agent_edge_count = 0
+
+        # get the indices of the bin location
+        x, y, z = bin_locations[index]
+
+        # go through the 9 bins that could all potential neighbors
+        for i in range(-1, 2):
+            for j in range(-1, 2):
+                for k in range(-1, 2):
+                    # get the count of agents for the current bin
+                    bin_count = bins_help[x + i][y + j][z + k]
+
+                    # go through the current bin determining if an agent is a neighbor
+                    for l in range(bin_count):
+                        # get the index of the current potential neighbor
+                        current = bins[x + i][y + j][z + k][l]
+
+                        # check to see if the agent is a neighbor and prevent duplicates with index condition
+                        if np.linalg.norm(locations[current] - locations[index]) <= distance and index < current:
+                            # if there is room, add the edge
+                            if agent_edge_count < max_neighbors:
+                                # get the index for the edge
+                                edge_index = start + agent_edge_count
+
+                                # update the edge array and identify that this edge exists
+                                edges[edge_index][0] = index
+                                edges[edge_index][1] = current
+                                if_edge[index] = 1
+
+                            # increase the count of edges for an agent
+                            agent_edge_count += 1
+
+        # update the array with number of edges for the agent
+        edge_count[index] = agent_edge_count
+
+    return edges, if_edge, edge_count
+
+
+def check_direct(path):
+    """ Makes sure directory exists.
+    """
     if not os.path.isdir(path):
         os.mkdir(path)
 
-    # optionally return the path
-    return path
-
-
-def sort_naturally(file_list):
-    """ Key for sorting the file list based on the step number.
-    """
-    return int(re.split('(\d+)', file_list)[-2])
-
 
 def progress_bar(progress, maximum):
-    """ Make a progress bar because progress bars are cool.
+    """ Makes a progress bar to show progress of output.
     """
     # length of the bar
     length = 60
@@ -656,8 +184,7 @@ def progress_bar(progress, maximum):
 
 
 def normal_vector(vector):
-    """ Returns the normalized vector, sadly this does not
-        exist in NumPy.
+    """ Normalizes the vector.
     """
     # get the magnitude of the vector
     mag = np.linalg.norm(vector)
@@ -670,228 +197,208 @@ def normal_vector(vector):
 
 
 def record_time(function):
-    """ A decorator used to time individual methods.
+    """ This is a decorator used to time individual methods.
     """
     @wraps(function)
-    def wrap(simulation, *args, **kwargs):  # args and kwargs are for additional arguments
-        # get the start/end time and call the method
+    def wrap(simulation, *args, **kwargs):    # args and kwargs are for additional arguments
+        # call the method and get the start/end time
         start = time.perf_counter()
         function(simulation, *args, **kwargs)
         end = time.perf_counter()
 
-        # add the time to the dictionary holding these times
+        # add the method time to the dictionary holding these times
         simulation.method_times[function.__name__] = end - start
 
     return wrap
 
 
-# ---------------------------------------- helper methods for user-interface ------------------------------------------
+# -------------------------------------------- methods for user-interface ---------------------------------------------
 def commandline_param(flag, dtype):
     """ Returns the value for option passed at the
         command line.
     """
-    # get list of command line arguments
+    # go through list of commandline arguments
     args = sys.argv
-
-    # go through the arguments
     for i in range(len(args)):
-        # if argument matches flag
+        # if argument matches flag, try to return value
         if args[i] == flag:
-            # try to return value of
             try:
                 return dtype(args[i + 1])
-            # otherwise raise error
             except IndexError:
                 raise Exception(f"No value for option: {args[i]}")
 
-    # return NoneType if no value passed
-    return None
+    # raise exception if option not found
+    raise Exception(f"Option: {args[i]} not found")
 
 
 def template_params(path):
-    """ Get parameters from YAML template file. Used
-        for Simulation instance variables.
+    """ Return parameters as dict from a YAML template file.
     """
-    # open the file and load the keys
     with open(path, "r") as file:
         return yaml.safe_load(file)
 
 
-def output_dir():
-    """ Read the output path from paths.yaml and if this directory
-        does not exist yet, make it.
+def check_output_dir():
+    """ Reads the path to the main output directory and makes sure
+        this directory exists.
     """
-    # get file separator
-    separator = os.path.sep
-
-    # open the file and load the keys
+    # open the YAML file and get the path
     with open("paths.yaml", "r") as file:
         keys = yaml.safe_load(file)
+    output_dir = keys["output_dir"]
 
-    # get output_path key
-    output_path = keys["output_path"]
-
-    # keep running until output directory exists
-    while not os.path.isdir(output_path):
+    # run until directory exists
+    while not os.path.isdir(output_dir):
         # prompt user input
-        print("\nSimulation output directory: \"" + output_path + "\" does not exist!")
+        print("\nSimulation output directory: \"" + output_dir + "\" does not exist!")
         user = input("Do you want to make this directory? If \"n\", you can specify the correct path (y/n): ")
         print()
 
-        # if not making this directory
-        if user == "n":
-            # get new path to output directory
-            output_path = input("Correct path (absolute) to output directory: ")
+        # if making this directory
+        if user == "y":
+            os.makedirs(output_dir)
+            break
+
+        # otherwise get correct path to directory
+        elif user == "n":
+            output_dir = input("Correct path (absolute) to output directory: ")
 
             # update paths.yaml file with new output directory path
-            keys["output_path"] = output_path
+            keys["output_dir"] = output_dir
             with open("paths.yaml", "w") as file:
                 keys = yaml.dump(keys, file)
-
-        # if yes, make the directory
-        elif user == "y":
-            os.makedirs(output_path)
-            break
 
         else:
             print("Either type \"y\" or \"n\"")
 
     # if path doesn't end with separator, add it
-    if output_path[-1] != separator:
-        output_path += separator
-
-    # return correct path to output directory
-    return output_path
-
-
-def start_params(output_path, possible_modes):
-    """ This function will get the name and mode for the simulation
-        either from the command line or a text-based UI.
-    """
-    # get file separator
     separator = os.path.sep
+    if output_dir[-1] != separator:
+        output_dir += separator
 
-    # there should be at least these modes
-    if possible_modes is None:
-        possible_modes = [0, 1, 2, 3]
+    # return correct path
+    return output_dir
 
-    # try to get the name and mode from the command line
-    name = commandline_param("-n", str)
-    mode = commandline_param("-m", int)
 
-    # if the name variable has not been initialized by the command-line, run the text-based UI to get it
-    if name is None:
+def get_name_mode():
+    """ Returns the name and mode for the simulation either from
+        the commandline or a text-based UI.
+    """
+    # try to get the name from the commandline, otherwise run the text-based UI
+    try:
+        name = commandline_param("-n", str)
+    except Exception:
         while True:
-            # prompt for the name
+            # prompt user for name
             name = input("What is the \"name\" of the simulation? Type \"help\" for more information: ")
-
-            # keep running if "help" is typed
             if name == "help":
                 print("\nType the name of the simulation (not a path).\n")
             else:
                 break
 
-    # if the mode variable has not been initialized by the command-line, run the text-based UI to get it
-    if mode is None or mode not in possible_modes:
+    # try to get the mode from the commandline, otherwise run the text-based UI
+    try:
+        mode = commandline_param("-m", int)
+    except Exception:
         while True:
-            # prompt for the mode
+            # prompt user for mode
             mode = input("What is the \"mode\" of the simulation? Type \"help\" for more information: ")
-            print()
-
-            # keep running if "help" is typed
             if mode == "help":
-                print("Here are the following modes:\n0: New simulation\n1: Continuation of past simulation\n"
+                print("\nHere are the following modes:\n0: New simulation\n1: Continuation of past simulation\n"
                       "2: Turn simulation images to video\n3: Zip previous simulation\n")
             else:
+                # make sure mode is an integer
                 try:
-                    # get the mode as an integer make sure mode exists, break the loop if it does
                     mode = int(mode)
-                    if mode in possible_modes:
-                        break
-                    else:
-                        print("Mode does not exist, see possible modes: " + str(possible_modes) + "\n")
-
-                # if not an integer
-                except ValueError:
-                    print("Input: \"mode\" should be an integer.\n")
-
-    # if the final_step variable has not been initialized by the command-line, run the text-based GUI to get it
-    if "final_step" not in locals():
-        # if continuation mode
-        if mode == 1:
-            while True:
-                # prompt for the final step number
-                final_step = input("What is the final step of this continued simulation? Type \"help\" for more"
-                                   " information: ")
-                print()
-
-                # keep running if "help" is typed
-                if final_step == "help":
-                    print("Enter the new step number that will be the last step of the simulation.\n")
-                else:
-                    try:
-                        # get the final step as an integer, break the loop if conversion is successful
-                        final_step = int(final_step)
-                        break
-
-                    # if not an integer
-                    except ValueError:
-                        print("Input: \"final step\" should be an integer.\n")
-
-        # if not continuation mode, give final_step default value
-        else:
-            final_step = None
-
-    # check that the simulation name is valid based on the mode
-    while True:
-        # if a new simulation
-        if mode == 0:
-            # see if the directory exists
-            if os.path.isdir(output_path + name):
-                # get user input for overwriting previous simulation
-                print("Simulation already exists with name: " + name)
-                user = input("Would you like to overwrite that simulation? (y/n): ")
-                print()
-
-                # if no overwrite, get new simulation name
-                if user == "n":
-                    name = input("New name: ")
                     print()
-
-                # overwrite by deleting all files/folders in previous directory
-                elif user == "y":
-                    # clear current directory to prevent another possible future errors
-                    files = os.listdir(output_path + name)
-                    for file in files:
-                        # path to each file/folder
-                        path = output_path + name + separator + file
-
-                        # delete the file/folder
-                        if os.path.isfile(path):
-                            os.remove(path)
-                        else:
-                            shutil.rmtree(path)
                     break
-                else:
-                    # inputs should either be "y" or "n"
-                    print("Either type \"y\" or \"n\"")
-            else:
-                # if does not exist, make directory
-                os.mkdir(output_path + name)
-                break
+                except ValueError:
+                    print("\nInput: \"mode\" should be an integer.\n")
 
-        # previous simulation output directory modes
-        else:
-            # if the directory exists, break loop
-            if os.path.isdir(output_path + name):
-                break
+    return name, mode
 
+
+def get_final_step():
+    """ Gets the new last step of the simulation if using continuation
+        mode for the simulation.
+    """
+    # try to get the final step from the commandline, otherwise run the text-based UI
+    try:
+        final_step = commandline_param("-fs", int)
+    except Exception:
+        while True:
+            # prompt user for final step
+            final_step = input("What is the final step of this continued simulation? Type \"help\" for more"
+                               " information: ")
+
+            # keep running if "help" is typed
+            if final_step == "help":
+                print("\nEnter the new step number that will be the last step of the simulation.\n")
             else:
-                print("No directory exists with name/path: " + output_path + name)
-                name = input("Please type the correct name of the simulation or type \"exit\" to exit: ")
+                # make sure final step is an integer
+                try:
+                    final_step = int(final_step)
+                    print()
+                    break
+                except ValueError:
+                    print("Input: \"final step\" should be an integer.\n")
+
+    return final_step
+
+
+def check_new_sim(name, output_path):
+    """ Makes sure a new simulation doesn't overwrite existing
+        simulation.
+    """
+    while True:
+        # see if the directory exists
+        if os.path.isdir(output_path + name):
+            # get user input for overwriting previous simulation
+            print("Simulation already exists with name: " + name)
+            user = input("Would you like to overwrite that simulation? (y/n): ")
+            print()
+
+            # if not overwriting, get new name
+            if user == "n":
+                name = input("New name: ")
                 print()
-                if name == "exit":
-                    exit()
 
-    # return the simulation name, mode, and final step (for continuation mode)
-    return name, mode, final_step
+            # otherwise delete all files/folders in previous directory
+            elif user == "y":
+                # clear current directory to prevent another possible future errors
+                files = os.listdir(output_path + name)
+                for file in files:
+                    # path to each file/folder
+                    path = output_path + name + os.path.sep + file
+                    if os.path.isfile(path):
+                        os.remove(path)
+                    else:
+                        shutil.rmtree(path)
+                break
+            else:
+                # inputs should either be "y" or "n"
+                print("Either type \"y\" or \"n\"")
+
+        # if does not exist, make directory
+        else:
+            os.mkdir(output_path + name)
+            break
+
+    return name
+
+
+def check_previous_sim(name, output_path):
+    """ Makes sure that a previous simulation exists.
+    """
+    while True:
+        # break the loop if the simulation exists, otherwise try to get correct name
+        if os.path.isdir(output_path + name):
+            break
+        else:
+            print("No directory exists with name/path: " + output_path + name)
+            name = input("\nPlease type the correct name of the simulation or type \"exit\" to exit: ")
+            print()
+            if name == "exit":
+                exit()
+
+    return name

@@ -1,328 +1,323 @@
-import numpy as np
 import random as r
-import math
-import time
-import igraph
-import os
 import csv
 import cv2
 import pickle
+import math
 import psutil
-from abc import ABC, abstractmethod
-from numba import cuda
 
 from backend import *
 
 
-class Simulation(ABC):
-    """ This abstract class is the base for the CellSimulation object. It's used to
-        make sure that any subclasses have necessary simulation attributes.
+class Simulation:
+    """ This class makes sure any subclasses have the necessary
+        attributes to run a simulation.
     """
-    def __init__(self, paths, name):
-        self.name = name    # name of the simulation
-        self.paths = paths    # the Paths object which holds any output paths
+    def __init__(self, name, output_path):
+        # set name and separator
+        self.name = name
+        self.separator = os.path.sep
 
-        # the running number of agents and the step to begin at (altered by continuation mode)
+        # make the following paths
+        self.main_path = output_path + self.name + self.separator    # path to main simulation directory
+        self.templates_path = os.path.abspath("templates") + self.separator    # path to the YAML template directory
+        self.images_path = self.main_path + name + "_images" + self.separator    # path to images output directory
+        self.values_path = self.main_path + name + "_values" + self.separator    # path to CSV output directory
+
+        # hold the running number of agents and the step to begin at (updated by continuation mode)
         self.number_agents = 0
         self.beginning_step = 1
 
-        # hold the neighbors within a fixed radius of all agents with a graph
-        self.neighbor_graph = igraph.Graph()
-        self.graph_names = ["neighbor_graph"]
+        # hold the names of the agent arrays and the names of any graphs (each agent is a node)
+        self.agent_array_names = list()
+        self.graph_names = list()
 
-        # arrays to store the agents set to divide or to be removed
-        self.agents_to_divide = np.array([], dtype=int)
-        self.agents_to_remove = np.array([], dtype=int)
+        # store the runtimes of methods with @record_time decorator
+        self.method_times = dict()
 
-        # various other holders
-        self.agent_array_names = list()  # store the variable names of each agent array
-        self.agent_types = dict()  # hold the names of agent types defined in cellsimulation.py
-        self.method_times = dict()  # store the runtimes of selected methods, used by record_time() decorator
+        """
+        The following instance variables can be updated through template files located in the "templates"
+        directory. The values must be specified using YAML syntax.
 
-    @abstractmethod
+            (general.yaml)
+            1   # How many frames per second of the output video that collects all step images? Ex. 6
+            2   fps: 6
+            3
+
+            (simulation.py)
+            keys = template_params(paths.templates + "general.yaml")
+            self.fps = keys["fps"]
+        """
+        # get values from general YAML file
+        keys = template_params(self.templates_path + "general.yaml")  # read keys from general.yaml
+        self.num_to_start = keys["num_to_start"]
+        self.cuda = keys["cuda"]
+        self.end_step = keys["end_step"]
+        self.size = np.array(keys["size"])
+        self.output_values = keys["output_values"]
+        self.output_images = keys["output_images"]
+        self.image_quality = keys["image_quality"]
+        self.video_quality = keys["video_quality"]
+        self.fps = keys["fps"]
+
     def agent_initials(self):
-        """ Abstract method in which the Simulation class should override.
+        """ Adds agents into the simulation and specify any values the agents should have.
+            The agent arrays will default to float64, 1-dim arrays of zeros. Use the
+            parameters to adjust the data type, 2-dim size, and initial conditions. The
+            "agent_type" keyword is used to apply initial conditions to the group of agents
+            marked with the same agent type in add_agents().
         """
-        pass
+        # add agents to the simulation
+        self.add_agents(self.num_to_start)
 
-    @abstractmethod
+        # create the following agent arrays with initial conditions.
+        self.agent_array("locations", override=np.random.rand(self.number_agents, 3) * self.size)
+        self.agent_array("radii", func=lambda: 5)
+
     def steps(self):
-        """ Abstract method in which the Simulation class should override.
+        """ Specify any Simulation instance methods called before/during/after
+            the simulation, see example below.
+
+            Example:
+                self.before_steps()
+
+                for self.current_step in range(self.beginning_step, self.end_step + 1):
+                    self.during_steps()
+
+                self.after_steps()
         """
-        pass
+        # iterate over all steps specified
+        for self.current_step in range(self.beginning_step, self.end_step + 1):
+            # records step run time and prints the current step and number of agents
+            self.info()
+
+            # save multiple forms of information about the simulation at the current step
+            self.step_image()
+            self.step_values()
+            self.temp()
+            self.data()
+
+        # ends the simulation by creating a video from all of the step images
+        self.create_video()
 
     def add_agents(self, number, agent_type=None):
-        """ Add agents to the Simulation object and potentially add a agent type
-            with bounds for defining alternative initial parameters.
+        """ Adds number of agents to the simulation potentially with agent_type marker.
 
-                number (int): the number of agents being added to the Simulation object
-                agent_type (str): the name of a agent type that can be used by agent_array() to only apply
-                    initial parameters to these agents, instead of the entire array.
+            - number: the number of agents being added
+            - agent_type: string marker used to apply initial conditions to only these
+              agents
         """
-        # add specified number of agents to each graph
-        for graph_name in self.graph_names:
-            self.__dict__[graph_name].add_vertices(number)
-
-        # update the running number of agents and determine bounds for slice if agent_type is used
+        # determine bounds for array slice and increase total agents
         begin = self.number_agents
         self.number_agents += number
 
-        # if a agent type name is passed, hold the slice bounds for that particular agent type
+        # if an agent type is passed
         if agent_type is not None:
+            # make sure holder for types exists
+            if not hasattr(self, "agent_types"):
+                self.agent_types = dict()
+
+            # set key value to tuple of the array slice
             self.agent_types[agent_type] = (begin, self.number_agents)
 
     def agent_array(self, array_name, agent_type=None, dtype=float, vector=None, func=None, override=None):
-        """ Create a agent array in the Simulation object used to hold values
-            for all agents and optionally specify initial parameters.
+        """ Adds an agent array to the simulation used to hold values for all agents.
 
-                array_name (str): the name of the variable made for the agent array in the Simulation object
-                agent_type (str): see add_agents()
-                dtype (object): the data type of the array, defaults to float
-                vector (int): the length of the vector for each agent in the array
-                func (object): a function called for each index of the array to specify initial parameters
-                override (array): use the array passed instead of generating a new array
+            - array_name: the name of the variable made for the agent array
+            - agent_type: string marker from add_agents()
+            - dtype: the data type of the array
+            - vector: if 2-dimensional, the length of the vector for each agent
+            - func: a function called for each index of the array to specify initial
+              parameters
+            - override: pass existing array instead of generating a new array
         """
-        # if using existing array for agent array
+        # if using existing array
         if override is not None:
-            # make sure array have correct length, otherwise raise error
+            # make sure array has correct length
             if override.shape[0] != self.number_agents:
                 raise Exception("Length of override array does not match number of agents in simulation!")
 
-            # use the array and add to list of agent array names
+            # create instance variable and add array name to holder
             else:
                 self.__dict__[array_name] = override
                 self.agent_array_names.append(array_name)
 
-        # otherwise make sure a default agent array exists for initial parameters
-        else:
-            # if no agent array in Simulation object, make one
-            if not hasattr(self, array_name):
-                # add the array name to a list for automatic addition/removal when agents divide/die
-                self.agent_array_names.append(array_name)
+        # otherwise check if instance variable exists and try to make new array
+        elif not hasattr(self, array_name):
+            # add array name to holder
+            self.agent_array_names.append(array_name)
 
-                # get the dimensions of the array
-                if vector is None:
-                    size = self.number_agents  # 1-dimensional array
-                else:
-                    size = (self.number_agents, vector)  # 2-dimensional array (1-dimensional of vectors)
+            # get the dimensions of the array
+            if vector is None:
+                size = self.number_agents  # 1-dimensional array
+            else:
+                size = (self.number_agents, vector)  # 2-dimensional array (1-dimensional of vectors)
 
-                # if using python string data type, use object data type instead
-                if dtype == str or dtype == object:
-                    # create agent array in Simulation object with NoneType as default value
-                    self.__dict__[array_name] = np.empty(size, dtype=object)
+            # if using object types, make NoneType array, otherwise make array of zeros
+            if dtype == str or dtype == object:
+                self.__dict__[array_name] = np.empty(size, dtype=object)
+            else:
+                self.__dict__[array_name] = np.zeros(size, dtype=dtype)
 
-                else:
-                    # create agent array in Simulation object, with zeros as default values
-                    self.__dict__[array_name] = np.zeros(size, dtype=dtype)
+        # only apply initial condition if not NoneType
+        if func is not None:
+            # get bounds for applying initial conditions to array
+            if agent_type is None:
+                begin = 0
+                end = self.number_agents
+            else:
+                begin = self.agent_types[agent_type][0]
+                end = self.agent_types[agent_type][1]
 
-        # if no agent type parameter passed
-        if agent_type is None:
-            # if function is passed, apply initial parameter
-            if func is not None:
-                for i in range(self.number_agents):
-                    self.__dict__[array_name][i] = func()
+            # iterate through array applying function
+            for i in range(begin, end):
+                self.__dict__[array_name][i] = func()
 
-        # otherwise a agent type is passed
-        else:
-            # get the bounds of the slice
-            begin = self.agent_types[agent_type][0]
-            end = self.agent_types[agent_type][1]
+    def agent_graph(self, graph_name):
+        """ Adds graph to the simulation.
 
-            # if function is passed, apply initial parameter to slice
-            if func is not None:
-                for i in range(begin, end):
-                    self.__dict__[array_name][i] = func()
-
-    def info(self):
-        """ Records the beginning of the step in real time and
-            print out info about the simulation.
+            - graph_name: the name of the instance variable made for the graph
         """
-        # records when the step begins, used for measuring efficiency
-        self.step_start = time.perf_counter()  # time.perf_counter() is more accurate than time.time()
+        # create instance variable for graph and add graph name to holder
+        self.__dict__[graph_name] = Graph(self.number_agents)
+        self.graph_names.append(graph_name)
 
-        # prints the current step number and the number of agents
-        print("Step: " + str(self.current_step))
-        print("Number of agents: " + str(self.number_agents))
+    def assign_bins(self, max_agents, distance):
+        """ Generalizes agent locations to a bins within lattice imposed on
+            the agent space, used for accelerating neighbor searches.
 
-    def assign_bins(self, distance, max_agents):
-        """ Generalizes agent locations to a bin within lattice imposed on
-            the agent space, used for a parallel fixed-radius neighbor search.
+            - max_agents: the current maximum number of agents that can fit
+              into a bin
+            - distance: the radius of search length
         """
-        # If there is enough space for all agents that should be in a bin, break out of the loop. If there isn't
-        # update the amount of needed space and put all the agents in bins. This will run once if the prediction
-        # of max neighbors suffices, twice if it isn't right the first time.
+        # run until all agents have been put into bins
         while True:
-            # calculate the size of the array used to represent the bins and the bins helper array, include extra bins
-            # for agents that may fall outside of the space
+            # calculate the dimensions of the bins array and the bins helper array, include extra bins for agents that
+            # may fall outside of the simulation space
             bins_help_size = np.ceil(self.size / distance).astype(int) + 3
             bins_size = np.append(bins_help_size, max_agents)
 
-            # create the arrays for "bins" and "bins_help"
-            bins_help = np.zeros(bins_help_size, dtype=int)  # holds the number of agents currently in a bin
-            bins = np.empty(bins_size, dtype=int)  # holds the indices of agents in a bin
+            # create the bins arrays
+            bins_help = np.zeros(bins_help_size, dtype=int)  # holds the number of agents in each bin
+            bins = np.zeros(bins_size, dtype=int)  # holds the indices of each agent in a bin
 
-            # generalize the agent locations to bin indices and offset by 1 to prevent missing agents that fall out of
-            # the self space
-            bin_locations = np.floor_divide(self.locations, distance).astype(int)
-            bin_locations += 1
+            # generalize the agent locations to bin indices and offset by 1 to prevent missing agents outside space
+            bin_locations = np.floor_divide(self.locations, distance).astype(int) + 1
 
-            # use jit function to speed up placement of agents
-            bins, bins_help = assign_bins_jit(self.number_agents, bin_locations, bins, bins_help)
+            # use JIT function from backend.py to speed up placement of agents
+            bins, bins_help = assign_bins_jit(self.number_agents, bin_locations, bins, bins_help, max_agents)
 
-            # either break the loop if all agents were accounted for or revalue the maximum number of agents based on
-            # the output of the function call and double it future calls
-            new_max_agents = np.amax(bins_help)
-            if max_agents >= new_max_agents:
+            # break the loop if all agents were accounted for or revalue the maximum number of agents based on and run
+            # one more time
+            current_max_agents = np.amax(bins_help)
+            if max_agents >= current_max_agents:
                 break
             else:
-                max_agents = new_max_agents * 2  # double to prevent continual updating
+                max_agents = current_max_agents * 2  # double to prevent continual updating
 
         return bins, bins_help, bin_locations, max_agents
 
     @record_time
-    def get_neighbors(self, distance=0.00002):
-        """ For all agents, determines which agents fall within a fixed radius to
-            denote a neighbor then stores this information in a graph (uses a bin/
-            bucket sorting method).
+    def get_neighbors(self, graph_name, distance, clear=True):
+        """ Finds all neighbors, within fixed radius, for each each agent.
+
+            - graph_name: name of the instance variable pointing to the graph
+            - distance: the radius of search length
+            - clear: if removing existing edges, otherwise all edges are saved
         """
-        # if a static variable has not been created to hold the maximum number of neighbors for a agent, create one
-        if not hasattr(self, "gn_max_neighbors"):
-            # begin with a low number of neighbors that can be revalued if the max neighbors exceeds this value
-            self.gn_max_neighbors = 5
+        # get graph object reference and if desired, remove all existing edges in the graph
+        graph = self.__dict__[graph_name]
+        if clear:
+            graph.delete_edges(None)
 
-        # if a static variable has not been created to hold the maximum number of agents in a bin, create one
-        if not hasattr(self, "gn_max_agents"):
-            # begin with a low number of agents that can be revalued if the max number of agents exceeds this value
-            self.gn_max_agents = 5
+        # assign each of the agents to bins, updating the max agents in a bin (if necessary)
+        bins, bins_help, bin_locations, graph.max_agents = self.assign_bins(graph.max_agents, distance)
 
-        # clear all of the edges in the neighbor graph
-        self.neighbor_graph.delete_edges(None)
-
-        # calls the function that generates an array of bins that generalize the agent locations in addition to a
-        # creating a helper array that assists the search method in counting agents for a particular bin
-        bins, bins_help, bin_locations, max_agents = self.assign_bins(distance, self.gn_max_agents)
-
-        # update the value of the max number of agents in a bin
-        self.gn_max_agents = max_agents
-
-        # this will run once if all edges are included in edge_holder, breaking the loop. if not, this will
-        # run a second time with an updated value for the number of predicted neighbors such that all edges are included
+        # run until all edges are accounted for
         while True:
-            # create array used to hold edges, array to say if edge exists, and array to count the edges per agent
-            length = self.number_agents * self.gn_max_neighbors
-            edge_holder = np.zeros((length, 2), dtype=int)
-            if_edge = np.zeros(length, dtype=bool)
-            edge_count = np.zeros(self.number_agents, dtype=int)
+            # get the total amount of edges able to be stored and make the following arrays
+            length = self.number_agents * graph.max_neighbors
+            edges = np.zeros((length, 2), dtype=int)         # hold all edges
+            if_edge = np.zeros(length, dtype=bool)                 # say if each edge exists
+            edge_count = np.zeros(self.number_agents, dtype=int)   # hold count of edges per agent
 
-            # call the nvidia gpu version
-            if self.parallel:
-                # send the following as arrays to the gpu
-                bin_locations = cuda.to_device(bin_locations)
-                locations = cuda.to_device(self.locations)
-                bins = cuda.to_device(bins)
-                bins_help = cuda.to_device(bins_help)
-                distance = cuda.to_device(distance)
-                edge_holder = cuda.to_device(edge_holder)
+            # if using CUDA GPU
+            if self.cuda:
+                # allow the following arrays to be passed to the GPU
+                edges = cuda.to_device(edges)
                 if_edge = cuda.to_device(if_edge)
                 edge_count = cuda.to_device(edge_count)
-                max_neighbors = cuda.to_device(self.gn_max_neighbors)
 
-                # allocate threads and blocks for gpu memory "threads per block" and "blocks per grid"
+                # specify threads-per-block and blocks-per-grid values
                 tpb = 72
                 bpg = math.ceil(self.number_agents / tpb)
 
-                # call the cuda kernel with new gpu arrays
-                get_neighbors_gpu[bpg, tpb](bin_locations, locations, bins, bins_help, distance, edge_holder, if_edge,
-                                            edge_count, max_neighbors)
+                # call the CUDA kernel, sending arrays to GPU
+                get_neighbors_gpu[bpg, tpb](cuda.to_device(self.locations), cuda.to_device(bin_locations),
+                                            cuda.to_device(bins), cuda.to_device(bins_help), cuda.to_device(distance),
+                                            edges, if_edge, edge_count, cuda.to_device(graph.max_neighbors))
 
-                # return the only the following array(s) back from the gpu
-                edge_holder = edge_holder.copy_to_host()
+                # return the following arrays back from the GPU
+                edges = edges.copy_to_host()
                 if_edge = if_edge.copy_to_host()
                 edge_count = edge_count.copy_to_host()
 
-            # call the jit cpu version
+            # otherwise use parallelized JIT function
             else:
-                edge_holder, if_edge, edge_count = get_neighbors_cpu(self.number_agents, bin_locations, self.locations,
-                                                                     bins, bins_help, distance, edge_holder, if_edge,
-                                                                     edge_count, self.gn_max_neighbors)
+                edges, if_edge, edge_count = get_neighbors_cpu(self.number_agents,  self.locations, bin_locations, bins,
+                                                               bins_help, distance, edges, if_edge, edge_count,
+                                                               graph.max_neighbors)
 
-            # either break the loop if all neighbors were accounted for or revalue the maximum number of neighbors
-            # based on the output of the function call and double it for future calls
+            # break the loop if all neighbors were accounted for or revalue the maximum number of neighbors
             max_neighbors = np.amax(edge_count)
-            if self.gn_max_neighbors >= max_neighbors:
+            if graph.max_neighbors >= max_neighbors:
                 break
             else:
-                self.gn_max_neighbors = max_neighbors * 2
+                graph.max_neighbors = max_neighbors * 2
 
-        # reduce the edges to only edges that actually exist
-        edge_holder = edge_holder[if_edge]
+        # reduce the edges to edges that actually exist and add those edges to graph
+        graph.add_edges(edges[if_edge])
 
-        # add the edges to the neighbor graph
-        self.neighbor_graph.add_edges(edge_holder)
-
-    def random_vector(self):
-        """ Computes a random vector on the unit sphere centered
-            at the origin.
-        """
-        # random angle on the agent
-        theta = r.random() * 2 * math.pi
-
-        # 2D vector: [x, y, 0]
-        if self.size[2] == 0:
-            return np.array([math.cos(theta), math.sin(theta), 0])
-
-        # 3D vector: [x, y, z]
-        else:
-            phi = r.random() * 2 * math.pi
-            radius = math.cos(phi)
-            return np.array([radius * math.cos(theta), radius * math.sin(theta), math.sin(phi)])
+        # simplify the graph's edges if not clearing the graph at the start
+        if not clear:
+            graph.simplify()
 
     @record_time
     def temp(self):
-        """ Pickle the current state of the Simulation object which can be used
+        """ Pickle the current state of the simulation which can be used
             to continue a past simulation without losing information.
         """
-        # get file name, use f-string
+        # get file name and save in binary mode
         file_name = f"{self.name}_temp.pkl"
-
-        # open the file in binary mode
-        with open(self.paths.main_path + file_name, "wb") as file:
-            # use the highest protocol: -1 for pickling the instance
-            pickle.dump(self, file, -1)
+        with open(self.main_path + file_name, "wb") as file:
+            pickle.dump(self, file, -1)    # use the highest protocol -1 for pickling
 
     @record_time
     def step_values(self, arrays=None):
-        """ Outputs a CSV file with value from the agent arrays with each
+        """ Outputs a CSV file containing values from the agent arrays with each
             row corresponding to a particular agent index.
 
-            arrays -> (list) If arrays is None, all agent arrays are outputted otherwise only the
-                agent arrays named in the list will be outputted.
+            - arrays: a list of agent array names to output, if None then all
+              arrays are outputted
         """
         # only continue if outputting agent values
         if self.output_values:
             # if arrays is None automatically output all agent arrays
             if arrays is None:
-                agent_array_names = self.agent_array_names
+                arrays = self.agent_array_names
 
-            # otherwise only output arrays specified in list
-            else:
-                agent_array_names = arrays
-
-            # get path and make sure directory exists
-            directory_path = check_direct(self.paths.values)
-
-            # get file name, use f-string
+            # make sure directory exists and get file name
+            check_direct(self.values_path)
             file_name = f"{self.name}_values_{self.current_step}.csv"
 
             # open the file
-            with open(directory_path + file_name, "w", newline="") as file:
+            with open(self.values_path + file_name, "w", newline="") as file:
                 # create CSV object and the following lists
                 csv_file = csv.writer(file)
                 header = list()    # header of the CSV (first row)
                 data = list()    # holds the agent arrays
 
                 # go through each of the agent arrays
-                for array_name in agent_array_names:
+                for array_name in arrays:
                     # get the agent array
                     agent_array = self.__dict__[array_name]
 
@@ -330,8 +325,6 @@ class Simulation(ABC):
                     if agent_array.ndim == 1:
                         header.append(array_name)    # add the array name to the header
                         agent_array = np.reshape(agent_array, (-1, 1))  # resize array from 1D to 2D
-
-                    # if the array is not one dimensional
                     else:
                         # create name for column based on slice of array ex. locations[0], locations[1], locations[2]
                         for i in range(agent_array.shape[1]):
@@ -347,30 +340,69 @@ class Simulation(ABC):
                 data = np.hstack(data)
                 csv_file.writerows(data)
 
+    @record_time
+    def step_image(self, background=(0, 0, 0), origin_bottom=True):
+        """ Creates an image of the simulation space. Note the imaging library
+            OpenCV uses BGR instead of RGB.
+
+            - background: the color of the background image as BGR
+            - origin_bottom: location of origin True -> bottom/left, False -> top/left
+        """
+        # only continue if outputting images
+        if self.output_images:
+            # get path and make sure directory exists
+            check_direct(self.images_path)
+
+            # get the size of the array used for imaging in addition to the scaling factor
+            x_size = self.image_quality
+            scale = x_size / self.size[0]
+            y_size = math.ceil(scale * self.size[1])
+
+            # create the agent space background image and apply background color
+            image = np.zeros((y_size, x_size, 3), dtype=np.uint8)
+            image[:, :] = background
+
+            # go through all of the agents
+            for index in range(self.number_agents):
+                # get xy coordinates, the axis lengths, and color of agent
+                x, y = int(scale * self.locations[index][0]), int(scale * self.locations[index][1])
+                major = int(scale * self.radii[index])
+                minor = int(scale * self.radii[index])
+                color = (255, 50, 50)
+
+                # draw the agent and a black outline to distinguish overlapping agents
+                image = cv2.ellipse(image, (x, y), (major, minor), 0, 0, 360, color, -1)
+                image = cv2.ellipse(image, (x, y), (major, minor), 0, 0, 360, (0, 0, 0), 1)
+
+            # if the origin should be bottom-left flip it, otherwise it will be top-left
+            if origin_bottom:
+                image = cv2.flip(image, 0)
+
+            # save the image as a PNG
+            image_compression = 4  # image compression of png (0: no compression, ..., 9: max compression)
+            file_name = f"{self.name}_image_{self.current_step}.png"
+            cv2.imwrite(self.images_path + file_name, image, [cv2.IMWRITE_PNG_COMPRESSION, image_compression])
+
     def data(self):
-        """ Creates/adds a new line to the running CSV for data about the simulation
+        """ Adds a new line to a running CSV holding data about the simulation
             such as memory, step time, number of agents and method profiling.
         """
-        # get file name, use f-string
+        # get file name and open the file
         file_name = f"{self.name}_data.csv"
-
-        # open the file
-        with open(self.paths.main_path + file_name, "a", newline="") as file_object:
+        with open(self.main_path + file_name, "a", newline="") as file_object:
             # create CSV object
             csv_object = csv.writer(file_object)
 
             # create header if this is the beginning of a new simulation
             if self.current_step == 1:
-                # header names
-                header = ["Step Number", "Number Cells", "Step Time", "Memory (MB)"]
-
-                # header with all the names of the functions with the "record_time" decorator
-                functions_header = list(self.method_times.keys())
+                # get list of column names for non-method values and method values
+                main_header = ["Step Number", "Number Cells", "Step Time", "Memory (MB)"]
+                methods_header = list(self.method_times.keys())
 
                 # merge the headers together and write the row to the CSV
-                csv_object.writerow(header + functions_header)
+                csv_object.writerow(main_header + methods_header)
 
-            # calculate the total step time and get memory of current python process in megabytes
+            # calculate the total step time and get memory of process in megabytes
             step_time = time.perf_counter() - self.step_start
             process = psutil.Process(os.getpid())
             memory = process.memory_info()[0] / 1024 ** 2
@@ -381,38 +413,35 @@ class Simulation(ABC):
             csv_object.writerow(columns + function_times)
 
     def create_video(self):
-        """ Write all of the step images from a simulation to video file in the
+        """ Write all of the step images from a simulation to a video file in the
             main simulation directory.
         """
         # continue if there is an image directory
-        if os.path.isdir(self.paths.images):
-            # get all of the images in the directory and the number of images
-            file_list = [file for file in os.listdir(self.paths.images) if file.endswith(".png")]
+        if os.path.isdir(self.images_path):
+            # get all of the images in the directory and count images
+            file_list = [file for file in os.listdir(self.images_path) if file.endswith(".png")]
             image_count = len(file_list)
 
             # only continue if image directory has images in it
             if image_count > 0:
+                # print statement and sort the file list so "2, 20, 3, 31..." becomes "2, 3, ..., 20, ..., 31"
                 print("\nCreating video...")
+                # file_list = sorted(file_list, key=sort_naturally)
+                file_list = sorted(file_list, key=lambda x: int(re.split('(\d+)', x)[-2]))
 
-                # sort the file list so "2, 20, 3, 31..." becomes "2, 3, ..., 20, ..., 31"
-                file_list = sorted(file_list, key=sort_naturally)
-
-                # sample the first image to get the dimensions of the image, and then scale the image
-                size = cv2.imread(self.paths.images + file_list[0]).shape[0:2]
+                # sample the first image to get the dimensions of the image and then scale the image
+                size = cv2.imread(self.images_path + file_list[0]).shape[0:2]
                 scale = self.video_quality / size[1]
                 new_size = (self.video_quality, int(scale * size[0]))
 
-                # get the video file path, use f-string
+                # get file name and create the video object
                 file_name = f"{self.name}_video.mp4"
-                video_path = self.paths.main_path + file_name
-
-                # create the file object with parameters from simulation and above
                 codec = cv2.VideoWriter_fourcc(*"mp4v")
-                video_object = cv2.VideoWriter(video_path, codec, self.fps, new_size)
+                video_object = cv2.VideoWriter(self.main_path + file_name, codec, self.fps, new_size)
 
                 # go through sorted image list, reading and writing each image to the video object
                 for i in range(image_count):
-                    image = cv2.imread(self.paths.images + file_list[i])    # read image from directory
+                    image = cv2.imread(self.images_path + file_list[i])    # read image from directory
                     if size != new_size:
                         image = cv2.resize(image, new_size, interpolation=cv2.INTER_AREA)    # scale down if necessary
                     video_object.write(image)    # write to video
@@ -421,5 +450,86 @@ class Simulation(ABC):
                 # close the video file
                 video_object.release()
 
-        # print end statement...super important...don't remove or model won't run!
-        print("\n\nThe simulation is finished. May the force be with you.\n")
+        # end statement
+        print("\n\nDone!\n")
+
+    def info(self):
+        """ Records start time of the step for measuring efficiency and
+            prints out info about the simulation.
+        """
+        # time.perf_counter() is more accurate than time.time()
+        self.step_start = time.perf_counter()
+
+        # current step and number of agents
+        print("Step: " + str(self.current_step))
+        print("Number of agents: " + str(self.number_agents))
+
+    def random_vector(self):
+        """ Computes a random vector on the unit sphere centered
+            at the origin.
+        """
+        # random angle on the agent
+        theta = r.random() * 2 * math.pi
+
+        # if 2-dimensional set z=0
+        if self.size[2] == 0:
+            return np.array([math.cos(theta), math.sin(theta), 0])
+        else:
+            phi = r.random() * 2 * math.pi
+            radius = math.cos(phi)
+            return np.array([radius * math.cos(theta), radius * math.sin(theta), math.sin(phi)])
+
+    @classmethod
+    def start(cls):
+        """ Configures/runs the model based on the specified
+            simulation mode.
+        """
+        output_dir = check_output_dir()    # read paths.yaml to get/make the output directory
+        name, mode = get_name_mode()    # get the name/mode of the simulation
+
+        # new simulation
+        if mode == 0:
+            # check that new simulation can be made
+            name = check_new_sim(name, output_dir)
+
+            # create simulation object
+            sim = cls(name, output_dir)
+
+            # copy model files to simulation directory, ignoring __pycache__ files
+            shutil.copytree(os.getcwd(), sim.main_path + name + "_copy", ignore=shutil.ignore_patterns("__pycache__"))
+
+            # add agent arrays to object and run the simulation steps
+            sim.agent_initials()
+            sim.steps()
+
+        # previous simulation
+        else:
+            # check that previous simulation exists
+            name = check_previous_sim(name, output_dir)
+
+            # continuation
+            if mode == 1:
+                # load previous simulation object from pickled file
+                file_name = paths.main_path + name + "_temp.pkl"
+                with open(file_name, "rb") as file:
+                    sim = pickle.load(file)
+
+                # update the following
+                sim.beginning_step = sim.current_step + 1  # update starting step
+                sim.end_step = get_final_step()   # update final step
+
+                # run the simulation steps
+                sim.steps()
+
+            # images to video
+            elif mode == 2:
+                # create instance for video/path information and make video
+                sim = cls(name, output_dir)
+                sim.create_video()
+
+            # zip simulation output
+            elif mode == 3:
+                # zip a copy of the folder and save it to the output directory
+                print("Compressing \"" + name + "\" simulation...")
+                shutil.make_archive(output_dir + name, "zip", root_dir=output_dir, base_dir=name)
+                print("Done!")
