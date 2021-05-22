@@ -102,7 +102,7 @@ def get_neighbors_gpu(locations, bin_locations, bins, bins_help, distance, edges
                                 # update the edge array and identify that this edge exists
                                 edges[edge_index][0] = index
                                 edges[edge_index][1] = current
-                                if_edge[index] = 1
+                                if_edge[edge_index] = 1
 
                             # increase the count of edges for an agent
                             agent_edge_count += 1
@@ -149,7 +149,7 @@ def get_neighbors_cpu(number_agents, locations, bin_locations, bins, bins_help, 
                                 # update the edge array and identify that this edge exists
                                 edges[edge_index][0] = index
                                 edges[edge_index][1] = current
-                                if_edge[index] = 1
+                                if_edge[edge_index] = 1
 
                             # increase the count of edges for an agent
                             agent_edge_count += 1
