@@ -3,8 +3,8 @@ import random as r
 
 from backend import template_params
 from simulation import Simulation
-from cellmethods import CellMethods
-from celloutputs import CellOutputs
+from cell_methods import CellMethods
+from cell_outputs import CellOutputs
 
 
 class CellSimulation(CellMethods, CellOutputs, Simulation):
