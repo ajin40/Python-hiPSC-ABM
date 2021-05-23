@@ -16,6 +16,9 @@ output_values: True
 # Do you want an image produced at each step and a video at the end of the simulation? Ex. True
 output_images: True
 
+# Do you want to save the starting values (step: 0) of the agents and the corresponding image? Ex. True
+record_initial_step: True
+
 # What is the image width in pixels? Currently imaging is supported for a 2D space, though a 3D space will yield
 # a bird's eye view of the space. Image slicing/3D images to come... Ex. 2000
 image_quality: 2000

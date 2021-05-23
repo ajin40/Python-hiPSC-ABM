@@ -3,8 +3,8 @@ import random as r
 
 from backend import template_params
 from simulation import Simulation
-from cellmethods import CellMethods
-from celloutputs import CellOutputs
+from cell_methods import CellMethods
+from cell_outputs import CellOutputs
 
 
 class CellSimulation(CellMethods, CellOutputs, Simulation):
@@ -77,6 +77,10 @@ class CellSimulation(CellMethods, CellOutputs, Simulation):
     def steps(self):
         """ Overrides the steps() method from the Simulation class.
         """
+        # if True, record starting values/image for the simulation
+        if self.record_initial_step:
+            self.record_initials()
+
         # Iterate over all steps specified in the Simulation object
         for self.current_step in range(self.beginning_step, self.end_step + 1):
             # Records model run time for the step and prints the current step/number of cells.
