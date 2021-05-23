@@ -1,4 +1,4 @@
-# Python-hiPSC-CBM
+# Python-hiPSC-ABM
 #### Description
 This center-based model aims to understand the emergent patterning of human induced pluripotent
  stem cells (hiPSCs) as they differentiate. Multiple modeling schemes such as morphogen diffusion
