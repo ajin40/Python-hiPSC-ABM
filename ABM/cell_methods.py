@@ -186,6 +186,7 @@ class CellMethods:
                 num_neighbors = len(neighbors)
 
                 # go through neighbors to get perceived FGF4 morphogen
+                perceived_FGF4 = 0
                 for i in range(num_neighbors):
                     # include gaussian noise
                     perceived_FGF4 += (1 + r.gauss(0, 1)) * (self.FGF4[neighbors[i]] / num_neighbors)

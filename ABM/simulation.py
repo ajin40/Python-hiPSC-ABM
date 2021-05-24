@@ -524,7 +524,7 @@ class Simulation:
             # continuation
             if mode == 1:
                 # load previous simulation object from pickled file
-                file_name = paths.main_path + name + "_temp.pkl"
+                file_name = output_dir + name + os.sep + name + "_temp.pkl"
                 with open(file_name, "rb") as file:
                     sim = pickle.load(file)
 

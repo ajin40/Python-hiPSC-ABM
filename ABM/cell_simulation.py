@@ -87,7 +87,7 @@ class CellSimulation(CellMethods, CellOutputs, Simulation):
             self.info()
 
             # Finds the neighbors of each cell that are within a fixed radius and store this info in a graph.
-            self.get_neighbors("neighbor_graph", 15)  # double max cell radius
+            self.get_neighbors("neighbor_graph", 15)
 
             # Updates cells by adjusting trackers for differentiation, division, growth, etc. based on intracellular,
             # intercellular, and extracellular conditions through a series of separate methods.
