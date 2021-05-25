@@ -1,12 +1,12 @@
 # Python-hiPSC-ABM
 #### Description
-This center-based model aims to understand the emergent patterning of human induced pluripotent
+This agent-based model (ABM) aims to understand the emergent patterning of human induced pluripotent
  stem cells (hiPSCs) as they differentiate. Multiple modeling schemes such as morphogen diffusion
- and collision-handling are employed for biological accuracy. Graphical Processing Unit (GPU)
- parallelization through the CUDA platform allows for the model to simulate 500,000+ cells.
+ and collision-handling are employed for biological accuracy. The ABM uses CPU parallelization
+ alongside NVIDIA's CUDA platform for GPUs, allowing for simulations with 500,000+ cells.
  
-Developed as part of a Southeast Center for Mathematics and Biology (SCMB) seed project
- located at Georgia Tech. [https://scmb.gatech.edu](https://scmb.gatech.edu/elena-dimitrova-clemson-melissa-kemp-gt-modeling-emergent-patterning-within-pluripotent-colonies)
+This work is part of a [Southeast Center for Mathematics and Biology](https://scmb.gatech.edu/elena-dimitrova-clemson-melissa-kemp-gt-modeling-emergent-patterning-within-pluripotent-colonies)
+ (SCMB) seed project housed at Georgia Tech. 
 
 ##
 
@@ -14,72 +14,64 @@ Developed as part of a Southeast Center for Mathematics and Biology (SCMB) seed 
 
 ##
 
-### Setup guide
-The model ***requires*** Python 3.6-3.8. The latest Anaconda distribution should already
-include most of the necessary dependencies.
+### Installation
+This ABM ***requires*** Python 3.6-3.8 for full functionality. A CUDA compatible
+GPU is necessary for enabling the optional parallelization of various simulation methods. More
+information on this can be found at the bottom.
 
-Download the model either through GitHub (.zip) or with the Git command below.
+Download the model directly from GitHub or with the Git command shown below.
 ```
-$ git clone https://github.com/JackToppen/Python-hiPSC-CBM.git
-```
-
-The downloaded folder (Python-hiPSC-CBM) will contain the ***Model*** directory (where
-all the code is) and some additional files including documentation and a requirements.txt
-file. 
-
-You can move this downloaded folder to wherever you like and even rename it. The following
-command can be used to automatically install any required dependencies, but just be sure
-to change the path to this downloaded folder that contains the requirements.txt file.
-
-```
-$ pip install -r requirements.txt
+git clone https://github.com/JackToppen/Python-hiPSC-ABM.git
 ```
 
-Under the ***Model*** directory, update ***paths.txt*** such the model knows where to output 
-the folder corresponding to each simulation. This directory should exist prior to running a
-simulation.
+The downloaded folder (Python-hiPSC-ABM) will contain an ***ABM*** folder (where
+all the model code is) and some additional files including a ***requirements.txt***
+file. With the following command, this file can be used to install
+all required dependencies.
 
-You can specify certain parameters using the .txt files in the ***templates*** directory. Additional
-parameters may be added in ***parameters.py***, which are held by the Simulation object.
+```
+pip install -r requirements.txt
+```
 
-The following command will start a text-based GUI to start a simulation by choosing a
-name (whatever you want) and the mode (described below).
+##
+### Running a simulation
+Under the ***ABM*** directory, update ***paths.yaml*** such the model knows where to put
+outputs from each simulation. Further, you can specify simulation parameters using the 
+YAML files in the ***templates*** directory.
+
+The Simulation class, found in simulation.py, will run as a standalone ABM, but it's 
+meant to be inherited to provide any child classes with necessary/helpful methods
+for running a simulation. In particular, Simulation's start() class-method will launch
+the ABM, in addition to any subclass of Simulation. You can configure run.py to call the
+particular start() method and run it as follows.
 ```
-$ python run.py
+python run.py
 ```
-Different simulation modes:
+The text-based UI will prompt for the ***name*** identifier for the simulation and
+corresponding ***mode*** as described below.
 - 0: New simulation
-- 1: Continue a past simulation
-- 2: Turn previous simulation images to a video
-- 3: Zip a previous simulation
+- 1: Continue a previous simulation
+- 2: Turn a previous simulation's images to a video
+- 3: Archive (.zip) a previous simulation's outputs
 
-
-Additionally, the name and mode can be passed at the command line by using options
- (without the parentheses). This avoids the text-based GUI altogether.
+To avoid the text-based UI, the name and mode can be passed at the command line by using flags
+ (without the parentheses).
 ```
-$ python run.py -n (name) -m (mode)
+python run.py -n (name) -m (mode)
 ```
 
 ##
 
 ### NVIDIA CUDA support
-The model has optional GPU parallelization for some elements of the code. Currently its only
-available for NVIDIA CUDA though AMD ROCm support may come in the future. Download NVIDIA's
-CUDA toolkit to support this feature.
+In order to use the code associated with CUDA GPU parallelization, you'll need a CUDA
+compatible GPU and NVIDIA's CUDA toolkit. If you don't have the toolkit installed, make
+sure you have Microsoft Visual Studio prior to installation.
 
-If you do not have Microsoft Visual Studio, download that prior to the toolkit. 
-
-- Download the toolkit from NVIDIA directly: [https://developer.nvidia.com/cuda-downloads](https://developer.nvidia.com/cuda-downloads)
-
-If you are using Anaconda, simply use conda.
+Download the toolkit directly from NVIDIA [https://developer.nvidia.com/cuda-downloads](https://developer.nvidia.com/cuda-downloads)
+or with the conda command show below.
 ```
-$ conda install cudatoolkit
+conda install cudatoolkit
 ```
 
-##
-
-### Issues, problems, or questions
-
-Contact Jack Toppen (jtoppen3 at gatech.edu)...or not that's ok too.
 
 ##
