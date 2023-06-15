@@ -2,8 +2,6 @@ import numpy as np
 import math
 from numba import jit, cuda, prange
 
-from backend import magnitude
-
 
 @cuda.jit
 def jkr_forces_gpu(jkr_edges, delete_edges, locations, radii, jkr_forces, poisson, youngs, adhesion_const):
@@ -24,7 +22,7 @@ def jkr_forces_gpu(jkr_edges, delete_edges, locations, radii, jkr_forces, poisso
         location_2 = locations[cell_2]
 
         # get the magnitude of the distance between the cells and the overlap of the cells
-        mag = magnitude(location_1, location_2)
+        mag = np.linalg.norm(location_1 - location_2)
         overlap = (radii[cell_1] + radii[cell_2] - mag) / 1e6    # convert radii from um to m
 
         # get two values used for JKR calculation

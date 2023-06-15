@@ -1,7 +1,7 @@
 import random as r
 
 from cell_backend import *
-from backend import record_time, normal_vector
+from pythonabm.backend import record_time, normal_vector
 
 
 class CellMethods:

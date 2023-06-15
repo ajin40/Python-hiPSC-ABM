@@ -1,8 +1,8 @@
 import numpy as np
 import random as r
 
-from backend import template_params
-from simulation import Simulation
+from pythonabm.backend import template_params
+from pythonabm.simulation import Simulation
 from cell_methods import CellMethods
 from cell_outputs import CellOutputs
 
